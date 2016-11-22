@@ -1,0 +1,19 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "/ElcLZcdbymEo1AJoAYjKvJMJZE=",
+			"path": "github.com/urfave/cli",
+			"revision": "6011f165dc288c72abd8acd7722f837c5c64198d",
+			"revisionTime": "2016-06-20T15:45:22Z"
+		},
+		{
+			"checksumSHA1": "MGk7cSnHqiL5soaovzgcJaNH3fc=",
+			"path": "gopkg.in/yaml.v1",
+			"revision": "9f9df34309c04878acc86042b16630b0f696e1de",
+			"revisionTime": "2014-09-24T16:16:07Z"
+		}
+	],
+	"rootPath": "github.com/roboll/helmfile"
+}
