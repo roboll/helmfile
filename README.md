@@ -1,4 +1,4 @@
-# helmfile
+# helmfile [![CircleCI](https://circleci.com/gh/roboll/helmfile.svg?style=svg)](https://circleci.com/gh/roboll/helmfile)
 
 Deploy Kubernetes Helm Charts
 
