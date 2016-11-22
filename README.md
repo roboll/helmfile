@@ -32,7 +32,7 @@ charts:
 
 ## install
 
-`go get github.com/roboll/helmfile` or from [releases](releases).
+`go get github.com/roboll/helmfile` or from [releases](https://github.com/roboll/helmfile/releases).
 
 
 ## usage
