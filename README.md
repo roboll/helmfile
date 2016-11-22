@@ -30,6 +30,11 @@ charts:
 
 ```
 
+## install
+
+`go get github.com/roboll/helmfile` or from [releases](releases).
+
+
 ## usage
 
 ```
