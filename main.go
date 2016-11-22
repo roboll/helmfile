@@ -36,7 +36,7 @@ func main() {
 	app.Commands = []cli.Command{
 		{
 			Name:  "repos",
-			Usage: "sync repositories from state file",
+			Usage: "sync repositories from state file (helm repo add && helm repo update)",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "args",
@@ -66,7 +66,7 @@ func main() {
 		},
 		{
 			Name:  "charts",
-			Usage: "sync charts from state file",
+			Usage: "sync charts from state file (helm repo upgrade --install)",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "args",
@@ -96,7 +96,7 @@ func main() {
 		},
 		{
 			Name:  "sync",
-			Usage: "sync all resources from state file",
+			Usage: "sync all resources from state file (repos && charts)",
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
 				if err != nil {
@@ -121,7 +121,7 @@ func main() {
 		},
 		{
 			Name:  "delete",
-			Usage: "delete charts from state file",
+			Usage: "delete charts from state file (helm delete)",
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
 				if err != nil {
