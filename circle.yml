@@ -1,0 +1,31 @@
+machine:
+  post:
+    - mkdir -p download
+    - test -e download/$GODIST || curl -o download/$GODIST https://storage.googleapis.com/golang/$GODIST
+    - sudo rm -rf /usr/local/go
+    - sudo tar -C /usr/local -xzf download/$GODIST
+  environment:
+    GODIST: "go1.7.linux-amd64.tar.gz"
+    GOPATH: "$HOME/go"
+    PATH: "$PATH:$GOPATH/bin"
+    WORK: "$GOPATH/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/"
+
+dependencies:
+  override:
+    - mkdir -p "$WORK"
+    - rsync -az --delete ./ "$WORK"
+
+test:
+  pre:
+    - cd "$WORK" && make check
+
+  override:
+    - cd "$WORK" && make test
+
+# GITHUB_TOKEN env var must be setup in circleci console
+deployment:
+  release:
+    tag: /v.*/
+    commands:
+      - cd "$WORK" && make tools
+      - cd "$WORK" && BUILD_URL="$CIRCLE_BUILD_URL" make release
