@@ -2,6 +2,8 @@
 
 Deploy Kubernetes Helm Charts
 
+[![Docker Repository on Quay](https://quay.io/repository/roboll/helmfile/status "Docker Repository on Quay")](https://quay.io/repository/roboll/helmfile)
+
 ## about
 
 Helmfile is a declarative spec for deploying helm charts. It lets you...
@@ -32,7 +34,7 @@ charts:
 
 ## install
 
-`go get github.com/roboll/helmfile` or from [releases](https://github.com/roboll/helmfile/releases).
+`go get github.com/roboll/helmfile` or [releases](https://github.com/roboll/helmfile/releases) or [container](https://quay.io/roboll/helmfile)
 
 
 ## usage

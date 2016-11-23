@@ -33,6 +33,12 @@ release: pristine cross
 	@ghr -b ${BODY} -t ${GITHUB_TOKEN} -u ${ORG} -replace ${TAG} dist
 .PHONY: release
 
+image: cross
+	docker build -t quay.io/roboll/helmfile:${TAG} .
+
+push: image
+	docker push quay.io/roboll/helmfile:${TAG}
+
 tools:
 	go get -u github.com/roboll/ghr github.com/mitchellh/gox
 .PHONY: tools

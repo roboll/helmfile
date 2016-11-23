@@ -28,4 +28,4 @@ deployment:
     tag: /v.*/
     commands:
       - cd "$WORK" && make tools
-      - cd "$WORK" && BUILD_URL="$CIRCLE_BUILD_URL" make release
+      - cd "$WORK" && BUILD_URL="$CIRCLE_BUILD_URL" make push release
