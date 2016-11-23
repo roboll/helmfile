@@ -27,5 +27,6 @@ deployment:
   release:
     tag: /v.*/
     commands:
+      - docker login -e="." -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
       - cd "$WORK" && make tools
       - cd "$WORK" && BUILD_URL="$CIRCLE_BUILD_URL" make push release
