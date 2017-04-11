@@ -31,6 +31,10 @@ func main() {
 			Name:  "quiet, q",
 			Usage: "silence output",
 		},
+		cli.StringFlag{
+			Name: "kube-context",
+			Usage: "Set kubectl context",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -73,6 +77,10 @@ func main() {
 					Value: "",
 					Usage: "pass args to helm exec",
 				},
+				cli.StringSliceFlag{
+					Name: "values",
+					Usage: "additional value files to be merged into the command",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -85,7 +93,9 @@ func main() {
 					helm.SetExtraArgs(strings.Split(args, " ")...)
 				}
 
-				if errs := state.SyncCharts(helm); err != nil && len(errs) > 0 {
+				values := c.StringSlice("values")
+
+				if errs := state.SyncCharts(helm, values); err != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s", err.Error())
 					}
@@ -97,6 +107,12 @@ func main() {
 		{
 			Name:  "sync",
 			Usage: "sync all resources from state file (repos && charts)",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name: "values",
+					Usage: "additional value files to be merged into the command",
+				},
+			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
 				if err != nil {
@@ -110,7 +126,9 @@ func main() {
 					os.Exit(1)
 				}
 
-				if errs := state.SyncCharts(helm); err != nil && len(errs) > 0 {
+				values := c.StringSlice("values")
+
+				if errs := state.SyncCharts(helm, values); err != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s", err.Error())
 					}
@@ -149,6 +167,7 @@ func main() {
 func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	file := c.GlobalString("file")
 	quiet := c.GlobalBool("quiet")
+	kubeContext := c.GlobalString("kube-context")
 
 	state, err := state.ReadFromFile(file)
 	if err != nil {
@@ -160,5 +179,5 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 		writer = os.Stdout
 	}
 
-	return state, helmexec.NewHelmExec(writer), nil
+	return state, helmexec.NewHelmExec(writer, kubeContext), nil
 }

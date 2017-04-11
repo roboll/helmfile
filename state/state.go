@@ -32,6 +32,7 @@ type ChartSpec struct {
 	Namespace string     `yaml:"namespace"`
 	Values    []string   `yaml:"values"`
 	SetValues []SetValue `yaml:"set"`
+	EnvValues []SetValue `yaml:"env"`
 }
 
 type SetValue struct {
@@ -77,7 +78,7 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	return nil
 }
 
-func (state *HelmState) SyncCharts(helm helmexec.Interface) []error {
+func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []string) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
@@ -85,6 +86,14 @@ func (state *HelmState) SyncCharts(helm helmexec.Interface) []error {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, chart ChartSpec) {
 			flags, err := flagsForChart(&chart)
+			for _, value := range additonalValues {
+				wd, err := os.Getwd()
+				if err != nil {
+					errs = append(errs, err)
+				}
+				valfile := filepath.Join(wd, value)
+				flags = append(flags, "--values", valfile)
+			}
 			if err != nil {
 				errs = append(errs, err)
 			} else {
@@ -149,6 +158,13 @@ func flagsForChart(chart *ChartSpec) ([]string, error) {
 		val := []string{}
 		for _, set := range chart.SetValues {
 			val = append(val, fmt.Sprintf("%s=%s", set.Name, set.Value))
+		}
+		flags = append(flags, "--set", strings.Join(val, ","))
+	}
+	if len(chart.EnvValues) > 0 {
+		val := []string{}
+		for _, set := range chart.EnvValues {
+			val = append(val, fmt.Sprintf("%s=%s", set.Name, os.Getenv(set.Value)))
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}
