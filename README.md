@@ -29,6 +29,9 @@ charts:
     set:                                 # values (--set)
       - name: address
         value: https://vault.example.com
+    env:                                 # values (--set) but value will be pulled from environment variables. Will throw an error if the environment variable is not set.
+      - name: db.password
+        value: DB_PASSWORD               # $DB_PASSOWRD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
 
 ```
 
@@ -41,24 +44,24 @@ charts:
 
 ```
 NAME:
-   helmfile
+   helmfile -
 
 USAGE:
-   helmfile [global options] command [command options] [arguments...]
+   main [global options] command [command options] [arguments...]
 
 VERSION:
-   0.0.0
+   0.1.0
 
 COMMANDS:
-     repos    sync repositories from state file (helm repo add && help repo update)
-     charts   sync charts from state file (helm repo upgrade --install)
-     sync     sync all resources from state file (repos && charts)
-     delete   delete charts from state file (helm delete)
-     help, h  Shows a list of commands or help for one command
+     repos   sync repositories from state file (helm repo add && helm repo update)
+     charts  sync charts from state file (helm repo upgrade --install)
+     sync    sync all resources from state file (repos && charts)
+     delete  delete charts from state file (helm delete)
 
 GLOBAL OPTIONS:
    --file FILE, -f FILE  load config from FILE (default: "charts.yaml")
    --quiet, -q           silence output
+   --kube-context value  Set kubectl context. Uses current context by default
    --help, -h            show help
    --version, -v         print the version
 ```

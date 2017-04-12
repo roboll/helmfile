@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"errors"
 
 	"github.com/roboll/helmfile/helmexec"
 
@@ -164,7 +165,12 @@ func flagsForChart(chart *ChartSpec) ([]string, error) {
 	if len(chart.EnvValues) > 0 {
 		val := []string{}
 		for _, set := range chart.EnvValues {
-			val = append(val, fmt.Sprintf("%s=%s", set.Name, os.Getenv(set.Value)))
+			value, isSet := os.LookupEnv(set.Value)
+			if isSet {
+				val = append(val, fmt.Sprintf("%s=%s", set.Name, value))
+			} else {
+				return nil, errors.New(fmt.Sprintf("Unset env var: %s", set.Name))
+			}
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}

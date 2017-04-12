@@ -21,6 +21,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "helmfile"
 	app.Usage = ""
+	app.Version = "0.1.0"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "file, f",
@@ -33,7 +34,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name: "kube-context",
-			Usage: "Set kubectl context",
+			Usage: "Set kubectl context. Uses current context by default",
 		},
 	}
 
