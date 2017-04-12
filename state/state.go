@@ -1,13 +1,13 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-	"errors"
 
 	"github.com/roboll/helmfile/helmexec"
 

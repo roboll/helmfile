@@ -14,14 +14,14 @@ const (
 )
 
 type execer struct {
-	writer io.Writer
+	writer      io.Writer
 	kubeContext string
-	extra  []string
+	extra       []string
 }
 
 func NewHelmExec(writer io.Writer, kubeContext string) Interface {
 	return &execer{
-		writer: writer,
+		writer:      writer,
 		kubeContext: kubeContext,
 	}
 }
@@ -75,7 +75,7 @@ func (helm *execer) exec(args ...string) ([]byte, error) {
 	}
 	if helm.kubeContext != "" {
 		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
-	}	
+	}
 	if helm.writer != nil {
 		helm.writer.Write([]byte(fmt.Sprintf("exec: helm %s\n", strings.Join(cmdargs, " "))))
 	}
