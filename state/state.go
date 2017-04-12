@@ -169,7 +169,7 @@ func flagsForChart(chart *ChartSpec) ([]string, error) {
 			if isSet {
 				val = append(val, fmt.Sprintf("%s=%s", set.Name, value))
 			} else {
-				return nil, errors.New(fmt.Sprintf("Unset env var: %s", set.Name))
+				return nil, errors.New(fmt.Sprintf("Could not find environment var: %s. Please make sure it is set and try again.", set.Name))
 			}
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
