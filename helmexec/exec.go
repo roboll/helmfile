@@ -15,11 +15,15 @@ const (
 
 type execer struct {
 	writer io.Writer
+	kubeContext string
 	extra  []string
 }
 
-func NewHelmExec(writer io.Writer) Interface {
-	return &execer{writer: writer}
+func NewHelmExec(writer io.Writer, kubeContext string) Interface {
+	return &execer{
+		writer: writer,
+		kubeContext: kubeContext,
+	}
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {
@@ -69,6 +73,9 @@ func (helm *execer) exec(args ...string) ([]byte, error) {
 	if len(helm.extra) > 0 {
 		cmdargs = append(cmdargs, helm.extra...)
 	}
+	if helm.kubeContext != "" {
+		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
+	}	
 	if helm.writer != nil {
 		helm.writer.Write([]byte(fmt.Sprintf("exec: helm %s\n", strings.Join(cmdargs, " "))))
 	}
