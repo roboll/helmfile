@@ -22,7 +22,7 @@ test:
 .PHONY: test
 
 cross:
-	gox -os '!freebsd !netbsd' -arch '!arm' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" ${TARGETS}
+	gox -os '!freebsd !netbsd' -arch '!arm' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 pristine: generate fmt

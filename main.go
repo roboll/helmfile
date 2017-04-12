@@ -16,12 +16,14 @@ const (
 	helmfile = "charts.yaml"
 )
 
+var Version string
+
 func main() {
 
 	app := cli.NewApp()
 	app.Name = "helmfile"
 	app.Usage = ""
-	app.Version = "0.1.0"
+	app.Version = Version
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "file, f",
@@ -33,7 +35,7 @@ func main() {
 			Usage: "silence output",
 		},
 		cli.StringFlag{
-			Name: "kube-context",
+			Name:  "kube-context",
 			Usage: "Set kubectl context. Uses current context by default",
 		},
 	}
@@ -79,7 +81,7 @@ func main() {
 					Usage: "pass args to helm exec",
 				},
 				cli.StringSliceFlag{
-					Name: "values",
+					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
 			},
@@ -110,7 +112,7 @@ func main() {
 			Usage: "sync all resources from state file (repos && charts)",
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
-					Name: "values",
+					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
 			},
