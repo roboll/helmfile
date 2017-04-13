@@ -45,7 +45,7 @@ func (helm *execer) UpdateRepo() error {
 }
 
 func normalizeChart(chart string) (string, error) {
-	regex, err := regexp.Compile("^[.]?[.]?/")
+	regex, err := regexp.Compile("^[.]?./")
 	if err != nil {
 		return "", err
 	}
