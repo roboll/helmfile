@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -46,7 +48,27 @@ func (helm *execer) UpdateRepo() error {
 	return err
 }
 
+func normalizeChart(chart string) (string, error) {
+	regex, err := regexp.Compile("^[.]?./")
+	if err != nil {
+		return "", err
+	}
+	if !regex.MatchString(chart) {
+		return chart, nil
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(wd, chart)
+	return path, nil
+}
+
 func (helm *execer) SyncChart(name, chart string, flags ...string) error {
+	chart, err := normalizeChart(chart)
+	if err != nil {
+		return err
+	}
 	out, err := helm.exec(append([]string{"upgrade", "--install", name, chart}, flags...)...)
 	if helm.writer != nil {
 		helm.writer.Write(out)
