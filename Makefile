@@ -26,7 +26,7 @@ cross:
 .PHONY: cross
 
 pristine: generate fmt
-	git ls-files --modified --deleted --others | diff /dev/null -
+	git ls-files --exclude-standard --modified --deleted --others | diff /dev/null -
 .PHONY: pristine
 
 release: pristine cross
