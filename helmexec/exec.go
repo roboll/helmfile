@@ -102,7 +102,7 @@ func (helm *execer) exec(args ...string) ([]byte, error) {
 		helm.writer.Write([]byte(fmt.Sprintf("exec: helm %s\n", strings.Join(cmdargs, " "))))
 	}
 
-	cmd := exec.Command(command, args...)
+	cmd := exec.Command(command, cmdargs...)
 	cmd.Dir = dir
 	return cmd.CombinedOutput()
 }
