@@ -62,9 +62,9 @@ func main() {
 					helm.SetExtraArgs(strings.Split(args, " ")...)
 				}
 
-				if errs := state.SyncRepos(helm); err != nil && len(errs) > 0 {
+				if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
-						fmt.Printf("err: %s", err.Error())
+						fmt.Printf("err: %s\n", err.Error())
 					}
 					os.Exit(1)
 				}
@@ -98,9 +98,9 @@ func main() {
 
 				values := c.StringSlice("values")
 
-				if errs := state.SyncCharts(helm, values); err != nil && len(errs) > 0 {
+				if errs := state.SyncCharts(helm, values); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
-						fmt.Printf("err: %s", err.Error())
+						fmt.Printf("err: %s\n", err.Error())
 					}
 					os.Exit(1)
 				}
@@ -122,18 +122,18 @@ func main() {
 					return err
 				}
 
-				if errs := state.SyncRepos(helm); err != nil && len(errs) > 0 {
+				if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
-						fmt.Printf("err: %s", err.Error())
+						fmt.Printf("err: %s\n", err.Error())
 					}
 					os.Exit(1)
 				}
 
 				values := c.StringSlice("values")
 
-				if errs := state.SyncCharts(helm, values); err != nil && len(errs) > 0 {
+				if errs := state.SyncCharts(helm, values); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
-						fmt.Printf("err: %s", err.Error())
+						fmt.Printf("err: %s\n", err.Error())
 					}
 					os.Exit(1)
 				}
@@ -149,9 +149,9 @@ func main() {
 					return err
 				}
 
-				if errs := state.DeleteCharts(helm); err != nil && len(errs) > 0 {
+				if errs := state.DeleteCharts(helm); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
-						fmt.Printf("err: %s", err.Error())
+						fmt.Printf("err: %s\n", err.Error())
 					}
 					os.Exit(1)
 				}
