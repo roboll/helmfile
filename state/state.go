@@ -86,18 +86,19 @@ func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []st
 	for _, chart := range state.Charts {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, chart ChartSpec) {
-			flags, err := flagsForChart(&chart)
+			flags, flagsErr := flagsForChart(&chart)
+			if flagsErr != nil {
+				errs = append(errs, flagsErr)
+			}
 			for _, value := range additonalValues {
-				wd, err := os.Getwd()
-				if err != nil {
-					errs = append(errs, err)
+				wd, wdErr := os.Getwd()
+				if wdErr != nil {
+					errs = append(errs, wdErr)
 				}
 				valfile := filepath.Join(wd, value)
 				flags = append(flags, "--values", valfile)
 			}
-			if err != nil {
-				errs = append(errs, err)
-			} else {
+			if len(errs) == 0 {
 				if err := helm.SyncChart(chart.Name, chart.Chart, flags...); err != nil {
 					errs = append(errs, err)
 				}
@@ -164,13 +165,20 @@ func flagsForChart(chart *ChartSpec) ([]string, error) {
 	}
 	if len(chart.EnvValues) > 0 {
 		val := []string{}
+		envValErrs := []string{}
 		for _, set := range chart.EnvValues {
 			value, isSet := os.LookupEnv(set.Value)
 			if isSet {
 				val = append(val, fmt.Sprintf("%s=%s", set.Name, value))
 			} else {
-				return nil, errors.New(fmt.Sprintf("Could not find environment var: %s. Please make sure it is set and try again.", set.Name))
+				errMsg := fmt.Sprintf("\t%s", set.Value)
+				envValErrs = append(envValErrs, errMsg)
 			}
+		}
+		if len(envValErrs) != 0 {
+			joinedEnvVals := strings.Join(envValErrs, "\n")
+			errMsg := fmt.Sprintf("Environment Variables not found. Please make sure they are set and try again:\n%s", joinedEnvVals)
+			return nil, errors.New(errMsg)
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}
