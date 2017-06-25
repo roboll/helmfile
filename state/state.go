@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gobwas/glob"
 	"github.com/roboll/helmfile/helmexec"
 
 	yaml "gopkg.in/yaml.v1"
@@ -79,18 +80,22 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	return nil
 }
 
-func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []string) []error {
+func (state *HelmState) SyncCharts(helm helmexec.Interface, additionalValues []string, filters []string) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
 	for _, chart := range state.Charts {
+		if !chart.isMatching(filters) {
+			fmt.Printf("Skipping due to filtering: %s (%s)\n", chart.Name, chart.Chart)
+			continue
+		}
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, chart ChartSpec) {
 			flags, flagsErr := flagsForChart(&chart)
 			if flagsErr != nil {
 				errs = append(errs, flagsErr)
 			}
-			for _, value := range additonalValues {
+			for _, value := range additionalValues {
 				wd, wdErr := os.Getwd()
 				if wdErr != nil {
 					errs = append(errs, wdErr)
@@ -183,4 +188,15 @@ func flagsForChart(chart *ChartSpec) ([]string, error) {
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}
 	return flags, nil
+}
+
+func (chart *ChartSpec) isMatching(filters []string) bool {
+	var g glob.Glob
+	for _, filter := range filters {
+		g = glob.MustCompile(filter)
+		if !g.Match(chart.Name) && !g.Match(chart.Chart) {
+			return false
+		}
+	}
+	return true
 }
