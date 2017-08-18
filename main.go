@@ -108,6 +108,45 @@ func main() {
 			},
 		},
 		{
+			Name:  "diff",
+			Usage: "diff charts from state file against env (helm diff)",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:  "values",
+					Usage: "additional value files to be merged into the command",
+				},
+				cli.BoolFlag{
+					Name:  "sync-repos",
+					Usage: "enable a repo sync prior to diffing",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				state, helm, err := before(c)
+				if err != nil {
+					return err
+				}
+
+				if c.Bool("sync-repos") {
+					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+						for _, err := range errs {
+							fmt.Printf("err: %s\n", err.Error())
+						}
+						os.Exit(1)
+					}
+				}
+
+				values := c.StringSlice("values")
+
+				if errs := state.DiffCharts(helm, values); errs != nil && len(errs) > 0 {
+					for _, err := range errs {
+						fmt.Printf("err: %s\n", err.Error())
+					}
+					os.Exit(1)
+				}
+				return nil
+			},
+		},
+		{
 			Name:  "sync",
 			Usage: "sync all resources from state file (repos && charts)",
 			Flags: []cli.Flag{

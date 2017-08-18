@@ -7,5 +7,6 @@ type Interface interface {
 	UpdateRepo() error
 
 	SyncChart(name, chart string, flags ...string) error
+	DiffChart(name, chart string, flags ...string) error
 	DeleteChart(name string) error
 }

@@ -115,6 +115,44 @@ func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []st
 	return nil
 }
 
+func (state *HelmState) DiffCharts(helm helmexec.Interface, additonalValues []string) []error {
+	var wg sync.WaitGroup
+	errs := []error{}
+
+	for _, chart := range state.Charts {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, chart ChartSpec) {
+			// Plugin command doesn't support explicit namespace
+			chart.Namespace = ""
+			flags, flagsErr := flagsForChart(&chart)
+			if flagsErr != nil {
+				errs = append(errs, flagsErr)
+			}
+			for _, value := range additonalValues {
+				wd, wdErr := os.Getwd()
+				if wdErr != nil {
+					errs = append(errs, wdErr)
+				}
+				valfile := filepath.Join(wd, value)
+				flags = append(flags, "--values", valfile)
+			}
+			if len(errs) == 0 {
+				if err := helm.DiffChart(chart.Name, chart.Chart, flags...); err != nil {
+					errs = append(errs, err)
+				}
+			}
+			wg.Done()
+		}(&wg, chart)
+	}
+	wg.Wait()
+
+	if len(errs) != 0 {
+		return errs
+	}
+
+	return nil
+}
+
 func (state *HelmState) DeleteCharts(helm helmexec.Interface) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
