@@ -111,6 +111,11 @@ func main() {
 			Name:  "diff",
 			Usage: "diff charts from state file against env (helm diff)",
 			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm exec",
+				},
 				cli.StringSliceFlag{
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
@@ -124,6 +129,11 @@ func main() {
 				state, helm, err := before(c)
 				if err != nil {
 					return err
+				}
+
+				args := c.String("args")
+				if len(args) > 0 {
+					helm.SetExtraArgs(strings.Split(args, " ")...)
 				}
 
 				if c.Bool("sync-repos") {
