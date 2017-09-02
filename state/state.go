@@ -12,11 +12,14 @@ import (
 	"github.com/roboll/helmfile/helmexec"
 
 	yaml "gopkg.in/yaml.v1"
+	"path"
+	"regexp"
 )
 
 type HelmState struct {
-	Repositories []RepositorySpec `yaml:"repositories"`
-	Charts       []ChartSpec      `yaml:"charts"`
+	BaseChartPath string
+	Repositories  []RepositorySpec `yaml:"repositories"`
+	Charts        []ChartSpec      `yaml:"charts"`
 }
 
 type RepositorySpec struct {
@@ -48,6 +51,7 @@ func ReadFromFile(file string) (*HelmState, error) {
 	}
 
 	var state HelmState
+	state.BaseChartPath = path.Dir(file)
 	if err := yaml.Unmarshal(content, &state); err != nil {
 		return nil, err
 	}
@@ -86,20 +90,19 @@ func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []st
 	for _, chart := range state.Charts {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, chart ChartSpec) {
-			flags, flagsErr := flagsForChart(&chart)
+			flags, flagsErr := flagsForChart(state.BaseChartPath, &chart)
 			if flagsErr != nil {
 				errs = append(errs, flagsErr)
 			}
 			for _, value := range additonalValues {
-				wd, wdErr := os.Getwd()
-				if wdErr != nil {
-					errs = append(errs, wdErr)
+				valfile, err := filepath.Abs(value)
+				if err != nil {
+					errs = append(errs, err)
 				}
-				valfile := filepath.Join(wd, value)
 				flags = append(flags, "--values", valfile)
 			}
 			if len(errs) == 0 {
-				if err := helm.SyncChart(chart.Name, chart.Chart, flags...); err != nil {
+				if err := helm.SyncChart(chart.Name, normalizeChart(state.BaseChartPath, chart.Chart), flags...); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -124,20 +127,19 @@ func (state *HelmState) DiffCharts(helm helmexec.Interface, additonalValues []st
 		go func(wg *sync.WaitGroup, chart ChartSpec) {
 			// Plugin command doesn't support explicit namespace
 			chart.Namespace = ""
-			flags, flagsErr := flagsForChart(&chart)
+			flags, flagsErr := flagsForChart(state.BaseChartPath, &chart)
 			if flagsErr != nil {
 				errs = append(errs, flagsErr)
 			}
 			for _, value := range additonalValues {
-				wd, wdErr := os.Getwd()
-				if wdErr != nil {
-					errs = append(errs, wdErr)
+				valfile, err := filepath.Abs(value)
+				if err != nil {
+					errs = append(errs, err)
 				}
-				valfile := filepath.Join(wd, value)
 				flags = append(flags, "--values", valfile)
 			}
 			if len(errs) == 0 {
-				if err := helm.DiffChart(chart.Name, chart.Chart, flags...); err != nil {
+				if err := helm.DiffChart(chart.Name, normalizeChart(state.BaseChartPath, chart.Chart), flags...); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -175,7 +177,19 @@ func (state *HelmState) DeleteCharts(helm helmexec.Interface) []error {
 	return nil
 }
 
-func flagsForChart(chart *ChartSpec) ([]string, error) {
+// normalizeChart allows for the distinction between a file path reference and repository references.
+// - Any single (or double character) followed by a `/` will be considered a local file reference and
+// 	 be constructed relative to the `base path`.
+// - Everything else is assumed to be an absolute path or an actual <repository>/<chart> reference.
+func normalizeChart(basePath, chart string) (string) {
+	regex, _ := regexp.Compile("^[.]?./")
+	if !regex.MatchString(chart) {
+		return chart
+	}
+	return filepath.Join(basePath, chart)
+}
+
+func flagsForChart(basePath string, chart *ChartSpec) ([]string, error) {
 	flags := []string{}
 	if chart.Version != "" {
 		flags = append(flags, "--version", chart.Version)
@@ -187,11 +201,7 @@ func flagsForChart(chart *ChartSpec) ([]string, error) {
 		flags = append(flags, "--namespace", chart.Namespace)
 	}
 	for _, value := range chart.Values {
-		wd, err := os.Getwd()
-		if err != nil {
-			return nil, err
-		}
-		valfile := filepath.Join(wd, value)
+		valfile := filepath.Join(basePath, value)
 		flags = append(flags, "--values", valfile)
 	}
 	if len(chart.SetValues) > 0 {
