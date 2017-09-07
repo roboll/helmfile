@@ -76,6 +76,18 @@ func (helm *execer) SyncChart(name, chart string, flags ...string) error {
 	return err
 }
 
+func (helm *execer) DiffChart(name, chart string, flags ...string) error {
+	chart, err := normalizeChart(chart)
+	if err != nil {
+		return err
+	}
+	out, err := helm.exec(append([]string{"diff", name, chart}, flags...)...)
+	if helm.writer != nil {
+		helm.writer.Write(out)
+	}
+	return err
+}
+
 func (helm *execer) DeleteChart(name string) error {
 	out, err := helm.exec("delete", name)
 	if helm.writer != nil {

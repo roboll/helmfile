@@ -49,12 +49,10 @@ NAME:
 USAGE:
    main [global options] command [command options] [arguments...]
 
-VERSION:
-   0.1.0
-
 COMMANDS:
      repos   sync repositories from state file (helm repo add && helm repo update)
      charts  sync charts from state file (helm repo upgrade --install)
+     diff    diff charts from state file against env (helm diff)
      sync    sync all resources from state file (repos && charts)
      delete  delete charts from state file (helm delete)
 
@@ -65,3 +63,12 @@ GLOBAL OPTIONS:
    --help, -h            show help
    --version, -v         print the version
 ```
+
+### diff
+
+The `helmfile diff` sub-command executes the [helm-diff](https://github.com/databus23/helm-diff) plugin across all of
+the charts/releases defined in the manifest.
+
+Under the covers Helmfile is simply using the `helm diff` plugin, so that needs to be installed prior.  For Helm 2.3+
+you should be able to simply execute `helm plugin install https://github.com/databus23/helm-diff`. For more details
+please look at their [documentation](https://github.com/databus23/helm-diff#helm-diff-plugin).
