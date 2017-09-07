@@ -84,6 +84,10 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
+				cli.StringSliceFlag{
+					Name:  "filter",
+					Usage: "only update charts matching the given filter",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -97,8 +101,9 @@ func main() {
 				}
 
 				values := c.StringSlice("values")
+				filters := c.StringSlice("filter")
 
-				if errs := state.SyncCharts(helm, values); errs != nil && len(errs) > 0 {
+				if errs := state.SyncCharts(helm, values, filters); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -164,6 +169,10 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
+				cli.StringSliceFlag{
+					Name:  "filter",
+					Usage: "only update charts matching the given filter",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -179,8 +188,9 @@ func main() {
 				}
 
 				values := c.StringSlice("values")
+				filters := c.StringSlice("filter")
 
-				if errs := state.SyncCharts(helm, values); errs != nil && len(errs) > 0 {
+				if errs := state.SyncCharts(helm, values, filters); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
