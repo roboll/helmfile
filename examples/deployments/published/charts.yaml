@@ -1,0 +1,5 @@
+charts:
+  # Published chart example
+  - name: grafana                         # helm deployment name
+    namespace: grafana                    # target namespace
+    chart: stable/grafana                 # chart reference (repository)

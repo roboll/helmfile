@@ -51,7 +51,8 @@ func ReadFromFile(file string) (*HelmState, error) {
 	}
 
 	var state HelmState
-	state.BaseChartPath = path.Dir(file)
+
+	state.BaseChartPath, _ = filepath.Abs(path.Dir(file))
 	if err := yaml.Unmarshal(content, &state); err != nil {
 		return nil, err
 	}
