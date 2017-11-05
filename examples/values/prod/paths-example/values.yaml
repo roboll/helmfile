@@ -1,0 +1,2 @@
+# Prod specific overrides
+nameOverride: prod-nginx

@@ -1,0 +1,2 @@
+# Example used to override value explicitly via CLI
+replicaCount: 3

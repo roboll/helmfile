@@ -1,0 +1,4 @@
+apiVersion: v1
+description: demonstration of local file path references in Helmfile
+name: paths-example
+version: 0.1.0

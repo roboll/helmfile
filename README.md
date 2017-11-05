@@ -22,9 +22,10 @@ repositories:
     url: http://roboll.io/charts
 
 charts:
+  # Published chart example
   - name: vault                          # helm deployment name
     namespace: vault                     # target namespace
-    chart: roboll/vault-secret-manager   # chart reference
+    chart: roboll/vault-secret-manager   # chart reference (repository)
     values: [ vault.yaml ]               # value files (--values)
     set:                                 # values (--set)
       - name: address
@@ -32,6 +33,13 @@ charts:
     env:                                 # values (--set) but value will be pulled from environment variables. Will throw an error if the environment variable is not set.
       - name: db.password
         value: DB_PASSWORD               # $DB_PASSOWRD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
+
+  # Local chart example
+  - name: grafana                         # helm deployment name
+    namespace: another                    # target namespace
+    chart: ../my-charts/grafana           # chart reference (relative path to manifest)
+    values:
+    - ../../my-values/grafana/values.yaml # Values file (relative path to manifest)
 
 ```
 
@@ -72,3 +80,15 @@ the charts/releases defined in the manifest.
 Under the covers Helmfile is simply using the `helm diff` plugin, so that needs to be installed prior.  For Helm 2.3+
 you should be able to simply execute `helm plugin install https://github.com/databus23/helm-diff`. For more details
 please look at their [documentation](https://github.com/databus23/helm-diff#helm-diff-plugin).
+
+
+## Paths Overview
+Using manifest files in conjunction with command line argument can be a bit confusing.  
+
+A few rules to clear up this ambiguity: 
+
+- Absolute paths are always resolved as absolute paths
+- Relative paths referenced *in* the helmfile manifest itself are relative to that manifest
+- Relative paths referenced on the command line are relative to the current working directory the user is in
+
+For additional context, take a look at [paths examples](PATHS.md)

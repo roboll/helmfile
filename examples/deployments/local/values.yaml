@@ -1,0 +1,2 @@
+# Dev specific overrides
+nameOverride: local-nginx
