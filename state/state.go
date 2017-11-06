@@ -182,7 +182,7 @@ func (state *HelmState) DeleteCharts(helm helmexec.Interface) []error {
 // - Any single (or double character) followed by a `/` will be considered a local file reference and
 // 	 be constructed relative to the `base path`.
 // - Everything else is assumed to be an absolute path or an actual <repository>/<chart> reference.
-func normalizeChart(basePath, chart string) (string) {
+func normalizeChart(basePath, chart string) string {
 	regex, _ := regexp.Compile("^[.]?./")
 	if !regex.MatchString(chart) {
 		return chart
