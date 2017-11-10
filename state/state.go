@@ -36,7 +36,9 @@ type ChartSpec struct {
 	Namespace string     `yaml:"namespace"`
 	Values    []string   `yaml:"values"`
 	SetValues []SetValue `yaml:"set"`
-	EnvValues []SetValue `yaml:"env"`
+
+	// The 'env' section is not really necessary anylonger, as 'set' would now provide the same functionality
+	// EnvValues []SetValue `yaml:"env"`
 }
 
 type SetValue struct {
@@ -57,6 +59,27 @@ func ReadFromFile(file string) (*HelmState, error) {
 		return nil, err
 	}
 	return &state, nil
+}
+
+var /* const */ envVarPattern = regexp.MustCompile("\\${[^{}]*}")
+
+func renderEnvVars(s string) (string, error) {
+	renderedString := s
+	match := envVarPattern.FindSubmatchIndex([]byte(renderedString))
+	for match != nil {
+		envVarName := renderedString[match[0]+2 : match[1]-1] // remove trailing ${ }
+		envVarValue, isSet := os.LookupEnv(envVarName)
+
+		if !isSet {
+			errMsg := fmt.Sprintf("Environment Variable '%s' is not set. Please make sure they are set and try again.", envVarName)
+			return "", errors.New(errMsg)
+		}
+
+		renderedString = fmt.Sprintf(renderedString[:match[0]] + envVarValue + renderedString[match[1]:])
+		match = envVarPattern.FindSubmatchIndex([]byte(renderedString))
+	}
+
+	return renderedString, nil
 }
 
 func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
@@ -203,33 +226,44 @@ func flagsForChart(basePath string, chart *ChartSpec) ([]string, error) {
 	}
 	for _, value := range chart.Values {
 		valfile := filepath.Join(basePath, value)
-		flags = append(flags, "--values", valfile)
+		valfileRendered, err := renderEnvVars(valfile)
+		if err != nil {
+			return nil, err
+		}
+		flags = append(flags, "--values", valfileRendered)
 	}
 	if len(chart.SetValues) > 0 {
 		val := []string{}
 		for _, set := range chart.SetValues {
-			val = append(val, fmt.Sprintf("%s=%s", set.Name, set.Value))
-		}
-		flags = append(flags, "--set", strings.Join(val, ","))
-	}
-	if len(chart.EnvValues) > 0 {
-		val := []string{}
-		envValErrs := []string{}
-		for _, set := range chart.EnvValues {
-			value, isSet := os.LookupEnv(set.Value)
-			if isSet {
-				val = append(val, fmt.Sprintf("%s=%s", set.Name, value))
-			} else {
-				errMsg := fmt.Sprintf("\t%s", set.Value)
-				envValErrs = append(envValErrs, errMsg)
+			renderedValue, err := renderEnvVars(set.Value)
+			if err != nil {
+				return nil, err
 			}
-		}
-		if len(envValErrs) != 0 {
-			joinedEnvVals := strings.Join(envValErrs, "\n")
-			errMsg := fmt.Sprintf("Environment Variables not found. Please make sure they are set and try again:\n%s", joinedEnvVals)
-			return nil, errors.New(errMsg)
+			val = append(val, fmt.Sprintf("%s=%s", set.Name, renderedValue))
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}
+
+	// The 'env' section is not really necessary anylonger, as 'set' would now provide the same functionality
+	//if len(chart.EnvValues) > 0 {
+	//	val := []string{}
+	//	envValErrs := []string{}
+	//	for _, set := range chart.EnvValues {
+	//		value, isSet := os.LookupEnv(set.Value)
+	//		if isSet {
+	//			val = append(val, fmt.Sprintf("%s=%s", set.Name, value))
+	//		} else {
+	//			errMsg := fmt.Sprintf("\t%s", set.Value)
+	//			envValErrs = append(envValErrs, errMsg)
+	//		}
+	//	}
+	//	if len(envValErrs) != 0 {
+	//		joinedEnvVals := strings.Join(envValErrs, "\n")
+	//		errMsg := fmt.Sprintf("Environment Variables not found. Please make sure they are set and try again:\n%s", joinedEnvVals)
+	//		return nil, errors.New(errMsg)
+	//	}
+	//	flags = append(flags, "--set", strings.Join(val, ","))
+	//}
+
 	return flags, nil
 }

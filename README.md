@@ -23,23 +23,25 @@ repositories:
 
 charts:
   # Published chart example
-  - name: vault                          # helm deployment name
-    namespace: vault                     # target namespace
-    chart: roboll/vault-secret-manager   # chart reference (repository)
-    values: [ vault.yaml ]               # value files (--values)
-    set:                                 # values (--set)
+  - name: vault                               # helm deployment name
+    namespace: vault                          # target namespace
+    chart: roboll/vault-secret-manager        # chart reference (repository)
+    values: [ vault.yaml ]                    # value files (--values)
+    set:                                      # values (--set)
       - name: address
         value: https://vault.example.com
-    env:                                 # values (--set) but value will be pulled from environment variables. Will throw an error if the environment variable is not set.
       - name: db.password
-        value: DB_PASSWORD               # $DB_PASSOWRD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
+        value: ${DB_PASSWORD}                 # value taken from environment variable. Will throw an error if the environment variable is not set. $DB_PASSOWRD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
+      - name: proxy.domain
+        value: "${PLATFORM_ID}.my-domain.com" # Interpolate environment variable with a fixed string
 
   # Local chart example
-  - name: grafana                         # helm deployment name
-    namespace: another                    # target namespace
-    chart: ../my-charts/grafana           # chart reference (relative path to manifest)
+  - name: grafana                            # helm deployment name
+    namespace: another                       # target namespace
+    chart: ../my-charts/grafana              # chart reference (relative path to manifest)
     values:
-    - ../../my-values/grafana/values.yaml # Values file (relative path to manifest)
+    - "../../my-values/grafana/values.yaml"  # Values file (relative path to manifest)
+    - "./values/${PLATFORM_ENV}/config.yaml" # Values file taken from path with environment variable. $PLATFORM_ENV must be set in the calling environment.
 
 ```
 
