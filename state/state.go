@@ -8,12 +8,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/roboll/helmfile/helmexec"
 
 	yaml "gopkg.in/yaml.v1"
 	"path"
 	"regexp"
+	"bytes"
 )
 
 type HelmState struct {
@@ -28,9 +30,9 @@ type RepositorySpec struct {
 }
 
 type ChartSpec struct {
-	Chart   string `yaml:"chart"`
-	Version string `yaml:"version"`
-	Verify  bool   `yaml:"verify"`
+	Chart     string `yaml:"chart"`
+	Version   string `yaml:"version"`
+	Verify    bool   `yaml:"verify"`
 
 	Name      string     `yaml:"name"`
 	Namespace string     `yaml:"namespace"`
@@ -61,25 +63,39 @@ func ReadFromFile(file string) (*HelmState, error) {
 	return &state, nil
 }
 
-var /* const */ envVarPattern = regexp.MustCompile("\\${[^{}]*}")
-
-func renderEnvVars(s string) (string, error) {
-	renderedString := s
-	match := envVarPattern.FindSubmatchIndex([]byte(renderedString))
-	for match != nil {
-		envVarName := renderedString[match[0]+2 : match[1]-1] // remove trailing ${ }
-		envVarValue, isSet := os.LookupEnv(envVarName)
-
-		if !isSet {
-			errMsg := fmt.Sprintf("Environment Variable '%s' is not set. Please make sure they are set and try again.", envVarName)
-			return "", errors.New(errMsg)
-		}
-
-		renderedString = fmt.Sprintf(renderedString[:match[0]] + envVarValue + renderedString[match[1]:])
-		match = envVarPattern.FindSubmatchIndex([]byte(renderedString))
+var /* const */
+	stringTemplateFuncMap = template.FuncMap{
+		"env": getEnvVar,
 	}
 
-	return renderedString, nil
+var /* const */
+	stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
+
+func getEnvVar(envVarName string) (string, error) {
+	envVarValue, isSet := os.LookupEnv(envVarName)
+
+	if !isSet {
+		errMsg := fmt.Sprintf("Environment Variable '%s' is not set. Please make sure it is set and try again.", envVarName)
+		return "", errors.New(errMsg)
+	}
+
+	return envVarValue, nil
+}
+
+func renderTemplateString(s string) (string, error) {
+	var t, parseErr = stringTemplate.Parse(s)
+	if parseErr != nil {
+		return "", parseErr
+	}
+
+	var tplString bytes.Buffer
+	var execErr = t.Execute(&tplString, nil)
+
+	if execErr != nil {
+		return "", execErr
+	}
+
+	return tplString.String(), nil
 }
 
 func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
@@ -226,7 +242,7 @@ func flagsForChart(basePath string, chart *ChartSpec) ([]string, error) {
 	}
 	for _, value := range chart.Values {
 		valfile := filepath.Join(basePath, value)
-		valfileRendered, err := renderEnvVars(valfile)
+		valfileRendered, err := renderTemplateString(valfile)
 		if err != nil {
 			return nil, err
 		}
@@ -235,7 +251,7 @@ func flagsForChart(basePath string, chart *ChartSpec) ([]string, error) {
 	if len(chart.SetValues) > 0 {
 		val := []string{}
 		for _, set := range chart.SetValues {
-			renderedValue, err := renderEnvVars(set.Value)
+			renderedValue, err := renderTemplateString(set.Value)
 			if err != nil {
 				return nil, err
 			}
