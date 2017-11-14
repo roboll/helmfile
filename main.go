@@ -226,6 +226,10 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 		return nil, nil, err
 	}
 	if state.Context != "" {
+		if kubeContext != "" {
+			log.Printf("err: Cannot use option --kube-context and set attribute context.")
+			os.Exit(1)
+		}
 		kubeContext = state.Context
 	}
 	var writer io.Writer

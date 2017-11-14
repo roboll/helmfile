@@ -21,6 +21,8 @@ repositories:
   - name: roboll
     url: http://roboll.io/charts
 
+context: kube-context					 # kube-context (--kube-context)
+
 charts:
   # Published chart example
   - name: vault                          # helm deployment name
