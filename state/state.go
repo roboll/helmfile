@@ -18,6 +18,7 @@ import (
 
 type HelmState struct {
 	BaseChartPath string
+	Context       string           `yaml:"context"`
 	Repositories  []RepositorySpec `yaml:"repositories"`
 	Charts        []ChartSpec      `yaml:"charts"`
 }

@@ -225,7 +225,9 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-
+	if state.Context != "" {
+		kubeContext = state.Context
+	}
 	var writer io.Writer
 	if !quiet {
 		writer = os.Stdout
