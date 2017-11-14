@@ -39,8 +39,8 @@ type ChartSpec struct {
 	Values    []string   `yaml:"values"`
 	SetValues []SetValue `yaml:"set"`
 
-	// The 'env' section is not really necessary anylonger, as 'set' would now provide the same functionality
-	// EnvValues []SetValue `yaml:"env"`
+	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
+	EnvValues []SetValue `yaml:"env"`
 }
 
 type SetValue struct {
@@ -260,26 +260,32 @@ func flagsForChart(basePath string, chart *ChartSpec) ([]string, error) {
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}
 
-	// The 'env' section is not really necessary anylonger, as 'set' would now provide the same functionality
-	//if len(chart.EnvValues) > 0 {
-	//	val := []string{}
-	//	envValErrs := []string{}
-	//	for _, set := range chart.EnvValues {
-	//		value, isSet := os.LookupEnv(set.Value)
-	//		if isSet {
-	//			val = append(val, fmt.Sprintf("%s=%s", set.Name, value))
-	//		} else {
-	//			errMsg := fmt.Sprintf("\t%s", set.Value)
-	//			envValErrs = append(envValErrs, errMsg)
-	//		}
-	//	}
-	//	if len(envValErrs) != 0 {
-	//		joinedEnvVals := strings.Join(envValErrs, "\n")
-	//		errMsg := fmt.Sprintf("Environment Variables not found. Please make sure they are set and try again:\n%s", joinedEnvVals)
-	//		return nil, errors.New(errMsg)
-	//	}
-	//	flags = append(flags, "--set", strings.Join(val, ","))
-	//}
+	/***********
+	 * START 'env' section for backwards compatibility
+	 ***********/
+	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
+	if len(chart.EnvValues) > 0 {
+		val := []string{}
+		envValErrs := []string{}
+		for _, set := range chart.EnvValues {
+			value, isSet := os.LookupEnv(set.Value)
+			if isSet {
+				val = append(val, fmt.Sprintf("%s=%s", set.Name, value))
+			} else {
+				errMsg := fmt.Sprintf("\t%s", set.Value)
+				envValErrs = append(envValErrs, errMsg)
+			}
+		}
+		if len(envValErrs) != 0 {
+			joinedEnvVals := strings.Join(envValErrs, "\n")
+			errMsg := fmt.Sprintf("Environment Variables not found. Please make sure they are set and try again:\n%s", joinedEnvVals)
+			return nil, errors.New(errMsg)
+		}
+		flags = append(flags, "--set", strings.Join(val, ","))
+	}
+	/**************
+	 * END 'env' section for backwards compatibility
+	 **************/
 
 	return flags, nil
 }
