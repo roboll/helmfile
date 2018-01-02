@@ -8,12 +8,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/roboll/helmfile/helmexec"
 
 	yaml "gopkg.in/yaml.v1"
 	"path"
 	"regexp"
+	"bytes"
 )
 
 type HelmState struct {
@@ -28,14 +30,16 @@ type RepositorySpec struct {
 }
 
 type ChartSpec struct {
-	Chart   string `yaml:"chart"`
-	Version string `yaml:"version"`
-	Verify  bool   `yaml:"verify"`
+	Chart     string `yaml:"chart"`
+	Version   string `yaml:"version"`
+	Verify    bool   `yaml:"verify"`
 
 	Name      string     `yaml:"name"`
 	Namespace string     `yaml:"namespace"`
 	Values    []string   `yaml:"values"`
 	SetValues []SetValue `yaml:"set"`
+
+	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
 	EnvValues []SetValue `yaml:"env"`
 }
 
@@ -57,6 +61,41 @@ func ReadFromFile(file string) (*HelmState, error) {
 		return nil, err
 	}
 	return &state, nil
+}
+
+var /* const */
+	stringTemplateFuncMap = template.FuncMap{
+		"env": getEnvVar,
+	}
+
+var /* const */
+	stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
+
+func getEnvVar(envVarName string) (string, error) {
+	envVarValue, isSet := os.LookupEnv(envVarName)
+
+	if !isSet {
+		errMsg := fmt.Sprintf("Environment Variable '%s' is not set. Please make sure it is set and try again.", envVarName)
+		return "", errors.New(errMsg)
+	}
+
+	return envVarValue, nil
+}
+
+func renderTemplateString(s string) (string, error) {
+	var t, parseErr = stringTemplate.Parse(s)
+	if parseErr != nil {
+		return "", parseErr
+	}
+
+	var tplString bytes.Buffer
+	var execErr = t.Execute(&tplString, nil)
+
+	if execErr != nil {
+		return "", execErr
+	}
+
+	return tplString.String(), nil
 }
 
 func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
@@ -203,15 +242,28 @@ func flagsForChart(basePath string, chart *ChartSpec) ([]string, error) {
 	}
 	for _, value := range chart.Values {
 		valfile := filepath.Join(basePath, value)
-		flags = append(flags, "--values", valfile)
+		valfileRendered, err := renderTemplateString(valfile)
+		if err != nil {
+			return nil, err
+		}
+		flags = append(flags, "--values", valfileRendered)
 	}
 	if len(chart.SetValues) > 0 {
 		val := []string{}
 		for _, set := range chart.SetValues {
-			val = append(val, fmt.Sprintf("%s=%s", set.Name, set.Value))
+			renderedValue, err := renderTemplateString(set.Value)
+			if err != nil {
+				return nil, err
+			}
+			val = append(val, fmt.Sprintf("%s=%s", set.Name, renderedValue))
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}
+
+	/***********
+	 * START 'env' section for backwards compatibility
+	 ***********/
+	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
 	if len(chart.EnvValues) > 0 {
 		val := []string{}
 		envValErrs := []string{}
@@ -231,5 +283,9 @@ func flagsForChart(basePath string, chart *ChartSpec) ([]string, error) {
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}
+	/**************
+	 * END 'env' section for backwards compatibility
+	 **************/
+
 	return flags, nil
 }
