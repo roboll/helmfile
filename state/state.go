@@ -12,10 +12,10 @@ import (
 
 	"github.com/roboll/helmfile/helmexec"
 
+	"bytes"
 	yaml "gopkg.in/yaml.v1"
 	"path"
 	"regexp"
-	"bytes"
 )
 
 type HelmState struct {
@@ -31,9 +31,9 @@ type RepositorySpec struct {
 }
 
 type ChartSpec struct {
-	Chart     string `yaml:"chart"`
-	Version   string `yaml:"version"`
-	Verify    bool   `yaml:"verify"`
+	Chart   string `yaml:"chart"`
+	Version string `yaml:"version"`
+	Verify  bool   `yaml:"verify"`
 
 	Name      string     `yaml:"name"`
 	Namespace string     `yaml:"namespace"`
@@ -64,13 +64,11 @@ func ReadFromFile(file string) (*HelmState, error) {
 	return &state, nil
 }
 
-var /* const */
-	stringTemplateFuncMap = template.FuncMap{
-		"env": getEnvVar,
-	}
+var stringTemplateFuncMap = template.FuncMap{
+	"env": getEnvVar,
+}
 
-var /* const */
-	stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
+var stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
 
 func getEnvVar(envVarName string) (string, error) {
 	envVarValue, isSet := os.LookupEnv(envVarName)
