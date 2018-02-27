@@ -59,7 +59,7 @@ NAME:
    helmfile -
 
 USAGE:
-   main [global options] command [command options] [arguments...]
+   helmfile [global options] command [command options] [arguments...]
 
 COMMANDS:
      repos   sync repositories from state file (helm repo add && helm repo update)
@@ -69,7 +69,7 @@ COMMANDS:
      delete  delete charts from state file (helm delete)
 
 GLOBAL OPTIONS:
-   --file FILE, -f FILE  load config from FILE (default: "helmfile.yaml" and "charts.yaml" in order of precedense)
+   --file FILE, -f FILE  load config from FILE (default: "helmfile.yaml")
    --quiet, -q           silence output
    --kube-context value  Set kubectl context. Uses current context by default
    --help, -h            show help
