@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	helmfile = "charts.yaml"
+	DefaultHelmfile    = "helmfile.yaml"
+	DeprecatedHelmfile = "charts.yaml"
 )
 
 var Version string
@@ -21,13 +22,13 @@ var Version string
 func main() {
 
 	app := cli.NewApp()
-	app.Name = "helmfile"
+	app.Name = "DefaultHelmfile"
 	app.Usage = ""
 	app.Version = Version
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "file, f",
-			Value: helmfile,
+			Value: DefaultHelmfile,
 			Usage: "load config from `FILE`",
 		},
 		cli.BoolFlag{
@@ -221,21 +222,28 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	quiet := c.GlobalBool("quiet")
 	kubeContext := c.GlobalString("kube-context")
 
-	state, err := state.ReadFromFile(file)
+	st, err := state.ReadFromFile(file)
+	if strings.Contains(err.Error(), fmt.Sprintf("open %s:", DefaultHelmfile)) {
+		var fallbackErr error
+		st, fallbackErr = state.ReadFromFile(DeprecatedHelmfile)
+		if fallbackErr != nil {
+			return nil, nil, fmt.Errorf("failed to read %s and %s: %v", file, DeprecatedHelmfile, err)
+		}
+	}
 	if err != nil {
 		return nil, nil, err
 	}
-	if state.Context != "" {
+	if st.Context != "" {
 		if kubeContext != "" {
 			log.Printf("err: Cannot use option --kube-context and set attribute context.")
 			os.Exit(1)
 		}
-		kubeContext = state.Context
+		kubeContext = st.Context
 	}
 	var writer io.Writer
 	if !quiet {
 		writer = os.Stdout
 	}
 
-	return state, helmexec.NewHelmExec(writer, kubeContext), nil
+	return st, helmexec.NewHelmExec(writer, kubeContext), nil
 }

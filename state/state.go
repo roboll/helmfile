@@ -12,17 +12,18 @@ import (
 
 	"github.com/roboll/helmfile/helmexec"
 
+	"bytes"
 	yaml "gopkg.in/yaml.v1"
 	"path"
 	"regexp"
-	"bytes"
 )
 
 type HelmState struct {
-	BaseChartPath string
-	Context       string           `yaml:"context"`
-	Repositories  []RepositorySpec `yaml:"repositories"`
-	Charts        []ChartSpec      `yaml:"charts"`
+	BaseChartPath      string
+	Context            string           `yaml:"context"`
+	Repositories       []RepositorySpec `yaml:"repositories"`
+	Releases           []ReleaseSpec    `yaml:"releases"`
+	DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
 }
 
 type RepositorySpec struct {
@@ -30,11 +31,13 @@ type RepositorySpec struct {
 	URL  string `yaml:"url"`
 }
 
-type ChartSpec struct {
-	Chart     string `yaml:"chart"`
-	Version   string `yaml:"version"`
-	Verify    bool   `yaml:"verify"`
+type ReleaseSpec struct {
+	// Chart is the name of the chart being installed to create this release
+	Chart   string `yaml:"chart"`
+	Version string `yaml:"version"`
+	Verify  bool   `yaml:"verify"`
 
+	// Name is the name of this release
 	Name      string     `yaml:"name"`
 	Namespace string     `yaml:"namespace"`
 	Values    []string   `yaml:"values"`
@@ -54,23 +57,35 @@ func ReadFromFile(file string) (*HelmState, error) {
 	if err != nil {
 		return nil, err
 	}
+	return readFromYaml(content, file)
+}
 
+func readFromYaml(content []byte, file string) (*HelmState, error) {
 	var state HelmState
 
 	state.BaseChartPath, _ = filepath.Abs(path.Dir(file))
 	if err := yaml.Unmarshal(content, &state); err != nil {
 		return nil, err
 	}
+
+	if len(state.DeprecatedReleases) > 0 {
+		if len(state.Releases) > 0 {
+			return nil, fmt.Errorf("failed to parse %s: you can't specify both `charts` and `releases` sections", file)
+		}
+		state.Releases = state.DeprecatedReleases
+		state.DeprecatedReleases = []ReleaseSpec{}
+	}
+
 	return &state, nil
 }
 
 var /* const */
-	stringTemplateFuncMap = template.FuncMap{
-		"env": getEnvVar,
-	}
+stringTemplateFuncMap = template.FuncMap{
+	"env": getEnvVar,
+}
 
 var /* const */
-	stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
+stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
 
 func getEnvVar(envVarName string) (string, error) {
 	envVarValue, isSet := os.LookupEnv(envVarName)
@@ -128,9 +143,9 @@ func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []st
 	var wg sync.WaitGroup
 	errs := []error{}
 
-	for _, chart := range state.Charts {
+	for _, chart := range state.Releases {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, chart ChartSpec) {
+		go func(wg *sync.WaitGroup, chart ReleaseSpec) {
 			flags, flagsErr := flagsForChart(state.BaseChartPath, &chart)
 			if flagsErr != nil {
 				errs = append(errs, flagsErr)
@@ -163,9 +178,9 @@ func (state *HelmState) DiffCharts(helm helmexec.Interface, additonalValues []st
 	var wg sync.WaitGroup
 	errs := []error{}
 
-	for _, chart := range state.Charts {
+	for _, chart := range state.Releases {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, chart ChartSpec) {
+		go func(wg *sync.WaitGroup, chart ReleaseSpec) {
 			// Plugin command doesn't support explicit namespace
 			chart.Namespace = ""
 			flags, flagsErr := flagsForChart(state.BaseChartPath, &chart)
@@ -200,9 +215,9 @@ func (state *HelmState) DeleteCharts(helm helmexec.Interface) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
-	for _, chart := range state.Charts {
+	for _, chart := range state.Releases {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, chart ChartSpec) {
+		go func(wg *sync.WaitGroup, chart ReleaseSpec) {
 			if err := helm.DeleteChart(chart.Name); err != nil {
 				errs = append(errs, err)
 			}
@@ -230,7 +245,7 @@ func normalizeChart(basePath, chart string) string {
 	return filepath.Join(basePath, chart)
 }
 
-func flagsForChart(basePath string, chart *ChartSpec) ([]string, error) {
+func flagsForChart(basePath string, chart *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if chart.Version != "" {
 		flags = append(flags, "--version", chart.Version)
