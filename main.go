@@ -223,7 +223,7 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	kubeContext := c.GlobalString("kube-context")
 
 	st, err := state.ReadFromFile(file)
-	if strings.Contains(err.Error(), fmt.Sprintf("open %s:", DefaultHelmfile)) {
+	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("open %s:", DefaultHelmfile)) {
 		var fallbackErr error
 		st, fallbackErr = state.ReadFromFile(DeprecatedHelmfile)
 		if fallbackErr != nil {
