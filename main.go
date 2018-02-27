@@ -38,6 +38,10 @@ func main() {
 			Name:  "kube-context",
 			Usage: "Set kubectl context. Uses current context by default",
 		},
+		cli.StringFlag{
+			Name:  "namespace, n",
+			Usage: "Set namespace. Uses the namespace set in the context by default",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -220,6 +224,7 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	file := c.GlobalString("file")
 	quiet := c.GlobalBool("quiet")
 	kubeContext := c.GlobalString("kube-context")
+	namespace := c.GlobalString("namespace")
 
 	state, err := state.ReadFromFile(file)
 	if err != nil {
@@ -231,6 +236,13 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 			os.Exit(1)
 		}
 		kubeContext = state.Context
+	}
+	if namespace != "" {
+		if state.Namespace != "" {
+			log.Printf("err: Cannot use option --namespace and set attribute namespace.")
+			os.Exit(1)
+		}
+		state.Namespace = namespace
 	}
 	var writer io.Writer
 	if !quiet {
