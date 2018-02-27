@@ -22,7 +22,7 @@ var Version string
 func main() {
 
 	app := cli.NewApp()
-	app.Name = "DefaultHelmfile"
+	app.Name = "helmfile"
 	app.Usage = ""
 	app.Version = Version
 	app.Flags = []cli.Flag{
