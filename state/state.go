@@ -21,6 +21,7 @@ import (
 type HelmState struct {
 	BaseChartPath string
 	Context       string           `yaml:"context"`
+	Namespace     string           `yaml:"namespace"`
 	Repositories  []RepositorySpec `yaml:"repositories"`
 	Charts        []ChartSpec      `yaml:"charts"`
 }
@@ -99,6 +100,11 @@ func renderTemplateString(s string) (string, error) {
 	return tplString.String(), nil
 }
 
+func (state *HelmState) applyDefaultsTo(spec ChartSpec) ChartSpec {
+	spec.Namespace = state.Namespace
+	return spec
+}
+
 func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
@@ -137,8 +143,8 @@ func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []st
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for chart := range jobQueue {
-
-				flags, flagsErr := flagsForChart(state.BaseChartPath, &chart)
+				chartWithDefaults := state.applyDefaultsTo(chart)
+				flags, flagsErr := flagsForChart(state.BaseChartPath, &chartWithDefaults)
 				if flagsErr != nil {
 					errQueue <- flagsErr
 					doneQueue <- true
