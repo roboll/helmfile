@@ -12,10 +12,10 @@ import (
 
 	"github.com/roboll/helmfile/helmexec"
 
+	"bytes"
 	yaml "gopkg.in/yaml.v1"
 	"path"
 	"regexp"
-	"bytes"
 )
 
 type HelmState struct {
@@ -31,9 +31,9 @@ type RepositorySpec struct {
 }
 
 type ChartSpec struct {
-	Chart     string `yaml:"chart"`
-	Version   string `yaml:"version"`
-	Verify    bool   `yaml:"verify"`
+	Chart   string `yaml:"chart"`
+	Version string `yaml:"version"`
+	Verify  bool   `yaml:"verify"`
 
 	Name      string     `yaml:"name"`
 	Namespace string     `yaml:"namespace"`
@@ -64,13 +64,11 @@ func ReadFromFile(file string) (*HelmState, error) {
 	return &state, nil
 }
 
-var /* const */
-	stringTemplateFuncMap = template.FuncMap{
-		"env": getEnvVar,
-	}
+var stringTemplateFuncMap = template.FuncMap{
+	"env": getEnvVar,
+}
 
-var /* const */
-	stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
+var stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
 
 func getEnvVar(envVarName string) (string, error) {
 	envVarValue, isSet := os.LookupEnv(envVarName)
@@ -124,33 +122,65 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	return nil
 }
 
-func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []string) []error {
-	var wg sync.WaitGroup
+func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []string, workerLimit int) []error {
 	errs := []error{}
+	jobQueue := make(chan ChartSpec)
+	doneQueue := make(chan bool)
+	errQueue := make(chan error)
 
-	for _, chart := range state.Charts {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, chart ChartSpec) {
-			flags, flagsErr := flagsForChart(state.BaseChartPath, &chart)
-			if flagsErr != nil {
-				errs = append(errs, flagsErr)
-			}
-			for _, value := range additonalValues {
-				valfile, err := filepath.Abs(value)
-				if err != nil {
-					errs = append(errs, err)
-				}
-				flags = append(flags, "--values", valfile)
-			}
-			if len(errs) == 0 {
-				if err := helm.SyncChart(chart.Name, normalizeChart(state.BaseChartPath, chart.Chart), flags...); err != nil {
-					errs = append(errs, err)
-				}
-			}
-			wg.Done()
-		}(&wg, chart)
+	if workerLimit < 1 {
+		workerLimit = len(state.Charts)
 	}
-	wg.Wait()
+
+	for w := 1; w <= workerLimit; w++ {
+		go func() {
+			for chart := range jobQueue {
+
+				flags, flagsErr := flagsForChart(state.BaseChartPath, &chart)
+				if flagsErr != nil {
+					errQueue <- flagsErr
+					doneQueue <- true
+					continue
+				}
+
+				haveValueErr := false
+				for _, value := range additonalValues {
+					valfile, err := filepath.Abs(value)
+					if err != nil {
+						errQueue <- err
+						haveValueErr = true
+					}
+					flags = append(flags, "--values", valfile)
+				}
+
+				if haveValueErr {
+					doneQueue <- true
+					continue
+				}
+
+				if err := helm.SyncChart(chart.Name, normalizeChart(state.BaseChartPath, chart.Chart), flags...); err != nil {
+					errQueue <- err
+				}
+				doneQueue <- true
+			}
+		}()
+	}
+
+	go func() {
+		for _, chart := range state.Charts {
+			jobQueue <- chart
+		}
+		close(jobQueue)
+	}()
+
+	for i := 0; i < len(state.Charts); {
+		select {
+		case err := <-errQueue:
+			errs = append(errs, err)
+		case <-doneQueue:
+			i++
+		}
+	}
 
 	if len(errs) != 0 {
 		return errs
