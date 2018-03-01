@@ -88,6 +88,11 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -101,8 +106,9 @@ func main() {
 				}
 
 				values := c.StringSlice("values")
+				workers := c.Int("concurrency")
 
-				if errs := state.SyncCharts(helm, values); errs != nil && len(errs) > 0 {
+				if errs := state.SyncCharts(helm, values, workers); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -168,6 +174,11 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -183,8 +194,9 @@ func main() {
 				}
 
 				values := c.StringSlice("values")
+				workers := c.Int("concurrency")
 
-				if errs := state.SyncCharts(helm, values); errs != nil && len(errs) > 0 {
+				if errs := state.SyncCharts(helm, values, workers); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}

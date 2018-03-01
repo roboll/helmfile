@@ -63,7 +63,7 @@ func (helm *execer) DiffChart(name, chart string, flags ...string) error {
 }
 
 func (helm *execer) DeleteChart(name string) error {
-	out, err := helm.exec("delete", name)
+	out, err := helm.exec("delete", "--purge", name)
 	if helm.writer != nil {
 		helm.writer.Write(out)
 	}

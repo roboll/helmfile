@@ -18,6 +18,7 @@ dependencies:
 test:
   pre:
     - cd "$WORK" && make check
+    - cd "$WORK" && make pristine
 
   override:
     - cd "$WORK" && make test
