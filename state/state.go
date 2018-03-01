@@ -68,7 +68,9 @@ var stringTemplateFuncMap = template.FuncMap{
 	"env": getEnvVar,
 }
 
-var stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
+func stringTemplate() *template.Template {
+	return template.New("stringTemplate").Funcs(stringTemplateFuncMap)
+}
 
 func getEnvVar(envVarName string) (string, error) {
 	envVarValue, isSet := os.LookupEnv(envVarName)
@@ -82,7 +84,7 @@ func getEnvVar(envVarName string) (string, error) {
 }
 
 func renderTemplateString(s string) (string, error) {
-	var t, parseErr = stringTemplate.Parse(s)
+	var t, parseErr = stringTemplate().Parse(s)
 	if parseErr != nil {
 		return "", parseErr
 	}
