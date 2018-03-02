@@ -21,9 +21,10 @@ import (
 type HelmState struct {
 	BaseChartPath      string
 	Context            string           `yaml:"context"`
+    DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
+    Namespace          string           `yaml:"namespace"`
 	Repositories       []RepositorySpec `yaml:"repositories"`
 	Releases           []ReleaseSpec    `yaml:"releases"`
-	DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
 }
 
 type RepositorySpec struct {
@@ -79,13 +80,13 @@ func readFromYaml(content []byte, file string) (*HelmState, error) {
 	return &state, nil
 }
 
-var /* const */
-stringTemplateFuncMap = template.FuncMap{
+var stringTemplateFuncMap = template.FuncMap{
 	"env": getEnvVar,
 }
 
-var /* const */
-stringTemplate = template.New("stringTemplate").Funcs(stringTemplateFuncMap)
+func stringTemplate() *template.Template {
+	return template.New("stringTemplate").Funcs(stringTemplateFuncMap)
+}
 
 func getEnvVar(envVarName string) (string, error) {
 	envVarValue, isSet := os.LookupEnv(envVarName)
@@ -99,7 +100,7 @@ func getEnvVar(envVarName string) (string, error) {
 }
 
 func renderTemplateString(s string) (string, error) {
-	var t, parseErr = stringTemplate.Parse(s)
+	var t, parseErr = stringTemplate().Parse(s)
 	if parseErr != nil {
 		return "", parseErr
 	}
@@ -112,6 +113,11 @@ func renderTemplateString(s string) (string, error) {
 	}
 
 	return tplString.String(), nil
+}
+
+func (state *HelmState) applyDefaultsTo(spec ChartSpec) ChartSpec {
+	spec.Namespace = state.Namespace
+	return spec
 }
 
 func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
@@ -139,33 +145,65 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	return nil
 }
 
-func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []string) []error {
-	var wg sync.WaitGroup
+func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []string, workerLimit int) []error {
 	errs := []error{}
+	jobQueue := make(chan ReleaseSpec)
+	doneQueue := make(chan bool)
+	errQueue := make(chan error)
 
-	for _, chart := range state.Releases {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, chart ReleaseSpec) {
-			flags, flagsErr := flagsForChart(state.BaseChartPath, &chart)
-			if flagsErr != nil {
-				errs = append(errs, flagsErr)
-			}
-			for _, value := range additonalValues {
-				valfile, err := filepath.Abs(value)
-				if err != nil {
-					errs = append(errs, err)
-				}
-				flags = append(flags, "--values", valfile)
-			}
-			if len(errs) == 0 {
-				if err := helm.SyncChart(chart.Name, normalizeChart(state.BaseChartPath, chart.Chart), flags...); err != nil {
-					errs = append(errs, err)
-				}
-			}
-			wg.Done()
-		}(&wg, chart)
+	if workerLimit < 1 {
+		workerLimit = len(state.Releases)
 	}
-	wg.Wait()
+
+	for w := 1; w <= workerLimit; w++ {
+		go func() {
+			for chart := range jobQueue {
+				chartWithDefaults := state.applyDefaultsTo(chart)
+				flags, flagsErr := flagsForChart(state.BaseChartPath, &chartWithDefaults)
+				if flagsErr != nil {
+					errQueue <- flagsErr
+					doneQueue <- true
+					continue
+				}
+
+				haveValueErr := false
+				for _, value := range additonalValues {
+					valfile, err := filepath.Abs(value)
+					if err != nil {
+						errQueue <- err
+						haveValueErr = true
+					}
+					flags = append(flags, "--values", valfile)
+				}
+
+				if haveValueErr {
+					doneQueue <- true
+					continue
+				}
+
+				if err := helm.SyncChart(chart.Name, normalizeChart(state.BaseChartPath, chart.Chart), flags...); err != nil {
+					errQueue <- err
+				}
+				doneQueue <- true
+			}
+		}()
+	}
+
+	go func() {
+		for _, release := range state.Releases {
+			jobQueue <- release
+		}
+		close(jobQueue)
+	}()
+
+	for i := 0; i < len(state.Releases); {
+		select {
+		case err := <-errQueue:
+			errs = append(errs, err)
+		case <-doneQueue:
+			i++
+		}
+	}
 
 	if len(errs) != 0 {
 		return errs

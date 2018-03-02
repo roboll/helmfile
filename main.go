@@ -39,6 +39,10 @@ func main() {
 			Name:  "kube-context",
 			Usage: "Set kubectl context. Uses current context by default",
 		},
+		cli.StringFlag{
+			Name:  "namespace, n",
+			Usage: "Set namespace. Uses the namespace set in the context by default",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -85,6 +89,11 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -98,8 +107,9 @@ func main() {
 				}
 
 				values := c.StringSlice("values")
+				workers := c.Int("concurrency")
 
-				if errs := state.SyncCharts(helm, values); errs != nil && len(errs) > 0 {
+				if errs := state.SyncCharts(helm, values, workers); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -165,6 +175,11 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -180,8 +195,9 @@ func main() {
 				}
 
 				values := c.StringSlice("values")
+				workers := c.Int("concurrency")
 
-				if errs := state.SyncCharts(helm, values); errs != nil && len(errs) > 0 {
+				if errs := state.SyncCharts(helm, values, workers); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -221,6 +237,7 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	file := c.GlobalString("file")
 	quiet := c.GlobalBool("quiet")
 	kubeContext := c.GlobalString("kube-context")
+	namespace := c.GlobalString("namespace")
 
 	st, err := state.ReadFromFile(file)
 	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("open %s:", DefaultHelmfile)) {
@@ -239,6 +256,13 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 			os.Exit(1)
 		}
 		kubeContext = st.Context
+	}
+	if namespace != "" {
+		if state.Namespace != "" {
+			log.Printf("err: Cannot use option --namespace and set attribute namespace.")
+			os.Exit(1)
+		}
+		state.Namespace = namespace
 	}
 	var writer io.Writer
 	if !quiet {
