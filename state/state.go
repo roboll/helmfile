@@ -13,9 +13,10 @@ import (
 	"github.com/roboll/helmfile/helmexec"
 
 	"bytes"
-	yaml "gopkg.in/yaml.v1"
 	"path"
 	"regexp"
+
+	yaml "gopkg.in/yaml.v1"
 )
 
 type HelmState struct {
@@ -115,7 +116,7 @@ func renderTemplateString(s string) (string, error) {
 	return tplString.String(), nil
 }
 
-func (state *HelmState) applyDefaultsTo(spec ChartSpec) ChartSpec {
+func (state *HelmState) applyDefaultsTo(spec ReleaseSpec) ReleaseSpec {
 	spec.Namespace = state.Namespace
 	return spec
 }
@@ -145,7 +146,7 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	return nil
 }
 
-func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []string, workerLimit int) []error {
+func (state *HelmState) SyncReleases(helm helmexec.Interface, additonalValues []string, workerLimit int) []error {
 	errs := []error{}
 	jobQueue := make(chan ReleaseSpec)
 	doneQueue := make(chan bool)
@@ -157,9 +158,9 @@ func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []st
 
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
-			for chart := range jobQueue {
-				chartWithDefaults := state.applyDefaultsTo(chart)
-				flags, flagsErr := flagsForChart(state.BaseChartPath, &chartWithDefaults)
+			for release := range jobQueue {
+				releaseWithDefaults := state.applyDefaultsTo(release)
+				flags, flagsErr := flagsForRelease(state.BaseChartPath, &releaseWithDefaults)
 				if flagsErr != nil {
 					errQueue <- flagsErr
 					doneQueue <- true
@@ -181,7 +182,7 @@ func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []st
 					continue
 				}
 
-				if err := helm.SyncChart(chart.Name, normalizeChart(state.BaseChartPath, chart.Chart), flags...); err != nil {
+				if err := helm.SyncRelease(release.Name, normalizeChart(state.BaseChartPath, release.Chart), flags...); err != nil {
 					errQueue <- err
 				}
 				doneQueue <- true
@@ -212,16 +213,16 @@ func (state *HelmState) SyncCharts(helm helmexec.Interface, additonalValues []st
 	return nil
 }
 
-func (state *HelmState) DiffCharts(helm helmexec.Interface, additonalValues []string) []error {
+func (state *HelmState) DiffReleases(helm helmexec.Interface, additonalValues []string) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
-	for _, chart := range state.Releases {
+	for _, release := range state.Releases {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, chart ReleaseSpec) {
+		go func(wg *sync.WaitGroup, release ReleaseSpec) {
 			// Plugin command doesn't support explicit namespace
-			chart.Namespace = ""
-			flags, flagsErr := flagsForChart(state.BaseChartPath, &chart)
+			release.Namespace = ""
+			flags, flagsErr := flagsForRelease(state.BaseChartPath, &release)
 			if flagsErr != nil {
 				errs = append(errs, flagsErr)
 			}
@@ -233,12 +234,12 @@ func (state *HelmState) DiffCharts(helm helmexec.Interface, additonalValues []st
 				flags = append(flags, "--values", valfile)
 			}
 			if len(errs) == 0 {
-				if err := helm.DiffChart(chart.Name, normalizeChart(state.BaseChartPath, chart.Chart), flags...); err != nil {
+				if err := helm.DiffRelease(release.Name, normalizeChart(state.BaseChartPath, release.Chart), flags...); err != nil {
 					errs = append(errs, err)
 				}
 			}
 			wg.Done()
-		}(&wg, chart)
+		}(&wg, release)
 	}
 	wg.Wait()
 
@@ -249,18 +250,18 @@ func (state *HelmState) DiffCharts(helm helmexec.Interface, additonalValues []st
 	return nil
 }
 
-func (state *HelmState) DeleteCharts(helm helmexec.Interface) []error {
+func (state *HelmState) DeleteReleases(helm helmexec.Interface) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
-	for _, chart := range state.Releases {
+	for _, release := range state.Releases {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, chart ReleaseSpec) {
-			if err := helm.DeleteChart(chart.Name); err != nil {
+		go func(wg *sync.WaitGroup, release ReleaseSpec) {
+			if err := helm.DeleteRelease(release.Name); err != nil {
 				errs = append(errs, err)
 			}
 			wg.Done()
-		}(&wg, chart)
+		}(&wg, release)
 	}
 	wg.Wait()
 
@@ -283,18 +284,18 @@ func normalizeChart(basePath, chart string) string {
 	return filepath.Join(basePath, chart)
 }
 
-func flagsForChart(basePath string, chart *ReleaseSpec) ([]string, error) {
+func flagsForRelease(basePath string, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
-	if chart.Version != "" {
-		flags = append(flags, "--version", chart.Version)
+	if release.Version != "" {
+		flags = append(flags, "--version", release.Version)
 	}
-	if chart.Verify {
+	if release.Verify {
 		flags = append(flags, "--verify")
 	}
-	if chart.Namespace != "" {
-		flags = append(flags, "--namespace", chart.Namespace)
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
 	}
-	for _, value := range chart.Values {
+	for _, value := range release.Values {
 		valfile := filepath.Join(basePath, value)
 		valfileRendered, err := renderTemplateString(valfile)
 		if err != nil {
@@ -302,9 +303,9 @@ func flagsForChart(basePath string, chart *ReleaseSpec) ([]string, error) {
 		}
 		flags = append(flags, "--values", valfileRendered)
 	}
-	if len(chart.SetValues) > 0 {
+	if len(release.SetValues) > 0 {
 		val := []string{}
-		for _, set := range chart.SetValues {
+		for _, set := range release.SetValues {
 			renderedValue, err := renderTemplateString(set.Value)
 			if err != nil {
 				return nil, err
@@ -318,10 +319,10 @@ func flagsForChart(basePath string, chart *ReleaseSpec) ([]string, error) {
 	 * START 'env' section for backwards compatibility
 	 ***********/
 	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
-	if len(chart.EnvValues) > 0 {
+	if len(release.EnvValues) > 0 {
 		val := []string{}
 		envValErrs := []string{}
-		for _, set := range chart.EnvValues {
+		for _, set := range release.EnvValues {
 			value, isSet := os.LookupEnv(set.Value)
 			if isSet {
 				val = append(val, fmt.Sprintf("%s=%s", set.Name, value))

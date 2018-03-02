@@ -109,7 +109,7 @@ func main() {
 				values := c.StringSlice("values")
 				workers := c.Int("concurrency")
 
-				if errs := state.SyncCharts(helm, values, workers); errs != nil && len(errs) > 0 {
+				if errs := state.SyncReleases(helm, values, workers); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -158,7 +158,7 @@ func main() {
 
 				values := c.StringSlice("values")
 
-				if errs := state.DiffCharts(helm, values); errs != nil && len(errs) > 0 {
+				if errs := state.DiffReleases(helm, values); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -197,7 +197,7 @@ func main() {
 				values := c.StringSlice("values")
 				workers := c.Int("concurrency")
 
-				if errs := state.SyncCharts(helm, values, workers); errs != nil && len(errs) > 0 {
+				if errs := state.SyncReleases(helm, values, workers); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -215,7 +215,7 @@ func main() {
 					return err
 				}
 
-				if errs := state.DeleteCharts(helm); errs != nil && len(errs) > 0 {
+				if errs := state.DeleteReleases(helm); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -246,6 +246,7 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 		if fallbackErr != nil {
 			return nil, nil, fmt.Errorf("failed to read %s and %s: %v", file, DeprecatedHelmfile, err)
 		}
+		log.Printf("warn: charts.yaml is loaded: charts.yaml is deprecated in favor of helmfile.yaml. See https://github.com/roboll/helmfile/issues/25 for more information")
 	}
 	if err != nil {
 		return nil, nil, err
@@ -258,11 +259,11 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 		kubeContext = st.Context
 	}
 	if namespace != "" {
-		if state.Namespace != "" {
+		if st.Namespace != "" {
 			log.Printf("err: Cannot use option --namespace and set attribute namespace.")
 			os.Exit(1)
 		}
-		state.Namespace = namespace
+		st.Namespace = namespace
 	}
 	var writer io.Writer
 	if !quiet {
