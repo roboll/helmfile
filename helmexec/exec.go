@@ -46,7 +46,7 @@ func (helm *execer) UpdateRepo() error {
 	return err
 }
 
-func (helm *execer) SyncChart(name, chart string, flags ...string) error {
+func (helm *execer) SyncRelease(name, chart string, flags ...string) error {
 	out, err := helm.exec(append([]string{"upgrade", "--install", name, chart}, flags...)...)
 	if helm.writer != nil {
 		helm.writer.Write(out)
@@ -54,7 +54,7 @@ func (helm *execer) SyncChart(name, chart string, flags ...string) error {
 	return err
 }
 
-func (helm *execer) DiffChart(name, chart string, flags ...string) error {
+func (helm *execer) DiffRelease(name, chart string, flags ...string) error {
 	out, err := helm.exec(append([]string{"diff", name, chart}, flags...)...)
 	if helm.writer != nil {
 		helm.writer.Write(out)
@@ -62,7 +62,7 @@ func (helm *execer) DiffChart(name, chart string, flags ...string) error {
 	return err
 }
 
-func (helm *execer) DeleteChart(name string) error {
+func (helm *execer) DeleteRelease(name string) error {
 	out, err := helm.exec("delete", "--purge", name)
 	if helm.writer != nil {
 		helm.writer.Write(out)

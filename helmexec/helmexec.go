@@ -6,7 +6,7 @@ type Interface interface {
 	AddRepo(name, repository string) error
 	UpdateRepo() error
 
-	SyncChart(name, chart string, flags ...string) error
-	DiffChart(name, chart string, flags ...string) error
-	DeleteChart(name string) error
+	SyncRelease(name, chart string, flags ...string) error
+	DiffRelease(name, chart string, flags ...string) error
+	DeleteRelease(name string) error
 }

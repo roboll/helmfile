@@ -14,7 +14,7 @@ Helmfile is a declarative spec for deploying helm charts. It lets you...
 
 To avoid upgrades for each iteration of `helm`, the `helmfile` executable delegates to `helm` - as a result, `helm` must be installed.
 
-The default helmfile is `charts.yaml`:
+The default helmfile is `helmfile.yaml`:
 
 ```
 repositories:
@@ -23,11 +23,11 @@ repositories:
 
 context: kube-context					 # kube-context (--kube-context)
 
-charts:
+releases:
   # Published chart example
-  - name: vault                            # helm deployment name
+  - name: vault                            # name of this release
     namespace: vault                       # target namespace
-    chart: roboll/vault-secret-manager     # chart reference (repository)
+    chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     values: [ vault.yaml ]                 # value files (--values)
     set:                                   # values (--set)
       - name: address
@@ -38,9 +38,9 @@ charts:
         value: "{{ env \"PLATFORM_ID\" }}.my-domain.com" # Interpolate environment variable with a fixed string
 
   # Local chart example
-  - name: grafana                            # helm deployment name
+  - name: grafana                            # name of this release
     namespace: another                       # target namespace
-    chart: ../my-charts/grafana              # chart reference (relative path to manifest)
+    chart: ../my-charts/grafana              # the chart being installed to create this release, referenced by relative path to local chart
     values:
     - "../../my-values/grafana/values.yaml"             # Values file (relative path to manifest)
     - "./values/{{ env \"PLATFORM_ENV\" }}/config.yaml" # Values file taken from path with environment variable. $PLATFORM_ENV must be set in the calling environment.
@@ -59,7 +59,7 @@ NAME:
    helmfile -
 
 USAGE:
-   main [global options] command [command options] [arguments...]
+   helmfile [global options] command [command options] [arguments...]
 
 COMMANDS:
      repos   sync repositories from state file (helm repo add && helm repo update)
@@ -69,7 +69,7 @@ COMMANDS:
      delete  delete charts from state file (helm delete)
 
 GLOBAL OPTIONS:
-   --file FILE, -f FILE  load config from FILE (default: "charts.yaml")
+   --file FILE, -f FILE  load config from FILE (default: "helmfile.yaml")
    --quiet, -q           silence output
    --kube-context value  Set kubectl context. Uses current context by default
    --help, -h            show help

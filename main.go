@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	helmfile = "charts.yaml"
+	DefaultHelmfile    = "helmfile.yaml"
+	DeprecatedHelmfile = "charts.yaml"
 )
 
 var Version string
@@ -27,7 +28,7 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "file, f",
-			Value: helmfile,
+			Value: DefaultHelmfile,
 			Usage: "load config from `FILE`",
 		},
 		cli.BoolFlag{
@@ -108,7 +109,7 @@ func main() {
 				values := c.StringSlice("values")
 				workers := c.Int("concurrency")
 
-				if errs := state.SyncCharts(helm, values, workers); errs != nil && len(errs) > 0 {
+				if errs := state.SyncReleases(helm, values, workers); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -157,7 +158,7 @@ func main() {
 
 				values := c.StringSlice("values")
 
-				if errs := state.DiffCharts(helm, values); errs != nil && len(errs) > 0 {
+				if errs := state.DiffReleases(helm, values); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -196,7 +197,7 @@ func main() {
 				values := c.StringSlice("values")
 				workers := c.Int("concurrency")
 
-				if errs := state.SyncCharts(helm, values, workers); errs != nil && len(errs) > 0 {
+				if errs := state.SyncReleases(helm, values, workers); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -214,7 +215,7 @@ func main() {
 					return err
 				}
 
-				if errs := state.DeleteCharts(helm); errs != nil && len(errs) > 0 {
+				if errs := state.DeleteReleases(helm); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
@@ -238,28 +239,36 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
 
-	state, err := state.ReadFromFile(file)
+	st, err := state.ReadFromFile(file)
+	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("open %s:", DefaultHelmfile)) {
+		var fallbackErr error
+		st, fallbackErr = state.ReadFromFile(DeprecatedHelmfile)
+		if fallbackErr != nil {
+			return nil, nil, fmt.Errorf("failed to read %s and %s: %v", file, DeprecatedHelmfile, err)
+		}
+		log.Printf("warn: charts.yaml is loaded: charts.yaml is deprecated in favor of helmfile.yaml. See https://github.com/roboll/helmfile/issues/25 for more information")
+	}
 	if err != nil {
 		return nil, nil, err
 	}
-	if state.Context != "" {
+	if st.Context != "" {
 		if kubeContext != "" {
 			log.Printf("err: Cannot use option --kube-context and set attribute context.")
 			os.Exit(1)
 		}
-		kubeContext = state.Context
+		kubeContext = st.Context
 	}
 	if namespace != "" {
-		if state.Namespace != "" {
+		if st.Namespace != "" {
 			log.Printf("err: Cannot use option --namespace and set attribute namespace.")
 			os.Exit(1)
 		}
-		state.Namespace = namespace
+		st.Namespace = namespace
 	}
 	var writer io.Writer
 	if !quiet {
 		writer = os.Stdout
 	}
 
-	return state, helmexec.NewHelmExec(writer, kubeContext), nil
+	return st, helmexec.NewHelmExec(writer, kubeContext), nil
 }
