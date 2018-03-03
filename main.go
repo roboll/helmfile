@@ -248,9 +248,6 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 		}
 		log.Printf("warn: charts.yaml is loaded: charts.yaml is deprecated in favor of helmfile.yaml. See https://github.com/roboll/helmfile/issues/25 for more information")
 	}
-	if err != nil {
-		return nil, nil, err
-	}
 	if st.Context != "" {
 		if kubeContext != "" {
 			log.Printf("err: Cannot use option --kube-context and set attribute context.")
