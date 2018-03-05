@@ -117,7 +117,9 @@ func renderTemplateString(s string) (string, error) {
 }
 
 func (state *HelmState) applyDefaultsTo(spec ReleaseSpec) ReleaseSpec {
-	spec.Namespace = state.Namespace
+	if state.Namespace != "" {
+		spec.Namespace = state.Namespace
+	}
 	return spec
 }
 
@@ -155,7 +157,6 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additonalValues []
 	if workerLimit < 1 {
 		workerLimit = len(state.Releases)
 	}
-
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for release := range jobQueue {
