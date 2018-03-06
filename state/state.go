@@ -124,19 +124,13 @@ func (state *HelmState) applyDefaultsTo(spec ReleaseSpec) ReleaseSpec {
 }
 
 func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
-	var wg sync.WaitGroup
 	errs := []error{}
 
 	for _, repo := range state.Repositories {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, name, url string) {
-			if err := helm.AddRepo(name, url); err != nil {
-				errs = append(errs, err)
-			}
-			wg.Done()
-		}(&wg, repo.Name, repo.URL)
+		if err := helm.AddRepo(repo.Name, repo.URL); err != nil {
+			errs = append(errs, err)
+		}
 	}
-	wg.Wait()
 
 	if len(errs) != 0 {
 		return errs
