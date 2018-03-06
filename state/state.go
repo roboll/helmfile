@@ -151,7 +151,6 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additonalValues []
 	if workerLimit < 1 {
 		workerLimit = len(state.Releases)
 	}
-
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for release := range jobQueue {
