@@ -29,8 +29,10 @@ type HelmState struct {
 }
 
 type RepositorySpec struct {
-	Name string `yaml:"name"`
-	URL  string `yaml:"url"`
+	Name     string `yaml:"name"`
+	URL      string `yaml:"url"`
+	CertFile string `yaml:"cert-file"`
+	KeyFile  string `yaml:"key-file"`
 }
 
 type ReleaseSpec struct {
@@ -127,7 +129,7 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	errs := []error{}
 
 	for _, repo := range state.Repositories {
-		if err := helm.AddRepo(repo.Name, repo.URL); err != nil {
+		if err := helm.AddRepo(repo.Name, repo.URL, repo.CertFile, repo.KeyFile); err != nil {
 			errs = append(errs, err)
 		}
 	}
