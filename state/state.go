@@ -31,8 +31,8 @@ type HelmState struct {
 type RepositorySpec struct {
 	Name     string `yaml:"name"`
 	URL      string `yaml:"url"`
-	CertFile string `yaml:"cert-file"`
-	KeyFile  string `yaml:"key-file"`
+	CertFile string `yaml:"certFile"`
+	KeyFile  string `yaml:"keyFile"`
 }
 
 type ReleaseSpec struct {
