@@ -20,6 +20,8 @@ The default helmfile is `helmfile.yaml`:
 repositories:
   - name: roboll
     url: http://roboll.io/charts
+    certFile: optional_client_cert
+    keyFile: optional_client_key
 
 context: kube-context					 # kube-context (--kube-context)
 

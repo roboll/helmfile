@@ -3,7 +3,7 @@ package helmexec
 type Interface interface {
 	SetExtraArgs(args ...string)
 
-	AddRepo(name, repository string) error
+	AddRepo(name, repository, certfile, keyfile string) error
 	UpdateRepo() error
 
 	SyncRelease(name, chart string, flags ...string) error
