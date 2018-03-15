@@ -25,7 +25,7 @@ repositories:
 
 context: kube-context					 # kube-context (--kube-context)
 
-releases:
+charts:
   # Published chart example
   - name: vault                            # name of this release
     namespace: vault                       # target namespace
