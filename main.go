@@ -5,7 +5,9 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
@@ -67,13 +69,8 @@ func main() {
 					helm.SetExtraArgs(strings.Split(args, " ")...)
 				}
 
-				if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
-					for _, err := range errs {
-						fmt.Printf("err: %s\n", err.Error())
-					}
-					os.Exit(1)
-				}
-				return nil
+				errs := state.SyncRepos(helm)
+				return clean(state, errs)
 			},
 		},
 		{
@@ -109,13 +106,8 @@ func main() {
 				values := c.StringSlice("values")
 				workers := c.Int("concurrency")
 
-				if errs := state.SyncReleases(helm, values, workers); errs != nil && len(errs) > 0 {
-					for _, err := range errs {
-						fmt.Printf("err: %s\n", err.Error())
-					}
-					os.Exit(1)
-				}
-				return nil
+				errs := state.SyncReleases(helm, values, workers)
+				return clean(state, errs)
 			},
 		},
 		{
@@ -158,13 +150,8 @@ func main() {
 
 				values := c.StringSlice("values")
 
-				if errs := state.DiffReleases(helm, values); errs != nil && len(errs) > 0 {
-					for _, err := range errs {
-						fmt.Printf("err: %s\n", err.Error())
-					}
-					os.Exit(1)
-				}
-				return nil
+				errs := state.DiffReleases(helm, values)
+				return clean(state, errs)
 			},
 		},
 		{
@@ -197,13 +184,8 @@ func main() {
 				values := c.StringSlice("values")
 				workers := c.Int("concurrency")
 
-				if errs := state.SyncReleases(helm, values, workers); errs != nil && len(errs) > 0 {
-					for _, err := range errs {
-						fmt.Printf("err: %s\n", err.Error())
-					}
-					os.Exit(1)
-				}
-				return nil
+				errs := state.SyncReleases(helm, values, workers)
+				return clean(state, errs)
 			},
 		},
 		{
@@ -215,13 +197,8 @@ func main() {
 					return err
 				}
 
-				if errs := state.DeleteReleases(helm); errs != nil && len(errs) > 0 {
-					for _, err := range errs {
-						fmt.Printf("err: %s\n", err.Error())
-					}
-					os.Exit(1)
-				}
-				return nil
+				errs := state.DeleteReleases(helm)
+				return clean(state, errs)
 			},
 		},
 	}
@@ -267,5 +244,33 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 		writer = os.Stdout
 	}
 
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+
+		errs := []error{fmt.Errorf("Recived [%s] to shutdown ", sig)}
+		clean(st, errs)
+	}()
+
 	return st, helmexec.NewHelmExec(writer, kubeContext), nil
+}
+
+func clean(state *state.HelmState, errs []error) error {
+	if errs == nil {
+		errs = []error{}
+	}
+
+	cleanErrs := state.Clean()
+	if cleanErrs != nil {
+		errs = append(errs, cleanErrs...)
+	}
+
+	if errs != nil && len(errs) > 0 {
+		for _, err := range errs {
+			fmt.Printf("err: %s\n", err.Error())
+		}
+		os.Exit(1)
+	}
+	return nil
 }
