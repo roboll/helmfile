@@ -40,7 +40,7 @@ push: image
 	docker push quay.io/roboll/helmfile:${TAG}
 
 tools:
-	go get -u github.com/roboll/ghr github.com/mitchellh/gox
+	go get -u github.com/tcnksm/ghr github.com/mitchellh/gox
 .PHONY: tools
 
 TAG  = $(shell git describe --tags --abbrev=0 HEAD)
