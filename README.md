@@ -31,6 +31,8 @@ releases:
     namespace: vault                       # target namespace
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     values: [ vault.yaml ]                 # value files (--values)
+    secrets:
+      - vault_secret.yaml                  # will attempt to decrypt it using helm-secrets plugin
     set:                                   # values (--set)
       - name: address
         value: https://vault.example.com
@@ -83,10 +85,17 @@ GLOBAL OPTIONS:
 The `helmfile diff` sub-command executes the [helm-diff](https://github.com/databus23/helm-diff) plugin across all of
 the charts/releases defined in the manifest.
 
-Under the covers Helmfile is simply using the `helm diff` plugin, so that needs to be installed prior.  For Helm 2.3+
+To supply the diff functionality Helmfile needs the `helm diff` plugin installed. For Helm 2.3+
 you should be able to simply execute `helm plugin install https://github.com/databus23/helm-diff`. For more details
 please look at their [documentation](https://github.com/databus23/helm-diff#helm-diff-plugin).
 
+### secrets
+
+The `secrets` parameter in a `helmfile.yaml` causes the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin to be executed to decrypt the file.
+
+To supply the secret functionality Helmfile needs the `helm secrets` plugin installed. For Helm 2.3+
+you should be able to simply execute `helm plugin install https://github.com/futuresimple/helm-secrets
+`.
 
 ## Paths Overview
 Using manifest files in conjunction with command line argument can be a bit confusing.  

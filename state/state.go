@@ -45,10 +45,14 @@ type ReleaseSpec struct {
 	Name      string     `yaml:"name"`
 	Namespace string     `yaml:"namespace"`
 	Values    []string   `yaml:"values"`
+	Secrets   []string   `yaml:"secrets"`
 	SetValues []SetValue `yaml:"set"`
 
 	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
 	EnvValues []SetValue `yaml:"env"`
+
+	// generatedValues are values that need cleaned up on exit
+	generatedValues []string
 }
 
 type SetValue struct {
@@ -157,7 +161,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additonalValues []
 		go func() {
 			for release := range jobQueue {
 				releaseWithDefaults := state.applyDefaultsTo(release)
-				flags, flagsErr := flagsForRelease(state.BaseChartPath, &releaseWithDefaults)
+				flags, flagsErr := flagsForRelease(helm, state.BaseChartPath, &releaseWithDefaults)
 				if flagsErr != nil {
 					errQueue <- flagsErr
 					doneQueue <- true
@@ -214,15 +218,17 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additonalValues []
 	var wg sync.WaitGroup
 	errs := []error{}
 
-	for _, release := range state.Releases {
+	for i := 0; i < len(state.Releases); i++ {
+		release := &state.Releases[i]
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, release ReleaseSpec) {
+		go func(wg *sync.WaitGroup, release *ReleaseSpec) {
 			// Plugin command doesn't support explicit namespace
 			release.Namespace = ""
-			flags, flagsErr := flagsForRelease(state.BaseChartPath, &release)
+			flags, flagsErr := flagsForRelease(helm, state.BaseChartPath, release)
 			if flagsErr != nil {
 				errs = append(errs, flagsErr)
 			}
+
 			for _, value := range additonalValues {
 				valfile, err := filepath.Abs(value)
 				if err != nil {
@@ -269,6 +275,26 @@ func (state *HelmState) DeleteReleases(helm helmexec.Interface) []error {
 	return nil
 }
 
+// Clean will remove any generated secrets
+func (state *HelmState) Clean() []error {
+	errs := []error{}
+
+	for _, release := range state.Releases {
+		for _, value := range release.generatedValues {
+			err := os.Remove(value)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+
+	if len(errs) != 0 {
+		return errs
+	}
+
+	return nil
+}
+
 // normalizeChart allows for the distinction between a file path reference and repository references.
 // - Any single (or double character) followed by a `/` will be considered a local file reference and
 // 	 be constructed relative to the `base path`.
@@ -281,7 +307,7 @@ func normalizeChart(basePath, chart string) string {
 	return filepath.Join(basePath, chart)
 }
 
-func flagsForRelease(basePath string, release *ReleaseSpec) ([]string, error) {
+func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
@@ -298,6 +324,21 @@ func flagsForRelease(basePath string, release *ReleaseSpec) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
+		flags = append(flags, "--values", valfileRendered)
+	}
+	for _, value := range release.Secrets {
+		valfile := filepath.Join(basePath, value)
+		path, err := renderTemplateString(valfile)
+		if err != nil {
+			return nil, err
+		}
+
+		valfileRendered, err := helm.DecryptSecret(path)
+		if err != nil {
+			return nil, err
+		}
+
+		release.generatedValues = append(release.generatedValues, valfileRendered)
 		flags = append(flags, "--values", valfileRendered)
 	}
 	if len(release.SetValues) > 0 {
