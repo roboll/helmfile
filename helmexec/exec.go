@@ -59,7 +59,7 @@ func (helm *execer) SyncRelease(name, chart string, flags ...string) error {
 	return err
 }
 
-func (helm *execer) SecretDecrypt(name string) (string, error) {
+func (helm *execer) DecryptSecret(name string) (string, error) {
 	out, err := helm.exec(append([]string{"secrets", "dec", name})...)
 	if helm.writer != nil {
 		helm.writer.Write(out)

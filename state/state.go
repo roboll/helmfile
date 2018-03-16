@@ -51,8 +51,8 @@ type ReleaseSpec struct {
 	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
 	EnvValues []SetValue `yaml:"env"`
 
-	// generatedSecrets are values that need cleaned up on exit
-	generatedSecrets []string
+	// generatedValues are values that need cleaned up on exit
+	generatedValues []string
 }
 
 type SetValue struct {
@@ -280,7 +280,7 @@ func (state *HelmState) Clean() []error {
 	errs := []error{}
 
 	for _, release := range state.Releases {
-		for _, value := range release.generatedSecrets {
+		for _, value := range release.generatedValues {
 			err := os.Remove(value)
 			if err != nil {
 				errs = append(errs, err)
@@ -333,12 +333,12 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 			return nil, err
 		}
 
-		valfileRendered, err := helm.SecretDecrypt(path)
+		valfileRendered, err := helm.DecryptSecret(path)
 		if err != nil {
 			return nil, err
 		}
 
-		release.generatedSecrets = append(release.generatedSecrets, valfileRendered)
+		release.generatedValues = append(release.generatedValues, valfileRendered)
 		flags = append(flags, "--values", valfileRendered)
 	}
 	if len(release.SetValues) > 0 {

@@ -10,5 +10,5 @@ type Interface interface {
 	DiffRelease(name, chart string, flags ...string) error
 	DeleteRelease(name string) error
 
-	SecretDecrypt(name string) (string, error)
+	DecryptSecret(name string) (string, error)
 }
