@@ -1,6 +1,5 @@
 machine:
-  services:
-    - docker
+  services: [ docker ]
   post:
     - mkdir -p download
     - test -e download/$GODIST || curl -o download/$GODIST https://storage.googleapis.com/golang/$GODIST
