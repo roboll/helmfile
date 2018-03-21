@@ -14,9 +14,11 @@ Helmfile is a declarative spec for deploying helm charts. It lets you...
 
 To avoid upgrades for each iteration of `helm`, the `helmfile` executable delegates to `helm` - as a result, `helm` must be installed.
 
+## configuration syntax
+
 The default helmfile is `helmfile.yaml`:
 
-```
+```yaml
 repositories:
   - name: roboll
     url: http://roboll.io/charts
@@ -51,12 +53,39 @@ releases:
 
 ```
 
-## install
+## installation
 
-`go get github.com/roboll/helmfile` or [releases](https://github.com/roboll/helmfile/releases) or [container](https://quay.io/roboll/helmfile)
+- `go get github.com/roboll/helmfile` or
+- download one of [releases](https://github.com/roboll/helmfile/releases) or
+- run as a [container](https://quay.io/roboll/helmfile)
 
+## getting started
 
-## usage
+Let's start with a simple `helmfile` and gradually improve it to fit your use-case!
+
+Suppose the `helmfile.yaml` representing the desired state of your helm releases looks like:
+
+```yaml
+releases:
+- name: prom-norbac-ubuntu
+  namespace: prometheus
+  chart: stable/prometheus
+  set:
+  - name: rbac.create
+    value: false
+```
+
+Sync your Kubernetes cluster state to the desired one by running:
+
+```console
+helmfile sync
+```
+
+Congratulations! You now have your first Prometheus deployment running inside your cluster.
+
+Iterate on the `helmfile.yaml` by referencing the [configuration syntax](#configuration-syntax) and the [cli reference](#cli-reference).
+
+## cli reference
 
 ```
 NAME:
@@ -79,6 +108,12 @@ GLOBAL OPTIONS:
    --help, -h            show help
    --version, -v         print the version
 ```
+
+### sync
+
+The `helmfile sync` sub-command sync your cluster state as desired in your `helmfile`. The default helmfile is `helmfile.yaml`, but any yaml file can be passed by specifying a `--file path/to/your/yaml/file` flag.
+
+Under the covers, Helmfile executes `helm upgrade --install` for each `release` declared in the manifest, by optionally decrypting [secrets](#secrets) to be consumed as helm chart values.
 
 ### diff
 
