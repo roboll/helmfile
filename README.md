@@ -29,6 +29,8 @@ releases:
   # Published chart example
   - name: vault                            # name of this release
     namespace: vault                       # target namespace
+    tags:                                  # Arbitrary key value pairs for filtering releases
+      foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     values: [ vault.yaml ]                 # value files (--values)
     secrets:
@@ -73,11 +75,16 @@ COMMANDS:
      delete  delete charts from state file (helm delete)
 
 GLOBAL OPTIONS:
-   --file FILE, -f FILE  load config from FILE (default: "helmfile.yaml")
-   --quiet, -q           silence output
-   --kube-context value  Set kubectl context. Uses current context by default
-   --help, -h            show help
-   --version, -v         print the version
+   --file FILE, -f FILE         load config from FILE (default: "helmfile.yaml")
+   --quiet, -q                  silence output
+   --namespace value, -n value  Set namespace. Uses the namespace set in the context by default
+   --tags value                 Only run using the releases that match tags. Tags can take the form of foo=bar or foo!=bar.
+                                A release must match all tags in a group in order to be used. Multiple groups can be specified at once.
+                                --tags tier=frontend,tier!=proxy --tags tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
+                                The name of a release can be used as a tag. --tags name=myrelease
+   --kube-context value         Set kubectl context. Uses current context by default
+   --help, -h                   show help
+   --version, -v                print the version
 ```
 
 ### diff
@@ -107,3 +114,11 @@ A few rules to clear up this ambiguity:
 - Relative paths referenced on the command line are relative to the current working directory the user is in
 
 For additional context, take a look at [paths examples](PATHS.md)
+## Tags Overview
+Tags can be used to only use a subset of releases when running helmfile. This is useful for large helmfiles with releases that are logically grouped together.
+
+Tags are simple key value pairs that are an optional field of the release spec. When filtering by tag, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` tag. `tier=fronted` would only match releases with the `tier: frontend` tag.
+
+Multiple tags can be specified using `,` as a separator. A release must match all tags in order to be selected for the final helm command. 
+
+The `tags` parameter can be specified multiple times. Each parameter is resolved independently so a release that matches any parameter will be used. 

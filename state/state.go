@@ -42,11 +42,12 @@ type ReleaseSpec struct {
 	Verify  bool   `yaml:"verify"`
 
 	// Name is the name of this release
-	Name      string     `yaml:"name"`
-	Namespace string     `yaml:"namespace"`
-	Values    []string   `yaml:"values"`
-	Secrets   []string   `yaml:"secrets"`
-	SetValues []SetValue `yaml:"set"`
+	Name      string            `yaml:"name"`
+	Namespace string            `yaml:"namespace"`
+	Tags      map[string]string `yaml:"tags"`
+	Values    []string          `yaml:"values"`
+	Secrets   []string          `yaml:"secrets"`
+	SetValues []SetValue        `yaml:"set"`
 
 	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
 	EnvValues []SetValue `yaml:"env"`
@@ -148,7 +149,7 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	return nil
 }
 
-func (state *HelmState) SyncReleases(helm helmexec.Interface, additonalValues []string, workerLimit int) []error {
+func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
 	errs := []error{}
 	jobQueue := make(chan ReleaseSpec)
 	doneQueue := make(chan bool)
@@ -169,7 +170,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additonalValues []
 				}
 
 				haveValueErr := false
-				for _, value := range additonalValues {
+				for _, value := range additionalValues {
 					valfile, err := filepath.Abs(value)
 					if err != nil {
 						errQueue <- err
@@ -214,7 +215,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additonalValues []
 	return nil
 }
 
-func (state *HelmState) DiffReleases(helm helmexec.Interface, additonalValues []string) []error {
+func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
@@ -229,7 +230,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additonalValues []
 				errs = append(errs, flagsErr)
 			}
 
-			for _, value := range additonalValues {
+			for _, value := range additionalValues {
 				valfile, err := filepath.Abs(value)
 				if err != nil {
 					errs = append(errs, err)
@@ -292,6 +293,39 @@ func (state *HelmState) Clean() []error {
 		return errs
 	}
 
+	return nil
+}
+
+// FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
+func (state *HelmState) FilterReleases(tags []string) error {
+	var filteredReleases []ReleaseSpec
+	for _, tag := range tags {
+		filter, err := ParseTags(tag)
+		if err != nil {
+			return err
+		}
+		for _, release := range state.Releases {
+			// Allow the name of the release to be matched like a tag
+			if release.Tags == nil {
+				release.Tags = map[string]string{}
+			}
+			release.Tags["name"] = release.Name
+			if filter.Match(release) {
+				// Only add a release once
+				present := false
+				for _, r := range filteredReleases {
+					if release.Name == r.Name {
+						present = true
+						break
+					}
+				}
+				if !present {
+					filteredReleases = append(filteredReleases, release)
+				}
+			}
+		}
+	}
+	state.Releases = filteredReleases
 	return nil
 }
 

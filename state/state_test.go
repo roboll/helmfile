@@ -62,6 +62,73 @@ releases:
 	}
 }
 
+func TestReadFromYaml_FilterReleasesOnTags(t *testing.T) {
+	yamlFile := "example/path/to/yaml/file"
+	yamlContent := []byte(`releases:
+- name: myrelease1
+  chart: mychart1
+  tags:
+    tier: frontend
+    foo: bar
+- name: myrelease2
+  chart: mychart2
+  tags:
+    tier: frontend
+- name: myrelease3
+  chart: mychart3
+  tags:
+    tier: backend
+`)
+	cases := []struct {
+		filter  TagFilter
+		results []bool
+	}{
+		{TagFilter{positiveTags: map[string]string{"tier": "frontend"}},
+			[]bool{true, true, false}},
+		{TagFilter{positiveTags: map[string]string{"tier": "frontend", "foo": "bar"}},
+			[]bool{true, false, false}},
+		{TagFilter{negativeTags: map[string]string{"tier": "frontend"}},
+			[]bool{false, false, true}},
+		{TagFilter{positiveTags: map[string]string{"tier": "frontend"}, negativeTags: map[string]string{"foo": "bar"}},
+			[]bool{false, true, false}},
+	}
+	state, err := readFromYaml(yamlContent, yamlFile)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for idx, c := range cases {
+		for idx2, expected := range c.results {
+			if f := c.filter.Match(state.Releases[idx2]); f != expected {
+				t.Errorf("[case: %d][outcome: %d] Unexpected outcome wanted %t, got %t", idx, idx2, expected, f)
+			}
+		}
+	}
+}
+
+func TestTagParsing(t *testing.T) {
+	cases := []struct {
+		tagString      string
+		expectedFilter TagFilter
+		errorExected   bool
+	}{
+		{"foo=bar", TagFilter{positiveTags: map[string]string{"foo": "bar"}, negativeTags: map[string]string{}}, false},
+		{"foo!=bar", TagFilter{positiveTags: map[string]string{}, negativeTags: map[string]string{"foo": "bar"}}, false},
+		{"foo!=bar,baz=bat", TagFilter{positiveTags: map[string]string{"baz": "bat"}, negativeTags: map[string]string{"foo": "bar"}}, false},
+		{"foo", TagFilter{positiveTags: map[string]string{}, negativeTags: map[string]string{}}, true},
+		{"foo!=bar=baz", TagFilter{positiveTags: map[string]string{}, negativeTags: map[string]string{}}, true},
+		{"=bar", TagFilter{positiveTags: map[string]string{}, negativeTags: map[string]string{}}, true},
+	}
+	for idx, c := range cases {
+		filter, err := ParseTags(c.tagString)
+		if err != nil && !c.errorExected {
+			t.Errorf("[%d] Didn't expect an error parsing tags: %s", idx, err)
+		} else if err == nil && c.errorExected {
+			t.Errorf("[%d] Expected %s to result in an error but got none", idx, c.tagString)
+		} else if !reflect.DeepEqual(filter, c.expectedFilter) {
+			t.Errorf("[%d] parsed tag did not result in expected filter: %v", idx, filter)
+		}
+	}
+}
 func TestHelmState_applyDefaultsTo(t *testing.T) {
 	type fields struct {
 		BaseChartPath      string
