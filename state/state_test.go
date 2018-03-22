@@ -62,34 +62,34 @@ releases:
 	}
 }
 
-func TestReadFromYaml_FilterReleasesOnTags(t *testing.T) {
+func TestReadFromYaml_FilterReleasesOnLabels(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`releases:
 - name: myrelease1
   chart: mychart1
-  tags:
+  labels:
     tier: frontend
     foo: bar
 - name: myrelease2
   chart: mychart2
-  tags:
+  labels:
     tier: frontend
 - name: myrelease3
   chart: mychart3
-  tags:
+  labels:
     tier: backend
 `)
 	cases := []struct {
-		filter  TagFilter
+		filter  LabelFilter
 		results []bool
 	}{
-		{TagFilter{positiveTags: map[string]string{"tier": "frontend"}},
+		{LabelFilter{positiveLabels: map[string]string{"tier": "frontend"}},
 			[]bool{true, true, false}},
-		{TagFilter{positiveTags: map[string]string{"tier": "frontend", "foo": "bar"}},
+		{LabelFilter{positiveLabels: map[string]string{"tier": "frontend", "foo": "bar"}},
 			[]bool{true, false, false}},
-		{TagFilter{negativeTags: map[string]string{"tier": "frontend"}},
+		{LabelFilter{negativeLabels: map[string]string{"tier": "frontend"}},
 			[]bool{false, false, true}},
-		{TagFilter{positiveTags: map[string]string{"tier": "frontend"}, negativeTags: map[string]string{"foo": "bar"}},
+		{LabelFilter{positiveLabels: map[string]string{"tier": "frontend"}, negativeLabels: map[string]string{"foo": "bar"}},
 			[]bool{false, true, false}},
 	}
 	state, err := readFromYaml(yamlContent, yamlFile)
@@ -105,27 +105,27 @@ func TestReadFromYaml_FilterReleasesOnTags(t *testing.T) {
 	}
 }
 
-func TestTagParsing(t *testing.T) {
+func TestLabelParsing(t *testing.T) {
 	cases := []struct {
-		tagString      string
-		expectedFilter TagFilter
+		labelString    string
+		expectedFilter LabelFilter
 		errorExected   bool
 	}{
-		{"foo=bar", TagFilter{positiveTags: map[string]string{"foo": "bar"}, negativeTags: map[string]string{}}, false},
-		{"foo!=bar", TagFilter{positiveTags: map[string]string{}, negativeTags: map[string]string{"foo": "bar"}}, false},
-		{"foo!=bar,baz=bat", TagFilter{positiveTags: map[string]string{"baz": "bat"}, negativeTags: map[string]string{"foo": "bar"}}, false},
-		{"foo", TagFilter{positiveTags: map[string]string{}, negativeTags: map[string]string{}}, true},
-		{"foo!=bar=baz", TagFilter{positiveTags: map[string]string{}, negativeTags: map[string]string{}}, true},
-		{"=bar", TagFilter{positiveTags: map[string]string{}, negativeTags: map[string]string{}}, true},
+		{"foo=bar", LabelFilter{positiveLabels: map[string]string{"foo": "bar"}, negativeLabels: map[string]string{}}, false},
+		{"foo!=bar", LabelFilter{positiveLabels: map[string]string{}, negativeLabels: map[string]string{"foo": "bar"}}, false},
+		{"foo!=bar,baz=bat", LabelFilter{positiveLabels: map[string]string{"baz": "bat"}, negativeLabels: map[string]string{"foo": "bar"}}, false},
+		{"foo", LabelFilter{positiveLabels: map[string]string{}, negativeLabels: map[string]string{}}, true},
+		{"foo!=bar=baz", LabelFilter{positiveLabels: map[string]string{}, negativeLabels: map[string]string{}}, true},
+		{"=bar", LabelFilter{positiveLabels: map[string]string{}, negativeLabels: map[string]string{}}, true},
 	}
 	for idx, c := range cases {
-		filter, err := ParseTags(c.tagString)
+		filter, err := ParseLabels(c.labelString)
 		if err != nil && !c.errorExected {
-			t.Errorf("[%d] Didn't expect an error parsing tags: %s", idx, err)
+			t.Errorf("[%d] Didn't expect an error parsing labels: %s", idx, err)
 		} else if err == nil && c.errorExected {
-			t.Errorf("[%d] Expected %s to result in an error but got none", idx, c.tagString)
+			t.Errorf("[%d] Expected %s to result in an error but got none", idx, c.labelString)
 		} else if !reflect.DeepEqual(filter, c.expectedFilter) {
-			t.Errorf("[%d] parsed tag did not result in expected filter: %v", idx, filter)
+			t.Errorf("[%d] parsed label did not result in expected filter: %v", idx, filter)
 		}
 	}
 }

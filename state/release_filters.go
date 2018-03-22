@@ -12,27 +12,27 @@ type ReleaseFilter interface {
 	Match(r ReleaseSpec) bool
 }
 
-// TagFilter matches a release with the given positive tags. Negative tags
+// LabelFilter matches a release with the given positive lables. Negative labels
 // invert the match for cases such as tier!=backend
-type TagFilter struct {
-	positiveTags map[string]string
-	negativeTags map[string]string
+type LabelFilter struct {
+	positiveLabels map[string]string
+	negativeLabels map[string]string
 }
 
-// Match will match a release that has the same tags as the filter
-func (t TagFilter) Match(r ReleaseSpec) bool {
-	if len(t.positiveTags) > 0 {
-		for k, v := range t.positiveTags {
-			if rVal, ok := r.Tags[k]; !ok {
+// Match will match a release that has the same labels as the filter
+func (l LabelFilter) Match(r ReleaseSpec) bool {
+	if len(l.positiveLabels) > 0 {
+		for k, v := range l.positiveLabels {
+			if rVal, ok := r.Labels[k]; !ok {
 				return false
 			} else if rVal != v {
 				return false
 			}
 		}
 	}
-	if len(t.negativeTags) > 0 {
-		for k, v := range t.negativeTags {
-			if rVal, ok := r.Tags[k]; !ok {
+	if len(l.negativeLabels) > 0 {
+		for k, v := range l.negativeLabels {
+			if rVal, ok := r.Labels[k]; !ok {
 				return true
 			} else if rVal == v {
 				return false
@@ -42,23 +42,23 @@ func (t TagFilter) Match(r ReleaseSpec) bool {
 	return true
 }
 
-// ParseTags takes a tag in the form foo=bar,baz!=bat and returns a TagFilter that will match the tags
-func ParseTags(t string) (TagFilter, error) {
-	tf := TagFilter{}
-	tf.positiveTags = map[string]string{}
-	tf.negativeTags = map[string]string{}
+// ParseLabels takes a label in the form foo=bar,baz!=bat and returns a LabelFilter that will match the labels
+func ParseLabels(l string) (LabelFilter, error) {
+	lf := LabelFilter{}
+	lf.positiveLabels = map[string]string{}
+	lf.negativeLabels = map[string]string{}
 	var err error
-	tags := strings.Split(t, ",")
-	for _, tag := range tags {
-		if match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+!=[a-zA-Z0-9_-]+$", tag); match == true { // k!=v case
-			kv := strings.Split(tag, "!=")
-			tf.negativeTags[kv[0]] = kv[1]
-		} else if match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+=[a-zA-Z0-9_-]+$", tag); match == true { // k=v case
-			kv := strings.Split(tag, "=")
-			tf.positiveTags[kv[0]] = kv[1]
+	labels := strings.Split(l, ",")
+	for _, label := range labels {
+		if match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+!=[a-zA-Z0-9_-]+$", label); match == true { // k!=v case
+			kv := strings.Split(label, "!=")
+			lf.negativeLabels[kv[0]] = kv[1]
+		} else if match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+=[a-zA-Z0-9_-]+$", label); match == true { // k=v case
+			kv := strings.Split(label, "=")
+			lf.positiveLabels[kv[0]] = kv[1]
 		} else { // malformed case
-			err = fmt.Errorf("Malformed tag: %s. Expected tag in form k=v or k!=v", tag)
+			err = fmt.Errorf("Malformed label: %s. Expected label in form k=v or k!=v", label)
 		}
 	}
-	return tf, err
+	return lf, err
 }

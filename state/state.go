@@ -44,7 +44,7 @@ type ReleaseSpec struct {
 	// Name is the name of this release
 	Name      string            `yaml:"name"`
 	Namespace string            `yaml:"namespace"`
-	Tags      map[string]string `yaml:"tags"`
+	Labels    map[string]string `yaml:"labels"`
 	Values    []string          `yaml:"values"`
 	Secrets   []string          `yaml:"secrets"`
 	SetValues []SetValue        `yaml:"set"`
@@ -297,33 +297,35 @@ func (state *HelmState) Clean() []error {
 }
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
-func (state *HelmState) FilterReleases(tags []string) error {
+func (state *HelmState) FilterReleases(labels []string) error {
 	var filteredReleases []ReleaseSpec
-	for _, tag := range tags {
-		filter, err := ParseTags(tag)
+	releaseSet := map[string]ReleaseSpec{}
+	filters := []ReleaseFilter{}
+	for _, label := range labels {
+		f, err := ParseLabels(label)
 		if err != nil {
 			return err
 		}
-		for _, release := range state.Releases {
-			// Allow the name of the release to be matched like a tag
-			if release.Tags == nil {
-				release.Tags = map[string]string{}
+		filters = append(filters, f)
+	}
+	for _, r := range state.Releases {
+		if r.Labels == nil {
+			r.Labels = map[string]string{}
+		}
+		// Let the release name be used as a tag
+		r.Labels["name"] = r.Name
+		for _, f := range filters {
+			if r.Labels == nil {
+				r.Labels = map[string]string{}
 			}
-			release.Tags["name"] = release.Name
-			if filter.Match(release) {
-				// Only add a release once
-				present := false
-				for _, r := range filteredReleases {
-					if release.Name == r.Name {
-						present = true
-						break
-					}
-				}
-				if !present {
-					filteredReleases = append(filteredReleases, release)
-				}
+			if f.Match(r) {
+				releaseSet[r.Name] = r
+				continue
 			}
 		}
+	}
+	for _, r := range releaseSet {
+		filteredReleases = append(filteredReleases, r)
 	}
 	state.Releases = filteredReleases
 	return nil
