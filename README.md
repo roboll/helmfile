@@ -78,7 +78,7 @@ GLOBAL OPTIONS:
    --file FILE, -f FILE         load config from FILE (default: "helmfile.yaml")
    --quiet, -q                  silence output
    --namespace value, -n value  Set namespace. Uses the namespace set in the context by default
-   --labels value                 Only run using the releases that match labels. Tags can take the form of foo=bar or foo!=bar.
+   --selector,l value           Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
                                 A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                 --labels tier=frontend,tier!=proxy --labels tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
                                 The name of a release can be used as a label. --labels name=myrelease
@@ -115,12 +115,12 @@ A few rules to clear up this ambiguity:
 
 For additional context, take a look at [paths examples](PATHS.md)
 ## Labels Overview
-Labels can be used to only use a subset of releases when running helmfile. This is useful for large helmfiles with releases that are logically grouped together.
+A selector can be used to only target a subset of releases when running helmfile. This is useful for large helmfiles with releases that are logically grouped together.
 
-Labels are simple key value pairs that are an optional field of the release spec. When filtering by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
+Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
 
-Multiple labels can be specified using `,` as a separator. A release must match all labels in order to be selected for the final helm command. 
+Multiple labels can be specified using `,` as a separator. A release must match all selectors in order to be selected for the final helm command. 
 
-The `labels` parameter can be specified multiple times. Each parameter is resolved independently so a release that matches any parameter will be used. 
+The `selector` parameter can be specified multiple times. Each parameter is resolved independently so a release that matches any parameter will be used. 
 
 `--selector tier=frontend --selector tier=backend` will select all the charts
