@@ -79,9 +79,9 @@ GLOBAL OPTIONS:
    --quiet, -q                  silence output
    --namespace value, -n value  Set namespace. Uses the namespace set in the context by default
    --selector,l value           Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
-                                A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
-                                --labels tier=frontend,tier!=proxy --labels tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
-                                The name of a release can be used as a label. --labels name=myrelease
+	                              A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
+	                              --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
+	                              The name of a release can be used as a label. --selector name=myrelease
    --kube-context value         Set kubectl context. Uses current context by default
    --help, -h                   show help
    --version, -v                print the version
