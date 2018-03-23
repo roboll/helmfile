@@ -31,6 +31,8 @@ releases:
   # Published chart example
   - name: vault                            # name of this release
     namespace: vault                       # target namespace
+    labels:                                  # Arbitrary key value pairs for filtering releases
+      foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     values: [ vault.yaml ]                 # value files (--values)
     secrets:
@@ -102,11 +104,16 @@ COMMANDS:
      delete  delete charts from state file (helm delete)
 
 GLOBAL OPTIONS:
-   --file FILE, -f FILE  load config from FILE (default: "helmfile.yaml")
-   --quiet, -q           silence output
-   --kube-context value  Set kubectl context. Uses current context by default
-   --help, -h            show help
-   --version, -v         print the version
+   --file FILE, -f FILE         load config from FILE (default: "helmfile.yaml")
+   --quiet, -q                  silence output
+   --namespace value, -n value  Set namespace. Uses the namespace set in the context by default
+   --selector,l value           Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
+	                              A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
+	                              --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
+	                              The name of a release can be used as a label. --selector name=myrelease
+   --kube-context value         Set kubectl context. Uses current context by default
+   --help, -h                   show help
+   --version, -v                print the version
 ```
 
 ### sync
@@ -142,3 +149,13 @@ A few rules to clear up this ambiguity:
 - Relative paths referenced on the command line are relative to the current working directory the user is in
 
 For additional context, take a look at [paths examples](PATHS.md)
+## Labels Overview
+A selector can be used to only target a subset of releases when running helmfile. This is useful for large helmfiles with releases that are logically grouped together.
+
+Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
+
+Multiple labels can be specified using `,` as a separator. A release must match all selectors in order to be selected for the final helm command. 
+
+The `selector` parameter can be specified multiple times. Each parameter is resolved independently so a release that matches any parameter will be used. 
+
+`--selector tier=frontend --selector tier=backend` will select all the charts

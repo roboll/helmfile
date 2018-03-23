@@ -45,6 +45,13 @@ func main() {
 			Name:  "namespace, n",
 			Usage: "Set namespace. Uses the namespace set in the context by default",
 		},
+		cli.StringSliceFlag{
+			Name: "selector, l",
+			Usage: `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
+	A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
+	--selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
+	The name of a release can be used as a label. --selector name=myrelease`,
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -215,6 +222,7 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	quiet := c.GlobalBool("quiet")
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
+	labels := c.GlobalStringSlice("selector")
 
 	st, err := state.ReadFromFile(file)
 	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("open %s:", DefaultHelmfile)) {
@@ -239,6 +247,13 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 		}
 		st.Namespace = namespace
 	}
+	if len(labels) > 0 {
+		err = st.FilterReleases(labels)
+		if err != nil {
+			log.Print(err)
+			os.Exit(1)
+		}
+	}
 	var writer io.Writer
 	if !quiet {
 		writer = os.Stdout
@@ -249,7 +264,7 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	go func() {
 		sig := <-sigs
 
-		errs := []error{fmt.Errorf("Recived [%s] to shutdown ", sig)}
+		errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
 		clean(st, errs)
 	}()
 
