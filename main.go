@@ -174,6 +174,11 @@ func main() {
 					Value: 0,
 					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
 				},
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm exec",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -190,6 +195,11 @@ func main() {
 
 				values := c.StringSlice("values")
 				workers := c.Int("concurrency")
+
+				args := c.String("args")
+				if len(args) > 0 {
+					helm.SetExtraArgs(strings.Split(args, " ")...)
+				}
 
 				errs := state.SyncReleases(helm, values, workers)
 				return clean(state, errs)
