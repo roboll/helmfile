@@ -155,6 +155,16 @@ func Test_DeleteRelease(t *testing.T) {
 	}
 }
 
+func Test_ReleaseStatus(t *testing.T) {
+	var buffer bytes.Buffer
+	helm := MockExecer(&buffer, "dev")
+	helm.ReleaseStatus("myRelease")
+	expected := "exec: helm status myRelease --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.ReleaseStatus()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
 func Test_exec(t *testing.T) {
 	var buffer bytes.Buffer
 	helm := MockExecer(&buffer, "")

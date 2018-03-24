@@ -219,6 +219,38 @@ func main() {
 			},
 		},
 		{
+			Name:  "status",
+			Usage: "retrieve status of releases in state file",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm exec",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				state, helm, err := before(c)
+				if err != nil {
+					return err
+				}
+
+				workers := c.Int("concurrency")
+
+				args := c.String("args")
+				if len(args) > 0 {
+					helm.SetExtraArgs(strings.Split(args, " ")...)
+				}
+
+				errs := state.ReleaseStatuses(helm, workers)
+				return clean(state, errs)
+			},
+		},
+		{
 			Name:  "delete",
 			Usage: "delete charts from state file (helm delete)",
 			Action: func(c *cli.Context) error {
