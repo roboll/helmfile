@@ -11,7 +11,7 @@ import (
 
 type MockRunner struct {
 	output []byte
-	err error
+	err    error
 }
 
 func (mock *MockRunner) Execute(cmd string, args []string) ([]byte, error) {

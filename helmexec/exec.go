@@ -11,7 +11,7 @@ const (
 )
 
 type execer struct {
-	runner		Runner
+	runner      Runner
 	writer      io.Writer
 	kubeContext string
 	extra       []string
@@ -21,7 +21,7 @@ func NewHelmExec(writer io.Writer, kubeContext string) Interface {
 	return &execer{
 		writer:      writer,
 		kubeContext: kubeContext,
-		runner:	     new(CliRunner),
+		runner:      new(CliRunner),
 	}
 }
 
