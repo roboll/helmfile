@@ -1,5 +1,7 @@
 package helmexec
 
+import "io"
+
 type Interface interface {
 	SetExtraArgs(args ...string)
 
@@ -11,4 +13,11 @@ type Interface interface {
 	DeleteRelease(name string) error
 
 	DecryptSecret(name string) (string, error)
+
+	// unit testing
+	exec(args ...string) ([]byte, error)
+	setRunner(runner Runner)
+	getExtra() []string
+	getKubeContent() string
+	getWriter() io.Writer
 }

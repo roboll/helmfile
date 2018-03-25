@@ -3,9 +3,6 @@ package helmexec
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -14,6 +11,7 @@ const (
 )
 
 type execer struct {
+	runner		Runner
 	writer      io.Writer
 	kubeContext string
 	extra       []string
@@ -23,6 +21,7 @@ func NewHelmExec(writer io.Writer, kubeContext string) Interface {
 	return &execer{
 		writer:      writer,
 		kubeContext: kubeContext,
+		runner:		 new(CliRunner),
 	}
 }
 
@@ -84,12 +83,6 @@ func (helm *execer) DeleteRelease(name string) error {
 }
 
 func (helm *execer) exec(args ...string) ([]byte, error) {
-	dir, err := ioutil.TempDir("", "helmfile-exec")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(dir)
-
 	cmdargs := args
 	if len(helm.extra) > 0 {
 		cmdargs = append(cmdargs, helm.extra...)
@@ -100,8 +93,19 @@ func (helm *execer) exec(args ...string) ([]byte, error) {
 	if helm.writer != nil {
 		helm.writer.Write([]byte(fmt.Sprintf("exec: helm %s\n", strings.Join(cmdargs, " "))))
 	}
+	return helm.runner.Execute(command, cmdargs)
+}
 
-	cmd := exec.Command(command, cmdargs...)
-	cmd.Dir = dir
-	return cmd.CombinedOutput()
+// for unit testing
+func (helm *execer) setRunner(runner Runner) {
+	helm.runner = runner
+}
+func (helm *execer) getExtra() []string {
+	return helm.extra
+}
+func (helm *execer) getKubeContent() string {
+	return helm.kubeContext
+}
+func (helm *execer) getWriter() io.Writer {
+	return helm.writer
 }
