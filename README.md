@@ -34,6 +34,7 @@ releases:
     labels:                                  # Arbitrary key value pairs for filtering releases
       foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
+    version: ~1.24.1                       # the semver of the chart. range constraint is supported
     values: [ vault.yaml ]                 # value files (--values)
     secrets:
       - vault_secret.yaml                  # will attempt to decrypt it using helm-secrets plugin
