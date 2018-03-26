@@ -98,7 +98,7 @@ USAGE:
 
 COMMANDS:
      repos   sync repositories from state file (helm repo add && helm repo update)
-     charts  sync charts from state file (helm repo upgrade --install)
+     charts  sync charts from state file (helm upgrade --install)
      diff    diff charts from state file against env (helm diff)
      sync    sync all resources from state file (repos && charts)
      delete  delete charts from state file (helm delete)

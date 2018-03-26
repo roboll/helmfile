@@ -82,7 +82,7 @@ func main() {
 		},
 		{
 			Name:  "charts",
-			Usage: "sync charts from state file (helm repo upgrade --install)",
+			Usage: "sync charts from state file (helm upgrade --install)",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "args",
