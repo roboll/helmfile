@@ -15,9 +15,9 @@ type Runner interface {
 	Execute(cmd string, args []string) ([]byte, error)
 }
 
-type CliRunner struct{}
+type ShellRunner struct{}
 
-func (cli CliRunner) Execute(cmd string, args []string) ([]byte, error) {
+func (shell ShellRunner) Execute(cmd string, args []string) ([]byte, error) {
 	dir, err := ioutil.TempDir("", tmpPrefix+cmd+tmpSuffix)
 	if err != nil {
 		return nil, err

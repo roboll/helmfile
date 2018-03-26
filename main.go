@@ -278,7 +278,7 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 		clean(st, errs)
 	}()
 
-	return st, helmexec.NewHelmExec(writer, kubeContext), nil
+	return st, helmexec.New(writer, kubeContext), nil
 }
 
 func clean(state *state.HelmState, errs []error) error {

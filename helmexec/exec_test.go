@@ -9,57 +9,56 @@ import (
 
 // Mocking the command-line runner
 
-type MockRunner struct {
+type mockRunner struct {
 	output []byte
 	err    error
 }
 
-func (mock *MockRunner) Execute(cmd string, args []string) ([]byte, error) {
+func (mock *mockRunner) Execute(cmd string, args []string) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func NewMockExec(writer io.Writer, kubeContext string) Interface {
-	nhe := NewHelmExec(writer, kubeContext)
-	runner := &MockRunner{}
-	nhe.setRunner(runner)
-	return nhe
+func MockExecer(writer io.Writer, kubeContext string) *execer {
+	execer := New(writer, kubeContext)
+	execer.runner = &mockRunner{}
+	return execer
 }
 
 // Test methods
 
 func TestNewHelmExec(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
-	helm := NewHelmExec(buffer, "dev")
-	if helm.getKubeContent() != "dev" {
-		t.Error("helmexec.NewHelmExec() - kubeContext")
+	helm := New(buffer, "dev")
+	if helm.kubeContext != "dev" {
+		t.Error("helmexec.New() - kubeContext")
 	}
 	if buffer.String() != "something" {
-		t.Error("helmexec.NewHelmExec() - changed buffer")
+		t.Error("helmexec.New() - changed buffer")
 	}
-	if len(helm.getExtra()) != 0 {
-		t.Error("helmexec.NewHelmExec() - extra args not empty")
+	if len(helm.extra) != 0 {
+		t.Error("helmexec.New() - extra args not empty")
 	}
 }
 
 func Test_SetExtraArgs(t *testing.T) {
-	helm := NewHelmExec(new(bytes.Buffer), "dev")
+	helm := New(new(bytes.Buffer), "dev")
 	helm.SetExtraArgs()
-	if len(helm.getExtra()) != 0 {
+	if len(helm.extra) != 0 {
 		t.Error("helmexec.SetExtraArgs() - passing no arguments should not change extra field")
 	}
 	helm.SetExtraArgs("foo")
-	if !reflect.DeepEqual(helm.getExtra(), []string{"foo"}) {
+	if !reflect.DeepEqual(helm.extra, []string{"foo"}) {
 		t.Error("helmexec.SetExtraArgs() - one extra argument missing")
 	}
 	helm.SetExtraArgs("alpha", "beta")
-	if !reflect.DeepEqual(helm.getExtra(), []string{"alpha", "beta"}) {
+	if !reflect.DeepEqual(helm.extra, []string{"alpha", "beta"}) {
 		t.Error("helmexec.SetExtraArgs() - two extra arguments missing (overwriting the previous value)")
 	}
 }
 
 func Test_AddRepo(t *testing.T) {
 	var buffer bytes.Buffer
-	helm := NewMockExec(&buffer, "dev")
+	helm := MockExecer(&buffer, "dev")
 	helm.AddRepo("myRepo", "https://repo.example.com/", "cert.pem", "key.pem")
 	expected := "exec: helm repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem --kube-context dev\n"
 	if buffer.String() != expected {
@@ -76,7 +75,7 @@ func Test_AddRepo(t *testing.T) {
 
 func Test_UpdateRepo(t *testing.T) {
 	var buffer bytes.Buffer
-	helm := NewMockExec(&buffer, "dev")
+	helm := MockExecer(&buffer, "dev")
 	helm.UpdateRepo()
 	expected := "exec: helm repo update --kube-context dev\n"
 	if buffer.String() != expected {
@@ -86,7 +85,7 @@ func Test_UpdateRepo(t *testing.T) {
 
 func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
-	helm := NewMockExec(&buffer, "dev")
+	helm := MockExecer(&buffer, "dev")
 	helm.SyncRelease("release", "chart", "--timeout 10", "--wait")
 	expected := "exec: helm upgrade --install release chart --timeout 10 --wait --kube-context dev\n"
 	if buffer.String() != expected {
@@ -103,7 +102,7 @@ func Test_SyncRelease(t *testing.T) {
 
 func Test_DecryptSecret(t *testing.T) {
 	var buffer bytes.Buffer
-	helm := NewMockExec(&buffer, "dev")
+	helm := MockExecer(&buffer, "dev")
 	helm.DecryptSecret("secretName")
 	expected := "exec: helm secrets dec secretName --kube-context dev\n"
 	if buffer.String() != expected {
@@ -113,7 +112,7 @@ func Test_DecryptSecret(t *testing.T) {
 
 func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
-	helm := NewMockExec(&buffer, "dev")
+	helm := MockExecer(&buffer, "dev")
 	helm.DiffRelease("release", "chart", "--timeout 10", "--wait")
 	expected := "exec: helm diff release chart --timeout 10 --wait --kube-context dev\n"
 	if buffer.String() != expected {
@@ -130,7 +129,7 @@ func Test_DiffRelease(t *testing.T) {
 
 func Test_DeleteRelease(t *testing.T) {
 	var buffer bytes.Buffer
-	helm := NewMockExec(&buffer, "dev")
+	helm := MockExecer(&buffer, "dev")
 	helm.DeleteRelease("release")
 	expected := "exec: helm delete --purge release --kube-context dev\n"
 	if buffer.String() != expected {
@@ -140,21 +139,21 @@ func Test_DeleteRelease(t *testing.T) {
 
 func Test_exec(t *testing.T) {
 	var buffer bytes.Buffer
-	helm := NewMockExec(&buffer, "")
+	helm := MockExecer(&buffer, "")
 	helm.exec("version")
 	expected := "exec: helm version\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
-	helm = NewMockExec(nil, "dev")
+	helm = MockExecer(nil, "dev")
 	ret, _ := helm.exec("diff")
 	if len(ret) != 0 {
 		t.Error("helmexec.exec() - expected empty return value")
 	}
 
 	buffer.Reset()
-	helm = NewMockExec(&buffer, "dev")
+	helm = MockExecer(&buffer, "dev")
 	helm.exec("diff", "release", "chart", "--timeout 10", "--wait")
 	expected = "exec: helm diff release chart --timeout 10 --wait --kube-context dev\n"
 	if buffer.String() != expected {
