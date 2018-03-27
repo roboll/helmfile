@@ -36,49 +36,37 @@ func (helm *execer) AddRepo(name, repository, certfile, keyfile string) error {
 		args = append(args, "--cert-file", certfile, "--key-file", keyfile)
 	}
 	out, err := helm.exec(args...)
-	if helm.writer != nil {
-		helm.writer.Write(out)
-	}
+	helm.write(out)
 	return err
 }
 
 func (helm *execer) UpdateRepo() error {
 	out, err := helm.exec("repo", "update")
-	if helm.writer != nil {
-		helm.writer.Write(out)
-	}
+	helm.write(out)
 	return err
 }
 
 func (helm *execer) SyncRelease(name, chart string, flags ...string) error {
 	out, err := helm.exec(append([]string{"upgrade", "--install", name, chart}, flags...)...)
-	if helm.writer != nil {
-		helm.writer.Write(out)
-	}
+	helm.write(out)
 	return err
 }
 
 func (helm *execer) DecryptSecret(name string) (string, error) {
 	out, err := helm.exec(append([]string{"secrets", "dec", name})...)
-	if helm.writer != nil {
-		helm.writer.Write(out)
-	}
+	helm.write(out)
 	return name + ".dec", err
 }
 
 func (helm *execer) DiffRelease(name, chart string, flags ...string) error {
 	out, err := helm.exec(append([]string{"diff", name, chart}, flags...)...)
-	if helm.writer != nil {
-		helm.writer.Write(out)
-	}
+	helm.write(out)
 	return err
 }
 
 func (helm *execer) DeleteRelease(name string) error {
 	out, err := helm.exec("delete", "--purge", name)
-	if helm.writer != nil {
-		helm.writer.Write(out)
-	}
+	helm.write(out)
 	return err
 }
 
@@ -90,8 +78,12 @@ func (helm *execer) exec(args ...string) ([]byte, error) {
 	if helm.kubeContext != "" {
 		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
 	}
-	if helm.writer != nil {
-		helm.writer.Write([]byte(fmt.Sprintf("exec: helm %s\n", strings.Join(cmdargs, " "))))
-	}
+	helm.write([]byte(fmt.Sprintf("exec: helm %s\n", strings.Join(cmdargs, " "))))
 	return helm.runner.Execute(command, cmdargs)
+}
+
+func (helm *execer) write(out []byte) {
+	if helm.writer != nil {
+		helm.writer.Write(out)
+	}
 }
