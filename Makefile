@@ -36,6 +36,9 @@ release: pristine cross
 image: cross
 	docker build -t quay.io/roboll/helmfile:${TAG} .
 
+run: image
+	docker run --rm -it -t quay.io/roboll/helmfile:${TAG} sh
+
 push: image
 	docker push quay.io/roboll/helmfile:${TAG}
 
