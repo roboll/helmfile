@@ -163,7 +163,7 @@ func main() {
 		},
 		{
 			Name:  "sync",
-			Usage: "sync all resources from state file (repos && charts)",
+			Usage: "sync all resources from state file (repos, charts and local chart deps)",
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "values",
@@ -193,13 +193,20 @@ func main() {
 					os.Exit(1)
 				}
 
-				values := c.StringSlice("values")
-				workers := c.Int("concurrency")
-
 				args := c.String("args")
 				if len(args) > 0 {
 					helm.SetExtraArgs(strings.Split(args, " ")...)
 				}
+
+				if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
+					for _, err := range errs {
+						fmt.Printf("err: %s\n", err.Error())
+					}
+					os.Exit(1)
+				}
+
+				values := c.StringSlice("values")
+				workers := c.Int("concurrency")
 
 				errs := state.SyncReleases(helm, values, workers)
 				return clean(state, errs)

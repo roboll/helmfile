@@ -100,6 +100,24 @@ func Test_SyncRelease(t *testing.T) {
 	}
 }
 
+func Test_UpdateDeps(t *testing.T) {
+	var buffer bytes.Buffer
+	helm := MockExecer(&buffer, "dev")
+	helm.UpdateDeps("./chart/foo")
+	expected := "exec: helm dependency update ./chart/foo --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	helm.SetExtraArgs("--verify")
+	helm.UpdateDeps("./chart/foo")
+	expected = "exec: helm dependency update ./chart/foo --verify --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
 func Test_DecryptSecret(t *testing.T) {
 	var buffer bytes.Buffer
 	helm := MockExecer(&buffer, "dev")

@@ -46,6 +46,12 @@ func (helm *execer) UpdateRepo() error {
 	return err
 }
 
+func (helm *execer) UpdateDeps(chart string) error {
+	out, err := helm.exec("dependency", "update", chart)
+	helm.write(out)
+	return err
+}
+
 func (helm *execer) SyncRelease(name, chart string, flags ...string) error {
 	out, err := helm.exec(append([]string{"upgrade", "--install", name, chart}, flags...)...)
 	helm.write(out)

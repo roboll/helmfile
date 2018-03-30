@@ -101,7 +101,7 @@ COMMANDS:
      repos   sync repositories from state file (helm repo add && helm repo update)
      charts  sync charts from state file (helm upgrade --install)
      diff    diff charts from state file against env (helm diff)
-     sync    sync all resources from state file (repos && charts)
+     sync    sync all resources from state file (repos, charts and local chart deps)
      delete  delete charts from state file (helm delete)
 
 GLOBAL OPTIONS:
@@ -119,9 +119,10 @@ GLOBAL OPTIONS:
 
 ### sync
 
-The `helmfile sync` sub-command sync your cluster state as desired in your `helmfile`. The default helmfile is `helmfile.yaml`, but any yaml file can be passed by specifying a `--file path/to/your/yaml/file` flag.
+The `helmfile sync` sub-command sync your cluster state as described in your `helmfile`. The default helmfile is `helmfile.yaml`, but any yaml file can be passed by specifying a `--file path/to/your/yaml/file` flag.
 
-Under the covers, Helmfile executes `helm upgrade --install` for each `release` declared in the manifest, by optionally decrypting [secrets](#secrets) to be consumed as helm chart values.
+Under the covers, Helmfile executes `helm upgrade --install` for each `release` declared in the manifest, by optionally decrypting [secrets](#secrets) to be consumed as helm chart values. It also updates specified chart repositories and updates the
+dependencies of any referenced local charts.
 
 ### diff
 
