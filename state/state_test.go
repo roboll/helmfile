@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -336,7 +335,6 @@ type mockHelmExec struct {
 }
 
 func (helm *mockHelmExec) UpdateDeps(chart string) error {
-	fmt.Println(chart)
 	if strings.Contains(chart, "error") {
 		return errors.New("error")
 	}
