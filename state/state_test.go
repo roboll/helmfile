@@ -1,9 +1,9 @@
 package state
 
 import (
+	"os"
 	"reflect"
 	"testing"
-	"os"
 )
 
 func TestReadFromYaml(t *testing.T) {
@@ -239,7 +239,7 @@ func Test_renderTemplateString(t *testing.T) {
 					"HF_TEST_VAR": "content",
 				},
 			},
-			want: "content",
+			want:    "content",
 			wantErr: false,
 		},
 		{
@@ -248,10 +248,10 @@ func Test_renderTemplateString(t *testing.T) {
 				s: "{{ env \"HF_TEST_ALPHA\" }}{{ env \"HF_TEST_BETA\" }}",
 				envs: map[string]string{
 					"HF_TEST_ALPHA": "first",
-					"HF_TEST_BETA": "second",
+					"HF_TEST_BETA":  "second",
 				},
 			},
-			want: "firstsecond",
+			want:    "firstsecond",
 			wantErr: false,
 		},
 		{
@@ -262,7 +262,7 @@ func Test_renderTemplateString(t *testing.T) {
 					"HF_TEST_ALPHA": "first",
 				},
 			},
-			want: "first",
+			want:    "first",
 			wantErr: false,
 		},
 		{
@@ -273,7 +273,7 @@ func Test_renderTemplateString(t *testing.T) {
 					"HF_TEST_ALPHA": "abcdefg",
 				},
 			},
-			want: "7",
+			want:    "7",
 			wantErr: false,
 		},
 		{
@@ -312,6 +312,105 @@ func Test_renderTemplateString(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("renderTemplateString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// mocking helmexec.Interface
+
+type mockHelmExec struct {
+	charts []string
+	repo   []string
+}
+
+func (helm *mockHelmExec) SetExtraArgs(args ...string) {
+	return
+}
+func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile string) error {
+	helm.repo = []string{name, repository, certfile, keyfile}
+	return nil
+}
+func (helm *mockHelmExec) UpdateRepo() error {
+	return nil
+}
+func (helm *mockHelmExec) SyncRelease(name, chart string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) DiffRelease(name, chart string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) DeleteRelease(name string) error {
+	return nil
+}
+func (helm *mockHelmExec) DecryptSecret(name string) (string, error) {
+	return "", nil
+}
+
+func TestHelmState_SyncRepos(t *testing.T) {
+	tests := []struct {
+		name  string
+		repos []RepositorySpec
+		helm  *mockHelmExec
+		envs  map[string]string
+		want  []string
+	}{
+		{
+			name: "normal repository",
+			repos: []RepositorySpec{
+				{
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "",
+					KeyFile:  "",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []string{"name", "http://example.com/", "", ""},
+		},
+		{
+			name: "repository with cert and key",
+			repos: []RepositorySpec{
+				{
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "certfile",
+					KeyFile:  "keyfile",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []string{"name", "http://example.com/", "certfile", "keyfile"},
+		},
+		{
+			name: "repository with env var url",
+			repos: []RepositorySpec{
+				{
+					Name:     "name",
+					URL:      "https://{{ env \"HF_TEST_GITHUB_TOKEN\"}}@raw.githubusercontent.com/u/r/b/",
+					CertFile: "certfile",
+					KeyFile:  "keyfile",
+				},
+			},
+			envs: map[string]string{
+				"HF_TEST_GITHUB_TOKEN": "token",
+			},
+			helm: &mockHelmExec{},
+			want: []string{"name", "https://token@raw.githubusercontent.com/u/r/b/", "certfile", "keyfile"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.envs {
+				err := os.Setenv(k, v)
+				if err != nil {
+					t.Error("HelmState.SyncRepos() could not set env var for testing")
+				}
+			}
+			state := &HelmState{
+				Repositories: tt.repos,
+			}
+			if got := state.SyncRepos(tt.helm); !reflect.DeepEqual(tt.helm.repo, tt.want) {
+				t.Errorf("HelmState.SyncRepos() = %v, want %v", got, tt.want)
 			}
 		})
 	}

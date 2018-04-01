@@ -134,7 +134,12 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	errs := []error{}
 
 	for _, repo := range state.Repositories {
-		if err := helm.AddRepo(repo.Name, repo.URL, repo.CertFile, repo.KeyFile); err != nil {
+		url, err := renderTemplateString(repo.URL)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if err := helm.AddRepo(repo.Name, url, repo.CertFile, repo.KeyFile); err != nil {
 			errs = append(errs, err)
 		}
 	}
