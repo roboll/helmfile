@@ -1,6 +1,7 @@
 package state
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
@@ -222,6 +223,103 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	}
 }
 
+func Test_renderTemplateString(t *testing.T) {
+	type args struct {
+		s    string
+		envs map[string]string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "simple replacement",
+			args: args{
+				s: "{{ env \"HF_TEST_VAR\" }}",
+				envs: map[string]string{
+					"HF_TEST_VAR": "content",
+				},
+			},
+			want:    "content",
+			wantErr: false,
+		},
+		{
+			name: "two replacements",
+			args: args{
+				s: "{{ env \"HF_TEST_ALPHA\" }}{{ env \"HF_TEST_BETA\" }}",
+				envs: map[string]string{
+					"HF_TEST_ALPHA": "first",
+					"HF_TEST_BETA":  "second",
+				},
+			},
+			want:    "firstsecond",
+			wantErr: false,
+		},
+		{
+			name: "replacement and comment",
+			args: args{
+				s: "{{ env \"HF_TEST_ALPHA\" }}{{/* comment */}}",
+				envs: map[string]string{
+					"HF_TEST_ALPHA": "first",
+				},
+			},
+			want:    "first",
+			wantErr: false,
+		},
+		{
+			name: "global template function",
+			args: args{
+				s: "{{ env \"HF_TEST_ALPHA\" | len }}",
+				envs: map[string]string{
+					"HF_TEST_ALPHA": "abcdefg",
+				},
+			},
+			want:    "7",
+			wantErr: false,
+		},
+		{
+			name: "env var not set",
+			args: args{
+				s: "{{ env \"HF_TEST_NONE\" }}",
+				envs: map[string]string{
+					"HF_TEST_THIS": "first",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "undefined function",
+			args: args{
+				s: "{{ env foo }}",
+				envs: map[string]string{
+					"foo": "bar",
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.args.envs {
+				err := os.Setenv(k, v)
+				if err != nil {
+					t.Error("renderTemplateString() could not set env var for testing")
+				}
+			}
+			got, err := renderTemplateString(tt.args.s)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("renderTemplateString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("renderTemplateString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_isLocalChart(t *testing.T) {
 	type args struct {
 		chart string
@@ -332,6 +430,7 @@ func Test_normalizeChart(t *testing.T) {
 
 type mockHelmExec struct {
 	charts []string
+	repo   []string
 }
 
 func (helm *mockHelmExec) UpdateDeps(chart string) error {
@@ -341,10 +440,12 @@ func (helm *mockHelmExec) UpdateDeps(chart string) error {
 	helm.charts = append(helm.charts, chart)
 	return nil
 }
+
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 	return
 }
 func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile string) error {
+	helm.repo = []string{name, repository, certfile, keyfile}
 	return nil
 }
 func (helm *mockHelmExec) UpdateRepo() error {
@@ -361,6 +462,75 @@ func (helm *mockHelmExec) DeleteRelease(name string) error {
 }
 func (helm *mockHelmExec) DecryptSecret(name string) (string, error) {
 	return "", nil
+}
+
+func TestHelmState_SyncRepos(t *testing.T) {
+	tests := []struct {
+		name  string
+		repos []RepositorySpec
+		helm  *mockHelmExec
+		envs  map[string]string
+		want  []string
+	}{
+		{
+			name: "normal repository",
+			repos: []RepositorySpec{
+				{
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "",
+					KeyFile:  "",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []string{"name", "http://example.com/", "", ""},
+		},
+		{
+			name: "repository with cert and key",
+			repos: []RepositorySpec{
+				{
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "certfile",
+					KeyFile:  "keyfile",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []string{"name", "http://example.com/", "certfile", "keyfile"},
+		},
+		{
+			name: "repository with env var url",
+			repos: []RepositorySpec{
+				{
+					Name:     "name",
+					URL:      "https://{{ env \"HF_TEST_GITHUB_TOKEN\"}}@raw.githubusercontent.com/u/r/b/",
+					CertFile: "certfile",
+					KeyFile:  "keyfile",
+				},
+			},
+			envs: map[string]string{
+				"HF_TEST_GITHUB_TOKEN": "token",
+			},
+			helm: &mockHelmExec{},
+			want: []string{"name", "https://token@raw.githubusercontent.com/u/r/b/", "certfile", "keyfile"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.envs {
+				err := os.Setenv(k, v)
+				if err != nil {
+					t.Error("HelmState.SyncRepos() could not set env var for testing")
+				}
+			}
+			state := &HelmState{
+				Repositories: tt.repos,
+			}
+			if got := state.SyncRepos(tt.helm); !reflect.DeepEqual(tt.helm.repo, tt.want) {
+				t.Errorf("HelmState.SyncRepos() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestHelmState_UpdateDeps(t *testing.T) {
