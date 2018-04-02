@@ -1,0 +1,14 @@
+image:
+  repository: docker.io/citizenstig/httpbin
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  name: httpbin
+  type: LoadBalancer
+  externalPort: 8000
+  internalPort: 8000
+ingress:
+  enabled: false
+  hosts:
+    - httpbin.local
+resources: {}

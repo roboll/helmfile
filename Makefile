@@ -21,9 +21,17 @@ test:
 	go test -v ${PKGS} -cover -race -p=1
 .PHONY: test
 
+integration:
+	bash test/integration/run.sh
+.PHONY: integration
+
 cross:
 	gox -os '!freebsd !netbsd' -arch '!arm' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
 .PHONY: cross
+
+clean:
+	rm dist/helmfile_*
+.PHONY: clean
 
 pristine: generate fmt
 	git ls-files --exclude-standard --modified --deleted --others | diff /dev/null -
