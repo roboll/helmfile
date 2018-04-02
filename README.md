@@ -150,6 +150,7 @@ A few rules to clear up this ambiguity:
 - Relative paths referenced on the command line are relative to the current working directory the user is in
 
 For additional context, take a look at [paths examples](PATHS.md)
+
 ## Labels Overview
 A selector can be used to only target a subset of releases when running helmfile. This is useful for large helmfiles with releases that are logically grouped together.
 
@@ -160,3 +161,7 @@ Multiple labels can be specified using `,` as a separator. A release must match 
 The `selector` parameter can be specified multiple times. Each parameter is resolved independently so a release that matches any parameter will be used. 
 
 `--selector tier=frontend --selector tier=backend` will select all the charts
+
+## Examples
+
+For more examples, see [examples/REAMDME.md](https://github.com/roboll/helmfile/blob/master/examples/README.md).
