@@ -184,7 +184,8 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 					continue
 				}
 
-				if err := helm.SyncRelease(release.Name, normalizeChart(state.BaseChartPath, release.Chart), flags...); err != nil {
+				chart := normalizeChart(state.BaseChartPath, release.Chart)
+				if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
 					errQueue <- err
 				}
 				doneQueue <- true
@@ -331,16 +332,36 @@ func (state *HelmState) FilterReleases(labels []string) error {
 	return nil
 }
 
+func (state *HelmState) UpdateDeps(helm helmexec.Interface) []error {
+	errs := []error{}
+
+	for _, release := range state.Releases {
+		if isLocalChart(release.Chart) {
+			if err := helm.UpdateDeps(normalizeChart(state.BaseChartPath, release.Chart)); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	if len(errs) != 0 {
+		return errs
+	}
+	return nil
+}
+
 // normalizeChart allows for the distinction between a file path reference and repository references.
 // - Any single (or double character) followed by a `/` will be considered a local file reference and
 // 	 be constructed relative to the `base path`.
 // - Everything else is assumed to be an absolute path or an actual <repository>/<chart> reference.
 func normalizeChart(basePath, chart string) string {
-	regex, _ := regexp.Compile("^[.]?./")
-	if !regex.MatchString(chart) {
+	if !isLocalChart(chart) {
 		return chart
 	}
 	return filepath.Join(basePath, chart)
+}
+
+func isLocalChart(chart string) bool {
+	regex, _ := regexp.Compile("^[.]?./")
+	return regex.MatchString(chart)
 }
 
 func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
