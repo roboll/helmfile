@@ -193,16 +193,16 @@ func main() {
 					os.Exit(1)
 				}
 
-				args := c.String("args")
-				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
-				}
-
 				if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
 					for _, err := range errs {
 						fmt.Printf("err: %s\n", err.Error())
 					}
 					os.Exit(1)
+				}
+
+				args := c.String("args")
+				if len(args) > 0 {
+					helm.SetExtraArgs(strings.Split(args, " ")...)
 				}
 
 				values := c.StringSlice("values")
