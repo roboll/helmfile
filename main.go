@@ -242,14 +242,19 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 	labels := c.GlobalStringSlice("selector")
 
 	st, err := state.ReadFromFile(file)
-	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("open %s:", DefaultHelmfile)) {
-		var fallbackErr error
-		st, fallbackErr = state.ReadFromFile(DeprecatedHelmfile)
-		if fallbackErr != nil {
-			return nil, nil, fmt.Errorf("failed to read %s and %s: %v", file, DeprecatedHelmfile, err)
+	if err != nil {
+		if strings.Contains(err.Error(), fmt.Sprintf("open %s:", DefaultHelmfile)) {
+			var fallbackErr error
+			st, fallbackErr = state.ReadFromFile(DeprecatedHelmfile)
+			if fallbackErr != nil {
+				return nil, nil, fmt.Errorf("failed to read %s and %s: %v", file, DeprecatedHelmfile, err)
+			}
+			log.Printf("warn: charts.yaml is loaded: charts.yaml is deprecated in favor of helmfile.yaml. See https://github.com/roboll/helmfile/issues/25 for more information")
+		} else {
+			return nil, nil, fmt.Errorf("failed to read %s: %v", file, err)
 		}
-		log.Printf("warn: charts.yaml is loaded: charts.yaml is deprecated in favor of helmfile.yaml. See https://github.com/roboll/helmfile/issues/25 for more information")
 	}
+
 	if st.Context != "" {
 		if kubeContext != "" {
 			log.Printf("err: Cannot use option --kube-context and set attribute context.")

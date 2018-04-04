@@ -180,6 +180,11 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 						errQueue <- err
 						haveValueErr = true
 					}
+
+					if _, err := os.Stat(valfile); os.IsNotExist(err) {
+						errQueue <- err
+						haveValueErr = true
+					}
 					flags = append(flags, "--values", valfile)
 				}
 
@@ -238,6 +243,10 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 			for _, value := range additionalValues {
 				valfile, err := filepath.Abs(value)
 				if err != nil {
+					errs = append(errs, err)
+				}
+
+				if _, err := os.Stat(valfile); os.IsNotExist(err) {
 					errs = append(errs, err)
 				}
 				flags = append(flags, "--values", valfile)
@@ -385,12 +394,21 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 		if err != nil {
 			return nil, err
 		}
+
+		if _, err := os.Stat(valfileRendered); os.IsNotExist(err) {
+			return nil, err
+		}
+
 		flags = append(flags, "--values", valfileRendered)
 	}
 	for _, value := range release.Secrets {
 		valfile := filepath.Join(basePath, value)
 		path, err := renderTemplateString(valfile)
 		if err != nil {
+			return nil, err
+		}
+
+		if _, err := os.Stat(path); os.IsNotExist(err) {
 			return nil, err
 		}
 
