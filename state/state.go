@@ -123,11 +123,10 @@ func renderTemplateString(s string) (string, error) {
 	return tplString.String(), nil
 }
 
-func (state *HelmState) applyDefaultsTo(spec ReleaseSpec) ReleaseSpec {
+func (state *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
 	if state.Namespace != "" {
 		spec.Namespace = state.Namespace
 	}
-	return spec
 }
 
 func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
@@ -156,7 +155,7 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 
 func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
 	errs := []error{}
-	jobQueue := make(chan ReleaseSpec)
+	jobQueue := make(chan *ReleaseSpec)
 	doneQueue := make(chan bool)
 	errQueue := make(chan error)
 
@@ -166,8 +165,8 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for release := range jobQueue {
-				releaseWithDefaults := state.applyDefaultsTo(release)
-				flags, flagsErr := flagsForRelease(helm, state.BaseChartPath, &releaseWithDefaults)
+				state.applyDefaultsTo(release)
+				flags, flagsErr := flagsForRelease(helm, state.BaseChartPath, release)
 				if flagsErr != nil {
 					errQueue <- flagsErr
 					doneQueue <- true
@@ -199,8 +198,8 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	}
 
 	go func() {
-		for _, release := range state.Releases {
-			jobQueue <- release
+		for i := 0; i < len(state.Releases); i++ {
+			jobQueue <- &state.Releases[i]
 		}
 		close(jobQueue)
 	}()

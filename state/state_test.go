@@ -216,8 +216,8 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 				Repositories:       tt.fields.Repositories,
 				Releases:           tt.fields.Releases,
 			}
-			if got := state.applyDefaultsTo(tt.args.spec); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("HelmState.applyDefaultsTo() = %v, want %v", got, tt.want)
+			if state.applyDefaultsTo(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
+				t.Errorf("HelmState.applyDefaultsTo() = %v, want %v", tt.args.spec, tt.want)
 			}
 		})
 	}
