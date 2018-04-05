@@ -85,12 +85,11 @@ workflows:
     jobs:
       - build
       - test
-  integration_tests:
-    jobs:
-      - build
       - integration_tests:
           requires:
             - build
           filters:
             branches:
-              only: pull/81
+              only:
+                - master
+                - /pull.*/
