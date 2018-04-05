@@ -27,17 +27,16 @@ function wait_deploy_ready() {
     done
 }
 
-# RUN BUILD & SETUP --------------------------------------------------------------------------------------------------
+# SETUP --------------------------------------------------------------------------------------------------------------
 
 set -e
-$helm init 1> /dev/null
-make build 1> /dev/null
-$helmfile -v 1> /dev/null
+info "Using namespace: ${test_ns}"
+info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
+$helm init --wait
+$helmfile -v
 $kubectl get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
 trap "{ $kubectl delete namespace ${test_ns}; }" EXIT # remove namespace whenever we exit this script
 
-info "Using namespace: ${test_ns}"
-info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
 
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
