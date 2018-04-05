@@ -35,33 +35,35 @@ jobs:
       - attach_workspace:
           at: ~/build
       - run: cp ~/build/helmfile ~/project/helmfile
-      - &integration_deps
-        run:
-          name: Install integration test dependencies
+      - run:
+          name: Install kubectl
           command: |
-            # Install kubectl
-            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.8.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-            # Install minikube
-            curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
-            # Install yq
-            curl -Lo yq https://github.com/mikefarah/yq/releases/download/1.14.0/yq_linux_amd64 && chmod +x yq && sudo mv yq /usr/local/bin/
-            # Install helm
+            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.8.4/bin/linux/amd64/kubectl
+            chmod +x kubectl
+            sudo mv kubectl /usr/local/bin/
+      - run:
+          name: Install minikube
+          command: |
+            curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minikube-linux-amd64
+            chmod +x minikube
+            sudo mv minikube /usr/local/bin/
+      - run:
+          name: Install helm
+          command: |
             HELM_VERSION=v2.8.2
             HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
             curl -Lo ${HELM_FILENAME} "https://kubernetes-helm.storage.googleapis.com/${HELM_FILENAME}"
             tar zxf ${HELM_FILENAME} linux-amd64/helm
             chmod +x linux-amd64/helm
             sudo mv linux-amd64/helm /usr/local/bin/
-      - &start_minikube
-        run:
+      - run:
           name: Start minikube
           command: |
             sudo minikube start --vm-driver=none
             sudo chown -R $USER.$USER ~/.minikube
             sudo chown -R $USER.$USER ~/.kube
             minikube update-context
-      - &wait_for_minikube
-        run:
+      - run:
           name: Wait for nodes to become ready
           command: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
       - run:
