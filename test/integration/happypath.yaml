@@ -1,0 +1,13 @@
+repositories:
+  - name: stable
+    url: https://kubernetes-charts.storage.googleapis.com/
+
+context: minikube
+
+releases:
+
+  - name: httpbin
+    chart: ./charts/httpbin
+    set:
+      - name: ingress.enabled
+        value: false
