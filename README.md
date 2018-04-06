@@ -42,7 +42,7 @@ releases:
       - name: address
         value: https://vault.example.com
       - name: db.password
-        value: {{ env "DB_PASSWORD" }}                   # value taken from environment variable. Will throw an error if the environment variable is not set. $DB_PASSWORD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
+        value: "{{ env \"DB_PASSWORD\" }}"    # value taken from environment variable. Quotes are necessary. Will throw an error if the environment variable is not set. $DB_PASSWORD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
       - name: proxy.domain
         value: "{{ env \"PLATFORM_ID\" }}.my-domain.com" # Interpolate environment variable with a fixed string
 
