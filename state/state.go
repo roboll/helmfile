@@ -165,6 +165,11 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for release := range jobQueue {
+				nameRendered, err := renderTemplateString(release.Name)
+				if err != nil {
+					errQueue <- err
+					doneQueue <- true
+				}
 				state.applyDefaultsTo(release)
 				flags, flagsErr := flagsForRelease(helm, state.BaseChartPath, release)
 				if flagsErr != nil {
@@ -194,7 +199,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 				}
 
 				chart := normalizeChart(state.BaseChartPath, release.Chart)
-				if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
+				if err := helm.SyncRelease(nameRendered, chart, flags...); err != nil {
 					errQueue <- err
 				}
 				doneQueue <- true
@@ -231,6 +236,10 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 
 	for i := 0; i < len(state.Releases); i++ {
 		release := &state.Releases[i]
+		renderedName, err := renderTemplateString(release.Name)
+		if err != nil {
+			errs = append(errs, err)
+		}
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, release *ReleaseSpec) {
 			// Plugin command doesn't support explicit namespace
@@ -252,7 +261,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 				flags = append(flags, "--values", valfile)
 			}
 			if len(errs) == 0 {
-				if err := helm.DiffRelease(release.Name, normalizeChart(state.BaseChartPath, release.Chart), flags...); err != nil {
+				if err := helm.DiffRelease(renderedName, normalizeChart(state.BaseChartPath, release.Chart), flags...); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -386,7 +395,11 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 		flags = append(flags, "--verify")
 	}
 	if release.Namespace != "" {
-		flags = append(flags, "--namespace", release.Namespace)
+		namespaceRendered, err := renderTemplateString(release.Namespace)
+		if err != nil {
+			return nil, err
+		}
+		flags = append(flags, "--namespace", namespaceRendered)
 	}
 	for _, value := range release.Values {
 		valfile := filepath.Join(basePath, value)
