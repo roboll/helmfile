@@ -56,6 +56,30 @@ releases:
 
 ```
 
+## Using environment variables
+
+Environment variables can be used in most places for templating the helmfile. Currently this is supported for `name`, `namespace`, `value` (in set) and `url` (in repositories).
+
+Examples:
+
+```yaml
+respositories:
+- name: your-private-git-repo-hosted-charts
+  url: "https://{{ env \"GITHUB_TOKEN\"}}@raw.githubusercontent.com/kmzfs/helm-repo-in-github/master/"
+```
+
+```yaml
+releases:
+  - name: "{{ env \"NAME\" }}-vault
+    namespace: "{{ env \"NAME\" }}"
+    chart: roboll/vault-secret-manager
+    set:
+      - name: proxy.domain
+        value: "{{ env \"PLATFORM_ID\" }}.my-domain.com"
+```
+
+**Note**: The quotes (`"{{ env \"EXAMPLE\" }}"`) as well as the escaping inside are necessary, because `{` and `}` have a [special meaning in the YAML format](http://yaml.org/spec/1.2/spec.html#id2790832).
+
 ## installation
 
 - `go get github.com/roboll/helmfile` or
