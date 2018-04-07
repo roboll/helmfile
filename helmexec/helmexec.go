@@ -1,5 +1,6 @@
 package helmexec
 
+// Interface for executing helm commands
 type Interface interface {
 	SetExtraArgs(args ...string)
 

@@ -1,0 +1,11 @@
+[[constraint]]
+  name = "github.com/Masterminds/sprig"
+  version = "2.15.0"
+
+[[constraint]]
+  branch = "v1"
+  name = "gopkg.in/yaml.v1"
+
+[prune]
+  go-tests = true
+  unused-packages = true
