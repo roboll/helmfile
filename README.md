@@ -4,6 +4,10 @@ Deploy Kubernetes Helm Charts
 
 [![Docker Repository on Quay](https://quay.io/repository/roboll/helmfile/status "Docker Repository on Quay")](https://quay.io/repository/roboll/helmfile)
 
+## status
+
+Even though Helmfile is used in production environments across multiple organizations, it is still in its early stage of development, hence versioned 0.x. Helmfile complies to Semantic Versining 2.0.0 in which v0.x means that there could be any backward-incompatible change for every release.
+
 ## about
 
 Helmfile is a declarative spec for deploying helm charts. It lets you...
