@@ -73,13 +73,19 @@ jobs:
             make integration
 
 # GITHUB_TOKEN env var must be setup in circleci console
-deployment:
+
   release:
-    tag: /v.*/
-    commands:
-      - docker login -e="." -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
-      - cd "$WORK" && make tools
-      - cd "$WORK" && BUILD_URL="$CIRCLE_BUILD_URL" make push release
+    docker:
+      - image: circleci/golang:1.7
+    working_directory: /go/src/github.com/roboll/helmfile
+    steps:
+    - checkout
+    - setup_remote_docker
+    - run:
+        command: |
+          docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
+          make tools
+          BUILD_URL="$CIRCLE_BUILD_URL" make push release
 
 workflows:
   version: 2
@@ -95,3 +101,9 @@ workflows:
               only:
                 - master
                 - /pull.*/
+      - release:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /v.*/
