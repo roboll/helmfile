@@ -8,9 +8,9 @@ Deploy Kubernetes Helm Charts
 
 Even though Helmfile is used in production environments across multiple organizations, it is still in its early stage of development, hence versioned 0.x.
 
-Helmfile complies to Semantic Versioning 2.0.0 in which v0.x means that there could be any backward-incompatible change for every release.
+Helmfile complies to Semantic Versioning 2.0.0 in which v0.x means that there could be backward-incompatible changes for every release.
 
-Note that though, we will try our best to document any backward incompatibility.
+Note that we will try our best to document any backward incompatibility.
 
 ## about
 
