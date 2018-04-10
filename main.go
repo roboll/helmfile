@@ -134,6 +134,11 @@ func main() {
 					Name:  "sync-repos",
 					Usage: "enable a repo sync prior to diffing",
 				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -156,8 +161,9 @@ func main() {
 				}
 
 				values := c.StringSlice("values")
+				workers := c.Int("concurrency")
 
-				errs := state.DiffReleases(helm, values)
+				errs := state.DiffReleases(helm, values, workers)
 				return clean(state, errs)
 			},
 		},
