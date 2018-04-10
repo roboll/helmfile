@@ -10,6 +10,8 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/Masterminds/sprig"
+
 	"github.com/roboll/helmfile/helmexec"
 
 	"bytes"
@@ -19,6 +21,7 @@ import (
 	yaml "gopkg.in/yaml.v1"
 )
 
+// HelmState structure for the helmfile
 type HelmState struct {
 	BaseChartPath      string
 	Context            string           `yaml:"context"`
@@ -28,6 +31,7 @@ type HelmState struct {
 	Releases           []ReleaseSpec    `yaml:"releases"`
 }
 
+// RepositorySpec that defines values for a helm repo
 type RepositorySpec struct {
 	Name     string `yaml:"name"`
 	URL      string `yaml:"url"`
@@ -35,6 +39,7 @@ type RepositorySpec struct {
 	KeyFile  string `yaml:"keyFile"`
 }
 
+// ReleaseSpec defines the structure of a helm release
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
 	Chart   string `yaml:"chart"`
@@ -56,17 +61,31 @@ type ReleaseSpec struct {
 	generatedValues []string
 }
 
+// SetValue are the key values to set on a helm release
 type SetValue struct {
 	Name  string `yaml:"name"`
 	Value string `yaml:"value"`
 }
 
+// ReadFromFile loads the helmfile from disk and processes the template
 func ReadFromFile(file string) (*HelmState, error) {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
-	return readFromYaml(content, file)
+
+	tpl, err := stringTemplate().Parse(string(content))
+	if err != nil {
+		return nil, err
+	}
+
+	var tplString bytes.Buffer
+	err = tpl.Execute(&tplString, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return readFromYaml(tplString.Bytes(), file)
 }
 
 func readFromYaml(content []byte, file string) (*HelmState, error) {
@@ -88,23 +107,8 @@ func readFromYaml(content []byte, file string) (*HelmState, error) {
 	return &state, nil
 }
 
-var stringTemplateFuncMap = template.FuncMap{
-	"env": getEnvVar,
-}
-
 func stringTemplate() *template.Template {
-	return template.New("stringTemplate").Funcs(stringTemplateFuncMap)
-}
-
-func getEnvVar(envVarName string) (string, error) {
-	envVarValue, isSet := os.LookupEnv(envVarName)
-
-	if !isSet {
-		errMsg := fmt.Sprintf("Environment Variable '%s' is not set. Please make sure it is set and try again.", envVarName)
-		return "", errors.New(errMsg)
-	}
-
-	return envVarValue, nil
+	return template.New("stringTemplate").Funcs(sprig.TxtFuncMap())
 }
 
 func renderTemplateString(s string) (string, error) {
@@ -129,16 +133,12 @@ func (state *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
 	}
 }
 
+// SyncRepos will update the given helm releases
 func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	errs := []error{}
 
 	for _, repo := range state.Repositories {
-		url, err := renderTemplateString(repo.URL)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		if err := helm.AddRepo(repo.Name, url, repo.CertFile, repo.KeyFile); err != nil {
+		if err := helm.AddRepo(repo.Name, repo.URL, repo.CertFile, repo.KeyFile); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -153,6 +153,7 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	return nil
 }
 
+// SyncReleases wrapper for executing helm upgrade on the releases
 func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
 	errs := []error{}
 	jobQueue := make(chan *ReleaseSpec)
@@ -165,11 +166,6 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for release := range jobQueue {
-				nameRendered, err := renderTemplateString(release.Name)
-				if err != nil {
-					errQueue <- err
-					doneQueue <- true
-				}
 				state.applyDefaultsTo(release)
 				flags, flagsErr := flagsForRelease(helm, state.BaseChartPath, release)
 				if flagsErr != nil {
@@ -199,7 +195,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 				}
 
 				chart := normalizeChart(state.BaseChartPath, release.Chart)
-				if err := helm.SyncRelease(nameRendered, chart, flags...); err != nil {
+				if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
 					errQueue <- err
 				}
 				doneQueue <- true
@@ -230,6 +226,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	return nil
 }
 
+// DiffReleases wrapper for executing helm diff on the releases
 func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
 	var wgRelease sync.WaitGroup
 	var wgError sync.WaitGroup
@@ -247,17 +244,12 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 		go func() {
 			for release := range jobQueue {
 				errs := []error{}
-				renderedName, err := renderTemplateString(release.Name)
-				if err != nil {
-					errs = append(errs, err)
-				}
 				// Plugin command doesn't support explicit namespace
 				release.Namespace = ""
 				flags, err := flagsForRelease(helm, state.BaseChartPath, release)
 				if err != nil {
 					errs = append(errs, err)
 				}
-
 				for _, value := range additionalValues {
 					valfile, err := filepath.Abs(value)
 					if err != nil {
@@ -271,7 +263,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 				}
 
 				if len(errs) == 0 {
-					if err := helm.DiffRelease(renderedName, normalizeChart(state.BaseChartPath, release.Chart), flags...); err != nil {
+					if err := helm.DiffRelease(release.Name, normalizeChart(state.BaseChartPath, release.Chart), flags...); err != nil {
 						errs = append(errs, err)
 					}
 				}
@@ -307,6 +299,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 	return nil
 }
 
+// DeleteReleases wrapper for executing helm delete on the releases
 func (state *HelmState) DeleteReleases(helm helmexec.Interface) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
@@ -384,6 +377,7 @@ func (state *HelmState) FilterReleases(labels []string) error {
 	return nil
 }
 
+// UpdateDeps wrapper for updating dependencies on the releases
 func (state *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 	errs := []error{}
 
@@ -425,52 +419,34 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 		flags = append(flags, "--verify")
 	}
 	if release.Namespace != "" {
-		namespaceRendered, err := renderTemplateString(release.Namespace)
-		if err != nil {
-			return nil, err
-		}
-		flags = append(flags, "--namespace", namespaceRendered)
+		flags = append(flags, "--namespace", release.Namespace)
 	}
 	for _, value := range release.Values {
-		valfile := filepath.Join(basePath, value)
-		valfileRendered, err := renderTemplateString(valfile)
-		if err != nil {
-			return nil, err
-		}
-
-		if _, err := os.Stat(valfileRendered); os.IsNotExist(err) {
-			return nil, err
-		}
-
-		flags = append(flags, "--values", valfileRendered)
-	}
-	for _, value := range release.Secrets {
-		valfile := filepath.Join(basePath, value)
-		path, err := renderTemplateString(valfile)
-		if err != nil {
-			return nil, err
-		}
-
+		path := filepath.Join(basePath, value)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			return nil, err
 		}
 
-		valfileRendered, err := helm.DecryptSecret(path)
+		flags = append(flags, "--values", path)
+	}
+	for _, value := range release.Secrets {
+		path := filepath.Join(basePath, value)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return nil, err
+		}
+
+		valfile, err := helm.DecryptSecret(path)
 		if err != nil {
 			return nil, err
 		}
 
-		release.generatedValues = append(release.generatedValues, valfileRendered)
-		flags = append(flags, "--values", valfileRendered)
+		release.generatedValues = append(release.generatedValues, valfile)
+		flags = append(flags, "--values", valfile)
 	}
 	if len(release.SetValues) > 0 {
 		val := []string{}
 		for _, set := range release.SetValues {
-			renderedValue, err := renderTemplateString(set.Value)
-			if err != nil {
-				return nil, err
-			}
-			val = append(val, fmt.Sprintf("%s=%s", set.Name, renderedValue))
+			val = append(val, fmt.Sprintf("%s=%s", set.Name, set.Value))
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}

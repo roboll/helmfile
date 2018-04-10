@@ -17,6 +17,7 @@ type execer struct {
 	extra       []string
 }
 
+// New for running helm commands
 func New(writer io.Writer, kubeContext string) *execer {
 	return &execer{
 		writer:      writer,

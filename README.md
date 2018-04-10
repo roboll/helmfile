@@ -50,9 +50,9 @@ releases:
       - name: address
         value: https://vault.example.com
       - name: db.password
-        value: "{{ env \"DB_PASSWORD\" }}"    # value taken from environment variable. Quotes are necessary. Will throw an error if the environment variable is not set. $DB_PASSWORD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
+        value: {{ env "DB_PASSWORD" }}    # value taken from environment variable. Quotes are necessary. Will throw an error if the environment variable is not set. $DB_PASSWORD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
       - name: proxy.domain
-        value: "{{ env \"PLATFORM_ID\" }}.my-domain.com" # Interpolate environment variable with a fixed string
+        value: {{ env "PLATFORM_ID" }}.my-domain.com # Interpolate environment variable with a fixed string
 
   # Local chart example
   - name: grafana                            # name of this release
@@ -60,7 +60,7 @@ releases:
     chart: ../my-charts/grafana              # the chart being installed to create this release, referenced by relative path to local chart
     values:
     - "../../my-values/grafana/values.yaml"             # Values file (relative path to manifest)
-    - "./values/{{ env \"PLATFORM_ENV\" }}/config.yaml" # Values file taken from path with environment variable. $PLATFORM_ENV must be set in the calling environment.
+    - ./values/{{ env "PLATFORM_ENV" }}/config.yaml # Values file taken from path with environment variable. $PLATFORM_ENV must be set in the calling environment.
 
 ```
 
@@ -73,20 +73,18 @@ Examples:
 ```yaml
 respositories:
 - name: your-private-git-repo-hosted-charts
-  url: "https://{{ env \"GITHUB_TOKEN\"}}@raw.githubusercontent.com/kmzfs/helm-repo-in-github/master/"
+  url: https://{{ env "GITHUB_TOKEN"}}@raw.githubusercontent.com/kmzfs/helm-repo-in-github/master/
 ```
 
 ```yaml
 releases:
-  - name: "{{ env \"NAME\" }}-vault
-    namespace: "{{ env \"NAME\" }}"
+  - name: {{ env "NAME" }}-vault
+    namespace: {{ env "NAME" }}
     chart: roboll/vault-secret-manager
     set:
       - name: proxy.domain
-        value: "{{ env \"PLATFORM_ID\" }}.my-domain.com"
+        value: {{ env "PLATFORM_ID" }}.my-domain.com
 ```
-
-**Note**: The quotes (`"{{ env \"EXAMPLE\" }}"`) as well as the escaping inside are necessary, because `{` and `}` have a [special meaning in the YAML format](http://yaml.org/spec/1.2/spec.html#id2790832).
 
 ## installation
 
@@ -174,9 +172,9 @@ you should be able to simply execute `helm plugin install https://github.com/fut
 `.
 
 ## Paths Overview
-Using manifest files in conjunction with command line argument can be a bit confusing.  
+Using manifest files in conjunction with command line argument can be a bit confusing.
 
-A few rules to clear up this ambiguity: 
+A few rules to clear up this ambiguity:
 
 - Absolute paths are always resolved as absolute paths
 - Relative paths referenced *in* the helmfile manifest itself are relative to that manifest
@@ -189,9 +187,9 @@ A selector can be used to only target a subset of releases when running helmfile
 
 Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
 
-Multiple labels can be specified using `,` as a separator. A release must match all selectors in order to be selected for the final helm command. 
+Multiple labels can be specified using `,` as a separator. A release must match all selectors in order to be selected for the final helm command.
 
-The `selector` parameter can be specified multiple times. Each parameter is resolved independently so a release that matches any parameter will be used. 
+The `selector` parameter can be specified multiple times. Each parameter is resolved independently so a release that matches any parameter will be used.
 
 `--selector tier=frontend --selector tier=backend` will select all the charts
 

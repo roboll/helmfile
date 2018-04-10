@@ -287,7 +287,7 @@ func Test_renderTemplateString(t *testing.T) {
 					"HF_TEST_THIS": "first",
 				},
 			},
-			wantErr: true,
+			want: "",
 		},
 		{
 			name: "undefined function",
@@ -310,11 +310,11 @@ func Test_renderTemplateString(t *testing.T) {
 			}
 			got, err := renderTemplateString(tt.args.s)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("renderTemplateString() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("renderTemplateString() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("renderTemplateString() = %v, want %v", got, tt.want)
+				t.Errorf("renderTemplateString() for %s = %v, want %v", tt.name, got, tt.want)
 			}
 		})
 	}
@@ -498,22 +498,6 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			helm: &mockHelmExec{},
 			want: []string{"name", "http://example.com/", "certfile", "keyfile"},
 		},
-		{
-			name: "repository with env var url",
-			repos: []RepositorySpec{
-				{
-					Name:     "name",
-					URL:      "https://{{ env \"HF_TEST_GITHUB_TOKEN\"}}@raw.githubusercontent.com/u/r/b/",
-					CertFile: "certfile",
-					KeyFile:  "keyfile",
-				},
-			},
-			envs: map[string]string{
-				"HF_TEST_GITHUB_TOKEN": "token",
-			},
-			helm: &mockHelmExec{},
-			want: []string{"name", "https://token@raw.githubusercontent.com/u/r/b/", "certfile", "keyfile"},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -526,8 +510,8 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			state := &HelmState{
 				Repositories: tt.repos,
 			}
-			if got := state.SyncRepos(tt.helm); !reflect.DeepEqual(tt.helm.repo, tt.want) {
-				t.Errorf("HelmState.SyncRepos() = %v, want %v", got, tt.want)
+			if _ = state.SyncRepos(tt.helm); !reflect.DeepEqual(tt.helm.repo, tt.want) {
+				t.Errorf("HelmState.SyncRepos() for [%s] = %v, want %v", tt.name, tt.helm.repo, tt.want)
 			}
 		})
 	}
