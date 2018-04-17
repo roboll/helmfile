@@ -87,14 +87,53 @@ func TestReadFromYaml_FilterReleasesOnLabels(t *testing.T) {
 		filter  LabelFilter
 		results []bool
 	}{
-		{LabelFilter{positiveLabels: map[string]string{"tier": "frontend"}},
+		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}}},
 			[]bool{true, true, false}},
-		{LabelFilter{positiveLabels: map[string]string{"tier": "frontend", "foo": "bar"}},
+		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}, []string{"foo", "bar"}}},
 			[]bool{true, false, false}},
-		{LabelFilter{negativeLabels: map[string]string{"tier": "frontend"}},
+		{LabelFilter{negativeLabels: [][]string{[]string{"tier", "frontend"}}},
 			[]bool{false, false, true}},
-		{LabelFilter{positiveLabels: map[string]string{"tier": "frontend"}, negativeLabels: map[string]string{"foo": "bar"}},
+		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}}, negativeLabels: [][]string{[]string{"foo", "bar"}}},
 			[]bool{false, true, false}},
+	}
+	state, err := readFromYaml(yamlContent, yamlFile)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for idx, c := range cases {
+		for idx2, expected := range c.results {
+			if f := c.filter.Match(state.Releases[idx2]); f != expected {
+				t.Errorf("[case: %d][outcome: %d] Unexpected outcome wanted %t, got %t", idx, idx2, expected, f)
+			}
+		}
+	}
+}
+
+func TestReadFromYaml_FilterNegatives(t *testing.T) {
+	yamlFile := "example/path/to/yaml/file"
+	yamlContent := []byte(`releases:
+- name: myrelease1
+  chart: mychart1
+  labels:
+    stage: pre
+    foo: bar
+- name: myrelease2
+  chart: mychart2
+  labels:
+    stage: post
+- name: myrelease3
+  chart: mychart3
+`)
+	cases := []struct {
+		filter  LabelFilter
+		results []bool
+	}{
+		{LabelFilter{positiveLabels: [][]string{[]string{"stage", "pre"}}},
+			[]bool{true, false, false}},
+		{LabelFilter{positiveLabels: [][]string{[]string{"stage", "post"}}},
+			[]bool{false, true, false}},
+		{LabelFilter{negativeLabels: [][]string{[]string{"stage", "pre"}, []string{"stage", "post"}}},
+			[]bool{false, false, true}},
 	}
 	state, err := readFromYaml(yamlContent, yamlFile)
 	if err != nil {
@@ -115,12 +154,12 @@ func TestLabelParsing(t *testing.T) {
 		expectedFilter LabelFilter
 		errorExected   bool
 	}{
-		{"foo=bar", LabelFilter{positiveLabels: map[string]string{"foo": "bar"}, negativeLabels: map[string]string{}}, false},
-		{"foo!=bar", LabelFilter{positiveLabels: map[string]string{}, negativeLabels: map[string]string{"foo": "bar"}}, false},
-		{"foo!=bar,baz=bat", LabelFilter{positiveLabels: map[string]string{"baz": "bat"}, negativeLabels: map[string]string{"foo": "bar"}}, false},
-		{"foo", LabelFilter{positiveLabels: map[string]string{}, negativeLabels: map[string]string{}}, true},
-		{"foo!=bar=baz", LabelFilter{positiveLabels: map[string]string{}, negativeLabels: map[string]string{}}, true},
-		{"=bar", LabelFilter{positiveLabels: map[string]string{}, negativeLabels: map[string]string{}}, true},
+		{"foo=bar", LabelFilter{positiveLabels: [][]string{[]string{"foo", "bar"}}, negativeLabels: [][]string{}}, false},
+		{"foo!=bar", LabelFilter{positiveLabels: [][]string{}, negativeLabels: [][]string{[]string{"foo", "bar"}}}, false},
+		{"foo!=bar,baz=bat", LabelFilter{positiveLabels: [][]string{[]string{"baz", "bat"}}, negativeLabels: [][]string{[]string{"foo", "bar"}}}, false},
+		{"foo", LabelFilter{positiveLabels: [][]string{}, negativeLabels: [][]string{}}, true},
+		{"foo!=bar=baz", LabelFilter{positiveLabels: [][]string{}, negativeLabels: [][]string{}}, true},
+		{"=bar", LabelFilter{positiveLabels: [][]string{}, negativeLabels: [][]string{}}, true},
 	}
 	for idx, c := range cases {
 		filter, err := ParseLabels(c.labelString)
@@ -129,7 +168,7 @@ func TestLabelParsing(t *testing.T) {
 		} else if err == nil && c.errorExected {
 			t.Errorf("[%d] Expected %s to result in an error but got none", idx, c.labelString)
 		} else if !reflect.DeepEqual(filter, c.expectedFilter) {
-			t.Errorf("[%d] parsed label did not result in expected filter: %v", idx, filter)
+			t.Errorf("[%d] parsed label did not result in expected filter: %v, expected: %v", idx, filter, c.expectedFilter)
 		}
 	}
 }

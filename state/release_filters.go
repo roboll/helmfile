@@ -15,14 +15,16 @@ type ReleaseFilter interface {
 // LabelFilter matches a release with the given positive lables. Negative labels
 // invert the match for cases such as tier!=backend
 type LabelFilter struct {
-	positiveLabels map[string]string
-	negativeLabels map[string]string
+	positiveLabels [][]string
+	negativeLabels [][]string
 }
 
 // Match will match a release that has the same labels as the filter
 func (l LabelFilter) Match(r ReleaseSpec) bool {
 	if len(l.positiveLabels) > 0 {
-		for k, v := range l.positiveLabels {
+		for _, element := range l.positiveLabels {
+			k := element[0]
+			v := element[1]
 			if rVal, ok := r.Labels[k]; !ok {
 				return false
 			} else if rVal != v {
@@ -30,8 +32,11 @@ func (l LabelFilter) Match(r ReleaseSpec) bool {
 			}
 		}
 	}
+
 	if len(l.negativeLabels) > 0 {
-		for k, v := range l.negativeLabels {
+		for _, element := range l.negativeLabels {
+			k := element[0]
+			v := element[1]
 			if rVal, ok := r.Labels[k]; !ok {
 				return true
 			} else if rVal == v {
@@ -45,17 +50,17 @@ func (l LabelFilter) Match(r ReleaseSpec) bool {
 // ParseLabels takes a label in the form foo=bar,baz!=bat and returns a LabelFilter that will match the labels
 func ParseLabels(l string) (LabelFilter, error) {
 	lf := LabelFilter{}
-	lf.positiveLabels = map[string]string{}
-	lf.negativeLabels = map[string]string{}
+	lf.positiveLabels = [][]string{}
+	lf.negativeLabels = [][]string{}
 	var err error
 	labels := strings.Split(l, ",")
 	for _, label := range labels {
 		if match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+!=[a-zA-Z0-9_-]+$", label); match == true { // k!=v case
 			kv := strings.Split(label, "!=")
-			lf.negativeLabels[kv[0]] = kv[1]
+			lf.negativeLabels = append(lf.negativeLabels, kv)
 		} else if match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+=[a-zA-Z0-9_-]+$", label); match == true { // k=v case
 			kv := strings.Split(label, "=")
-			lf.positiveLabels[kv[0]] = kv[1]
+			lf.positiveLabels = append(lf.positiveLabels, kv)
 		} else { // malformed case
 			err = fmt.Errorf("Malformed label: %s. Expected label in form k=v or k!=v", label)
 		}
