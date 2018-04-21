@@ -1,5 +1,7 @@
 FROM alpine:3.7
 
+RUN apk add --no-cache ca-certificates
+
 ENV HELM_VERSION=v2.8.2
 ENV HELM_LOCATION="https://kubernetes-helm.storage.googleapis.com"
 ENV HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
