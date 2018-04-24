@@ -399,15 +399,16 @@ func (state *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 // 	 be constructed relative to the `base path`.
 // - Everything else is assumed to be an absolute path or an actual <repository>/<chart> reference.
 func normalizeChart(basePath, chart string) string {
-	if !isLocalChart(chart) {
+	regex, _ := regexp.Compile("^[.]?./")
+	if !regex.MatchString(chart) {
 		return chart
 	}
 	return filepath.Join(basePath, chart)
 }
 
 func isLocalChart(chart string) bool {
-	regex, _ := regexp.Compile("^[.]?./")
-	return regex.MatchString(chart)
+	_, err := os.Stat(chart)
+	return err == nil
 }
 
 func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
