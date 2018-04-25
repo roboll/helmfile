@@ -15,7 +15,6 @@ import (
 	"github.com/roboll/helmfile/helmexec"
 
 	"bytes"
-	"path"
 	"regexp"
 
 	yaml "gopkg.in/yaml.v1"
@@ -91,7 +90,7 @@ func ReadFromFile(file string) (*HelmState, error) {
 func readFromYaml(content []byte, file string) (*HelmState, error) {
 	var state HelmState
 
-	state.BaseChartPath, _ = filepath.Abs(path.Dir(file))
+	state.BaseChartPath, _ = filepath.Abs(filepath.Dir(file))
 	if err := yaml.Unmarshal(content, &state); err != nil {
 		return nil, err
 	}
