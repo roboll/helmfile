@@ -371,7 +371,7 @@ func Test_isLocalChart(t *testing.T) {
 		{
 			name: "local chart",
 			args: args{
-				chart: "./charts/nonstop",
+				chart: "./",
 			},
 			want: true,
 		},
@@ -392,14 +392,14 @@ func Test_isLocalChart(t *testing.T) {
 		{
 			name: "parent local path",
 			args: args{
-				chart: "../../dotty",
+				chart: "../examples",
 			},
 			want: true,
 		},
 		{
 			name: "parent-parent local path",
 			args: args{
-				chart: "../../dotty",
+				chart: "../../",
 			},
 			want: true,
 		},
@@ -561,13 +561,13 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 		BaseChartPath: "/src",
 		Releases: []ReleaseSpec{
 			{
-				Chart: "./local",
+				Chart: "./..",
 			},
 			{
-				Chart: "../local",
+				Chart: "../examples",
 			},
 			{
-				Chart: "../../local",
+				Chart: "../../helmfile",
 			},
 			{
 				Chart: "published",
@@ -580,13 +580,14 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 			},
 		},
 	}
-	want := []string{"/src/local", "/local", "/local"}
+
+	want := []string{"/", "/examples", "/helmfile"}
 	helm := &mockHelmExec{}
 	errs := state.UpdateDeps(helm)
 	if !reflect.DeepEqual(helm.charts, want) {
 		t.Errorf("HelmState.UpdateDeps() = %v, want %v", helm.charts, want)
 	}
-	if len(errs) != 1 {
-		t.Errorf("HelmState.UpdateDeps() - expected an error, but got: %v", len(errs))
+	if len(errs) != 0 {
+		t.Errorf("HelmState.UpdateDeps() - no errors, but got: %v", len(errs))
 	}
 }
