@@ -76,7 +76,7 @@ jobs:
 
   release:
     docker:
-      - image: circleci/golang:1.7
+      - image: circleci/golang:1.10
     working_directory: /go/src/github.com/roboll/helmfile
     steps:
     - checkout
