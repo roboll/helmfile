@@ -38,7 +38,7 @@ pristine: generate fmt
 .PHONY: pristine
 
 release: pristine cross
-	@ghr -b ${BODY} -t ${GITHUB_TOKEN} -u ${ORG} -replace ${TAG} dist
+	@ghr -b ${BODY} -t ${GITHUB_TOKEN} -u ${ORG} -recreate ${TAG} dist
 .PHONY: release
 
 image: cross
