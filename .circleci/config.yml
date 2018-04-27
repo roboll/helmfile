@@ -8,7 +8,7 @@ jobs:
     working_directory: /go/src/github.com/roboll/helmfile
     steps:
       - checkout
-      - run: make static-linux
+      - run: make build
       - persist_to_workspace:
           root: /go/src/github.com/roboll/helmfile
           paths:
