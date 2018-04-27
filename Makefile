@@ -30,7 +30,7 @@ cross:
 .PHONY: cross
 
 static-linux:
-	env CGO_ENABLED=0 gox -osarch="linux/amd64" -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "dist/helmfile_linux_amd64" -ldflags '-X main.Version=${TAG}' ${TARGETS}
 .PHONY: linux
 
 clean:

@@ -2,10 +2,6 @@ FROM golang:1.10.1-alpine3.7 as builder
 
 RUN apk add --no-cache make git
 WORKDIR /go/src/github.com/roboll/helmfile/
-
-COPY Makefile /go/src/github.com/roboll/helmfile/Makefile
-RUN make tools
-
 COPY . /go/src/github.com/roboll/helmfile/
 RUN make static-linux
 
