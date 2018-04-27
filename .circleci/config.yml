@@ -4,11 +4,11 @@ jobs:
 
   build:
     docker:
-      - image: circleci/golang:1.10
+      - image: circleci/golang:1.10.1
     working_directory: /go/src/github.com/roboll/helmfile
     steps:
       - checkout
-      - run: make build
+      - run: make static-linux
       - persist_to_workspace:
           root: /go/src/github.com/roboll/helmfile
           paths:
@@ -16,7 +16,7 @@ jobs:
 
   test:
     docker:
-      - image: circleci/golang:1.10
+      - image: circleci/golang:1.10.1
     working_directory: /go/src/github.com/roboll/helmfile
     steps:
       - checkout
@@ -76,7 +76,7 @@ jobs:
 
   release:
     docker:
-      - image: circleci/golang:1.10
+      - image: circleci/golang:1.10.1
     working_directory: /go/src/github.com/roboll/helmfile
     steps:
     - checkout
@@ -84,7 +84,6 @@ jobs:
     - run:
         command: |
           docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
-          make tools
           BUILD_URL="$CIRCLE_BUILD_URL" make push release
 
 workflows:

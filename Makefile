@@ -29,6 +29,10 @@ cross:
 	gox -os '!freebsd !netbsd' -arch '!arm' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
+static-linux:
+	env CGO_ENABLED=0 gox -osarch="linux/amd64" -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
+.PHONY: linux
+
 clean:
 	rm dist/helmfile_*
 .PHONY: clean
@@ -41,7 +45,7 @@ release: pristine cross
 	@ghr -b ${BODY} -t ${GITHUB_TOKEN} -u ${ORG} -recreate ${TAG} dist
 .PHONY: release
 
-image: cross
+image:
 	docker build -t quay.io/${ORG}/helmfile:${TAG} .
 
 run: image
