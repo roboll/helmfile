@@ -32,6 +32,19 @@ func TestReadFromYaml(t *testing.T) {
 	}
 }
 
+func TestReadFromYaml_StrictUnmarshalling(t *testing.T) {
+	yamlFile := "example/path/to/yaml/file"
+	yamlContent := []byte(`releases:
+- name: myrelease
+  namespace: mynamespace
+  releases: mychart
+`)
+	_, err := readFromYaml(yamlContent, yamlFile)
+	if err == nil {
+		t.Error("expected an error for wrong key 'releases' which is not in struct")
+	}
+}
+
 func TestReadFromYaml_DeprecatedReleaseReferences(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`charts:
@@ -569,10 +582,9 @@ func TestHelmState_SyncRepos(t *testing.T) {
 	}
 }
 
-
 func TestHelmState_SyncReleases(t *testing.T) {
 	tests := []struct {
-		name  	      string
+		name         string
 		releases     []ReleaseSpec
 		helm         *mockHelmExec
 		wantReleases []string
@@ -581,11 +593,11 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			name: "normal release",
 			releases: []ReleaseSpec{
 				{
-					Name:     "releaseName",
-					Chart:    "foo",
+					Name:  "releaseName",
+					Chart: "foo",
 				},
 			},
-			helm: &mockHelmExec{},
+			helm:         &mockHelmExec{},
 			wantReleases: []string{"releaseName"},
 		},
 	}
