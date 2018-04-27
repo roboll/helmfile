@@ -1,3 +1,12 @@
+FROM golang:1.10.1-alpine3.7 as builder
+
+RUN apk add --no-cache make git
+WORKDIR /go/src/github.com/roboll/helmfile/
+COPY . /go/src/github.com/roboll/helmfile/
+RUN make static-linux
+
+# -----------------------------------------------------------------------------
+
 FROM alpine:3.7
 
 RUN apk add --no-cache ca-certificates
@@ -11,6 +20,6 @@ RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
     tar zxf ${HELM_FILENAME} && mv /linux-amd64/helm /usr/local/bin/ && \
     rm ${HELM_FILENAME} && rm -r /linux-amd64
 
-COPY dist/helmfile_linux_amd64 /usr/local/bin/helmfile
+COPY --from=builder /go/src/github.com/roboll/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 
 CMD ["/usr/local/bin/helmfile"]
