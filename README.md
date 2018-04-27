@@ -134,6 +134,7 @@ COMMANDS:
      charts  sync charts from state file (helm upgrade --install)
      diff    diff charts from state file against env (helm diff)
      sync    sync all resources from state file (repos, charts and local chart deps)
+     status  retrieve status of releases in state file
      delete  delete charts from state file (helm delete)
 
 GLOBAL OPTIONS:

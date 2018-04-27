@@ -468,8 +468,9 @@ func Test_normalizeChart(t *testing.T) {
 // mocking helmexec.Interface
 
 type mockHelmExec struct {
-	charts []string
-	repo   []string
+	charts   []string
+	repo     []string
+	releases []string
 }
 
 func (helm *mockHelmExec) UpdateDeps(chart string) error {
@@ -494,6 +495,13 @@ func (helm *mockHelmExec) SyncRelease(name, chart string, flags ...string) error
 	return nil
 }
 func (helm *mockHelmExec) DiffRelease(name, chart string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) ReleaseStatus(release string) error {
+	if strings.Contains(release, "error") {
+		return errors.New("error")
+	}
+	helm.releases = append(helm.releases, release)
 	return nil
 }
 func (helm *mockHelmExec) DeleteRelease(name string) error {
@@ -589,5 +597,52 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 	}
 	if len(errs) != 0 {
 		t.Errorf("HelmState.UpdateDeps() - no errors, but got: %v", len(errs))
+	}
+}
+
+func TestHelmState_ReleaseStatuses(t *testing.T) {
+	tests := []struct {
+		name     string
+		releases []ReleaseSpec
+		helm     *mockHelmExec
+		want     []string
+		wantErr  bool
+	}{
+		{
+			name: "happy path",
+			releases: []ReleaseSpec{
+				{
+					Name: "releaseA",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []string{"releaseA"},
+		},
+		{
+			name: "happy path",
+			releases: []ReleaseSpec{
+				{
+					Name: "error",
+				},
+			},
+			helm:    &mockHelmExec{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		i := func(t *testing.T) {
+			state := &HelmState{
+				Releases: tt.releases,
+			}
+			errs := state.ReleaseStatuses(tt.helm, 1)
+			if (errs != nil) != tt.wantErr {
+				t.Errorf("ReleaseStatuses() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(tt.helm.releases, tt.want) {
+				t.Errorf("HelmState.ReleaseStatuses() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.want)
+			}
+		}
+		t.Run(tt.name, i)
 	}
 }

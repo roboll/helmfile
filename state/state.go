@@ -298,6 +298,49 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 	return nil
 }
 
+func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
+	var errs []error
+	jobQueue := make(chan ReleaseSpec)
+	doneQueue := make(chan bool)
+	errQueue := make(chan error)
+
+	if workerLimit < 1 {
+		workerLimit = len(state.Releases)
+	}
+	for w := 1; w <= workerLimit; w++ {
+		go func() {
+			for release := range jobQueue {
+				if err := helm.ReleaseStatus(release.Name); err != nil {
+					errQueue <- err
+				}
+				doneQueue <- true
+			}
+		}()
+	}
+
+	go func() {
+		for _, release := range state.Releases {
+			jobQueue <- release
+		}
+		close(jobQueue)
+	}()
+
+	for i := 0; i < len(state.Releases); {
+		select {
+		case err := <-errQueue:
+			errs = append(errs, err)
+		case <-doneQueue:
+			i++
+		}
+	}
+
+	if len(errs) != 0 {
+		return errs
+	}
+
+	return nil
+}
+
 // DeleteReleases wrapper for executing helm delete on the releases
 func (state *HelmState) DeleteReleases(helm helmexec.Interface) []error {
 	var wg sync.WaitGroup
