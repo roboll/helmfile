@@ -6,7 +6,7 @@ to help us extend this list.
 
 <!-- TABLE_START -->
 | Organization | Workload | More Info | Location |
-|---|---|---|---|---|
+|---|---|---|---|
 | [reddit.com](https://www.reddit.com/) | production | [GitHub issue](https://github.com/roboll/helmfile/issues/96#issue-312012249) | San Francisco, CA, US |
 | [ricardo.ch](https://www.ricardo.ch/) | proof-of-concept | | Zug, Switzerland |
 <!-- TABLE_END -->
