@@ -17,7 +17,7 @@ import (
 	"bytes"
 	"regexp"
 
-	yaml "gopkg.in/yaml.v1"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // HelmState structure for the helmfile
@@ -91,7 +91,7 @@ func readFromYaml(content []byte, file string) (*HelmState, error) {
 	var state HelmState
 
 	state.BaseChartPath, _ = filepath.Abs(filepath.Dir(file))
-	if err := yaml.Unmarshal(content, &state); err != nil {
+	if err := yaml.UnmarshalStrict(content, &state); err != nil {
 		return nil, err
 	}
 
