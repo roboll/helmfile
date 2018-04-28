@@ -84,6 +84,7 @@ jobs:
     - run:
         command: |
           docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
+          make tools
           BUILD_URL="$CIRCLE_BUILD_URL" make push release
 
 workflows:
