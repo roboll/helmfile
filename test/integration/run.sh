@@ -32,9 +32,10 @@ function wait_deploy_ready() {
 set -e
 info "Using namespace: ${test_ns}"
 info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
-$helm init --wait
+$helm init --wait --override spec.template.spec.automountServiceAccountToken=true
 $helmfile -v
 $kubectl get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
+$kubectl create namespace ${test_ns} || fail "Could not create namespace ${test_ns}"
 trap "{ $kubectl delete namespace ${test_ns}; }" EXIT # remove namespace whenever we exit this script
 
 

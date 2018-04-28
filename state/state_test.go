@@ -32,6 +32,19 @@ func TestReadFromYaml(t *testing.T) {
 	}
 }
 
+func TestReadFromYaml_StrictUnmarshalling(t *testing.T) {
+	yamlFile := "example/path/to/yaml/file"
+	yamlContent := []byte(`releases:
+- name: myrelease
+  namespace: mynamespace
+  releases: mychart
+`)
+	_, err := readFromYaml(yamlContent, yamlFile)
+	if err == nil {
+		t.Error("expected an error for wrong key 'releases' which is not in struct")
+	}
+}
+
 func TestReadFromYaml_DeprecatedReleaseReferences(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`charts:
@@ -492,6 +505,11 @@ func (helm *mockHelmExec) UpdateRepo() error {
 	return nil
 }
 func (helm *mockHelmExec) SyncRelease(name, chart string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
+	helm.releases = append(helm.releases, name)
+	helm.charts = append(helm.charts, chart)
 	return nil
 }
 func (helm *mockHelmExec) DiffRelease(name, chart string, flags ...string) error {
@@ -559,6 +577,37 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			}
 			if _ = state.SyncRepos(tt.helm); !reflect.DeepEqual(tt.helm.repo, tt.want) {
 				t.Errorf("HelmState.SyncRepos() for [%s] = %v, want %v", tt.name, tt.helm.repo, tt.want)
+			}
+		})
+	}
+}
+
+func TestHelmState_SyncReleases(t *testing.T) {
+	tests := []struct {
+		name         string
+		releases     []ReleaseSpec
+		helm         *mockHelmExec
+		wantReleases []string
+	}{
+		{
+			name: "normal release",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []string{"releaseName"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				Releases: tt.releases,
+			}
+			if _ = state.SyncReleases(tt.helm, []string{}, 1); !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
+				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
 			}
 		})
 	}
