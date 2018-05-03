@@ -27,5 +27,9 @@ RUN wget -O- $TARBALL_URL | tar -C $(helm home)/plugins -xzv
 ####work around distro detection
 RUN helm plugin install https://github.com/futuresimple/helm-secrets
 
+ADD https://storage.googleapis.com/kubernetes-release/release/v1.10.0/bin/linux/amd64/kubectl /usr/local/bin/kubectl
+RUN chmod +x /usr/local/bin/kubectl
+
+
 #ENTRYPOINT ["/usr/local/bin/helmfile"]
 CMD ["helmfile"]
