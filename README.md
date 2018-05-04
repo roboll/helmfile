@@ -52,9 +52,11 @@ releases:
       - name: address
         value: https://vault.example.com
       - name: db.password
-        value: {{ env "DB_PASSWORD" }}    # value taken from environment variable. Quotes are necessary. Will throw an error if the environment variable is not set. $DB_PASSWORD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
+        value: {{ requiredEnv "DB_PASSWORD" }}    # value taken from environment variable. Quotes are necessary. Will throw an error if the environment variable is not set. $DB_PASSWORD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
       - name: proxy.domain
-        value: {{ env "PLATFORM_ID" }}.my-domain.com # Interpolate environment variable with a fixed string
+        value: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com # Interpolate environment variable with a fixed string
+      - name: proxy.scheme
+        value: {{ env "SCHEME" | default "https" }}
 
   # Local chart example
   - name: grafana                            # name of this release
@@ -62,9 +64,17 @@ releases:
     chart: ../my-charts/grafana              # the chart being installed to create this release, referenced by relative path to local chart
     values:
     - "../../my-values/grafana/values.yaml"             # Values file (relative path to manifest)
-    - ./values/{{ env "PLATFORM_ENV" }}/config.yaml # Values file taken from path with environment variable. $PLATFORM_ENV must be set in the calling environment.
+    - ./values/{{ requiredEnv "PLATFORM_ENV" }}/config.yaml # Values file taken from path with environment variable. $PLATFORM_ENV must be set in the calling environment.
 
 ```
+
+## Templating
+
+Helmfile uses [Go templates](https://godoc.org/text/template) for templating your helmfile.yaml. While go ships several built-in functions, we have added all of the functions in the [Sprig library](https://godoc.org/github.com/Masterminds/sprig).
+
+We also added one special template function: `requiredEnv`.  
+The `required_env` function allows you to declare a particular environment variable as required for template rendering.  
+If the environment variable is unset or empty, the template rendering will fail with an error message.
 
 ## Using environment variables
 
@@ -75,17 +85,19 @@ Examples:
 ```yaml
 respositories:
 - name: your-private-git-repo-hosted-charts
-  url: https://{{ env "GITHUB_TOKEN"}}@raw.githubusercontent.com/kmzfs/helm-repo-in-github/master/
+  url: https://{{ requiredEnv "GITHUB_TOKEN"}}@raw.githubusercontent.com/kmzfs/helm-repo-in-github/master/
 ```
 
 ```yaml
 releases:
-  - name: {{ env "NAME" }}-vault
-    namespace: {{ env "NAME" }}
+  - name: {{ requiredEnv "NAME" }}-vault
+    namespace: {{ requiredEnv "NAME" }}
     chart: roboll/vault-secret-manager
     set:
       - name: proxy.domain
-        value: {{ env "PLATFORM_ID" }}.my-domain.com
+        value: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
+      - name: proxy.scheme
+        value: {{ env "SCHEME" | default "https" }}
 ```
 
 ## installation

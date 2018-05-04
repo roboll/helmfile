@@ -351,6 +351,25 @@ func Test_renderTemplateString(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "required env var",
+			args: args{
+				s: "{{ requiredEnv \"HF_TEST\" }}",
+				envs: map[string]string{
+					"HF_TEST": "value",
+				},
+			},
+			want:    "value",
+			wantErr: false,
+		},
+		{
+			name: "required env var not set",
+			args: args{
+				s:    "{{ requiredEnv \"HF_TEST_NONE\" }}",
+				envs: map[string]string{},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
