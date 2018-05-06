@@ -107,7 +107,21 @@ func readFromYaml(content []byte, file string) (*HelmState, error) {
 }
 
 func stringTemplate() *template.Template {
-	return template.New("stringTemplate").Funcs(sprig.TxtFuncMap())
+	funcMap := sprig.TxtFuncMap()
+	alterFuncMap(&funcMap)
+	return template.New("stringTemplate").Funcs(funcMap)
+}
+
+func alterFuncMap(funcMap *template.FuncMap) {
+	(*funcMap)["requiredEnv"] = getRequiredEnv
+}
+
+func getRequiredEnv(name string) (string, error) {
+	if val, exists := os.LookupEnv(name); exists && len(val) > 0 {
+		return val, nil
+	}
+
+	return "", fmt.Errorf("required env var `%s` is not set", name)
 }
 
 func renderTemplateString(s string) (string, error) {
