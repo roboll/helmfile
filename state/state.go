@@ -503,7 +503,7 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 	if len(release.SetValues) > 0 {
 		val := []string{}
 		for _, set := range release.SetValues {
-			val = append(val, fmt.Sprintf("%s=%s", set.Name, set.Value))
+			val = append(val, fmt.Sprintf("%s=%s", escape(set.Name), escape(set.Value)))
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}
@@ -518,7 +518,7 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 		for _, set := range release.EnvValues {
 			value, isSet := os.LookupEnv(set.Value)
 			if isSet {
-				val = append(val, fmt.Sprintf("%s=%s", set.Name, value))
+				val = append(val, fmt.Sprintf("%s=%s", escape(set.Name), escape(value)))
 			} else {
 				errMsg := fmt.Sprintf("\t%s", set.Value)
 				envValErrs = append(envValErrs, errMsg)
@@ -536,4 +536,10 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 	 **************/
 
 	return flags, nil
+}
+
+func escape(value string) string {
+	intermediate := strings.Replace(value, "{", "\\{", -1)
+	intermediate = strings.Replace(intermediate, "}", "\\}", -1)
+	return strings.Replace(intermediate, ",", "\\,", -1)
 }
