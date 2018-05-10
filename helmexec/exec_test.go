@@ -87,16 +87,16 @@ func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	helm := MockExecer(&buffer, "dev")
 	helm.SyncRelease("release", "chart", "--timeout 10", "--wait")
-	expected := "exec: helm upgrade --install release chart --timeout 10 --wait --kube-context dev\n"
+	expected := "exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
 	buffer.Reset()
 	helm.SyncRelease("release", "chart")
-	expected = "exec: helm upgrade --install release chart --kube-context dev\n"
+	expected = "exec: helm upgrade --install --reset-values release chart --kube-context dev\n"
 	if buffer.String() != expected {
-		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 }
 
