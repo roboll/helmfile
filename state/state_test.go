@@ -502,7 +502,12 @@ func Test_normalizeChart(t *testing.T) {
 type mockHelmExec struct {
 	charts   []string
 	repo     []string
-	releases []string
+	releases []mockRelease
+}
+
+type mockRelease struct {
+	name  string
+	flags []string
 }
 
 func (helm *mockHelmExec) UpdateDeps(chart string) error {
@@ -527,7 +532,7 @@ func (helm *mockHelmExec) SyncRelease(name, chart string, flags ...string) error
 	if strings.Contains(name, "error") {
 		return errors.New("error")
 	}
-	helm.releases = append(helm.releases, name)
+	helm.releases = append(helm.releases, mockRelease{name: name, flags: flags})
 	helm.charts = append(helm.charts, chart)
 	return nil
 }
@@ -538,7 +543,7 @@ func (helm *mockHelmExec) ReleaseStatus(release string) error {
 	if strings.Contains(release, "error") {
 		return errors.New("error")
 	}
-	helm.releases = append(helm.releases, release)
+	helm.releases = append(helm.releases, mockRelease{name: release, flags: []string{}})
 	return nil
 }
 func (helm *mockHelmExec) DeleteRelease(name string) error {
@@ -606,7 +611,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 		name         string
 		releases     []ReleaseSpec
 		helm         *mockHelmExec
-		wantReleases []string
+		wantReleases []mockRelease
 	}{
 		{
 			name: "normal release",
@@ -617,7 +622,28 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &mockHelmExec{},
-			wantReleases: []string{"releaseName"},
+			wantReleases: []mockRelease{{"releaseName", []string{}}},
+		},
+		{
+			name: "escaped values",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  "someList",
+							Value: "a,b,c",
+						},
+						{
+							Name:  "json",
+							Value: "{\"name\": \"john\"}",
+						},
+					},
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{"--set", "someList=a\\,b\\,c,json=\\{\"name\": \"john\"\\}"}}},
 		},
 	}
 	for _, tt := range tests {
@@ -673,7 +699,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 		name     string
 		releases []ReleaseSpec
 		helm     *mockHelmExec
-		want     []string
+		want     []mockRelease
 		wantErr  bool
 	}{
 		{
@@ -684,7 +710,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 				},
 			},
 			helm: &mockHelmExec{},
-			want: []string{"releaseA"},
+			want: []mockRelease{{"releaseA", []string{}}},
 		},
 		{
 			name: "happy path",
