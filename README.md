@@ -45,7 +45,11 @@ releases:
       foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
-    values: [ vault.yaml ]                 # value files (--values)
+    values:
+      - vault.yaml                         # value files (--values)
+      - db:                                # inline values. Passed via a temporary values file (--values)
+          username: {{ requiredEnv "DB_USERNAME" }}
+          password: {{ requiredEnv "DB_PASSWORD" }}
     secrets:
       - vault_secret.yaml                  # will attempt to decrypt it using helm-secrets plugin
     set:                                   # values (--set)
@@ -78,7 +82,7 @@ If the environment variable is unset or empty, the template rendering will fail 
 
 ## Using environment variables
 
-Environment variables can be used in most places for templating the helmfile. Currently this is supported for `name`, `namespace`, `value` (in set) and `url` (in repositories).
+Environment variables can be used in most places for templating the helmfile. Currently this is supported for `name`, `namespace`, `value` (in set), `values` and `url` (in repositories).
 
 Examples:
 
@@ -93,6 +97,10 @@ releases:
   - name: {{ requiredEnv "NAME" }}-vault
     namespace: {{ requiredEnv "NAME" }}
     chart: roboll/vault-secret-manager
+    values:
+      - db:
+          username: {{ requiredEnv "DB_USERNAME" }}
+          password: {{ requiredEnv "DB_PASSWORD" }}
     set:
       - name: proxy.domain
         value: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
