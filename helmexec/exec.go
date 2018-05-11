@@ -79,8 +79,8 @@ func (helm *execer) DiffRelease(name, chart string, flags ...string) error {
 	return err
 }
 
-func (helm *execer) DeleteRelease(name string) error {
-	out, err := helm.exec("delete", "--purge", name)
+func (helm *execer) DeleteRelease(name string, flags ...string) error {
+	out, err := helm.exec(append([]string{"delete", name}, flags...)...)
 	helm.write(out)
 	return err
 }

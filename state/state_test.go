@@ -546,7 +546,7 @@ func (helm *mockHelmExec) ReleaseStatus(release string) error {
 	helm.releases = append(helm.releases, mockRelease{name: release, flags: []string{}})
 	return nil
 }
-func (helm *mockHelmExec) DeleteRelease(name string) error {
+func (helm *mockHelmExec) DeleteRelease(name string, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) DecryptSecret(name string) (string, error) {

@@ -356,14 +356,18 @@ func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
-func (state *HelmState) DeleteReleases(helm helmexec.Interface) []error {
+func (state *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
 	for _, release := range state.Releases {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, release ReleaseSpec) {
-			if err := helm.DeleteRelease(release.Name); err != nil {
+			flags := []string{}
+			if purge {
+				flags = append(flags, "--purge")
+			}
+			if err := helm.DeleteRelease(release.Name, flags...); err != nil {
 				errs = append(errs, err)
 			}
 			wg.Done()
