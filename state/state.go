@@ -49,7 +49,7 @@ type ReleaseSpec struct {
 	Name      string            `yaml:"name"`
 	Namespace string            `yaml:"namespace"`
 	Labels    map[string]string `yaml:"labels"`
-	Values    []string          `yaml:"values"`
+	Values    []interface{}     `yaml:"values"`
 	Secrets   []string          `yaml:"secrets"`
 	SetValues []SetValue        `yaml:"set"`
 
@@ -479,12 +479,28 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 		flags = append(flags, "--namespace", release.Namespace)
 	}
 	for _, value := range release.Values {
-		path := filepath.Join(basePath, value)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			return nil, err
-		}
+		switch typedValue := value.(type) {
+		case string:
+			path := filepath.Join(basePath, typedValue)
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				return nil, err
+			}
+			flags = append(flags, "--values", path)
 
-		flags = append(flags, "--values", path)
+		case map[interface{}]interface{}:
+			valfile, err := ioutil.TempFile("", "values")
+			if err != nil {
+				return nil, err
+			}
+			defer valfile.Close()
+			encoder := yaml.NewEncoder(valfile)
+			defer encoder.Close()
+			if err := encoder.Encode(typedValue); err != nil {
+				return nil, err
+			}
+			release.generatedValues = append(release.generatedValues, valfile.Name())
+			flags = append(flags, "--values", valfile.Name())
+		}
 	}
 	for _, value := range release.Secrets {
 		path := filepath.Join(basePath, value)
