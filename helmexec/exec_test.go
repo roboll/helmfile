@@ -132,14 +132,14 @@ func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	helm := MockExecer(&buffer, "dev")
 	helm.DiffRelease("release", "chart", "--timeout 10", "--wait")
-	expected := "exec: helm diff release chart --timeout 10 --wait --kube-context dev\n"
+	expected := "exec: helm diff upgrade release chart --timeout 10 --wait --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
 	buffer.Reset()
 	helm.DiffRelease("release", "chart")
-	expected = "exec: helm diff release chart --kube-context dev\n"
+	expected = "exec: helm diff upgrade release chart --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
