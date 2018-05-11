@@ -182,7 +182,7 @@ dependencies of any referenced local charts.
 The `helmfile diff` sub-command executes the [helm-diff](https://github.com/databus23/helm-diff) plugin across all of
 the charts/releases defined in the manifest.
 
-To supply the diff functionality Helmfile needs the `helm diff` plugin installed. For Helm 2.3+
+To supply the diff functionality Helmfile needs the [helm-diff](https://github.com/databus23/helm-diff) plugin v2.9.0+1 or greater installed. For Helm 2.3+
 you should be able to simply execute `helm plugin install https://github.com/databus23/helm-diff`. For more details
 please look at their [documentation](https://github.com/databus23/helm-diff#helm-diff-plugin).
 
