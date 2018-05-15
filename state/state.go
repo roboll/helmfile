@@ -481,7 +481,12 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 	for _, value := range release.Values {
 		switch typedValue := value.(type) {
 		case string:
-			path := filepath.Join(basePath, typedValue)
+			var path string
+			if filepath.IsAbs(typedValue) {
+				path = typedValue
+			} else {
+				path = filepath.Join(basePath, typedValue)
+			}
 			if _, err := os.Stat(path); os.IsNotExist(err) {
 				return nil, err
 			}
