@@ -149,7 +149,16 @@ func Test_DeleteRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	helm := MockExecer(&buffer, "dev")
 	helm.DeleteRelease("release")
-	expected := "exec: helm delete --purge release --kube-context dev\n"
+	expected := "exec: helm delete release --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.DeleteRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+func Test_DeleteRelease_Flags(t *testing.T) {
+	var buffer bytes.Buffer
+	helm := MockExecer(&buffer, "dev")
+	helm.DeleteRelease("release", "--purge")
+	expected := "exec: helm delete release --purge --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DeleteRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}

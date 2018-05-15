@@ -252,14 +252,22 @@ func main() {
 		},
 		{
 			Name:  "delete",
-			Usage: "delete charts from state file (helm delete)",
+			Usage: "delete releases from state file (helm delete)",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "purge",
+					Usage: "purge releases i.e. free release names and histories",
+				},
+			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
 				if err != nil {
 					return err
 				}
 
-				errs := state.DeleteReleases(helm)
+				purge := c.Bool("purge")
+
+				errs := state.DeleteReleases(helm, purge)
 				return clean(state, errs)
 			},
 		},

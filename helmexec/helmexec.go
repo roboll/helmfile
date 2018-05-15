@@ -10,7 +10,7 @@ type Interface interface {
 	SyncRelease(name, chart string, flags ...string) error
 	DiffRelease(name, chart string, flags ...string) error
 	ReleaseStatus(name string) error
-	DeleteRelease(name string) error
+	DeleteRelease(name string, flags ...string) error
 
 	DecryptSecret(name string) (string, error)
 }
