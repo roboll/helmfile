@@ -15,4 +15,3 @@ type Interface interface {
 
 	DecryptSecret(name string) (string, error)
 }
-

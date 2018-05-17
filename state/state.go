@@ -383,6 +383,7 @@ func (state *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []er
 	return nil
 }
 
+// TestReleases wrapper for executing helm test on the releases
 func (state *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
