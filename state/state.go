@@ -382,6 +382,29 @@ func (state *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []er
 	return nil
 }
 
+func (state *HelmState) TestReleases(helm helmexec.Interface) []error {
+	var wg sync.WaitGroup
+	errs := []error{}
+
+	for _, release := range state.Releases {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, release ReleaseSpec) {
+			flags := []string{}
+			if err := helm.TestRelease(release.Name, flags...); err != nil {
+				errs = append(errs, err)
+			}
+			wg.Done()
+		}(&wg, release)
+	}
+	wg.Wait()
+
+	if len(errs) != 0 {
+		return errs
+	}
+
+	return nil
+}
+
 // Clean will remove any generated secrets
 func (state *HelmState) Clean() []error {
 	errs := []error{}
@@ -568,3 +591,4 @@ func escape(value string) string {
 	intermediate = strings.Replace(intermediate, "}", "\\}", -1)
 	return strings.Replace(intermediate, ",", "\\,", -1)
 }
+

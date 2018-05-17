@@ -271,6 +271,21 @@ func main() {
 				return clean(state, errs)
 			},
 		},
+		{
+			Name:  "test",
+			Usage: "test releases from state file (helm test)",
+			Flags: []cli.Flag{
+			},
+			Action: func(c *cli.Context) error {
+				state, helm, err := before(c)
+				if err != nil {
+					return err
+				}
+
+				errs := state.TestReleases(helm)
+				return clean(state, errs)
+			},
+		},
 	}
 
 	err := app.Run(os.Args)
@@ -357,3 +372,4 @@ func clean(state *state.HelmState, errs []error) error {
 	}
 	return nil
 }
+
