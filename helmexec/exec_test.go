@@ -176,8 +176,8 @@ func Test_TestRelease(t *testing.T) {
 func Test_TestRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
 	helm := MockExecer(&buffer, "dev")
-	helm.TestRelease("release", "--cleanup")
-	expected := "exec: helm test release --cleanup --kube-context dev\n"
+	helm.TestRelease("release", "--cleanup", "--timeout", "60")
+	expected := "exec: helm test release --cleanup --timeout 60 --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.TestRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
