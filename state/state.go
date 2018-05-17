@@ -382,7 +382,7 @@ func (state *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []er
 	return nil
 }
 
-func (state *HelmState) TestReleases(helm helmexec.Interface) []error {
+func (state *HelmState) TestReleases(helm helmexec.Interface, cleanup bool) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
@@ -390,6 +390,9 @@ func (state *HelmState) TestReleases(helm helmexec.Interface) []error {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, release ReleaseSpec) {
 			flags := []string{}
+			if cleanup {
+				flags = append(flags, "--cleanup")
+			}
 			if err := helm.TestRelease(release.Name, flags...); err != nil {
 				errs = append(errs, err)
 			}

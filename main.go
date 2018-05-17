@@ -275,6 +275,10 @@ func main() {
 			Name:  "test",
 			Usage: "test releases from state file (helm test)",
 			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "cleanup",
+					Usage: "delete test pods upon completion",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -282,7 +286,9 @@ func main() {
 					return err
 				}
 
-				errs := state.TestReleases(helm)
+				cleanup := c.Bool("cleanup")
+
+				errs := state.TestReleases(helm, cleanup)
 				return clean(state, errs)
 			},
 		},
