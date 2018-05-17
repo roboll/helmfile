@@ -279,6 +279,11 @@ func main() {
 					Name:  "cleanup",
 					Usage: "delete test pods upon completion",
 				},
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm exec",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				state, helm, err := before(c)
@@ -287,6 +292,11 @@ func main() {
 				}
 
 				cleanup := c.Bool("cleanup")
+
+				args := c.String("args")
+				if len(args) > 0 {
+					helm.SetExtraArgs(strings.Split(args, " ")...)
+				}
 
 				errs := state.TestReleases(helm, cleanup)
 				return clean(state, errs)
@@ -378,4 +388,3 @@ func clean(state *state.HelmState, errs []error) error {
 	}
 	return nil
 }
-

@@ -594,4 +594,3 @@ func escape(value string) string {
 	intermediate = strings.Replace(intermediate, "}", "\\}", -1)
 	return strings.Replace(intermediate, ",", "\\,", -1)
 }
-
