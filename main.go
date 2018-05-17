@@ -282,7 +282,12 @@ func main() {
 				cli.StringFlag{
 					Name:  "args",
 					Value: "",
-					Usage: "pass args to helm exec",
+					Usage: "pass additional args to helm exec",
+				},
+				cli.IntFlag{
+					Name:  "timeout",
+					Value: 300,
+					Usage: "maximum time for tests to run before being considered failed",
 				},
 			},
 			Action: func(c *cli.Context) error {
@@ -292,13 +297,14 @@ func main() {
 				}
 
 				cleanup := c.Bool("cleanup")
+				timeout := c.Int("timeout")
 
 				args := c.String("args")
 				if len(args) > 0 {
 					helm.SetExtraArgs(strings.Split(args, " ")...)
 				}
 
-				errs := state.TestReleases(helm, cleanup)
+				errs := state.TestReleases(helm, cleanup, timeout)
 				return clean(state, errs)
 			},
 		},
