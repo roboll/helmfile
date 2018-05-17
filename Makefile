@@ -26,7 +26,7 @@ integration:
 .PHONY: integration
 
 cross:
-	gox -os '!freebsd !netbsd' -arch '!arm' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -os '!freebsd !netbsd' -arch '!arm' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:
