@@ -164,6 +164,25 @@ func Test_DeleteRelease_Flags(t *testing.T) {
 	}
 }
 
+func Test_TestRelease(t *testing.T) {
+	var buffer bytes.Buffer
+	helm := MockExecer(&buffer, "dev")
+	helm.TestRelease("release")
+	expected := "exec: helm test release --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.TestRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+func Test_TestRelease_Flags(t *testing.T) {
+	var buffer bytes.Buffer
+	helm := MockExecer(&buffer, "dev")
+	helm.TestRelease("release", "--cleanup")
+	expected := "exec: helm test release --cleanup --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.TestRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
 func Test_ReleaseStatus(t *testing.T) {
 	var buffer bytes.Buffer
 	helm := MockExecer(&buffer, "dev")

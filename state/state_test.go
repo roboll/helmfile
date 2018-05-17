@@ -552,6 +552,9 @@ func (helm *mockHelmExec) DeleteRelease(name string, flags ...string) error {
 func (helm *mockHelmExec) DecryptSecret(name string) (string, error) {
 	return "", nil
 }
+func (helm *mockHelmExec) TestRelease(name string, flags ...string) error {
+	return nil
+}
 
 func TestHelmState_SyncRepos(t *testing.T) {
 	tests := []struct {
