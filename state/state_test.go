@@ -553,6 +553,10 @@ func (helm *mockHelmExec) DecryptSecret(name string) (string, error) {
 	return "", nil
 }
 func (helm *mockHelmExec) TestRelease(name string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
+	helm.releases = append(helm.releases, mockRelease{name: name, flags: flags})
 	return nil
 }
 
@@ -738,6 +742,65 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.helm.releases, tt.want) {
 				t.Errorf("HelmState.ReleaseStatuses() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.want)
+			}
+		}
+		t.Run(tt.name, i)
+	}
+}
+
+func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
+	tests := []struct {
+		name     string
+		cleanup  bool
+		releases []ReleaseSpec
+		helm     *mockHelmExec
+		want     []mockRelease
+		wantErr  bool
+	}{
+		{
+			name: "happy path",
+			releases: []ReleaseSpec{
+				{
+					Name: "releaseA",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []mockRelease{{"releaseA", []string{"--timeout", "1"}}},
+		},
+		{
+			name:    "do cleanup",
+			cleanup: true,
+			releases: []ReleaseSpec{
+				{
+					Name: "releaseB",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []mockRelease{{"releaseB", []string{"--cleanup", "--timeout", "1"}}},
+		},
+		{
+			name: "happy path",
+			releases: []ReleaseSpec{
+				{
+					Name: "error",
+				},
+			},
+			helm:    &mockHelmExec{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		i := func(t *testing.T) {
+			state := &HelmState{
+				Releases: tt.releases,
+			}
+			errs := state.TestReleases(tt.helm, tt.cleanup, 1)
+			if (errs != nil) != tt.wantErr {
+				t.Errorf("TestReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(tt.helm.releases, tt.want) {
+				t.Errorf("HelmState.TestReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.want)
 			}
 		}
 		t.Run(tt.name, i)
