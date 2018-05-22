@@ -156,6 +156,7 @@ COMMANDS:
      sync    sync all resources from state file (repos, charts and local chart deps)
      status  retrieve status of releases in state file
      delete  delete charts from state file (helm delete)
+     test    tets releases from state file (helm test)
 
 GLOBAL OPTIONS:
    --file FILE, -f FILE         load config from FILE (default: "helmfile.yaml")
@@ -199,6 +200,12 @@ The `secrets` parameter in a `helmfile.yaml` causes the [helm-secrets](https://g
 To supply the secret functionality Helmfile needs the `helm secrets` plugin installed. For Helm 2.3+
 you should be able to simply execute `helm plugin install https://github.com/futuresimple/helm-secrets
 `.
+
+### test
+
+The `helmfile test` sub-command runs a `helm test` against specified releases in the manifest, default to all
+
+Use `--cleanup` to delete pods upon completion.
 
 ## Paths Overview
 Using manifest files in conjunction with command line argument can be a bit confusing.

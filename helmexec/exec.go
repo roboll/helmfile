@@ -85,6 +85,12 @@ func (helm *execer) DeleteRelease(name string, flags ...string) error {
 	return err
 }
 
+func (helm *execer) TestRelease(name string, flags ...string) error {
+	out, err := helm.exec(append([]string{"test", name}, flags...)...)
+	helm.write(out)
+	return err
+}
+
 func (helm *execer) exec(args ...string) ([]byte, error) {
 	cmdargs := args
 	if len(helm.extra) > 0 {

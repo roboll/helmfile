@@ -271,6 +271,43 @@ func main() {
 				return clean(state, errs)
 			},
 		},
+		{
+			Name:  "test",
+			Usage: "test releases from state file (helm test)",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "cleanup",
+					Usage: "delete test pods upon completion",
+				},
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass additional args to helm exec",
+				},
+				cli.IntFlag{
+					Name:  "timeout",
+					Value: 300,
+					Usage: "maximum time for tests to run before being considered failed",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				state, helm, err := before(c)
+				if err != nil {
+					return err
+				}
+
+				cleanup := c.Bool("cleanup")
+				timeout := c.Int("timeout")
+
+				args := c.String("args")
+				if len(args) > 0 {
+					helm.SetExtraArgs(strings.Split(args, " ")...)
+				}
+
+				errs := state.TestReleases(helm, cleanup, timeout)
+				return clean(state, errs)
+			},
+		},
 	}
 
 	err := app.Run(os.Args)

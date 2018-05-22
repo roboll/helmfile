@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -368,6 +369,34 @@ func (state *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []er
 				flags = append(flags, "--purge")
 			}
 			if err := helm.DeleteRelease(release.Name, flags...); err != nil {
+				errs = append(errs, err)
+			}
+			wg.Done()
+		}(&wg, release)
+	}
+	wg.Wait()
+
+	if len(errs) != 0 {
+		return errs
+	}
+
+	return nil
+}
+
+// TestReleases wrapper for executing helm test on the releases
+func (state *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int) []error {
+	var wg sync.WaitGroup
+	errs := []error{}
+
+	for _, release := range state.Releases {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, release ReleaseSpec) {
+			flags := []string{}
+			if cleanup {
+				flags = append(flags, "--cleanup")
+			}
+			flags = append(flags, "--timeout", strconv.Itoa(timeout))
+			if err := helm.TestRelease(release.Name, flags...); err != nil {
 				errs = append(errs, err)
 			}
 			wg.Done()
