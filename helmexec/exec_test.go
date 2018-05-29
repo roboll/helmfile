@@ -59,15 +59,22 @@ func Test_SetExtraArgs(t *testing.T) {
 func Test_AddRepo(t *testing.T) {
 	var buffer bytes.Buffer
 	helm := MockExecer(&buffer, "dev")
-	helm.AddRepo("myRepo", "https://repo.example.com/", "cert.pem", "key.pem")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "cert.pem", "key.pem", "", "")
 	expected := "exec: helm repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
 	buffer.Reset()
-	helm.AddRepo("myRepo", "https://repo.example.com/", "", "")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "")
 	expected = "exec: helm repo add myRepo https://repo.example.com/ --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "example_user", "example_password")
+	expected = "exec: helm repo add myRepo https://repo.example.com/ --username example_user --password example_password --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}

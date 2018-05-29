@@ -37,6 +37,8 @@ type RepositorySpec struct {
 	URL      string `yaml:"url"`
 	CertFile string `yaml:"certFile"`
 	KeyFile  string `yaml:"keyFile"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // ReleaseSpec defines the structure of a helm release
@@ -152,7 +154,7 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	errs := []error{}
 
 	for _, repo := range state.Repositories {
-		if err := helm.AddRepo(repo.Name, repo.URL, repo.CertFile, repo.KeyFile); err != nil {
+		if err := helm.AddRepo(repo.Name, repo.URL, repo.CertFile, repo.KeyFile, repo.Username, repo.Password); err != nil {
 			errs = append(errs, err)
 		}
 	}

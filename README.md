@@ -34,6 +34,8 @@ repositories:
     url: http://roboll.io/charts
     certFile: optional_client_cert
     keyFile: optional_client_key
+    username: optional_username
+    password: optional_password
 
 context: kube-context					 # kube-context (--kube-context)
 
@@ -76,8 +78,8 @@ releases:
 
 Helmfile uses [Go templates](https://godoc.org/text/template) for templating your helmfile.yaml. While go ships several built-in functions, we have added all of the functions in the [Sprig library](https://godoc.org/github.com/Masterminds/sprig).
 
-We also added one special template function: `requiredEnv`.  
-The `required_env` function allows you to declare a particular environment variable as required for template rendering.  
+We also added one special template function: `requiredEnv`.
+The `required_env` function allows you to declare a particular environment variable as required for template rendering.
 If the environment variable is unset or empty, the template rendering will fail with an error message.
 
 ## Using environment variables
@@ -177,6 +179,8 @@ The `helmfile sync` sub-command sync your cluster state as described in your `he
 
 Under the covers, Helmfile executes `helm upgrade --install` for each `release` declared in the manifest, by optionally decrypting [secrets](#secrets) to be consumed as helm chart values. It also updates specified chart repositories and updates the
 dependencies of any referenced local charts.
+
+For Helm 2.9+ you can use a username and password to authenticate to a remote repository.
 
 ### diff
 

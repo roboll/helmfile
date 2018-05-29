@@ -521,8 +521,8 @@ func (helm *mockHelmExec) UpdateDeps(chart string) error {
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 	return
 }
-func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile string) error {
-	helm.repo = []string{name, repository, certfile, keyfile}
+func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile, username, password string) error {
+	helm.repo = []string{name, repository, certfile, keyfile, username, password}
 	return nil
 }
 func (helm *mockHelmExec) UpdateRepo() error {
@@ -576,10 +576,12 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					URL:      "http://example.com/",
 					CertFile: "",
 					KeyFile:  "",
+					Username: "",
+					Password: "",
 				},
 			},
 			helm: &mockHelmExec{},
-			want: []string{"name", "http://example.com/", "", ""},
+			want: []string{"name", "http://example.com/", "", "", "", ""},
 		},
 		{
 			name: "repository with cert and key",
@@ -589,10 +591,27 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					URL:      "http://example.com/",
 					CertFile: "certfile",
 					KeyFile:  "keyfile",
+					Username: "",
+					Password: "",
 				},
 			},
 			helm: &mockHelmExec{},
-			want: []string{"name", "http://example.com/", "certfile", "keyfile"},
+			want: []string{"name", "http://example.com/", "certfile", "keyfile", "", ""},
+		},
+		{
+			name: "repository with username and password",
+			repos: []RepositorySpec{
+				{
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "",
+					KeyFile:  "",
+					Username: "example_user",
+					Password: "example_password",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []string{"name", "http://example.com/", "", "", "example_user", "example_password"},
 		},
 	}
 	for _, tt := range tests {
