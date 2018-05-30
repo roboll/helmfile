@@ -180,7 +180,7 @@ The `helmfile sync` sub-command sync your cluster state as described in your `he
 Under the covers, Helmfile executes `helm upgrade --install` for each `release` declared in the manifest, by optionally decrypting [secrets](#secrets) to be consumed as helm chart values. It also updates specified chart repositories and updates the
 dependencies of any referenced local charts.
 
-For Helm 2.9+ you can use a username and password to authenticate to a remote repository.
+For Helm 2.9+ you can use a username and password to authenticate to a remote repository. WARNING - repository password will be exposed unmasked in console using literal value or environment variable.
 
 ### diff
 
