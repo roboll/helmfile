@@ -9,7 +9,7 @@ RUN make static-linux
 
 FROM alpine:3.7
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates git bash
 
 ENV HELM_VERSION=v2.8.2
 ENV HELM_LOCATION="https://kubernetes-helm.storage.googleapis.com"
@@ -19,6 +19,9 @@ RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
     sha256sum ${HELM_FILENAME} | grep -q "${HELM_SHA256}" && \
     tar zxf ${HELM_FILENAME} && mv /linux-amd64/helm /usr/local/bin/ && \
     rm ${HELM_FILENAME} && rm -r /linux-amd64
+
+RUN mkdir -p "$(helm home)/plugins"
+RUN helm plugin install https://github.com/databus23/helm-diff
 
 COPY --from=builder /go/src/github.com/roboll/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 
