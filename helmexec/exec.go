@@ -30,11 +30,14 @@ func (helm *execer) SetExtraArgs(args ...string) {
 	helm.extra = args
 }
 
-func (helm *execer) AddRepo(name, repository, certfile, keyfile string) error {
+func (helm *execer) AddRepo(name, repository, certfile, keyfile, username, password string) error {
 	var args []string
 	args = append(args, "repo", "add", name, repository)
 	if certfile != "" && keyfile != "" {
 		args = append(args, "--cert-file", certfile, "--key-file", keyfile)
+	}
+	if username != "" && password != "" {
+		args = append(args, "--username", username, "--password", password)
 	}
 	out, err := helm.exec(args...)
 	helm.write(out)
