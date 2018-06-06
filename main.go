@@ -12,11 +12,14 @@ import (
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
+	"path/filepath"
+	"sort"
 )
 
 const (
-	DefaultHelmfile    = "helmfile.yaml"
-	DeprecatedHelmfile = "charts.yaml"
+	DefaultHelmfile          = "helmfile.yaml"
+	DeprecatedHelmfile       = "charts.yaml"
+	DefaultHelmfileDirectory = "helmfile.d"
 )
 
 var Version string
@@ -66,18 +69,14 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				state, helm, err := before(c)
-				if err != nil {
-					return err
-				}
+				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					args := c.String("args")
+					if len(args) > 0 {
+						helm.SetExtraArgs(strings.Split(args, " ")...)
+					}
 
-				args := c.String("args")
-				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
-				}
-
-				errs := state.SyncRepos(helm)
-				return clean(state, errs)
+					return state.SyncRepos(helm)
+				})
 			},
 		},
 		{
@@ -100,21 +99,17 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				state, helm, err := before(c)
-				if err != nil {
-					return err
-				}
+				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					args := c.String("args")
+					if len(args) > 0 {
+						helm.SetExtraArgs(strings.Split(args, " ")...)
+					}
 
-				args := c.String("args")
-				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
-				}
+					values := c.StringSlice("values")
+					workers := c.Int("concurrency")
 
-				values := c.StringSlice("values")
-				workers := c.Int("concurrency")
-
-				errs := state.SyncReleases(helm, values, workers)
-				return clean(state, errs)
+					return state.SyncReleases(helm, values, workers)
+				})
 			},
 		},
 		{
@@ -141,30 +136,23 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				state, helm, err := before(c)
-				if err != nil {
-					return err
-				}
-
-				args := c.String("args")
-				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
-				}
-
-				if c.Bool("sync-repos") {
-					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
-						for _, err := range errs {
-							fmt.Printf("err: %s\n", err.Error())
-						}
-						os.Exit(1)
+				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					args := c.String("args")
+					if len(args) > 0 {
+						helm.SetExtraArgs(strings.Split(args, " ")...)
 					}
-				}
 
-				values := c.StringSlice("values")
-				workers := c.Int("concurrency")
+					if c.Bool("sync-repos") {
+						if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+					}
 
-				errs := state.DiffReleases(helm, values, workers)
-				return clean(state, errs)
+					values := c.StringSlice("values")
+					workers := c.Int("concurrency")
+
+					return state.DiffReleases(helm, values, workers)
+				})
 			},
 		},
 		{
@@ -187,35 +175,25 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				state, helm, err := before(c)
-				if err != nil {
-					return err
-				}
-
-				if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
-					for _, err := range errs {
-						fmt.Printf("err: %s\n", err.Error())
+				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+						return errs
 					}
-					os.Exit(1)
-				}
 
-				if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
-					for _, err := range errs {
-						fmt.Printf("err: %s\n", err.Error())
+					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
+						return errs
 					}
-					os.Exit(1)
-				}
 
-				args := c.String("args")
-				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
-				}
+					args := c.String("args")
+					if len(args) > 0 {
+						helm.SetExtraArgs(strings.Split(args, " ")...)
+					}
 
-				values := c.StringSlice("values")
-				workers := c.Int("concurrency")
+					values := c.StringSlice("values")
+					workers := c.Int("concurrency")
 
-				errs := state.SyncReleases(helm, values, workers)
-				return clean(state, errs)
+					return state.SyncReleases(helm, values, workers)
+				})
 			},
 		},
 		{
@@ -234,20 +212,16 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				state, helm, err := before(c)
-				if err != nil {
-					return err
-				}
+				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					workers := c.Int("concurrency")
 
-				workers := c.Int("concurrency")
+					args := c.String("args")
+					if len(args) > 0 {
+						helm.SetExtraArgs(strings.Split(args, " ")...)
+					}
 
-				args := c.String("args")
-				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
-				}
-
-				errs := state.ReleaseStatuses(helm, workers)
-				return clean(state, errs)
+					return state.ReleaseStatuses(helm, workers)
+				})
 			},
 		},
 		{
@@ -260,15 +234,11 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				state, helm, err := before(c)
-				if err != nil {
-					return err
-				}
+				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					purge := c.Bool("purge")
 
-				purge := c.Bool("purge")
-
-				errs := state.DeleteReleases(helm, purge)
-				return clean(state, errs)
+					return state.DeleteReleases(helm, purge)
+				})
 			},
 		},
 		{
@@ -291,21 +261,17 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				state, helm, err := before(c)
-				if err != nil {
-					return err
-				}
+				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					cleanup := c.Bool("cleanup")
+					timeout := c.Int("timeout")
 
-				cleanup := c.Bool("cleanup")
-				timeout := c.Int("timeout")
+					args := c.String("args")
+					if len(args) > 0 {
+						helm.SetExtraArgs(strings.Split(args, " ")...)
+					}
 
-				args := c.String("args")
-				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
-				}
-
-				errs := state.TestReleases(helm, cleanup, timeout)
-				return clean(state, errs)
+					return state.TestReleases(helm, cleanup, timeout)
+				})
 			},
 		},
 	}
@@ -317,8 +283,77 @@ func main() {
 	}
 }
 
-func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
-	file := c.GlobalString("file")
+func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
+	fileOrDirPath := c.GlobalString("file")
+	desiredStateFiles, err := findDesiredStateFiles(fileOrDirPath)
+	if err != nil {
+		return err
+	}
+	for _, f := range desiredStateFiles {
+		state, helm, err := loadDesiredStateFromFile(c, f)
+		if err != nil {
+			return err
+		}
+		errs := converge(state, helm)
+		if err := clean(state, errs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func findDesiredStateFiles(fileOrDirPath string) ([]string, error) {
+	var dir string
+
+	if fileOrDirPath != "" {
+		if !fileExists(fileOrDirPath) {
+			return []string{}, fmt.Errorf("state file named %s is not found", fileOrDirPath)
+		}
+
+		if !directoryExists(fileOrDirPath) {
+			return []string{fileOrDirPath}, nil
+		}
+
+		dir = fileOrDirPath
+	}
+
+	if dir == "" && fileExists(DefaultHelmfileDirectory) && directoryExists(DefaultHelmfileDirectory) {
+		dir = DefaultHelmfileDirectory
+	}
+
+	if dir != "" {
+		files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
+		if err != nil {
+			return []string{}, err
+		}
+		sort.Slice(files, func(i, j int) bool {
+			return files[i] < files[j]
+		})
+		return files, nil
+	}
+
+	if fileExists(DefaultHelmfile) {
+		return []string{DefaultHelmfile}, nil
+	}
+
+	if fileExists(DeprecatedHelmfile) {
+		return []string{DeprecatedHelmfile}, nil
+	}
+
+	return []string{}, fmt.Errorf("no state file found. It must be named %s or %s, or otherwise specified with the --file flag", DefaultHelmfile, DeprecatedHelmfile)
+}
+
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	return err == nil
+}
+
+func directoryExists(path string) bool {
+	fileInfo, err := os.Stat(path)
+	return err == nil && fileInfo != nil && fileInfo.IsDir()
+}
+
+func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, helmexec.Interface, error) {
 	quiet := c.GlobalBool("quiet")
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
