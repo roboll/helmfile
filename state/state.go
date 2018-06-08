@@ -1,11 +1,11 @@
 package state
 
 import (
-	"path"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
