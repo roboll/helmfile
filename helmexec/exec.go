@@ -82,6 +82,18 @@ func (helm *execer) DiffRelease(name, chart string, flags ...string) error {
 	return err
 }
 
+func (helm *execer) Lint(chart string, flags ...string) error {
+	out, err := helm.exec(append([]string{"lint", chart}, flags...)...)
+	helm.write(out)
+	return err
+}
+
+func (helm *execer) Fetch(chart string, flags ...string) error {
+	out, err := helm.exec(append([]string{"fetch", chart}, flags...)...)
+	helm.write(out)
+	return err
+}
+
 func (helm *execer) DeleteRelease(name string, flags ...string) error {
 	out, err := helm.exec(append([]string{"delete", name}, flags...)...)
 	helm.write(out)
