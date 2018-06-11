@@ -342,8 +342,6 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 		go func() {
 			for release := range jobQueue {
 				errs := []error{}
-				// Plugin command doesn't support explicit namespace
-				release.Namespace = ""
 				flags, err := flagsForRelease(helm, state.BaseChartPath, release)
 				if err != nil {
 					errs = append(errs, err)
