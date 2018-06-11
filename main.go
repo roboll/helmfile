@@ -302,27 +302,41 @@ func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec
 	return nil
 }
 
-func findDesiredStateFiles(fileOrDirPath string) ([]string, error) {
-	var dir string
-
-	if fileOrDirPath != "" {
-		if !fileExists(fileOrDirPath) {
-			return []string{}, fmt.Errorf("state file named %s is not found", fileOrDirPath)
+func findDesiredStateFiles(specifiedPath string) ([]string, error) {
+	var existingDir string
+	if specifiedPath != "" {
+		if !pathExists(specifiedPath) {
+			return []string{}, fmt.Errorf("specified state file %s is not found", specifiedPath)
 		}
 
-		if !directoryExists(fileOrDirPath) {
-			return []string{fileOrDirPath}, nil
+		if !directoryExists(specifiedPath) {
+			return []string{specifiedPath}, nil
 		}
 
-		dir = fileOrDirPath
+		existingDir = specifiedPath
+	} else if pathExists(DefaultHelmfileDirectory) && directoryExists(DefaultHelmfileDirectory) {
+		existingDir = DefaultHelmfileDirectory
 	}
 
-	if dir == "" && fileExists(DefaultHelmfileDirectory) && directoryExists(DefaultHelmfileDirectory) {
-		dir = DefaultHelmfileDirectory
+	var existingFile string
+	if pathExists(DefaultHelmfile) {
+		existingFile = DefaultHelmfile
+	} else if pathExists(DeprecatedHelmfile) {
+		log.Printf(
+			"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
+			DeprecatedHelmfile,
+			DeprecatedHelmfile,
+			DefaultHelmfile,
+		)
+		existingFile = DeprecatedHelmfile
 	}
 
-	if dir != "" {
-		files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
+	if specifiedPath == "" && existingFile != "" && existingDir != "" {
+		return []string{}, fmt.Errorf("configuration conlict error: you can have either %s or %s, but not both", existingFile, existingDir)
+	}
+
+	if existingDir != "" {
+		files, err := filepath.Glob(filepath.Join(existingDir, "*.yaml"))
 		if err != nil {
 			return []string{}, err
 		}
@@ -330,20 +344,14 @@ func findDesiredStateFiles(fileOrDirPath string) ([]string, error) {
 			return files[i] < files[j]
 		})
 		return files, nil
+	} else if existingFile != "" {
+		return []string{existingFile}, nil
+	} else {
+		return []string{}, fmt.Errorf("no state file found. It must be named %s/*.yaml, %s, or %s, or otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DeprecatedHelmfile)
 	}
-
-	if fileExists(DefaultHelmfile) {
-		return []string{DefaultHelmfile}, nil
-	}
-
-	if fileExists(DeprecatedHelmfile) {
-		return []string{DeprecatedHelmfile}, nil
-	}
-
-	return []string{}, fmt.Errorf("no state file found. It must be named %s or %s, or otherwise specified with the --file flag", DefaultHelmfile, DeprecatedHelmfile)
 }
 
-func fileExists(filename string) bool {
+func pathExists(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
 }
@@ -361,16 +369,7 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 
 	st, err := state.ReadFromFile(file)
 	if err != nil {
-		if strings.Contains(err.Error(), fmt.Sprintf("open %s:", DefaultHelmfile)) {
-			var fallbackErr error
-			st, fallbackErr = state.ReadFromFile(DeprecatedHelmfile)
-			if fallbackErr != nil {
-				return nil, nil, fmt.Errorf("failed to read %s and %s: %v", file, DeprecatedHelmfile, err)
-			}
-			log.Printf("warn: charts.yaml is loaded: charts.yaml is deprecated in favor of helmfile.yaml. See https://github.com/roboll/helmfile/issues/25 for more information")
-		} else {
-			return nil, nil, fmt.Errorf("failed to read %s: %v", file, err)
-		}
+		return nil, nil, fmt.Errorf("failed to read %s: %v", file, err)
 	}
 
 	if st.Context != "" {
