@@ -364,10 +364,10 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 				} else {
 					fetchFlags := []string{}
 					if release.Version != "" {
-						chartPath = path.Join(dir, release.Version, release.Chart)
+						chartPath = path.Join(dir, release.Name, release.Version, release.Chart)
 						fetchFlags = append(fetchFlags, "--version", release.Version)
 					} else {
-						chartPath = path.Join(dir, "latest", release.Chart)
+						chartPath = path.Join(dir, release.Name, "latest", release.Chart)
 					}
 
 					// only fetch chart if it is not already fetched
