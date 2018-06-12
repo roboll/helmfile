@@ -281,6 +281,9 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 				if len(errs) == 0 {
 					if err := helm.DiffRelease(release.Name, normalizeChart(state.BaseChartPath, release.Chart), flags...); err != nil {
 						errs = append(errs, err)
+						// display hint to user until https://github.com/databus23/helm-diff/pull/15 is merged
+						hint := "Please make sure that you have run 'helmfile charts' at least once before running 'helmfile diff'."
+						errs = append(errs, errors.New(hint))
 					}
 				}
 				for _, err := range errs {
