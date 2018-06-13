@@ -71,9 +71,10 @@ func main() {
 					return err
 				}
 
-				args := c.String("args")
+				args := getArgs(c, state)
+
 				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
+					helm.SetExtraArgs(args...)
 				}
 
 				errs := state.SyncRepos(helm)
@@ -105,9 +106,10 @@ func main() {
 					return err
 				}
 
-				args := c.String("args")
+				args := getArgs(c, state)
+
 				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
+					helm.SetExtraArgs(args...)
 				}
 
 				values := c.StringSlice("values")
@@ -146,9 +148,10 @@ func main() {
 					return err
 				}
 
-				args := c.String("args")
+				args := getArgs(c, state)
+
 				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
+					helm.SetExtraArgs(args...)
 				}
 
 				if c.Bool("sync-repos") {
@@ -206,9 +209,10 @@ func main() {
 					os.Exit(1)
 				}
 
-				args := c.String("args")
+				args := getArgs(c, state)
+
 				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
+					helm.SetExtraArgs(args...)
 				}
 
 				values := c.StringSlice("values")
@@ -241,9 +245,10 @@ func main() {
 
 				workers := c.Int("concurrency")
 
-				args := c.String("args")
+				args := getArgs(c, state)
+
 				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
+					helm.SetExtraArgs(args...)
 				}
 
 				errs := state.ReleaseStatuses(helm, workers)
@@ -299,9 +304,10 @@ func main() {
 				cleanup := c.Bool("cleanup")
 				timeout := c.Int("timeout")
 
-				args := c.String("args")
+				args := getArgs(c, state)
+
 				if len(args) > 0 {
-					helm.SetExtraArgs(strings.Split(args, " ")...)
+					helm.SetExtraArgs(args...)
 				}
 
 				errs := state.TestReleases(helm, cleanup, timeout)
@@ -343,7 +349,19 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 			log.Printf("err: Cannot use option --kube-context and set attribute context.")
 			os.Exit(1)
 		}
+
+		if st.Helm.Context != "" {
+			log.Printf("err: Cannot set atrribute context on both helmspec and context.")
+			os.Exit(1)
+		}
+
 		kubeContext = st.Context
+	} else if st.Helm.Context != "" {
+		if kubeContext != "" {
+			log.Printf("err: Cannot use option --kube-context and set attribute context.")
+			os.Exit(1)
+		}
+		kubeContext = st.Helm.Context
 	}
 	if namespace != "" {
 		if st.Namespace != "" {
@@ -352,6 +370,7 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 		}
 		st.Namespace = namespace
 	}
+
 	if len(labels) > 0 {
 		err = st.FilterReleases(labels)
 		if err != nil {
@@ -393,4 +412,17 @@ func clean(state *state.HelmState, errs []error) error {
 		os.Exit(1)
 	}
 	return nil
+}
+
+func getArgs(c *cli.Context, state *state.HelmState) []string {
+	args := c.String("args")
+	if len(args) > 0 {
+		if len(state.Helm.Args) > 0 {
+			log.Printf("err: Cannot use option --args and set attribute args.")
+			os.Exit(1)
+		}
+		state.Helm.Args = strings.Split(args, " ")
+	}
+
+	return state.Helm.Args
 }
