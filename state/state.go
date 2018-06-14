@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -315,6 +316,120 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 	return nil
 }
 
+// LintReleases wrapper for executing helm lint on the releases
+func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
+	var wgRelease sync.WaitGroup
+	var wgError sync.WaitGroup
+	errs := []error{}
+	jobQueue := make(chan *ReleaseSpec, len(state.Releases))
+	errQueue := make(chan error)
+
+	if workerLimit < 1 {
+		workerLimit = len(state.Releases)
+	}
+
+	wgRelease.Add(len(state.Releases))
+
+	// Create tmp directory and bail immediately if it fails
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		errs = append(errs, err)
+		return errs
+	}
+	defer os.RemoveAll(dir)
+
+	for w := 1; w <= workerLimit; w++ {
+		go func() {
+			for release := range jobQueue {
+				errs := []error{}
+				flags, err := flagsForRelease(helm, state.BaseChartPath, release)
+				if err != nil {
+					errs = append(errs, err)
+				}
+				for _, value := range additionalValues {
+					valfile, err := filepath.Abs(value)
+					if err != nil {
+						errs = append(errs, err)
+					}
+
+					if _, err := os.Stat(valfile); os.IsNotExist(err) {
+						errs = append(errs, err)
+					}
+					flags = append(flags, "--values", valfile)
+				}
+
+				chartPath := ""
+				if isLocalChart(release.Chart) {
+					chartPath = normalizeChart(state.BaseChartPath, release.Chart)
+				} else {
+					fetchFlags := []string{}
+					if release.Version != "" {
+						chartPath = path.Join(dir, release.Name, release.Version, release.Chart)
+						fetchFlags = append(fetchFlags, "--version", release.Version)
+					} else {
+						chartPath = path.Join(dir, release.Name, "latest", release.Chart)
+					}
+
+					// only fetch chart if it is not already fetched
+					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
+						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
+						if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
+							errs = append(errs, err)
+						}
+					}
+					chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
+				}
+
+				// strip version from the slice returned from flagsForRelease
+				realFlags := []string{}
+				isVersion := false
+				for _, v := range flags {
+					if v == "--version" {
+						isVersion = true
+					} else if isVersion {
+						isVersion = false
+					} else {
+						realFlags = append(realFlags, v)
+					}
+				}
+
+				if len(errs) == 0 {
+					if err := helm.Lint(chartPath, realFlags...); err != nil {
+						errs = append(errs, err)
+					}
+				}
+				for _, err := range errs {
+					errQueue <- err
+				}
+				wgRelease.Done()
+			}
+		}()
+	}
+	wgError.Add(1)
+	go func() {
+		for err := range errQueue {
+			errs = append(errs, err)
+		}
+		wgError.Done()
+	}()
+
+	for i := 0; i < len(state.Releases); i++ {
+		jobQueue <- &state.Releases[i]
+	}
+
+	close(jobQueue)
+	wgRelease.Wait()
+
+	close(errQueue)
+	wgError.Wait()
+
+	if len(errs) != 0 {
+		return errs
+	}
+
+	return nil
+}
+
 func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
 	var errs []error
 	jobQueue := make(chan ReleaseSpec)
@@ -503,6 +618,11 @@ func normalizeChart(basePath, chart string) string {
 func isLocalChart(chart string) bool {
 	_, err := os.Stat(chart)
 	return err == nil
+}
+
+func chartNameWithoutRepository(chart string) string {
+	chartSplit := strings.Split(chart, "/")
+	return chartSplit[len(chartSplit)-1]
 }
 
 func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {

@@ -155,6 +155,7 @@ COMMANDS:
      repos   sync repositories from state file (helm repo add && helm repo update)
      charts  sync charts from state file (helm upgrade --install)
      diff    diff charts from state file against env (helm diff)
+     lint    lint charts from state file (helm lint)
      sync    sync all resources from state file (repos, charts and local chart deps)
      status  retrieve status of releases in state file
      delete  delete charts from state file (helm delete)
@@ -210,6 +211,10 @@ you should be able to simply execute `helm plugin install https://github.com/fut
 The `helmfile test` sub-command runs a `helm test` against specified releases in the manifest, default to all
 
 Use `--cleanup` to delete pods upon completion.
+
+### lint
+
+The `helmfile lint` sub-command runs a `helm lint` across all of the charts/releases defined in the manifest. Non local charts will be fetched into a temporary folder which will be deleted once the task is completed.
 
 ## Paths Overview
 Using manifest files in conjunction with command line argument can be a bit confusing.

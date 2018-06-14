@@ -156,6 +156,39 @@ func main() {
 			},
 		},
 		{
+			Name:  "lint",
+			Usage: "lint charts from state file (helm lint)",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm exec",
+				},
+				cli.StringSliceFlag{
+					Name:  "values",
+					Usage: "additional value files to be merged into the command",
+				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					args := c.String("args")
+					if len(args) > 0 {
+						helm.SetExtraArgs(strings.Split(args, " ")...)
+					}
+
+					values := c.StringSlice("values")
+					workers := c.Int("concurrency")
+
+					return state.LintReleases(helm, values, workers)
+				})
+			},
+		},
+		{
 			Name:  "sync",
 			Usage: "sync all resources from state file (repos, charts and local chart deps)",
 			Flags: []cli.Flag{
