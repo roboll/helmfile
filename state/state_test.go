@@ -831,3 +831,49 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 		t.Run(tt.name, i)
 	}
 }
+
+func TestHelmState_NoReleaseMatched(t *testing.T) {
+	releases := []ReleaseSpec{
+		{
+			Name: "releaseA",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+	}
+	tests := []struct {
+		name    string
+		labels  string
+		wantErr bool
+	}{
+		{
+			name: "happy path",
+
+			labels:  "foo=bar",
+			wantErr: false,
+		},
+		{
+			name:    "name does not exist",
+			labels:  "name=releaseB",
+			wantErr: true,
+		},
+		{
+			name:    "label does not match anything",
+			labels:  "foo=notbar",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		i := func(t *testing.T) {
+			state := &HelmState{
+				Releases: releases,
+			}
+			errs := state.FilterReleases([]string{tt.labels})
+			if (errs != nil) != tt.wantErr {
+				t.Errorf("ReleaseStatuses() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
+				return
+			}
+		}
+		t.Run(tt.name, i)
+	}
+}
