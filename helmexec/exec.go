@@ -77,7 +77,7 @@ func (helm *execer) DecryptSecret(name string) (string, error) {
 }
 
 func (helm *execer) DiffRelease(name, chart string, flags ...string) error {
-	out, err := helm.exec(append([]string{"diff", "upgrade", name, chart}, flags...)...)
+	out, err := helm.exec(append([]string{"diff", "upgrade", "--allow-unreleased", name, chart}, flags...)...)
 	helm.write(out)
 	return err
 }
