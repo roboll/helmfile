@@ -350,18 +350,7 @@ func before(c *cli.Context) (*state.HelmState, helmexec.Interface, error) {
 			os.Exit(1)
 		}
 
-		if st.Helm.Context != "" {
-			log.Printf("err: Cannot set atrribute context on both helmspec and context.")
-			os.Exit(1)
-		}
-
 		kubeContext = st.Context
-	} else if st.Helm.Context != "" {
-		if kubeContext != "" {
-			log.Printf("err: Cannot use option --kube-context and set attribute context.")
-			os.Exit(1)
-		}
-		kubeContext = st.Helm.Context
 	}
 	if namespace != "" {
 		if st.Namespace != "" {
@@ -417,12 +406,8 @@ func clean(state *state.HelmState, errs []error) error {
 func getArgs(c *cli.Context, state *state.HelmState) []string {
 	args := c.String("args")
 	if len(args) > 0 {
-		if len(state.Helm.Args) > 0 {
-			log.Printf("err: Cannot use option --args and set attribute args.")
-			os.Exit(1)
-		}
-		state.Helm.Args = strings.Split(args, " ")
+		state.HelmDefaults.Args = strings.Split(args, " ")
 	}
 
-	return state.Helm.Args
+	return state.HelmDefaults.Args
 }
