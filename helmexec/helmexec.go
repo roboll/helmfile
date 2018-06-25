@@ -9,6 +9,8 @@ type Interface interface {
 	UpdateDeps(chart string) error
 	SyncRelease(name, chart string, flags ...string) error
 	DiffRelease(name, chart string, flags ...string) error
+	Fetch(chart string, flags ...string) error
+	Lint(chart string, flags ...string) error
 	ReleaseStatus(name string) error
 	DeleteRelease(name string, flags ...string) error
 	TestRelease(name string, flags ...string) error

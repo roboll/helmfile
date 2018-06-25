@@ -559,6 +559,12 @@ func (helm *mockHelmExec) TestRelease(name string, flags ...string) error {
 	helm.releases = append(helm.releases, mockRelease{name: name, flags: flags})
 	return nil
 }
+func (helm *mockHelmExec) Fetch(chart string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) Lint(chart string, flags ...string) error {
+	return nil
+}
 
 func TestHelmState_SyncRepos(t *testing.T) {
 	tests := []struct {

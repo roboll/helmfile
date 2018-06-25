@@ -238,3 +238,23 @@ func Test_exec(t *testing.T) {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 }
+
+func Test_Lint(t *testing.T) {
+	var buffer bytes.Buffer
+	helm := MockExecer(&buffer, "dev")
+	helm.Lint("path/to/chart", "--values", "file.yml")
+	expected := "exec: helm lint path/to/chart --values file.yml --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.Lint()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_Fetch(t *testing.T) {
+	var buffer bytes.Buffer
+	helm := MockExecer(&buffer, "dev")
+	helm.Fetch("chart", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
+	expected := "exec: helm fetch chart --version 1.2.3 --untar --untardir /tmp/dir --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.Lint()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
