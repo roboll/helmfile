@@ -240,4 +240,4 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 
 ## Examples
 
-For more examples, see [examples/REAMDME.md](https://github.com/roboll/helmfile/blob/master/examples/README.md).
+For more examples, see [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md).
