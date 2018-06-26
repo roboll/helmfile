@@ -70,9 +70,9 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := c.String("args")
+					args := getArgs(c, state)
 					if len(args) > 0 {
-						helm.SetExtraArgs(strings.Split(args, " ")...)
+						helm.SetExtraArgs(args...)
 					}
 
 					return state.SyncRepos(helm)
@@ -100,9 +100,9 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := c.String("args")
+					args := getArgs(c, state)
 					if len(args) > 0 {
-						helm.SetExtraArgs(strings.Split(args, " ")...)
+						helm.SetExtraArgs(args...)
 					}
 
 					values := c.StringSlice("values")
@@ -137,9 +137,9 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := c.String("args")
+					args := getArgs(c, state)
 					if len(args) > 0 {
-						helm.SetExtraArgs(strings.Split(args, " ")...)
+						helm.SetExtraArgs(args...)
 					}
 
 					if c.Bool("sync-repos") {
@@ -217,9 +217,9 @@ func main() {
 						return errs
 					}
 
-					args := c.String("args")
+					args := getArgs(c, state)
 					if len(args) > 0 {
-						helm.SetExtraArgs(strings.Split(args, " ")...)
+						helm.SetExtraArgs(args...)
 					}
 
 					values := c.StringSlice("values")
@@ -248,9 +248,9 @@ func main() {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					workers := c.Int("concurrency")
 
-					args := c.String("args")
+					args := getArgs(c, state)
 					if len(args) > 0 {
-						helm.SetExtraArgs(strings.Split(args, " ")...)
+						helm.SetExtraArgs(args...)
 					}
 
 					return state.ReleaseStatuses(helm, workers)
@@ -298,9 +298,9 @@ func main() {
 					cleanup := c.Bool("cleanup")
 					timeout := c.Int("timeout")
 
-					args := c.String("args")
+					args := getArgs(c, state)
 					if len(args) > 0 {
-						helm.SetExtraArgs(strings.Split(args, " ")...)
+						helm.SetExtraArgs(args...)
 					}
 
 					return state.TestReleases(helm, cleanup, timeout)
@@ -408,6 +408,7 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 			log.Printf("err: Cannot use option --kube-context and set attribute context.")
 			os.Exit(1)
 		}
+
 		kubeContext = st.Context
 	}
 	if namespace != "" {
@@ -417,6 +418,7 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 		}
 		st.Namespace = namespace
 	}
+
 	if len(labels) > 0 {
 		err = st.FilterReleases(labels)
 		if err != nil {
@@ -458,4 +460,13 @@ func clean(state *state.HelmState, errs []error) error {
 		os.Exit(1)
 	}
 	return nil
+}
+
+func getArgs(c *cli.Context, state *state.HelmState) []string {
+	args := c.String("args")
+	if len(args) > 0 {
+		state.HelmDefaults.Args = strings.Split(args, " ")
+	}
+
+	return state.HelmDefaults.Args
 }

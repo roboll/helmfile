@@ -25,11 +25,17 @@ import (
 // HelmState structure for the helmfile
 type HelmState struct {
 	BaseChartPath      string
+	HelmDefaults       HelmSpec         `yaml:"helmDefaults"`
 	Context            string           `yaml:"context"`
 	DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
 	Namespace          string           `yaml:"namespace"`
 	Repositories       []RepositorySpec `yaml:"repositories"`
 	Releases           []ReleaseSpec    `yaml:"releases"`
+}
+
+// HelmSpec to defines helmDefault values
+type HelmSpec struct {
+	Args []string `yaml:"args"`
 }
 
 // RepositorySpec that defines values for a helm repo
