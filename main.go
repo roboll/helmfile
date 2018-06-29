@@ -32,6 +32,10 @@ func main() {
 	app.Version = Version
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
+			Name:  "helmcommand, c",
+			Usage: "overwrite helm command. Uses 'helm by default",
+		},
+		cli.StringFlag{
 			Name:  "file, f",
 			Value: DefaultHelmfile,
 			Usage: "load config from `FILE`",
@@ -74,6 +78,9 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
+					if c.String("helmcommand") != "" {
+						helm.OverwriteCommand(c.String("helmcommand"))
+					}
 
 					return state.SyncRepos(helm)
 				})
@@ -103,6 +110,9 @@ func main() {
 					args := getArgs(c, state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
+					}
+					if c.String("helmcommand") != "" {
+						helm.OverwriteCommand(c.String("helmcommand"))
 					}
 
 					values := c.StringSlice("values")
@@ -140,6 +150,9 @@ func main() {
 					args := getArgs(c, state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
+					}
+					if c.String("helmcommand") != "" {
+						helm.OverwriteCommand(c.String("helmcommand"))
 					}
 
 					if c.Bool("sync-repos") {
@@ -179,6 +192,9 @@ func main() {
 					args := c.String("args")
 					if len(args) > 0 {
 						helm.SetExtraArgs(strings.Split(args, " ")...)
+					}
+					if c.String("helmcommand") != "" {
+						helm.OverwriteCommand(c.String("helmcommand"))
 					}
 
 					values := c.StringSlice("values")
@@ -221,6 +237,9 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
+					if c.String("helmcommand") != "" {
+						helm.OverwriteCommand(c.String("helmcommand"))
+					}
 
 					values := c.StringSlice("values")
 					workers := c.Int("concurrency")
@@ -251,6 +270,9 @@ func main() {
 					args := getArgs(c, state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
+					}
+					if c.String("helmcommand") != "" {
+						helm.OverwriteCommand(c.String("helmcommand"))
 					}
 
 					return state.ReleaseStatuses(helm, workers)
@@ -301,6 +323,9 @@ func main() {
 					args := getArgs(c, state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
+					}
+					if c.String("helmcommand") != "" {
+						helm.OverwriteCommand(c.String("helmcommand"))
 					}
 
 					return state.TestReleases(helm, cleanup, timeout)

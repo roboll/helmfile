@@ -3,6 +3,7 @@ package helmexec
 // Interface for executing helm commands
 type Interface interface {
 	SetExtraArgs(args ...string)
+	OverwriteCommand(command string)
 
 	AddRepo(name, repository, certfile, keyfile, username, password string) error
 	UpdateRepo() error

@@ -56,6 +56,17 @@ func Test_SetExtraArgs(t *testing.T) {
 	}
 }
 
+func Test_OverwriteCommand(t *testing.T) {
+	helm := New(new(bytes.Buffer), "dev")
+	if helm.command != "helm" {
+		t.Error("helmexec.command - default command is not helm")
+	}
+	helm.OverwriteCommand("foo")
+	if helm.command != "foo" {
+		t.Errorf("helmexec.OverwriteCommand() - actual = %s expect = foo", helm.command)
+	}
+}
+
 func Test_AddRepo(t *testing.T) {
 	var buffer bytes.Buffer
 	helm := MockExecer(&buffer, "dev")
@@ -234,6 +245,15 @@ func Test_exec(t *testing.T) {
 	helm.SetExtraArgs("foo")
 	helm.exec("version")
 	expected = "exec: helm version foo --kube-context dev\n"
+	if buffer.String() != expected {
+		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	helm = MockExecer(&buffer, "")
+	helm.OverwriteCommand("overwritten")
+	helm.exec("version")
+	expected = "exec: overwritten version\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
