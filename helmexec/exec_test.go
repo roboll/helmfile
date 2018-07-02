@@ -58,12 +58,12 @@ func Test_SetExtraArgs(t *testing.T) {
 
 func Test_SetHelmBinary(t *testing.T) {
 	helm := New(new(bytes.Buffer), "dev")
-	if helm.command != "helm" {
+	if helm.helmBinary != "helm" {
 		t.Error("helmexec.command - default command is not helm")
 	}
 	helm.SetHelmBinary("foo")
-	if helm.command != "foo" {
-		t.Errorf("helmexec.SetHelmBinary() - actual = %s expect = foo", helm.command)
+	if helm.helmBinary != "foo" {
+		t.Errorf("helmexec.SetHelmBinary() - actual = %s expect = foo", helm.helmBinary)
 	}
 }
 
