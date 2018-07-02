@@ -32,8 +32,8 @@ func main() {
 	app.Version = Version
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:  "helm-binary, c",
-			Usage: "overwrite helm command. Uses 'helm by default",
+			Name:  "helm-binary, b",
+			Usage: "path to helm binary",
 		},
 		cli.StringFlag{
 			Name:  "file, f",
