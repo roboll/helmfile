@@ -32,7 +32,7 @@ func main() {
 	app.Version = Version
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:  "helmcommand, c",
+			Name:  "helm-binary, c",
 			Usage: "overwrite helm command. Uses 'helm by default",
 		},
 		cli.StringFlag{
@@ -78,8 +78,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helmcommand") != "" {
-						helm.SetHelmBinary(c.String("helmcommand"))
+					if c.String("helm-binary") != "" {
+						helm.SetHelmBinary(c.String("helm-binary"))
 					}
 
 					return state.SyncRepos(helm)
@@ -111,8 +111,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helmcommand") != "" {
-						helm.SetHelmBinary(c.String("helmcommand"))
+					if c.String("helm-binary") != "" {
+						helm.SetHelmBinary(c.String("helm-binary"))
 					}
 
 					values := c.StringSlice("values")
@@ -151,8 +151,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helmcommand") != "" {
-						helm.SetHelmBinary(c.String("helmcommand"))
+					if c.String("helm-binary") != "" {
+						helm.SetHelmBinary(c.String("helm-binary"))
 					}
 
 					if c.Bool("sync-repos") {
@@ -193,8 +193,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(strings.Split(args, " ")...)
 					}
-					if c.String("helmcommand") != "" {
-						helm.SetHelmBinary(c.String("helmcommand"))
+					if c.String("helm-binary") != "" {
+						helm.SetHelmBinary(c.String("helm-binary"))
 					}
 
 					values := c.StringSlice("values")
@@ -237,8 +237,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helmcommand") != "" {
-						helm.SetHelmBinary(c.String("helmcommand"))
+					if c.String("helm-binary") != "" {
+						helm.SetHelmBinary(c.String("helm-binary"))
 					}
 
 					values := c.StringSlice("values")
@@ -271,8 +271,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helmcommand") != "" {
-						helm.SetHelmBinary(c.String("helmcommand"))
+					if c.String("helm-binary") != "" {
+						helm.SetHelmBinary(c.String("helm-binary"))
 					}
 
 					return state.ReleaseStatuses(helm, workers)
@@ -324,8 +324,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helmcommand") != "" {
-						helm.SetHelmBinary(c.String("helmcommand"))
+					if c.String("helm-binary") != "" {
+						helm.SetHelmBinary(c.String("helm-binary"))
 					}
 
 					return state.TestReleases(helm, cleanup, timeout)
