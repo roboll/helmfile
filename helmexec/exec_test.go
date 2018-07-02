@@ -56,14 +56,14 @@ func Test_SetExtraArgs(t *testing.T) {
 	}
 }
 
-func Test_OverwriteCommand(t *testing.T) {
+func Test_SetHelmBinary(t *testing.T) {
 	helm := New(new(bytes.Buffer), "dev")
 	if helm.command != "helm" {
 		t.Error("helmexec.command - default command is not helm")
 	}
-	helm.OverwriteCommand("foo")
+	helm.SetHelmBinary("foo")
 	if helm.command != "foo" {
-		t.Errorf("helmexec.OverwriteCommand() - actual = %s expect = foo", helm.command)
+		t.Errorf("helmexec.SetHelmBinary() - actual = %s expect = foo", helm.command)
 	}
 }
 
@@ -251,7 +251,7 @@ func Test_exec(t *testing.T) {
 
 	buffer.Reset()
 	helm = MockExecer(&buffer, "")
-	helm.OverwriteCommand("overwritten")
+	helm.SetHelmBinary("overwritten")
 	helm.exec("version")
 	expected = "exec: overwritten version\n"
 	if buffer.String() != expected {

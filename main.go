@@ -79,7 +79,7 @@ func main() {
 						helm.SetExtraArgs(args...)
 					}
 					if c.String("helmcommand") != "" {
-						helm.OverwriteCommand(c.String("helmcommand"))
+						helm.SetHelmBinary(c.String("helmcommand"))
 					}
 
 					return state.SyncRepos(helm)
@@ -112,7 +112,7 @@ func main() {
 						helm.SetExtraArgs(args...)
 					}
 					if c.String("helmcommand") != "" {
-						helm.OverwriteCommand(c.String("helmcommand"))
+						helm.SetHelmBinary(c.String("helmcommand"))
 					}
 
 					values := c.StringSlice("values")
@@ -152,7 +152,7 @@ func main() {
 						helm.SetExtraArgs(args...)
 					}
 					if c.String("helmcommand") != "" {
-						helm.OverwriteCommand(c.String("helmcommand"))
+						helm.SetHelmBinary(c.String("helmcommand"))
 					}
 
 					if c.Bool("sync-repos") {
@@ -194,7 +194,7 @@ func main() {
 						helm.SetExtraArgs(strings.Split(args, " ")...)
 					}
 					if c.String("helmcommand") != "" {
-						helm.OverwriteCommand(c.String("helmcommand"))
+						helm.SetHelmBinary(c.String("helmcommand"))
 					}
 
 					values := c.StringSlice("values")
@@ -238,7 +238,7 @@ func main() {
 						helm.SetExtraArgs(args...)
 					}
 					if c.String("helmcommand") != "" {
-						helm.OverwriteCommand(c.String("helmcommand"))
+						helm.SetHelmBinary(c.String("helmcommand"))
 					}
 
 					values := c.StringSlice("values")
@@ -272,7 +272,7 @@ func main() {
 						helm.SetExtraArgs(args...)
 					}
 					if c.String("helmcommand") != "" {
-						helm.OverwriteCommand(c.String("helmcommand"))
+						helm.SetHelmBinary(c.String("helmcommand"))
 					}
 
 					return state.ReleaseStatuses(helm, workers)
@@ -325,7 +325,7 @@ func main() {
 						helm.SetExtraArgs(args...)
 					}
 					if c.String("helmcommand") != "" {
-						helm.OverwriteCommand(c.String("helmcommand"))
+						helm.SetHelmBinary(c.String("helmcommand"))
 					}
 
 					return state.TestReleases(helm, cleanup, timeout)

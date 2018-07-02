@@ -32,8 +32,8 @@ func (helm *execer) SetExtraArgs(args ...string) {
 	helm.extra = args
 }
 
-func (helm *execer) OverwriteCommand(command string) {
-	helm.command = command
+func (helm *execer) SetHelmBinary(bin string) {
+	helm.command = bin
 }
 
 func (helm *execer) AddRepo(name, repository, certfile, keyfile, username, password string) error {

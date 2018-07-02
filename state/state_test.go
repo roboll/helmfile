@@ -521,7 +521,7 @@ func (helm *mockHelmExec) UpdateDeps(chart string) error {
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 	return
 }
-func (helm *mockHelmExec) OverwriteCommand(command string) {
+func (helm *mockHelmExec) SetHelmBinary(bin string) {
 	return
 }
 func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile, username, password string) error {
