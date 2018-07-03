@@ -521,6 +521,9 @@ func (helm *mockHelmExec) UpdateDeps(chart string) error {
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 	return
 }
+func (helm *mockHelmExec) SetHelmBinary(bin string) {
+	return
+}
 func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile, username, password string) error {
 	helm.repo = []string{name, repository, certfile, keyfile, username, password}
 	return nil

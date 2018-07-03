@@ -11,6 +11,7 @@ const (
 )
 
 type execer struct {
+	helmBinary  string
 	runner      Runner
 	writer      io.Writer
 	kubeContext string
@@ -20,6 +21,7 @@ type execer struct {
 // New for running helm commands
 func New(writer io.Writer, kubeContext string) *execer {
 	return &execer{
+		helmBinary:  command,
 		writer:      writer,
 		kubeContext: kubeContext,
 		runner:      &ShellRunner{},
@@ -28,6 +30,10 @@ func New(writer io.Writer, kubeContext string) *execer {
 
 func (helm *execer) SetExtraArgs(args ...string) {
 	helm.extra = args
+}
+
+func (helm *execer) SetHelmBinary(bin string) {
+	helm.helmBinary = bin
 }
 
 func (helm *execer) AddRepo(name, repository, certfile, keyfile, username, password string) error {
@@ -114,8 +120,8 @@ func (helm *execer) exec(args ...string) ([]byte, error) {
 	if helm.kubeContext != "" {
 		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
 	}
-	helm.write([]byte(fmt.Sprintf("exec: helm %s\n", strings.Join(cmdargs, " "))))
-	return helm.runner.Execute(command, cmdargs)
+	helm.write([]byte(fmt.Sprintf("exec: %s %s\n", helm.helmBinary, strings.Join(cmdargs, " "))))
+	return helm.runner.Execute(helm.helmBinary, cmdargs)
 }
 
 func (helm *execer) write(out []byte) {
