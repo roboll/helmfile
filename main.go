@@ -78,8 +78,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helm-binary") != "" {
-						helm.SetHelmBinary(c.String("helm-binary"))
+					if c.GlobalString("helm-binary") != "" {
+						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
 					return state.SyncRepos(helm)
@@ -111,8 +111,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helm-binary") != "" {
-						helm.SetHelmBinary(c.String("helm-binary"))
+					if c.GlobalString("helm-binary") != "" {
+						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
 					values := c.StringSlice("values")
@@ -151,8 +151,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helm-binary") != "" {
-						helm.SetHelmBinary(c.String("helm-binary"))
+					if c.GlobalString("helm-binary") != "" {
+						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
 					if c.Bool("sync-repos") {
@@ -193,8 +193,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(strings.Split(args, " ")...)
 					}
-					if c.String("helm-binary") != "" {
-						helm.SetHelmBinary(c.String("helm-binary"))
+					if c.GlobalString("helm-binary") != "" {
+						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
 					values := c.StringSlice("values")
@@ -237,8 +237,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helm-binary") != "" {
-						helm.SetHelmBinary(c.String("helm-binary"))
+					if c.GlobalString("helm-binary") != "" {
+						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
 					values := c.StringSlice("values")
@@ -271,8 +271,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helm-binary") != "" {
-						helm.SetHelmBinary(c.String("helm-binary"))
+					if c.GlobalString("helm-binary") != "" {
+						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
 					return state.ReleaseStatuses(helm, workers)
@@ -324,8 +324,8 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.String("helm-binary") != "" {
-						helm.SetHelmBinary(c.String("helm-binary"))
+					if c.GlobalString("helm-binary") != "" {
+						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
 					return state.TestReleases(helm, cleanup, timeout)
