@@ -292,6 +292,10 @@ func main() {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					purge := c.Bool("purge")
 
+					if c.GlobalString("helm-binary") != "" {
+						helm.SetHelmBinary(c.GlobalString("helm-binary"))
+					}
+
 					return state.DeleteReleases(helm, purge)
 				})
 			},
