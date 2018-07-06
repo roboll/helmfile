@@ -3,7 +3,6 @@ package helmexec
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"go.uber.org/zap"
@@ -17,32 +16,34 @@ const (
 type execer struct {
 	helmBinary  string
 	runner      Runner
-	writer      io.Writer
-	kubeContext string
 	logger      *zap.SugaredLogger
+	kubeContext string
 	extra       []string
 }
 
-// New for running helm commands
-func New(writer io.Writer, kubeContext string) *execer {
+func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 	var cfg zapcore.EncoderConfig
 	cfg.MessageKey = "message"
-	var out zapcore.WriteSyncer
-	if writer != nil {
-		out = zapcore.AddSync(writer)
-	} else {
-		out = zapcore.AddSync(os.Stdout)
+	out := zapcore.AddSync(writer)
+	var level zapcore.Level
+	err := level.Set(logLevel)
+	if err != nil {
+		panic(err)
 	}
 	core := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(cfg),
 		out,
-		zap.DebugLevel,
+		level,
 	)
+	return zap.New(core).Sugar()
+}
+
+// New for running helm commands
+func New(logger *zap.SugaredLogger, kubeContext string) *execer {
 	return &execer{
 		helmBinary:  command,
-		writer:      writer,
+		logger:      logger,
 		kubeContext: kubeContext,
-		logger:      zap.New(core).Sugar(),
 		runner:      &ShellRunner{},
 	}
 }

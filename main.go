@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -71,7 +70,7 @@ func main() {
 		},
 		cli.BoolFlag{
 			Name:  "quiet, q",
-			Usage: "silence output",
+			Usage: "Silence output. Equivalent to log-level warn",
 		},
 		cli.StringFlag{
 			Name:  "kube-context",
@@ -456,7 +455,10 @@ func directoryExistsAt(path string) bool {
 }
 
 func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, helmexec.Interface, error) {
-	quiet := c.GlobalBool("quiet")
+	logLevel := c.GlobalString("log-level")
+	if c.GlobalBool("quiet") {
+		logLevel = "warn"
+	}
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
 	labels := c.GlobalStringSlice("selector")
@@ -489,10 +491,6 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 			os.Exit(1)
 		}
 	}
-	var writer io.Writer
-	if !quiet {
-		writer = os.Stdout
-	}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -503,7 +501,8 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 		clean(st, errs)
 	}()
 
-	return st, helmexec.New(writer, kubeContext), nil
+	logger := helmexec.NewLogger(os.Stdout, logLevel)
+	return st, helmexec.New(logger, kubeContext), nil
 }
 
 func clean(state *state.HelmState, errs []error) error {
