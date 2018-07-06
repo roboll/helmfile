@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -9,11 +10,13 @@ import (
 	"strings"
 	"syscall"
 
+	"path/filepath"
+	"sort"
+
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
-	"path/filepath"
-	"sort"
+	"go.uber.org/zap"
 )
 
 const (
@@ -23,6 +26,32 @@ const (
 )
 
 var Version string
+
+func configure_logging(c *cli.Context) error {
+	level := c.GlobalString("log-level")
+	rawJSON := []byte(`{
+	  "level": "` + level + `",
+	  "encoding": "console",
+	  "outputPaths": ["stdout"],
+	  "errorOutputPaths": ["stdout"],
+		"encoderConfig": {
+			"messageKey": "message"
+		}
+	}`)
+
+	var cfg zap.Config
+	if err := json.Unmarshal(rawJSON, &cfg); err != nil {
+		panic(err)
+	}
+	logger, err := cfg.Build()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
+
+	zap.ReplaceGlobals(logger)
+	return err
+}
 
 func main() {
 
@@ -49,6 +78,10 @@ func main() {
 			Usage: "Set kubectl context. Uses current context by default",
 		},
 		cli.StringFlag{
+			Name:  "log-level",
+			Usage: "Set log level, default info",
+		},
+		cli.StringFlag{
 			Name:  "namespace, n",
 			Usage: "Set namespace. Uses the namespace set in the context by default",
 		},
@@ -61,6 +94,7 @@ func main() {
 		},
 	}
 
+	app.Before = configure_logging
 	app.Commands = []cli.Command{
 		{
 			Name:  "repos",

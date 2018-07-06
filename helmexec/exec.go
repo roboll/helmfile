@@ -3,7 +3,11 @@ package helmexec
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -15,15 +19,30 @@ type execer struct {
 	runner      Runner
 	writer      io.Writer
 	kubeContext string
+	logger      *zap.SugaredLogger
 	extra       []string
 }
 
 // New for running helm commands
 func New(writer io.Writer, kubeContext string) *execer {
+	var cfg zapcore.EncoderConfig
+	cfg.MessageKey = "message"
+	var out zapcore.WriteSyncer
+	if writer != nil {
+		out = zapcore.AddSync(writer)
+	} else {
+		out = zapcore.AddSync(os.Stdout)
+	}
+	core := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(cfg),
+		out,
+		zap.DebugLevel,
+	)
 	return &execer{
 		helmBinary:  command,
 		writer:      writer,
 		kubeContext: kubeContext,
+		logger:      zap.New(core).Sugar(),
 		runner:      &ShellRunner{},
 	}
 }
@@ -70,9 +89,7 @@ func (helm *execer) SyncRelease(name, chart string, flags ...string) error {
 
 func (helm *execer) ReleaseStatus(name string) error {
 	out, err := helm.exec(append([]string{"status", name})...)
-	if helm.writer != nil {
-		helm.writer.Write(out)
-	}
+	helm.write(out)
 	return err
 }
 
@@ -120,12 +137,12 @@ func (helm *execer) exec(args ...string) ([]byte, error) {
 	if helm.kubeContext != "" {
 		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
 	}
-	helm.write([]byte(fmt.Sprintf("exec: %s %s\n", helm.helmBinary, strings.Join(cmdargs, " "))))
+	helm.write([]byte(fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))))
 	return helm.runner.Execute(helm.helmBinary, cmdargs)
 }
 
 func (helm *execer) write(out []byte) {
-	if helm.writer != nil {
-		helm.writer.Write(out)
+	if len(out) > 0 {
+		helm.logger.Info(string(out))
 	}
 }
