@@ -1,7 +1,6 @@
 package helmexec
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -138,12 +137,12 @@ func (helm *execer) exec(args ...string) ([]byte, error) {
 	if helm.kubeContext != "" {
 		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
 	}
-	helm.write([]byte(fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))))
+	helm.logger.Infof("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	return helm.runner.Execute(helm.helmBinary, cmdargs)
 }
 
 func (helm *execer) write(out []byte) {
 	if len(out) > 0 {
-		helm.logger.Info(string(out))
+		helm.logger.Infof("%s", out)
 	}
 }
