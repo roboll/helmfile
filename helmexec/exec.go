@@ -64,66 +64,77 @@ func (helm *execer) AddRepo(name, repository, certfile, keyfile, username, passw
 	if username != "" && password != "" {
 		args = append(args, "--username", username, "--password", password)
 	}
+	helm.logger.Infof("Adding repo %v %v", name, repository)
 	out, err := helm.exec(args...)
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) UpdateRepo() error {
+	helm.logger.Info("Updating repo")
 	out, err := helm.exec("repo", "update")
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) UpdateDeps(chart string) error {
+	helm.logger.Infof("Updating dependency %v", chart)
 	out, err := helm.exec("dependency", "update", chart)
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) SyncRelease(name, chart string, flags ...string) error {
+	helm.logger.Infof("Upgrading %v", chart)
 	out, err := helm.exec(append([]string{"upgrade", "--install", "--reset-values", name, chart}, flags...)...)
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) ReleaseStatus(name string) error {
+	helm.logger.Infof("Getting status %v", name)
 	out, err := helm.exec(append([]string{"status", name})...)
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) DecryptSecret(name string) (string, error) {
+	helm.logger.Infof("Decrypting secret %v", name)
 	out, err := helm.exec(append([]string{"secrets", "dec", name})...)
 	helm.write(out)
 	return name + ".dec", err
 }
 
 func (helm *execer) DiffRelease(name, chart string, flags ...string) error {
+	helm.logger.Infof("Comparing %v %v", name, chart)
 	out, err := helm.exec(append([]string{"diff", "upgrade", "--allow-unreleased", name, chart}, flags...)...)
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) Lint(chart string, flags ...string) error {
+	helm.logger.Infof("Linting %v", chart)
 	out, err := helm.exec(append([]string{"lint", chart}, flags...)...)
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) Fetch(chart string, flags ...string) error {
+	helm.logger.Infof("Fetching %v", chart)
 	out, err := helm.exec(append([]string{"fetch", chart}, flags...)...)
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) DeleteRelease(name string, flags ...string) error {
+	helm.logger.Infof("Deleting %v", name)
 	out, err := helm.exec(append([]string{"delete", name}, flags...)...)
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) TestRelease(name string, flags ...string) error {
+	helm.logger.Infof("Testing %v", name)
 	out, err := helm.exec(append([]string{"test", name}, flags...)...)
 	helm.write(out)
 	return err
