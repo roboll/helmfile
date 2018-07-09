@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -27,29 +27,25 @@ const (
 var Version string
 
 func configure_logging(c *cli.Context) error {
-	level := c.GlobalString("log-level")
-	rawJSON := []byte(`{
-	  "level": "` + level + `",
-	  "encoding": "console",
-	  "outputPaths": ["stdout"],
-	  "errorOutputPaths": ["stdout"],
-		"encoderConfig": {
-			"messageKey": "message"
-		}
-	}`)
-
-	var cfg zap.Config
-	if err := json.Unmarshal(rawJSON, &cfg); err != nil {
-		panic(err)
+	// Valid levels:
+	// https://github.com/uber-go/zap/blob/7e7e266a8dbce911a49554b945538c5b950196b8/zapcore/level.go#L126
+	logLevel := c.GlobalString("log-level")
+	if c.GlobalBool("quiet") {
+		logLevel = "warn"
 	}
-	logger, err := cfg.Build()
+	var level zapcore.Level
+	err := level.Set(logLevel)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	defer logger.Sync()
-
-	zap.ReplaceGlobals(logger)
-	return err
+	logger := helmexec.NewLogger(os.Stdout, logLevel)
+	if c.App.Metadata == nil {
+		// Auto-initialised in 1.19.0
+		// https://github.com/urfave/cli/blob/master/CHANGELOG.md#1190---2016-11-19
+		c.App.Metadata = make(map[string]interface{})
+	}
+	c.App.Metadata["logger"] = logger
+	return nil
 }
 
 func main() {
@@ -455,10 +451,6 @@ func directoryExistsAt(path string) bool {
 }
 
 func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, helmexec.Interface, error) {
-	logLevel := c.GlobalString("log-level")
-	if c.GlobalBool("quiet") {
-		logLevel = "warn"
-	}
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
 	labels := c.GlobalStringSlice("selector")
@@ -501,7 +493,7 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 		clean(st, errs)
 	}()
 
-	logger := helmexec.NewLogger(os.Stdout, logLevel)
+	logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
 	return st, helmexec.New(logger, kubeContext), nil
 }
 
