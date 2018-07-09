@@ -331,3 +331,25 @@ exec: helm fetch chart --version 1.2.3 --untar --untardir /tmp/dir --kube-contex
 		t.Errorf("helmexec.Lint()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 }
+
+var logLevelTests = map[string]string{
+	"debug": `Adding repo myRepo https://repo.example.com/
+exec: helm repo add myRepo https://repo.example.com/ --username example_user --password example_password
+`,
+	"info": `Adding repo myRepo https://repo.example.com/
+`,
+	"warn": ``,
+}
+
+func Test_LogLevels(t *testing.T) {
+	var buffer bytes.Buffer
+	for logLevel, expected := range logLevelTests {
+		buffer.Reset()
+		logger := NewLogger(&buffer, logLevel)
+		helm := MockExecer(logger, "")
+		helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "example_user", "example_password")
+		if buffer.String() != expected {
+			t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+		}
+	}
+}
