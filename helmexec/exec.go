@@ -148,7 +148,7 @@ func (helm *execer) exec(args ...string) ([]byte, error) {
 	if helm.kubeContext != "" {
 		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
 	}
-	helm.logger.Infof("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
+	helm.logger.Debugf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	return helm.runner.Execute(helm.helmBinary, cmdargs)
 }
 

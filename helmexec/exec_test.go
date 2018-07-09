@@ -30,7 +30,7 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
 
 func TestNewHelmExec(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
-	logger := NewLogger(buffer, "info")
+	logger := NewLogger(buffer, "debug")
 	helm := New(logger, "dev")
 	if helm.kubeContext != "dev" {
 		t.Error("helmexec.New() - kubeContext")
@@ -72,7 +72,7 @@ func Test_SetHelmBinary(t *testing.T) {
 
 func Test_AddRepo(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.AddRepo("myRepo", "https://repo.example.com/", "cert.pem", "key.pem", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
@@ -103,7 +103,7 @@ exec: helm repo add myRepo https://repo.example.com/ --username example_user --p
 
 func Test_UpdateRepo(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.UpdateRepo()
 	expected := `Updating repo
@@ -116,7 +116,7 @@ exec: helm repo update --kube-context dev
 
 func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.SyncRelease("release", "chart", "--timeout 10", "--wait")
 	expected := `Upgrading chart
@@ -138,7 +138,7 @@ exec: helm upgrade --install --reset-values release chart --kube-context dev
 
 func Test_UpdateDeps(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.UpdateDeps("./chart/foo")
 	expected := `Updating dependency ./chart/foo
@@ -161,7 +161,7 @@ exec: helm dependency update ./chart/foo --verify --kube-context dev
 
 func Test_DecryptSecret(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.DecryptSecret("secretName")
 	expected := `Decrypting secret secretName
@@ -174,7 +174,7 @@ exec: helm secrets dec secretName --kube-context dev
 
 func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.DiffRelease("release", "chart", "--timeout 10", "--wait")
 	expected := `Comparing release chart
@@ -196,7 +196,7 @@ exec: helm diff upgrade --allow-unreleased release chart --kube-context dev
 
 func Test_DeleteRelease(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.DeleteRelease("release")
 	expected := `Deleting release
@@ -208,7 +208,7 @@ exec: helm delete release --kube-context dev
 }
 func Test_DeleteRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.DeleteRelease("release", "--purge")
 	expected := `Deleting release
@@ -221,7 +221,7 @@ exec: helm delete release --purge --kube-context dev
 
 func Test_TestRelease(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.TestRelease("release")
 	expected := `Testing release
@@ -233,7 +233,7 @@ exec: helm test release --kube-context dev
 }
 func Test_TestRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.TestRelease("release", "--cleanup", "--timeout", "60")
 	expected := `Testing release
@@ -246,7 +246,7 @@ exec: helm test release --cleanup --timeout 60 --kube-context dev
 
 func Test_ReleaseStatus(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.ReleaseStatus("myRelease")
 	expected := `Getting status myRelease
@@ -259,7 +259,7 @@ exec: helm status myRelease --kube-context dev
 
 func Test_exec(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "")
 	helm.exec("version")
 	expected := "exec: helm version\n"
@@ -308,7 +308,7 @@ func Test_exec(t *testing.T) {
 
 func Test_Lint(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.Lint("path/to/chart", "--values", "file.yml")
 	expected := `Linting path/to/chart
@@ -321,7 +321,7 @@ exec: helm lint path/to/chart --values file.yml --kube-context dev
 
 func Test_Fetch(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "info")
+	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.Fetch("chart", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
 	expected := `Fetching chart
