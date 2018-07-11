@@ -35,7 +35,9 @@ type HelmState struct {
 
 // HelmSpec to defines helmDefault values
 type HelmSpec struct {
-	Args []string `yaml:"args"`
+	KubeContext     string   `yaml:"kubeContext" arg:"kube-context"`
+	TillerNamespace string   `yaml:"tillerNamespace" arg:"tiller-namespace"`
+	Args            []string `yaml:"args"`
 }
 
 // RepositorySpec that defines values for a helm repo

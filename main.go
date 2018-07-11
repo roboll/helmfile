@@ -6,14 +6,15 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"reflect"
+	"sort"
 	"strings"
 	"syscall"
 
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
-	"path/filepath"
-	"sort"
 )
 
 const (
@@ -189,9 +190,9 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := c.String("args")
+					args := getArgs(c, state)
 					if len(args) > 0 {
-						helm.SetExtraArgs(strings.Split(args, " ")...)
+						helm.SetExtraArgs(args...)
 					}
 					if c.GlobalString("helm-binary") != "" {
 						helm.SetHelmBinary(c.GlobalString("helm-binary"))
@@ -493,9 +494,69 @@ func clean(state *state.HelmState, errs []error) error {
 
 func getArgs(c *cli.Context, state *state.HelmState) []string {
 	args := c.String("args")
+	argsMap := map[string]string{}
+
 	if len(args) > 0 {
-		state.HelmDefaults.Args = strings.Split(args, " ")
+		argsVals := strings.Split(args, " ")
+		for _, arg := range argsVals {
+			argVal := strings.SplitN(arg, "=", 2)
+			if len(argVal) > 1 {
+				arg := argVal[0]
+				value := argVal[1]
+				argsMap[arg] = value
+			} else {
+				arg := argVal[0]
+				argsMap[arg] = ""
+			}
+		}
+	}
+	if len(state.HelmDefaults.Args) > 0 {
+		for _, arg := range state.HelmDefaults.Args {
+			argVal := strings.SplitN(arg, "=", 2)
+			arg := argVal[0]
+			if _, exists := argsMap[arg]; !exists {
+				if len(argVal) > 1 {
+					argsMap[arg] = argVal[1]
+				} else {
+					argsMap[arg] = ""
+				}
+			}
+		}
 	}
 
+	setDedicatedKeys(state, argsMap)
+
+	var argArr []string
+
+	for key, val := range argsMap {
+		if val != "" {
+			argArr = append(argArr, fmt.Sprintf("%s=%s", key, val))
+		} else {
+			argArr = append(argArr, fmt.Sprintf("%s", key))
+		}
+	}
+
+	state.HelmDefaults.Args = argArr
+
 	return state.HelmDefaults.Args
+}
+
+func setDedicatedKeys(state *state.HelmState, argsMap map[string]string) {
+
+	helmdefaults := reflect.Indirect(reflect.ValueOf(state.HelmDefaults))
+	helmDefaultKeyValues := helmdefaults.NumField() - 1 //disregarding args field
+
+	for i := 0; i < helmDefaultKeyValues; i++ {
+		value := helmdefaults.Field(i)
+		field := helmdefaults.Type().Field(i)
+
+		arg := field.Tag.Get("arg")
+		argValue := value.String()
+		if argValue != "" {
+			arg = fmt.Sprintf("--%s", arg)
+			if _, exists := argsMap[arg]; !exists {
+				argsMap[arg] = argValue
+			}
+		}
+	}
 }
