@@ -37,8 +37,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "file, f",
-			Value: DefaultHelmfile,
-			Usage: "load config from `FILE`",
+			Usage: "load config from file or directory. defaults to `helmfile.yaml` or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference",
 		},
 		cli.BoolFlag{
 			Name:  "quiet, q",
