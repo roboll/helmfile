@@ -523,8 +523,12 @@ func getArgs(c *cli.Context, state *state.HelmState) []string {
 		}
 	}
 
-	setDefaultValue(argsMap, "--tiller-namespace", state.HelmDefaults.TillerNamespace)
-	setDefaultValue(argsMap, "--kube-context", state.HelmDefaults.KubeContext)
+	if state.HelmDefaults.TillerNamespace != "" {
+		setDefaultValue(argsMap, "--tiller-namespace", state.HelmDefaults.TillerNamespace)
+	}
+	if state.HelmDefaults.KubeContext != "" {
+		setDefaultValue(argsMap, "--kube-context", state.HelmDefaults.KubeContext)
+	}
 
 	var argArr []string
 
