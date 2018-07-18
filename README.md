@@ -41,7 +41,7 @@ context: kube-context					 # kube-context (--kube-context)
 
 #default values to set for args along with dedicated keys that can be set by contributers, cli args take precedence overe these
 helmDefaults:           
-  tillerNamesapce: tiller-namespace  #dedicated default key for tiller-namespace
+  tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
   kubeContext: kube-context          #dedicated default key for kube-context
   args:
     - "--wait"

@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 	"syscall"
@@ -524,7 +523,8 @@ func getArgs(c *cli.Context, state *state.HelmState) []string {
 		}
 	}
 
-	setDedicatedKeys(state, argsMap)
+	setDefaultValue(argsMap, "--tiller-namespace", state.HelmDefaults.TillerNamespace)
+	setDefaultValue(argsMap, "--kube-context", state.HelmDefaults.KubeContext)
 
 	var argArr []string
 
@@ -541,22 +541,8 @@ func getArgs(c *cli.Context, state *state.HelmState) []string {
 	return state.HelmDefaults.Args
 }
 
-func setDedicatedKeys(state *state.HelmState, argsMap map[string]string) {
-
-	helmdefaults := reflect.Indirect(reflect.ValueOf(state.HelmDefaults))
-	helmDefaultKeyValues := helmdefaults.NumField() - 1 //disregarding args field
-
-	for i := 0; i < helmDefaultKeyValues; i++ {
-		value := helmdefaults.Field(i)
-		field := helmdefaults.Type().Field(i)
-
-		arg := field.Tag.Get("arg")
-		argValue := value.String()
-		if argValue != "" {
-			arg = fmt.Sprintf("--%s", arg)
-			if _, exists := argsMap[arg]; !exists {
-				argsMap[arg] = argValue
-			}
-		}
+func setDefaultValue(argsMap map[string]string, flag string, value string) {
+	if _, exists := argsMap[flag]; !exists {
+		argsMap[flag] = value
 	}
 }

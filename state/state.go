@@ -35,8 +35,8 @@ type HelmState struct {
 
 // HelmSpec to defines helmDefault values
 type HelmSpec struct {
-	KubeContext     string   `yaml:"kubeContext" arg:"kube-context"`
-	TillerNamespace string   `yaml:"tillerNamespace" arg:"tiller-namespace"`
+	KubeContext     string   `yaml:"kubeContext"`
+	TillerNamespace string   `yaml:"tillerNamespace"`
 	Args            []string `yaml:"args"`
 }
 
