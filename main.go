@@ -10,9 +10,6 @@ import (
 	"strings"
 	"syscall"
 
-	"path/filepath"
-	"sort"
-
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
