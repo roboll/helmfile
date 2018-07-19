@@ -115,7 +115,7 @@ func main() {
 		},
 		{
 			Name:  "charts",
-			Usage: "sync charts from state file (helm upgrade --install)",
+			Usage: "sync releases from state file (helm upgrade --install)",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "args",
@@ -151,7 +151,7 @@ func main() {
 		},
 		{
 			Name:  "diff",
-			Usage: "diff charts from state file against env (helm diff)",
+			Usage: "diff releases from state file against env (helm diff)",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "args",
@@ -233,7 +233,7 @@ func main() {
 		},
 		{
 			Name:  "sync",
-			Usage: "sync all resources from state file (repos, charts and local chart deps)",
+			Usage: "sync all resources from state file (repos, releases and chart deps)",
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "values",
