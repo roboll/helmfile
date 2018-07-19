@@ -5,11 +5,10 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strings"
-	"syscall"
-
 	"path/filepath"
 	"sort"
+	"strings"
+	"syscall"
 
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
@@ -218,9 +217,9 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := c.String("args")
+					args := getArgs(c, state)
 					if len(args) > 0 {
-						helm.SetExtraArgs(strings.Split(args, " ")...)
+						helm.SetExtraArgs(args...)
 					}
 					if c.GlobalString("helm-binary") != "" {
 						helm.SetHelmBinary(c.GlobalString("helm-binary"))
@@ -518,9 +517,60 @@ func clean(state *state.HelmState, errs []error) error {
 
 func getArgs(c *cli.Context, state *state.HelmState) []string {
 	args := c.String("args")
+	argsMap := map[string]string{}
+
 	if len(args) > 0 {
-		state.HelmDefaults.Args = strings.Split(args, " ")
+		argsVals := strings.Split(args, " ")
+		for _, arg := range argsVals {
+			argVal := strings.SplitN(arg, "=", 2)
+			if len(argVal) > 1 {
+				arg := argVal[0]
+				value := argVal[1]
+				argsMap[arg] = value
+			} else {
+				arg := argVal[0]
+				argsMap[arg] = ""
+			}
+		}
+	}
+	if len(state.HelmDefaults.Args) > 0 {
+		for _, arg := range state.HelmDefaults.Args {
+			argVal := strings.SplitN(arg, "=", 2)
+			arg := argVal[0]
+			if _, exists := argsMap[arg]; !exists {
+				if len(argVal) > 1 {
+					argsMap[arg] = argVal[1]
+				} else {
+					argsMap[arg] = ""
+				}
+			}
+		}
 	}
 
+	if state.HelmDefaults.TillerNamespace != "" {
+		setDefaultValue(argsMap, "--tiller-namespace", state.HelmDefaults.TillerNamespace)
+	}
+	if state.HelmDefaults.KubeContext != "" {
+		setDefaultValue(argsMap, "--kube-context", state.HelmDefaults.KubeContext)
+	}
+
+	var argArr []string
+
+	for key, val := range argsMap {
+		if val != "" {
+			argArr = append(argArr, fmt.Sprintf("%s=%s", key, val))
+		} else {
+			argArr = append(argArr, fmt.Sprintf("%s", key))
+		}
+	}
+
+	state.HelmDefaults.Args = argArr
+
 	return state.HelmDefaults.Args
+}
+
+func setDefaultValue(argsMap map[string]string, flag string, value string) {
+	if _, exists := argsMap[flag]; !exists {
+		argsMap[flag] = value
+	}
 }

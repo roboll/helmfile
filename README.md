@@ -39,6 +39,17 @@ repositories:
 
 context: kube-context					 # kube-context (--kube-context)
 
+#default values to set for args along with dedicated keys that can be set by contributers, cli args take precedence overe these
+helmDefaults:           
+  tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
+  kubeContext: kube-context          #dedicated default key for kube-context
+  args:
+    - "--wait"
+    - "--recreate-pods"
+    - "--timeout=600"
+    - "--force"
+    - "--reset-values"
+
 releases:
   # Published chart example
   - name: vault                            # name of this release
