@@ -25,6 +25,7 @@ import (
 // HelmState structure for the helmfile
 type HelmState struct {
 	BaseChartPath      string
+	file               string
 	HelmDefaults       HelmSpec         `yaml:"helmDefaults"`
 	Context            string           `yaml:"context"`
 	DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
@@ -106,6 +107,7 @@ func readFromYaml(content []byte, file string) (*HelmState, error) {
 	if err := yaml.UnmarshalStrict(content, &state); err != nil {
 		return nil, err
 	}
+	state.file = file
 
 	if len(state.DeprecatedReleases) > 0 {
 		if len(state.Releases) > 0 {
@@ -588,7 +590,7 @@ func (state *HelmState) FilterReleases(labels []string) error {
 		filteredReleases = append(filteredReleases, r)
 	}
 	if len(filteredReleases) == 0 {
-		return errors.New("Specified selector did not match any releases.\n")
+		return fmt.Errorf("specified selector did not match any releases in %s\n", state.file)
 	}
 	state.Releases = filteredReleases
 	return nil

@@ -379,15 +379,23 @@ func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec
 	if err != nil {
 		return err
 	}
+	allSelectorNotMatched := true
 	for _, f := range desiredStateFiles {
-		state, helm, err := loadDesiredStateFromFile(c, f)
+		state, helm, empty, err := loadDesiredStateFromFile(c, f)
 		if err != nil {
 			return err
+		}
+		allSelectorNotMatched = allSelectorNotMatched && empty
+		if empty {
+			continue
 		}
 		errs := converge(state, helm)
 		if err := clean(state, errs); err != nil {
 			return err
 		}
+	}
+	if allSelectorNotMatched {
+		return fmt.Errorf("specified selector did not match any releases in any helmfile")
 	}
 	return nil
 }
@@ -449,14 +457,14 @@ func directoryExistsAt(path string) bool {
 	return err == nil && fileInfo.Mode().IsDir()
 }
 
-func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, helmexec.Interface, error) {
+func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, helmexec.Interface, bool, error) {
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
 	labels := c.GlobalStringSlice("selector")
 
 	st, err := state.ReadFromFile(file)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read %s: %v", file, err)
+		return nil, nil, false, fmt.Errorf("failed to read %s: %v", file, err)
 	}
 
 	if st.Context != "" {
@@ -479,7 +487,7 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 		err = st.FilterReleases(labels)
 		if err != nil {
 			log.Print(err)
-			os.Exit(1)
+			return nil, nil, true, nil
 		}
 	}
 
@@ -493,7 +501,7 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 	}()
 
 	logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
-	return st, helmexec.New(logger, kubeContext), nil
+	return st, helmexec.New(logger, kubeContext), false, nil
 }
 
 func clean(state *state.HelmState, errs []error) error {
