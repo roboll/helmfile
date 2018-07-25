@@ -36,7 +36,8 @@ function retry() {
         ${command} && break  # substitute your command here
         retry_result=$?
         n=$[$n+1]
-        sleep 1
+        # approximated binary exponential backoff to reduce flakiness
+        sleep $((n ** 2))
     done
 }
 
