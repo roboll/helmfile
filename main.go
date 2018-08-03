@@ -15,6 +15,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"os/exec"
 )
 
 const (
@@ -166,6 +167,10 @@ func main() {
 					Name:  "sync-repos",
 					Usage: "enable a repo sync prior to diffing",
 				},
+				cli.BoolFlag{
+					Name:  "detailed-exitcode",
+					Usage: "return a non-zero exit code when there are changes",
+				},
 				cli.IntFlag{
 					Name:  "concurrency",
 					Value: 0,
@@ -190,8 +195,9 @@ func main() {
 
 					values := c.StringSlice("values")
 					workers := c.Int("concurrency")
+					detailedExitCode := c.Bool("detailed-exitcode")
 
-					return state.DiffReleases(helm, values, workers)
+					return state.DiffReleases(helm, values, workers, detailedExitCode)
 				})
 			},
 		},
@@ -367,8 +373,7 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Printf("err: %s", err.Error())
-		os.Exit(1)
+		log.Panicf("[bug] this code path shouldn't be arrived: helmfile is expected to exit from within the `cleanup` func in main.go: %v", err)
 	}
 }
 
@@ -517,7 +522,14 @@ func clean(state *state.HelmState, errs []error) error {
 		for _, err := range errs {
 			fmt.Printf("err: %s\n", err.Error())
 		}
-		os.Exit(1)
+		switch e := errs[0].(type) {
+		case *exec.ExitError:
+			// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
+			status := e.Sys().(syscall.WaitStatus)
+			os.Exit(status.ExitStatus())
+		default:
+			os.Exit(1)
+		}
 	}
 	return nil
 }
