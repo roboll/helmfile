@@ -316,6 +316,11 @@ func main() {
 			Name:  "delete",
 			Usage: "delete releases from state file (helm delete)",
 			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm exec",
+				},
 				cli.BoolFlag{
 					Name:  "purge",
 					Usage: "purge releases i.e. free release names and histories",
@@ -324,6 +329,11 @@ func main() {
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					purge := c.Bool("purge")
+
+					args := getArgs(c, state)
+					if len(args) > 0 {
+						helm.SetExtraArgs(args...)
+					}
 
 					if c.GlobalString("helm-binary") != "" {
 						helm.SetHelmBinary(c.GlobalString("helm-binary"))
