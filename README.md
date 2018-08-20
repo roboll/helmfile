@@ -90,7 +90,7 @@ releases:
 Helmfile uses [Go templates](https://godoc.org/text/template) for templating your helmfile.yaml. While go ships several built-in functions, we have added all of the functions in the [Sprig library](https://godoc.org/github.com/Masterminds/sprig).
 
 We also added one special template function: `requiredEnv`.
-The `required_env` function allows you to declare a particular environment variable as required for template rendering.
+The `requiredEnv` function allows you to declare a particular environment variable as required for template rendering.
 If the environment variable is unset or empty, the template rendering will fail with an error message.
 
 ## Using environment variables
