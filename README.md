@@ -251,4 +251,4 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 
 ## Examples
 
-For more examples, see [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md).
+For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile.d`](https://github.com/cloudposse/helmfiles/tree/master/helmfile.d) distribution of helmfiles by [Cloud Posse](https://github.com/cloudposse/).
