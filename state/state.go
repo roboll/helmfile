@@ -271,12 +271,14 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 		go func() {
 			for release := range jobQueue {
 				errs := []error{}
-				// Plugin command doesn't support explicit namespace
-				release.Namespace = ""
+
+				state.applyDefaultsTo(release)
+
 				flags, err := flagsForRelease(helm, state.BaseChartPath, release)
 				if err != nil {
 					errs = append(errs, err)
 				}
+
 				for _, value := range additionalValues {
 					valfile, err := filepath.Abs(value)
 					if err != nil {
