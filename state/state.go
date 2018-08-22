@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"regexp"
 
+	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -32,6 +33,8 @@ type HelmState struct {
 	Namespace          string           `yaml:"namespace"`
 	Repositories       []RepositorySpec `yaml:"repositories"`
 	Releases           []ReleaseSpec    `yaml:"releases"`
+
+	logger *zap.SugaredLogger
 }
 
 // HelmSpec to defines helmDefault values
@@ -79,28 +82,17 @@ type SetValue struct {
 	Value string `yaml:"value"`
 }
 
-// ReadFromFile loads the helmfile from disk and processes the template
-func ReadFromFile(file string) (*HelmState, error) {
-	content, err := ioutil.ReadFile(file)
+// CreateFromFile loads the helmfile from disk and processes the template
+func CreateFromFile(file string, logger *zap.SugaredLogger) (*HelmState, error) {
+	yamlBuf, err := renderTemplateFileToBuffer(file)
 	if err != nil {
 		return nil, err
 	}
 
-	tpl, err := stringTemplate().Parse(string(content))
-	if err != nil {
-		return nil, err
-	}
-
-	var tplString bytes.Buffer
-	err = tpl.Execute(&tplString, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return readFromYaml(tplString.Bytes(), file)
+	return readFromYaml(yamlBuf.Bytes(), file, logger)
 }
 
-func readFromYaml(content []byte, file string) (*HelmState, error) {
+func readFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*HelmState, error) {
 	var state HelmState
 
 	state.BaseChartPath, _ = filepath.Abs(filepath.Dir(file))
@@ -116,6 +108,8 @@ func readFromYaml(content []byte, file string) (*HelmState, error) {
 		state.Releases = state.DeprecatedReleases
 		state.DeprecatedReleases = []ReleaseSpec{}
 	}
+
+	state.logger = logger
 
 	return &state, nil
 }
@@ -138,19 +132,36 @@ func getRequiredEnv(name string) (string, error) {
 	return "", fmt.Errorf("required env var `%s` is not set", name)
 }
 
-func renderTemplateString(s string) (string, error) {
+func renderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {
+	content, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return renderTemplateToBuffer(string(content))
+}
+
+func renderTemplateToBuffer(s string) (*bytes.Buffer, error) {
 	var t, parseErr = stringTemplate().Parse(s)
 	if parseErr != nil {
-		return "", parseErr
+		return nil, parseErr
 	}
 
 	var tplString bytes.Buffer
 	var execErr = t.Execute(&tplString, nil)
 
 	if execErr != nil {
-		return "", execErr
+		return nil, execErr
 	}
 
+	return &tplString, nil
+}
+
+func renderTemplateString(s string) (string, error) {
+	tplString, err := renderTemplateToBuffer(s)
+	if err != nil {
+		return "", err
+	}
 	return tplString.String(), nil
 }
 
@@ -194,7 +205,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 		go func() {
 			for release := range jobQueue {
 				state.applyDefaultsTo(release)
-				flags, flagsErr := flagsForRelease(helm, state.BaseChartPath, release)
+				flags, flagsErr := state.flagsForRelease(helm, state.BaseChartPath, release)
 				if flagsErr != nil {
 					errQueue <- flagsErr
 					doneQueue <- true
@@ -273,7 +284,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 				errs := []error{}
 				// Plugin command doesn't support explicit namespace
 				release.Namespace = ""
-				flags, err := flagsForRelease(helm, state.BaseChartPath, release)
+				flags, err := state.flagsForRelease(helm, state.BaseChartPath, release)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -356,7 +367,7 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 		go func() {
 			for release := range jobQueue {
 				errs := []error{}
-				flags, err := flagsForRelease(helm, state.BaseChartPath, release)
+				flags, err := state.flagsForRelease(helm, state.BaseChartPath, release)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -639,7 +650,7 @@ func chartNameWithoutRepository(chart string) string {
 	return chartSplit[len(chartSplit)-1]
 }
 
-func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
+func (state *HelmState) flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
@@ -662,7 +673,21 @@ func flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseS
 			if _, err := os.Stat(path); os.IsNotExist(err) {
 				return nil, err
 			}
-			flags = append(flags, "--values", path)
+			yamlBuf, err := renderTemplateFileToBuffer(path)
+			if err != nil {
+				return nil, err
+			}
+			valfile, err := ioutil.TempFile("", "values")
+			if err != nil {
+				return nil, err
+			}
+			defer valfile.Close()
+			yamlBytes := yamlBuf.Bytes()
+			if _, err := valfile.Write(yamlBytes); err != nil {
+				return nil, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
+			}
+			state.logger.Debugf("successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+			flags = append(flags, "--values", valfile.Name())
 
 		case map[interface{}]interface{}:
 			valfile, err := ioutil.TempFile("", "values")
