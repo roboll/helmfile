@@ -6,8 +6,11 @@ import (
 	"testing"
 
 	"errors"
+	"github.com/roboll/helmfile/helmexec"
 	"strings"
 )
+
+var logger = helmexec.NewLogger(os.Stdout, "warn")
 
 func TestReadFromYaml(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
@@ -16,7 +19,7 @@ func TestReadFromYaml(t *testing.T) {
   namespace: mynamespace
   chart: mychart
 `)
-	state, err := readFromYaml(yamlContent, yamlFile)
+	state, err := readFromYaml(yamlContent, yamlFile, logger)
 	if err != nil {
 		t.Errorf("unxpected error: %v", err)
 	}
@@ -39,7 +42,7 @@ func TestReadFromYaml_StrictUnmarshalling(t *testing.T) {
   namespace: mynamespace
   releases: mychart
 `)
-	_, err := readFromYaml(yamlContent, yamlFile)
+	_, err := readFromYaml(yamlContent, yamlFile, logger)
 	if err == nil {
 		t.Error("expected an error for wrong key 'releases' which is not in struct")
 	}
@@ -51,7 +54,7 @@ func TestReadFromYaml_DeprecatedReleaseReferences(t *testing.T) {
 - name: myrelease
   chart: mychart
 `)
-	state, err := readFromYaml(yamlContent, yamlFile)
+	state, err := readFromYaml(yamlContent, yamlFile, logger)
 	if err != nil {
 		t.Errorf("unxpected error: %v", err)
 	}
@@ -73,7 +76,7 @@ releases:
 - name: myrelease2
   chart: mychart2
 `)
-	_, err := readFromYaml(yamlContent, yamlFile)
+	_, err := readFromYaml(yamlContent, yamlFile, logger)
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -109,7 +112,7 @@ func TestReadFromYaml_FilterReleasesOnLabels(t *testing.T) {
 		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}}, negativeLabels: [][]string{[]string{"foo", "bar"}}},
 			[]bool{false, true, false}},
 	}
-	state, err := readFromYaml(yamlContent, yamlFile)
+	state, err := readFromYaml(yamlContent, yamlFile, logger)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -148,7 +151,7 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 		{LabelFilter{negativeLabels: [][]string{[]string{"stage", "pre"}, []string{"stage", "post"}}},
 			[]bool{false, false, true}},
 	}
-	state, err := readFromYaml(yamlContent, yamlFile)
+	state, err := readFromYaml(yamlContent, yamlFile, logger)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

@@ -476,7 +476,9 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 	namespace := c.GlobalString("namespace")
 	labels := c.GlobalStringSlice("selector")
 
-	st, err := state.ReadFromFile(file)
+	logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
+
+	st, err := state.CreateFromFile(file, logger)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("failed to read %s: %v", file, err)
 	}
@@ -514,7 +516,6 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 		clean(st, errs)
 	}()
 
-	logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
 	return st, helmexec.New(logger, kubeContext), false, nil
 }
 
