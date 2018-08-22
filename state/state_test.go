@@ -861,18 +861,19 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 		{
 			name:    "name does not exist",
 			labels:  "name=releaseB",
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "label does not match anything",
 			labels:  "foo=notbar",
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		i := func(t *testing.T) {
 			state := &HelmState{
 				Releases: releases,
+				logger:   logger,
 			}
 			errs := state.FilterReleases([]string{tt.labels})
 			if (errs != nil) != tt.wantErr {
