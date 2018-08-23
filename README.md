@@ -249,6 +249,16 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 
 `--selector tier=frontend --selector tier=backend` will select all the charts
 
+## Using env files
+
+helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:
+
+```console
+set -a; . .env; set +a; helmfile sync
+```
+
+Please see #203 for more context.
+
 ## Examples
 
 For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile.d`](https://github.com/cloudposse/helmfiles/tree/master/helmfile.d) distribution of helmfiles by [Cloud Posse](https://github.com/cloudposse/).
