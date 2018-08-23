@@ -60,6 +60,7 @@ type ReleaseSpec struct {
 	Chart   string `yaml:"chart"`
 	Version string `yaml:"version"`
 	Verify  bool   `yaml:"verify"`
+	Wait    bool   `yaml:"wait"`
 
 	// Name is the name of this release
 	Name      string            `yaml:"name"`
@@ -215,7 +216,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 		go func() {
 			for release := range jobQueue {
 				state.applyDefaultsTo(release)
-				flags, flagsErr := state.flagsForRelease(helm, state.BaseChartPath, release)
+				flags, flagsErr := state.flagsForUpgrade(helm, state.BaseChartPath, release)
 				if flagsErr != nil {
 					errQueue <- flagsErr
 					doneQueue <- true
@@ -295,7 +296,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 
 				state.applyDefaultsTo(release)
 
-				flags, err := state.flagsForRelease(helm, state.BaseChartPath, release)
+				flags, err := state.flagsForDiff(helm, state.BaseChartPath, release)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -379,7 +380,7 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 		go func() {
 			for release := range jobQueue {
 				errs := []error{}
-				flags, err := state.flagsForRelease(helm, state.BaseChartPath, release)
+				flags, err := state.flagsForLint(helm, state.BaseChartPath, release)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -417,21 +418,8 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 					chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
 				}
 
-				// strip version from the slice returned from flagsForRelease
-				realFlags := []string{}
-				isVersion := false
-				for _, v := range flags {
-					if v == "--version" {
-						isVersion = true
-					} else if isVersion {
-						isVersion = false
-					} else {
-						realFlags = append(realFlags, v)
-					}
-				}
-
 				if len(errs) == 0 {
-					if err := helm.Lint(chartPath, realFlags...); err != nil {
+					if err := helm.Lint(chartPath, flags...); err != nil {
 						errs = append(errs, err)
 					}
 				}
@@ -663,14 +651,42 @@ func chartNameWithoutRepository(chart string) string {
 	return chartSplit[len(chartSplit)-1]
 }
 
-func (state *HelmState) flagsForRelease(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
+func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
+	flags := []string{}
+	if release.Verify {
+		flags = append(flags, "--verify")
+	}
+	if release.Wait {
+		flags = append(flags, "--wait")
+	}
+	if release.Version != "" {
+		flags = append(flags, "--version", release.Version)
+	}
+	common, err := state.namespaceAndValuesFlags(helm, basePath, release)
+	if err != nil {
+		return nil, err
+	}
+	return append(flags, common...), nil
+}
+
+func (state *HelmState) flagsForDiff(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
 	}
-	if release.Verify {
-		flags = append(flags, "--verify")
+	common, err := state.namespaceAndValuesFlags(helm, basePath, release)
+	if err != nil {
+		return nil, err
 	}
+	return append(flags, common...), nil
+}
+
+func (state *HelmState) flagsForLint(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
+	return state.namespaceAndValuesFlags(helm, basePath, release)
+}
+
+func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
+	flags := []string{}
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
 	}
