@@ -519,19 +519,24 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 	return st, helmexec.New(logger, kubeContext), false, nil
 }
 
-func clean(state *state.HelmState, errs []error) error {
+func clean(st *state.HelmState, errs []error) error {
 	if errs == nil {
 		errs = []error{}
 	}
 
-	cleanErrs := state.Clean()
+	cleanErrs := st.Clean()
 	if cleanErrs != nil {
 		errs = append(errs, cleanErrs...)
 	}
 
 	if errs != nil && len(errs) > 0 {
 		for _, err := range errs {
-			fmt.Printf("err: %s\n", err.Error())
+			switch e := err.(type) {
+			case *state.ReleaseError:
+				fmt.Printf("err: release \"%s\" in \"%s\" failed: %v\n", e.Name, st.FilePath, e)
+			default:
+				fmt.Printf("err: %v\n", e)
+			}
 		}
 		switch e := errs[0].(type) {
 		case *exec.ExitError:
