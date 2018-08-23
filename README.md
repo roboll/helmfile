@@ -44,11 +44,9 @@ helmDefaults:
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
   kubeContext: kube-context          #dedicated default key for kube-context
   args:
-    - "--wait"
     - "--recreate-pods"
     - "--timeout=600"
     - "--force"
-    - "--reset-values"
 
 releases:
   # Published chart example
@@ -59,21 +57,23 @@ releases:
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
     values:
-      - vault.yaml                         # value files (--values)
-      - db:                                # inline values. Passed via a temporary values file (--values)
+      # value files passed via --values
+      - vault.yaml
+      # inline values, passed via a temporary values file and --values
+      - address: https://vault.example.com
+        db:
           username: {{ requiredEnv "DB_USERNAME" }}
+          # value taken from environment variable. Quotes are necessary. Will throw an error if the environment variable is not set. $DB_PASSWORD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
           password: {{ requiredEnv "DB_PASSWORD" }}
+        proxy:
+          # Interpolate environment variable with a fixed string
+          domain: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
+          scheme: {{ env "SCHEME" | default "https" }}
+    # will attempt to decrypt it using helm-secrets plugin
     secrets:
-      - vault_secret.yaml                  # will attempt to decrypt it using helm-secrets plugin
-    set:                                   # values (--set)
-      - name: address
-        value: https://vault.example.com
-      - name: db.password
-        value: {{ requiredEnv "DB_PASSWORD" }}    # value taken from environment variable. Quotes are necessary. Will throw an error if the environment variable is not set. $DB_PASSWORD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
-      - name: proxy.domain
-        value: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com # Interpolate environment variable with a fixed string
-      - name: proxy.scheme
-        value: {{ env "SCHEME" | default "https" }}
+      - vault_secret.yaml
+    # wait for k8s resources via --wait. Defaults to `false`
+    wait: true
 
   # Local chart example
   - name: grafana                            # name of this release
@@ -82,6 +82,7 @@ releases:
     values:
     - "../../my-values/grafana/values.yaml"             # Values file (relative path to manifest)
     - ./values/{{ requiredEnv "PLATFORM_ENV" }}/config.yaml # Values file taken from path with environment variable. $PLATFORM_ENV must be set in the calling environment.
+    wait: true
 
 ```
 
