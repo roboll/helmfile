@@ -12,6 +12,7 @@ import (
 
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
+	"github.com/subosito/gotenv"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -46,6 +47,10 @@ func configure_logging(c *cli.Context) error {
 	}
 	c.App.Metadata["logger"] = logger
 	return nil
+}
+
+func init() {
+	gotenv.Load()
 }
 
 func main() {
