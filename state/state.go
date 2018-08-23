@@ -26,7 +26,7 @@ import (
 // HelmState structure for the helmfile
 type HelmState struct {
 	BaseChartPath      string
-	file               string
+	FilePath           string
 	HelmDefaults       HelmSpec         `yaml:"helmDefaults"`
 	Context            string           `yaml:"context"`
 	DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
@@ -100,7 +100,7 @@ func readFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*Helm
 	if err := yaml.UnmarshalStrict(content, &state); err != nil {
 		return nil, err
 	}
-	state.file = file
+	state.FilePath = file
 
 	if len(state.DeprecatedReleases) > 0 {
 		if len(state.Releases) > 0 {
@@ -202,12 +202,21 @@ func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
 	return nil
 }
 
+type ReleaseError struct {
+	*ReleaseSpec
+	underlying error
+}
+
+func (e *ReleaseError) Error() string {
+	return e.underlying.Error()
+}
+
 // SyncReleases wrapper for executing helm upgrade on the releases
 func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
 	errs := []error{}
 	jobQueue := make(chan *ReleaseSpec)
 	doneQueue := make(chan bool)
-	errQueue := make(chan error)
+	errQueue := make(chan *ReleaseError)
 
 	if workerLimit < 1 {
 		workerLimit = len(state.Releases)
@@ -218,7 +227,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 				state.applyDefaultsTo(release)
 				flags, flagsErr := state.flagsForUpgrade(helm, state.BaseChartPath, release)
 				if flagsErr != nil {
-					errQueue <- flagsErr
+					errQueue <- &ReleaseError{release, flagsErr}
 					doneQueue <- true
 					continue
 				}
@@ -227,12 +236,12 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 				for _, value := range additionalValues {
 					valfile, err := filepath.Abs(value)
 					if err != nil {
-						errQueue <- err
+						errQueue <- &ReleaseError{release, err}
 						haveValueErr = true
 					}
 
 					if _, err := os.Stat(valfile); os.IsNotExist(err) {
-						errQueue <- err
+						errQueue <- &ReleaseError{release, err}
 						haveValueErr = true
 					}
 					flags = append(flags, "--values", valfile)
@@ -245,7 +254,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 
 				chart := normalizeChart(state.BaseChartPath, release.Chart)
 				if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
-					errQueue <- err
+					errQueue <- &ReleaseError{release, err}
 				}
 				doneQueue <- true
 			}
@@ -605,7 +614,7 @@ func (state *HelmState) FilterReleases(labels []string) error {
 		filteredReleases = append(filteredReleases, r)
 	}
 	if len(filteredReleases) == 0 {
-		state.logger.Debugf("specified selector did not match any releases in %s\n", state.file)
+		state.logger.Debugf("specified selector did not match any releases in %s\n", state.FilePath)
 		return nil
 	}
 	state.Releases = filteredReleases
