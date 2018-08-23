@@ -164,6 +164,29 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 	}
 }
 
+// See https://github.com/roboll/helmfile/issues/193
+func TestReadFromYaml_DuplicateReleaseName(t *testing.T) {
+	yamlFile := "example/path/to/yaml/file"
+	yamlContent := []byte(`releases:
+- name: myrelease1
+  chart: mychart1
+  labels:
+    stage: pre
+    foo: bar
+- name: myrelease1
+  chart: mychart2
+  labels:
+    stage: post
+`)
+	_, err := readFromYaml(yamlContent, yamlFile, logger)
+	if err == nil {
+		t.Error("error expected but not happened")
+	}
+	if err.Error() != "invalid helmfile: duplicate release name found: there were 2 releases named \"myrelease1\"" {
+		t.Errorf("unexpected error happened: %v", err)
+	}
+}
+
 func TestLabelParsing(t *testing.T) {
 	cases := []struct {
 		labelString    string

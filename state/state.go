@@ -109,6 +109,16 @@ func readFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*Helm
 		state.DeprecatedReleases = []ReleaseSpec{}
 	}
 
+	releaseNameCounts := map[string]int{}
+	for _, r := range state.Releases {
+		releaseNameCounts[r.Name] += 1
+	}
+	for name, c := range releaseNameCounts {
+		if c > 1 {
+			return nil, fmt.Errorf("invalid helmfile: duplicate release name found: there were %d releases named \"%s\"", c, name)
+		}
+	}
+
 	state.logger = logger
 
 	return &state, nil
