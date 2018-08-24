@@ -79,9 +79,10 @@ type ReleaseSpec struct {
 
 // SetValue are the key values to set on a helm release
 type SetValue struct {
-	Name  string `yaml:"name"`
-	Value string `yaml:"value"`
-	File  string `yaml:"file"`
+	Name   string   `yaml:"name"`
+	Value  string   `yaml:"value"`
+	File   string   `yaml:"file"`
+	Values []string `yaml:"values"`
 }
 
 // CreateFromTemplateFile loads the helmfile from disk and processes the template
@@ -753,6 +754,13 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePat
 				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(set.Value)))
 			} else if set.File != "" {
 				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), set.File))
+			} else if len(set.Values) > 0 {
+				items := make([]string, len(set.Values))
+				for i, raw := range set.Values {
+					items[i] = escape(raw)
+				}
+				v := strings.Join(items, ",")
+				flags = append(flags, "--set", fmt.Sprintf("%s={%s}", escape(set.Name), v))
 			}
 		}
 	}

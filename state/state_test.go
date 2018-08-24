@@ -708,6 +708,26 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			helm:         &mockHelmExec{},
 			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
 		},
+		{
+			name: "set single array value in an array",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name: "foo.bar[0]",
+							Values: []string{
+								"A",
+								"B",
+							},
+						},
+					},
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo.bar[0]={A,B}"}}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
