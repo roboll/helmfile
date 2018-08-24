@@ -69,6 +69,10 @@ releases:
           # Interpolate environment variable with a fixed string
           domain: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
           scheme: {{ env "SCHEME" | default "https" }}
+    set:
+    # single value load from a local file, --set-file foo.config=path/to/file
+    - name: foo.config
+      file: path/to/file
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
       - vault_secret.yaml
