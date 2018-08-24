@@ -84,17 +84,17 @@ type SetValue struct {
 	File  string `yaml:"file"`
 }
 
-// CreateFromFile loads the helmfile from disk and processes the template
-func CreateFromFile(file string, logger *zap.SugaredLogger) (*HelmState, error) {
-	yamlBuf, err := renderTemplateFileToBuffer(file)
+// CreateFromTemplateFile loads the helmfile from disk and processes the template
+func CreateFromTemplateFile(file string, logger *zap.SugaredLogger) (*HelmState, error) {
+	yamlBuf, err := RenderTemplateFileToBuffer(file)
 	if err != nil {
 		return nil, err
 	}
 
-	return readFromYaml(yamlBuf.Bytes(), file, logger)
+	return CreateFromYaml(yamlBuf.Bytes(), file, logger)
 }
 
-func readFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*HelmState, error) {
+func CreateFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*HelmState, error) {
 	var state HelmState
 
 	state.BaseChartPath, _ = filepath.Abs(filepath.Dir(file))
@@ -109,16 +109,6 @@ func readFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*Helm
 		}
 		state.Releases = state.DeprecatedReleases
 		state.DeprecatedReleases = []ReleaseSpec{}
-	}
-
-	releaseNameCounts := map[string]int{}
-	for _, r := range state.Releases {
-		releaseNameCounts[r.Name] += 1
-	}
-	for name, c := range releaseNameCounts {
-		if c > 1 {
-			return nil, fmt.Errorf("invalid helmfile: duplicate release name found: there were %d releases named \"%s\"", c, name)
-		}
 	}
 
 	state.logger = logger
@@ -144,7 +134,7 @@ func getRequiredEnv(name string) (string, error) {
 	return "", fmt.Errorf("required env var `%s` is not set", name)
 }
 
-func renderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {
+func RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, err
@@ -712,7 +702,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePat
 			if _, err := os.Stat(path); os.IsNotExist(err) {
 				return nil, err
 			}
-			yamlBuf, err := renderTemplateFileToBuffer(path)
+			yamlBuf, err := RenderTemplateFileToBuffer(path)
 			if err != nil {
 				return nil, err
 			}

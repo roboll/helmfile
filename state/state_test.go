@@ -19,7 +19,7 @@ func TestReadFromYaml(t *testing.T) {
   namespace: mynamespace
   chart: mychart
 `)
-	state, err := readFromYaml(yamlContent, yamlFile, logger)
+	state, err := CreateFromYaml(yamlContent, yamlFile, logger)
 	if err != nil {
 		t.Errorf("unxpected error: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestReadFromYaml_StrictUnmarshalling(t *testing.T) {
   namespace: mynamespace
   releases: mychart
 `)
-	_, err := readFromYaml(yamlContent, yamlFile, logger)
+	_, err := CreateFromYaml(yamlContent, yamlFile, logger)
 	if err == nil {
 		t.Error("expected an error for wrong key 'releases' which is not in struct")
 	}
@@ -54,7 +54,7 @@ func TestReadFromYaml_DeprecatedReleaseReferences(t *testing.T) {
 - name: myrelease
   chart: mychart
 `)
-	state, err := readFromYaml(yamlContent, yamlFile, logger)
+	state, err := CreateFromYaml(yamlContent, yamlFile, logger)
 	if err != nil {
 		t.Errorf("unxpected error: %v", err)
 	}
@@ -76,7 +76,7 @@ releases:
 - name: myrelease2
   chart: mychart2
 `)
-	_, err := readFromYaml(yamlContent, yamlFile, logger)
+	_, err := CreateFromYaml(yamlContent, yamlFile, logger)
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -112,7 +112,7 @@ func TestReadFromYaml_FilterReleasesOnLabels(t *testing.T) {
 		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}}, negativeLabels: [][]string{[]string{"foo", "bar"}}},
 			[]bool{false, true, false}},
 	}
-	state, err := readFromYaml(yamlContent, yamlFile, logger)
+	state, err := CreateFromYaml(yamlContent, yamlFile, logger)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 		{LabelFilter{negativeLabels: [][]string{[]string{"stage", "pre"}, []string{"stage", "post"}}},
 			[]bool{false, false, true}},
 	}
-	state, err := readFromYaml(yamlContent, yamlFile, logger)
+	state, err := CreateFromYaml(yamlContent, yamlFile, logger)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -161,29 +161,6 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 				t.Errorf("[case: %d][outcome: %d] Unexpected outcome wanted %t, got %t", idx, idx2, expected, f)
 			}
 		}
-	}
-}
-
-// See https://github.com/roboll/helmfile/issues/193
-func TestReadFromYaml_DuplicateReleaseName(t *testing.T) {
-	yamlFile := "example/path/to/yaml/file"
-	yamlContent := []byte(`releases:
-- name: myrelease1
-  chart: mychart1
-  labels:
-    stage: pre
-    foo: bar
-- name: myrelease1
-  chart: mychart2
-  labels:
-    stage: post
-`)
-	_, err := readFromYaml(yamlContent, yamlFile, logger)
-	if err == nil {
-		t.Error("error expected but not happened")
-	}
-	if err.Error() != "invalid helmfile: duplicate release name found: there were 2 releases named \"myrelease1\"" {
-		t.Errorf("unexpected error happened: %v", err)
 	}
 }
 
