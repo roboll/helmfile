@@ -613,11 +613,11 @@ func (state *HelmState) FilterReleases(labels []string) error {
 	for _, r := range releaseSet {
 		filteredReleases = append(filteredReleases, r)
 	}
+	state.Releases = filteredReleases
 	if len(filteredReleases) == 0 {
 		state.logger.Debugf("specified selector did not match any releases in %s\n", state.FilePath)
 		return nil
 	}
-	state.Releases = filteredReleases
 	return nil
 }
 
