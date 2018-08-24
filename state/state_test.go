@@ -704,7 +704,32 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{"--set", "someList=a\\,b\\,c,json=\\{\"name\": \"john\"\\}"}}},
+			wantReleases: []mockRelease{{"releaseName", []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}}},
+		},
+		{
+			name: "set single value from file",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  "foo",
+							Value: "FOO",
+						},
+						{
+							Name: "bar",
+							File: "path/to/bar",
+						},
+						{
+							Name:  "baz",
+							Value: "BAZ",
+						},
+					},
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
 		},
 	}
 	for _, tt := range tests {

@@ -81,6 +81,7 @@ type ReleaseSpec struct {
 type SetValue struct {
 	Name  string `yaml:"name"`
 	Value string `yaml:"value"`
+	File  string `yaml:"file"`
 }
 
 // CreateFromFile loads the helmfile from disk and processes the template
@@ -757,11 +758,13 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePat
 		flags = append(flags, "--values", valfile)
 	}
 	if len(release.SetValues) > 0 {
-		val := []string{}
 		for _, set := range release.SetValues {
-			val = append(val, fmt.Sprintf("%s=%s", escape(set.Name), escape(set.Value)))
+			if set.Value != "" {
+				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(set.Value)))
+			} else if set.File != "" {
+				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), set.File))
+			}
 		}
-		flags = append(flags, "--set", strings.Join(val, ","))
 	}
 
 	/***********
