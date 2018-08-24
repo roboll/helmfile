@@ -70,9 +70,14 @@ releases:
           domain: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
           scheme: {{ env "SCHEME" | default "https" }}
     set:
-    # single value load from a local file, --set-file foo.config=path/to/file
+    # single value loaded from a local file, translates to --set-file foo.config=path/to/file
     - name: foo.config
       file: path/to/file
+    # set a single array value in an array, translates to --set bar[0]={1,2}
+    - name: bar[0]
+      values:
+      - 1
+      - 2
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
       - vault_secret.yaml
