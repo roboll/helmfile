@@ -26,7 +26,9 @@ const (
 
 var Version string
 
-func configure_logging(c *cli.Context) error {
+var logger *zap.SugaredLogger
+
+func configureLogging(c *cli.Context) error {
 	// Valid levels:
 	// https://github.com/uber-go/zap/blob/7e7e266a8dbce911a49554b945538c5b950196b8/zapcore/level.go#L126
 	logLevel := c.GlobalString("log-level")
@@ -38,7 +40,7 @@ func configure_logging(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	logger := helmexec.NewLogger(os.Stdout, logLevel)
+	logger = helmexec.NewLogger(os.Stdout, logLevel)
 	if c.App.Metadata == nil {
 		// Auto-initialised in 1.19.0
 		// https://github.com/urfave/cli/blob/master/CHANGELOG.md#1190---2016-11-19
@@ -88,7 +90,7 @@ func main() {
 		},
 	}
 
-	app.Before = configure_logging
+	app.Before = configureLogging
 	app.Commands = []cli.Command{
 		{
 			Name:  "repos",
@@ -395,12 +397,12 @@ func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec
 	}
 	allSelectorNotMatched := true
 	for _, f := range desiredStateFiles {
-		state, helm, empty, err := loadDesiredStateFromFile(c, f)
+		state, helm, noReleases, err := loadDesiredStateFromFile(c, f)
 		if err != nil {
 			return err
 		}
-		allSelectorNotMatched = allSelectorNotMatched && empty
-		if empty {
+		allSelectorNotMatched = allSelectorNotMatched && noReleases
+		if noReleases {
 			continue
 		}
 		errs := converge(state, helm)
@@ -409,7 +411,8 @@ func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec
 		}
 	}
 	if allSelectorNotMatched {
-		return fmt.Errorf("specified selector did not match any releases in any helmfile")
+		logger.Error("specified selector did not match any releases in any helmfile")
+		os.Exit(2)
 	}
 	return nil
 }
@@ -516,7 +519,7 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 		clean(st, errs)
 	}()
 
-	return st, helmexec.New(logger, kubeContext), false, nil
+	return st, helmexec.New(logger, kubeContext), len(st.Releases) == 0, nil
 }
 
 func clean(st *state.HelmState, errs []error) error {
