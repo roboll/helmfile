@@ -397,7 +397,18 @@ func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec
 	}
 	allSelectorNotMatched := true
 	for _, f := range desiredStateFiles {
-		state, helm, noReleases, err := loadDesiredStateFromFile(c, f)
+		yamlBuf, err := state.RenderTemplateFileToBuffer(f)
+		if err != nil {
+			return err
+		}
+		state, helm, noReleases, err := loadDesiredStateFromFile(
+			yamlBuf.Bytes(),
+			f,
+			c.GlobalString("kube-context"),
+			c.GlobalString("namespace"),
+			c.GlobalStringSlice("selector"),
+			c.App.Metadata["logger"].(*zap.SugaredLogger),
+		)
 		if err != nil {
 			return err
 		}
@@ -474,14 +485,8 @@ func directoryExistsAt(path string) bool {
 	return err == nil && fileInfo.Mode().IsDir()
 }
 
-func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, helmexec.Interface, bool, error) {
-	kubeContext := c.GlobalString("kube-context")
-	namespace := c.GlobalString("namespace")
-	labels := c.GlobalStringSlice("selector")
-
-	logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
-
-	st, err := state.CreateFromFile(file, logger)
+func loadDesiredStateFromFile(yaml []byte, file string, kubeContext, namespace string, labels []string, logger *zap.SugaredLogger) (*state.HelmState, helmexec.Interface, bool, error) {
+	st, err := state.CreateFromYaml(yaml, file, logger)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("failed to read %s: %v", file, err)
 	}
@@ -507,6 +512,16 @@ func loadDesiredStateFromFile(c *cli.Context, file string) (*state.HelmState, he
 		if err != nil {
 			log.Print(err)
 			return nil, nil, true, nil
+		}
+	}
+
+	releaseNameCounts := map[string]int{}
+	for _, r := range st.Releases {
+		releaseNameCounts[r.Name] += 1
+	}
+	for name, c := range releaseNameCounts {
+		if c > 1 {
+			return nil, nil, false, fmt.Errorf("duplicate release \"%s\" found: there were %d releases named \"%s\" matching specified selector", name, c, name)
 		}
 	}
 
