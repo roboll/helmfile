@@ -260,6 +260,13 @@ set -a; . .env; set +a; helmfile sync
 
 Please see #203 for more context.
 
+## Running helmfile without an Internet connection
+
+Once you download all required charts into your machine, you can run `helmfile charts` to deploy your apps.
+It basically run only `helm upgrade --install` with your already-downloaded charts, hence no Internet connection is required.
+See #155 for more information on this topic.
+
+
 ## Examples
 
 For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile.d`](https://github.com/cloudposse/helmfiles/tree/master/helmfile.d) distribution of helmfiles by [Cloud Posse](https://github.com/cloudposse/).
