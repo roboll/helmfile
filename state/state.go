@@ -703,9 +703,11 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePat
 			if _, err := os.Stat(path); os.IsNotExist(err) {
 				return nil, err
 			}
+
 			yamlBuf, err := RenderTemplateFileToBuffer(path)
 			if err != nil {
-				return nil, err
+
+				return nil, fmt.Errorf("failed to render [%s], because of %v", path, err)
 			}
 			valfile, err := ioutil.TempFile("", "values")
 			if err != nil {
