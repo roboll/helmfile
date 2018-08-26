@@ -385,7 +385,7 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		logger.Errorf("%v",err)
+		logger.Errorf("%v", err)
 	}
 }
 
