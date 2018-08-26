@@ -384,8 +384,9 @@ func main() {
 	}
 
 	err := app.Run(os.Args)
-	logger.Errorf("%v",err)
-
+	if err != nil {
+		logger.Errorf("%v",err)
+	}
 }
 
 func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
