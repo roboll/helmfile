@@ -687,7 +687,7 @@ func (state *HelmState) flagsForLint(helm helmexec.Interface, basePath string, r
 }
 
 func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
-	flags, err := state.namespaceAndValuesFlags(helm, basePath, release)
+	flags, err := state.valuesFlags(helm, basePath, release)
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
 	}
