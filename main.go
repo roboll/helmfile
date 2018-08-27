@@ -386,7 +386,8 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Panicf("[bug] this code path shouldn't be arrived: helmfile is expected to exit from within the `cleanup` func in main.go: %v", err)
+		logger.Errorf("%v", err)
+		os.Exit(3)
 	}
 }
 
