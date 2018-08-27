@@ -691,7 +691,7 @@ func (state *HelmState) flagsForDiff(helm helmexec.Interface, basePath string, r
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
 	}
-	common, err := state.namespaceAndValuesFlags(helm, basePath, release)
+	common, err := state.valuesFlags(helm, basePath, release)
 	if err != nil {
 		return nil, err
 	}
@@ -703,10 +703,16 @@ func (state *HelmState) flagsForLint(helm helmexec.Interface, basePath string, r
 }
 
 func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
-	flags := []string{}
+	flags, err := state.valuesFlags(helm, basePath, release)
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
 	}
+	return flags, err
+}
+
+func (state *HelmState) valuesFlags(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
+	flags := []string{}
+
 	for _, value := range release.Values {
 		switch typedValue := value.(type) {
 		case string:
