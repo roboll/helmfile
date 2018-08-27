@@ -83,6 +83,12 @@ releases:
       - vault_secret.yaml
     # wait for k8s resources via --wait. Defaults to `false`
     wait: true
+    # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
+    timeout: 60
+    # performs pods restart for the resource if applicable
+    recreatePods: true
+    # forces resource update through delete/recreate if needed
+    force: true
 
   # Local chart example
   - name: grafana                            # name of this release
