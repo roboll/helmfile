@@ -7,11 +7,11 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
-	"strings"
 	"syscall"
 
 	"os/exec"
 
+	"github.com/roboll/helmfile/args"
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
@@ -105,7 +105,7 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := getArgs(c, state)
+					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -138,7 +138,7 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := getArgs(c, state)
+					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -182,7 +182,7 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := getArgs(c, state)
+					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -225,7 +225,7 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := getArgs(c, state)
+					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -269,7 +269,7 @@ func main() {
 						return errs
 					}
 
-					args := getArgs(c, state)
+					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -303,7 +303,7 @@ func main() {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					workers := c.Int("concurrency")
 
-					args := getArgs(c, state)
+					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -333,7 +333,7 @@ func main() {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					purge := c.Bool("purge")
 
-					args := getArgs(c, state)
+					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -370,7 +370,7 @@ func main() {
 					cleanup := c.Bool("cleanup")
 					timeout := c.Int("timeout")
 
-					args := getArgs(c, state)
+					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -568,64 +568,4 @@ func clean(st *state.HelmState, errs []error) error {
 		}
 	}
 	return nil
-}
-
-func getArgs(c *cli.Context, state *state.HelmState) []string {
-	args := c.String("args")
-	argsMap := map[string]string{}
-
-	if len(args) > 0 {
-		argsVals := strings.Split(args, " ")
-		for _, arg := range argsVals {
-			argVal := strings.SplitN(arg, "=", 2)
-			if len(argVal) > 1 {
-				arg := argVal[0]
-				value := argVal[1]
-				argsMap[arg] = value
-			} else {
-				arg := argVal[0]
-				argsMap[arg] = ""
-			}
-		}
-	}
-	if len(state.HelmDefaults.Args) > 0 {
-		for _, arg := range state.HelmDefaults.Args {
-			argVal := strings.SplitN(arg, "=", 2)
-			arg := argVal[0]
-			if _, exists := argsMap[arg]; !exists {
-				if len(argVal) > 1 {
-					argsMap[arg] = argVal[1]
-				} else {
-					argsMap[arg] = ""
-				}
-			}
-		}
-	}
-
-	if state.HelmDefaults.TillerNamespace != "" {
-		setDefaultValue(argsMap, "--tiller-namespace", state.HelmDefaults.TillerNamespace)
-	}
-	if state.HelmDefaults.KubeContext != "" {
-		setDefaultValue(argsMap, "--kube-context", state.HelmDefaults.KubeContext)
-	}
-
-	var argArr []string
-
-	for key, val := range argsMap {
-		if val != "" {
-			argArr = append(argArr, fmt.Sprintf("%s=%s", key, val))
-		} else {
-			argArr = append(argArr, fmt.Sprintf("%s", key))
-		}
-	}
-
-	state.HelmDefaults.Args = argArr
-
-	return state.HelmDefaults.Args
-}
-
-func setDefaultValue(argsMap map[string]string, flag string, value string) {
-	if _, exists := argsMap[flag]; !exists {
-		argsMap[flag] = value
-	}
 }
