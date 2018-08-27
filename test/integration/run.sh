@@ -58,7 +58,7 @@ test_start "happypath - simple rollout of httpbin chart"
 info "Syncing ${dir}/happypath.yaml"
 ${helmfile} -f ${dir}/happypath.yaml sync
 wait_deploy_ready httpbin-httpbin
-retry 3 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-httpbin)/status/200"
+retry 5 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-httpbin)/status/200"
 [ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
 info "Deleting release"
 ${helmfile} -f ${dir}/happypath.yaml delete
