@@ -10,12 +10,13 @@ import (
 	"strings"
 	"syscall"
 
+	"os/exec"
+
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os/exec"
 )
 
 const (
@@ -386,6 +387,7 @@ func main() {
 	err := app.Run(os.Args)
 	if err != nil {
 		logger.Errorf("%v", err)
+		os.Exit(3)
 	}
 }
 
