@@ -42,6 +42,15 @@ type HelmSpec struct {
 	KubeContext     string   `yaml:"kubeContext"`
 	TillerNamespace string   `yaml:"tillerNamespace"`
 	Args            []string `yaml:"args"`
+	Verify          bool     `yaml:"verify"`
+	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
+	Wait bool `yaml:"wait"`
+	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
+	Timeout int `yaml:"timeout"`
+	// RecreatePods, when set to true, instruct helmfile to perform pods restart for the resource if applicable
+	RecreatePods bool `yaml:"recreatePods"`
+	// Force, when set to true, forces resource update through delete/recreate if needed
+	Force bool `yaml:"force"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -59,15 +68,15 @@ type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
 	Chart   string `yaml:"chart"`
 	Version string `yaml:"version"`
-	Verify  bool   `yaml:"verify"`
+	Verify  *bool  `yaml:"verify"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
-	Wait bool `yaml:"wait"`
+	Wait *bool `yaml:"wait"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
-	Timeout int `yaml:"timeout"`
+	Timeout *int `yaml:"timeout"`
 	// RecreatePods, when set to true, instruct helmfile to perform pods restart for the resource if applicable
-	RecreatePods bool `yaml:"recreatePods"`
+	RecreatePods *bool `yaml:"recreatePods"`
 	// Force, when set to true, forces resource update through delete/recreate if needed
-	Force bool `yaml:"force"`
+	Force *bool `yaml:"force"`
 
 	// Name is the name of this release
 	Name      string            `yaml:"name"`
@@ -224,7 +233,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 		go func() {
 			for release := range jobQueue {
 				state.applyDefaultsTo(release)
-				flags, flagsErr := state.flagsForUpgrade(helm, state.BaseChartPath, release)
+				flags, flagsErr := state.flagsForUpgrade(helm, release)
 				if flagsErr != nil {
 					errQueue <- &ReleaseError{release, flagsErr}
 					doneQueue <- true
@@ -659,27 +668,37 @@ func chartNameWithoutRepository(chart string) string {
 	return chartSplit[len(chartSplit)-1]
 }
 
-func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
+func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
 	}
-	if release.Verify {
+
+	if release.Verify != nil && *release.Verify || state.HelmDefaults.Verify {
 		flags = append(flags, "--verify")
 	}
-	if release.Wait {
+
+	if release.Wait != nil && *release.Wait || state.HelmDefaults.Wait {
 		flags = append(flags, "--wait")
 	}
-	if release.Timeout != 0 {
-		flags = append(flags, "--timeout", fmt.Sprintf("%d", release.Timeout))
+
+	timeout := state.HelmDefaults.Timeout
+	if release.Timeout != nil {
+		timeout = *release.Timeout
 	}
-	if release.Force {
+	if timeout != 0 {
+		flags = append(flags, "--timeout", fmt.Sprintf("%d", timeout))
+	}
+
+	if release.Force != nil && *release.Force || state.HelmDefaults.Force {
 		flags = append(flags, "--force")
 	}
-	if release.RecreatePods {
+
+	if release.RecreatePods != nil && *release.RecreatePods || state.HelmDefaults.RecreatePods {
 		flags = append(flags, "--recreate-pods")
 	}
-	common, err := state.namespaceAndValuesFlags(helm, basePath, release)
+
+	common, err := state.namespaceAndValuesFlags(helm, state.BaseChartPath, release)
 	if err != nil {
 		return nil, err
 	}
