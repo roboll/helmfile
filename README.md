@@ -43,10 +43,15 @@ context: kube-context					 # kube-context (--kube-context)
 helmDefaults:           
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
   kubeContext: kube-context          #dedicated default key for kube-context
+  # additional and global args passed to helm
   args:
-    - "--recreate-pods"
-    - "--timeout=600"
-    - "--force"
+    - "--set k=v"
+  # defaults for verify, wait, force, timeout and recreatePods under releases[]
+  verify: true
+  wait: true
+  timeout: 600
+  recreatePods: true
+  force: true
 
 releases:
   # Published chart example

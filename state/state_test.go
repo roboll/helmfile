@@ -188,6 +188,7 @@ func TestLabelParsing(t *testing.T) {
 		}
 	}
 }
+
 func TestHelmState_applyDefaultsTo(t *testing.T) {
 	type fields struct {
 		BaseChartPath      string
@@ -200,10 +201,11 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	type args struct {
 		spec ReleaseSpec
 	}
+	verify := false
 	specWithNamespace := ReleaseSpec{
 		Chart:     "test/chart",
 		Version:   "0.1",
-		Verify:    false,
+		Verify:    &verify,
 		Name:      "test-charts",
 		Namespace: "test-namespace",
 		Values:    nil,
@@ -273,6 +275,238 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 			}
 			if state.applyDefaultsTo(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
 				t.Errorf("HelmState.applyDefaultsTo() = %v, want %v", tt.args.spec, tt.want)
+			}
+		})
+	}
+}
+
+func TestHelmState_flagsForUpgrade(t *testing.T) {
+	enable := true
+	disable := false
+
+	some := func(v int) *int {
+		return &v
+	}
+
+	tests := []struct {
+		name     string
+		defaults HelmSpec
+		release  *ReleaseSpec
+		want     []string
+	}{
+		{
+			name: "no-options",
+			defaults: HelmSpec{
+				Verify: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "verify",
+			defaults: HelmSpec{
+				Verify: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--verify",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "verify-from-default",
+			defaults: HelmSpec{
+				Verify: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--verify",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force",
+			defaults: HelmSpec{
+				Force: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Force:     &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-from-default",
+			defaults: HelmSpec{
+				Force: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Force:     &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "recreate-pods",
+			defaults: HelmSpec{
+				RecreatePods: false,
+			},
+			release: &ReleaseSpec{
+				Chart:        "test/chart",
+				Version:      "0.1",
+				RecreatePods: &enable,
+				Name:         "test-charts",
+				Namespace:    "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--recreate-pods",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "recreate-pods-from-default",
+			defaults: HelmSpec{
+				RecreatePods: true,
+			},
+			release: &ReleaseSpec{
+				Chart:        "test/chart",
+				Version:      "0.1",
+				RecreatePods: &disable,
+				Name:         "test-charts",
+				Namespace:    "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--recreate-pods",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "wait",
+			defaults: HelmSpec{
+				Wait: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Wait:      &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--wait",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "wait-from-default",
+			defaults: HelmSpec{
+				Wait: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Wait:      &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--wait",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "timeout",
+			defaults: HelmSpec{
+				Timeout: 0,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Timeout:   some(123),
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--timeout", "123",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "timeout-from-default",
+			defaults: HelmSpec{
+				Timeout: 123,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Timeout:   nil,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--timeout", "123",
+				"--namespace", "test-namespace",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				BaseChartPath: "./",
+				Context:       "default",
+				Releases:      []ReleaseSpec{*tt.release},
+				HelmDefaults:  tt.defaults,
+			}
+			helm := helmexec.New(logger, "default")
+			args, err := state.flagsForUpgrade(helm, tt.release)
+			if err != nil {
+				t.Errorf("unexpected error flagsForUpgade: %v", err)
+			}
+			if !reflect.DeepEqual(args, tt.want) {
+				t.Errorf("flagsForUpgrade returned = %v, want %v", args, tt.want)
 			}
 		})
 	}
