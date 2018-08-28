@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"github.com/roboll/helmfile/helmexec"
 	"io/ioutil"
 	"os"
 	"path"
@@ -10,17 +11,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
-
-	"github.com/Masterminds/sprig"
-
-	"github.com/roboll/helmfile/helmexec"
 
 	"bytes"
 	"regexp"
 
+	"github.com/roboll/helmfile/tmpl"
 	"go.uber.org/zap"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 // HelmState structure for the helmfile
@@ -133,24 +130,6 @@ func CreateFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*He
 	return &state, nil
 }
 
-func stringTemplate() *template.Template {
-	funcMap := sprig.TxtFuncMap()
-	alterFuncMap(&funcMap)
-	return template.New("stringTemplate").Funcs(funcMap)
-}
-
-func alterFuncMap(funcMap *template.FuncMap) {
-	(*funcMap)["requiredEnv"] = getRequiredEnv
-}
-
-func getRequiredEnv(name string) (string, error) {
-	if val, exists := os.LookupEnv(name); exists && len(val) > 0 {
-		return val, nil
-	}
-
-	return "", fmt.Errorf("required env var `%s` is not set", name)
-}
-
 func RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -161,27 +140,7 @@ func RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {
 }
 
 func renderTemplateToBuffer(s string) (*bytes.Buffer, error) {
-	var t, parseErr = stringTemplate().Parse(s)
-	if parseErr != nil {
-		return nil, parseErr
-	}
-
-	var tplString bytes.Buffer
-	var execErr = t.Execute(&tplString, nil)
-
-	if execErr != nil {
-		return nil, execErr
-	}
-
-	return &tplString, nil
-}
-
-func renderTemplateString(s string) (string, error) {
-	tplString, err := renderTemplateToBuffer(s)
-	if err != nil {
-		return "", err
-	}
-	return tplString.String(), nil
+	return tmpl.DefaultContext.RenderTemplateToBuffer(s)
 }
 
 func (state *HelmState) applyDefaultsTo(spec *ReleaseSpec) {

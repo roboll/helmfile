@@ -12,6 +12,14 @@ import (
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
 
+func renderTemplateToString(s string) (string, error) {
+	tplString, err := renderTemplateToBuffer(s)
+	if err != nil {
+		return "", err
+	}
+	return tplString.String(), nil
+}
+
 func TestReadFromYaml(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`releases:
@@ -512,7 +520,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 	}
 }
 
-func Test_renderTemplateString(t *testing.T) {
+func Test_renderTemplateToString(t *testing.T) {
 	type args struct {
 		s    string
 		envs map[string]string
@@ -613,16 +621,16 @@ func Test_renderTemplateString(t *testing.T) {
 			for k, v := range tt.args.envs {
 				err := os.Setenv(k, v)
 				if err != nil {
-					t.Error("renderTemplateString() could not set env var for testing")
+					t.Error("renderTemplateToString() could not set env var for testing")
 				}
 			}
-			got, err := renderTemplateString(tt.args.s)
+			got, err := renderTemplateToString(tt.args.s)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("renderTemplateString() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
+				t.Errorf("renderTemplateToString() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("renderTemplateString() for %s = %v, want %v", tt.name, got, tt.want)
+				t.Errorf("renderTemplateToString() for %s = %v, want %v", tt.name, got, tt.want)
 			}
 		})
 	}

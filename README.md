@@ -270,6 +270,96 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 
 `--selector tier=frontend --selector tier=backend` will select all the charts
 
+## Templates
+
+You can use go's text/template expressions in `helmfile.yaml` and `values.yaml`(helm values files).
+
+In addition to built-in ones, the following custom template functions are available:
+
+- `readFile` reads the specified local file and generate a golang string
+- `fromYaml` reads a golang string and generates a map
+- `setValuleAtPath PATH NEW_VALUE` traverses a golang map, replaces the value at the PATH with NEW_VALUE
+- `toYaml` marshals a map into a string
+
+### Values Files Templates
+
+You can reference a template of values file in your `helmfile.yaml` like below:
+
+```yaml
+releases
+- name: myapp
+  chart: mychart
+  values:
+  - values.yaml.tpl
+```
+
+whereas `values.yaml.tpl` would be something like:
+
+```yaml
+{{ readFile "values.yaml" | fromYaml | setValueAtPath "foo.bar" "FOO_BAR" | toYaml }}
+```
+
+Suppose `values.yaml` was:
+
+```yaml
+foo:
+  bar: ""
+```
+
+The resulting, temporary values.yaml that is generated from `values.yaml.tpl` would become:
+
+```yaml
+foo:
+  # Notice `setValueAtPath "foo.bar" "FOO_BAR"` in the template above
+  bar: FOO_BAR
+```
+
+## Refactoring `helmfile.yaml` with values files templates
+
+One of expected use-cases of values files templates is to keep `helmfile.yaml` small and concise.
+
+See the example `helmfile.yaml` below:
+
+```yaml
+releases:
+  - name: {{ requiredEnv "NAME" }}-vault
+    namespace: {{ requiredEnv "NAME" }}
+    chart: roboll/vault-secret-manager
+    values:
+      - db:
+          username: {{ requiredEnv "DB_USERNAME" }}
+          password: {{ requiredEnv "DB_PASSWORD" }}
+    set:
+      - name: proxy.domain
+        value: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
+      - name: proxy.scheme
+        value: {{ env "SCHEME" | default "https" }}
+```
+
+The `values` and `set` sections of the config file can be separated out into a template:
+
+`helmfile.yaml`:
+
+```yaml
+releases:
+  - name: {{ requiredEnv "NAME" }}-vault
+    namespace: {{ requiredEnv "NAME" }}
+    chart: roboll/vault-secret-manager
+    values:
+    - values.yaml.tmpl
+```
+
+`values.yaml.tmpl`:
+
+```yaml
+db:
+  username: {{ requiredEnv "DB_USERNAME" }}
+  password: {{ requiredEnv "DB_PASSWORD" }}
+proxy:
+  domain: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
+  scheme: {{ env "SCHEME" | default "https" }}
+```
+
 ## Using env files
 
 helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:
