@@ -2,6 +2,8 @@ package helmexec
 
 import (
 	"io"
+	"io/ioutil"
+	"os"
 	"strings"
 
 	"go.uber.org/zap"
@@ -102,7 +104,19 @@ func (helm *execer) DecryptSecret(name string) (string, error) {
 	helm.logger.Infof("Decrypting secret %v", name)
 	out, err := helm.exec(append([]string{"secrets", "dec", name})...)
 	helm.write(out)
-	return name + ".dec", err
+
+	tmpFile, err := ioutil.TempFile("", "secret")
+	if err != nil {
+		return "", err
+	}
+	tmpFile.Close()
+
+	err = os.Rename(name+".dec", tmpFile.Name())
+	if err != nil {
+		return "", err
+	}
+
+	return tmpFile.Name(), err
 }
 
 func (helm *execer) DiffRelease(name, chart string, flags ...string) error {
