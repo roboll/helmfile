@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"sync"
 )
 
 const (
@@ -15,11 +16,12 @@ const (
 )
 
 type execer struct {
-	helmBinary  string
-	runner      Runner
-	logger      *zap.SugaredLogger
-	kubeContext string
-	extra       []string
+	helmBinary      string
+	runner          Runner
+	logger          *zap.SugaredLogger
+	kubeContext     string
+	extra           []string
+	decryptionMutex sync.Mutex
 }
 
 func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
@@ -101,6 +103,10 @@ func (helm *execer) ReleaseStatus(name string) error {
 }
 
 func (helm *execer) DecryptSecret(name string) (string, error) {
+	// Prevents https://github.com/roboll/helmfile/issues/258
+	helm.decryptionMutex.Lock()
+	defer helm.decryptionMutex.Unlock()
+
 	helm.logger.Infof("Decrypting secret %v", name)
 	out, err := helm.exec(append([]string{"secrets", "dec", name})...)
 	helm.write(out)
