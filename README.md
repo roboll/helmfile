@@ -290,16 +290,18 @@ releases
 - name: myapp
   chart: mychart
   values:
-  - values.yaml.tpl
+  - values.yaml.gotmpl
 ```
 
-whereas `values.yaml.tpl` would be something like:
+Every values file whose file extension is `.gotmpl` is considered as a tempalte file.
+
+Suppose `values.yaml.gotmpl` was something like:
 
 ```yaml
 {{ readFile "values.yaml" | fromYaml | setValueAtPath "foo.bar" "FOO_BAR" | toYaml }}
 ```
 
-Suppose `values.yaml` was:
+And `values.yaml` was:
 
 ```yaml
 foo:
