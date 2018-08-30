@@ -14,6 +14,7 @@ import (
 	"github.com/roboll/helmfile/args"
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
+	"github.com/roboll/helmfile/tmpl"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -399,7 +400,7 @@ func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec
 	}
 	allSelectorNotMatched := true
 	for _, f := range desiredStateFiles {
-		yamlBuf, err := state.RenderTemplateFileToBuffer(f)
+		yamlBuf, err := tmpl.RenderTemplateFileToBuffer(f)
 		if err != nil {
 			return err
 		}

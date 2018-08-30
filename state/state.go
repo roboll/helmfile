@@ -12,10 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	"bytes"
 	"regexp"
 
-	"github.com/roboll/helmfile/tmpl"
+	"github.com/roboll/helmfile/valuesfile"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
@@ -98,16 +97,6 @@ type SetValue struct {
 	Values []string `yaml:"values"`
 }
 
-// CreateFromTemplateFile loads the helmfile from disk and processes the template
-func CreateFromTemplateFile(file string, logger *zap.SugaredLogger) (*HelmState, error) {
-	yamlBuf, err := RenderTemplateFileToBuffer(file)
-	if err != nil {
-		return nil, err
-	}
-
-	return CreateFromYaml(yamlBuf.Bytes(), file, logger)
-}
-
 func CreateFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*HelmState, error) {
 	var state HelmState
 
@@ -128,19 +117,6 @@ func CreateFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*He
 	state.logger = logger
 
 	return &state, nil
-}
-
-func RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {
-	content, err := ioutil.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-
-	return renderTemplateToBuffer(string(content))
-}
-
-func renderTemplateToBuffer(s string) (*bytes.Buffer, error) {
-	return tmpl.DefaultContext.RenderTemplateToBuffer(s)
 }
 
 func (state *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
@@ -698,17 +674,18 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePat
 				return nil, err
 			}
 
-			yamlBuf, err := RenderTemplateFileToBuffer(path)
-			if err != nil {
-
-				return nil, fmt.Errorf("failed to render [%s], because of %v", path, err)
-			}
 			valfile, err := ioutil.TempFile("", "values")
 			if err != nil {
 				return nil, err
 			}
 			defer valfile.Close()
-			yamlBytes := yamlBuf.Bytes()
+
+			r := valuesfile.NewRenderer(ioutil.ReadFile)
+			yamlBytes, err := r.RenderToBytes(path)
+			if err != nil {
+				return nil, err
+			}
+
 			if _, err := valfile.Write(yamlBytes); err != nil {
 				return nil, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
 			}
