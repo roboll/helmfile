@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 )
@@ -21,7 +22,9 @@ func (c *Context) createFuncMap() template.FuncMap {
 }
 
 func (c *Context) ReadFile(filename string) (string, error) {
-	bytes, err := c.readFile(filename)
+	path := filepath.Join(c.basePath, filename)
+
+	bytes, err := c.readFile(path)
 	if err != nil {
 		return "", err
 	}
