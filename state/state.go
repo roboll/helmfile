@@ -349,7 +349,7 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 				}
 
 				chartPath := ""
-				if isLocalChart(release.Chart) {
+				if pathExists(normalizeChart(state.BaseChartPath, release.Chart)) {
 					chartPath = normalizeChart(state.BaseChartPath, release.Chart)
 				} else {
 					fetchFlags := []string{}
@@ -586,14 +586,18 @@ func (state *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 // 	 be constructed relative to the `base path`.
 // - Everything else is assumed to be an absolute path or an actual <repository>/<chart> reference.
 func normalizeChart(basePath, chart string) string {
-	regex, _ := regexp.Compile("^[.]?./")
-	if !regex.MatchString(chart) {
+	if !isLocalChart(chart) {
 		return chart
 	}
 	return filepath.Join(basePath, chart)
 }
 
 func isLocalChart(chart string) bool {
+	regex, _ := regexp.Compile("^[.]?./")
+	return regex.MatchString(chart)
+}
+
+func pathExists(chart string) bool {
 	_, err := os.Stat(chart)
 	return err == nil
 }
@@ -680,7 +684,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePat
 			}
 			defer valfile.Close()
 
-			r := valuesfile.NewRenderer(ioutil.ReadFile)
+			r := valuesfile.NewRenderer(ioutil.ReadFile, state.BaseChartPath)
 			yamlBytes, err := r.RenderToBytes(path)
 			if err != nil {
 				return nil, err

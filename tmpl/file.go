@@ -2,16 +2,11 @@ package tmpl
 
 import (
 	"bytes"
-	"io/ioutil"
+	"path/filepath"
 )
 
-var DefaultFileRenderer *templateFileRenderer
-
-func init() {
-	DefaultFileRenderer = NewFileRenderer(ioutil.ReadFile)
-}
-
 type templateFileRenderer struct {
+	basePath string
 	ReadFile func(string) ([]byte, error)
 	Context  *Context
 }
@@ -20,8 +15,9 @@ type FileRenderer interface {
 	RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error)
 }
 
-func NewFileRenderer(readFile func(filename string) ([]byte, error)) *templateFileRenderer {
+func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath string) *templateFileRenderer {
 	return &templateFileRenderer{
+		basePath: basePath,
 		ReadFile: readFile,
 		Context: &Context{
 			readFile: readFile,
@@ -30,14 +26,13 @@ func NewFileRenderer(readFile func(filename string) ([]byte, error)) *templateFi
 }
 
 func (r *templateFileRenderer) RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {
-	content, err := r.ReadFile(file)
+	// path to the file relative to the helmfile.yaml
+	path := filepath.Join(r.basePath, file)
+
+	content, err := r.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
 	return r.Context.RenderTemplateToBuffer(string(content))
-}
-
-func RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {
-	return DefaultFileRenderer.RenderTemplateFileToBuffer(file)
 }

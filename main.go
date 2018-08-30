@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"io/ioutil"
 )
 
 const (
@@ -400,7 +401,7 @@ func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec
 	}
 	allSelectorNotMatched := true
 	for _, f := range desiredStateFiles {
-		yamlBuf, err := tmpl.RenderTemplateFileToBuffer(f)
+		yamlBuf, err := tmpl.NewFileRenderer(ioutil.ReadFile, "").RenderTemplateFileToBuffer(f)
 		if err != nil {
 			return err
 		}
