@@ -560,7 +560,7 @@ func Test_isLocalChart(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isLocalChart(tt.args.chart); got != tt.want {
-				t.Errorf("isLocalChart() = %v, want %v", got, tt.want)
+				t.Errorf("pathExists() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -879,7 +879,7 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 				Chart: "published/deeper",
 			},
 			{
-				Chart: "./error",
+				Chart: ".error",
 			},
 		},
 	}

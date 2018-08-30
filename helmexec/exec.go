@@ -119,7 +119,7 @@ func (helm *execer) DecryptSecret(name string) (string, error) {
 
 	// os.Rename seems to results in "cross-device link` errors in some cases
 	// Instead of moving, copy it to the destination temp file as a work-around
-	// See https://github.com/roboll/helmfile/issues/251#issuecomment-417166296
+	// See https://github.com/roboll/helmfile/issues/251#issuecomment-417166296f
 	decFile, err := os.Open(name + ".dec")
 	if err != nil {
 		return "", err

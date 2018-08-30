@@ -11,10 +11,10 @@ type renderer struct {
 	tmplFileRenderer tmpl.FileRenderer
 }
 
-func NewRenderer(readFile func(filename string) ([]byte, error)) *renderer {
+func NewRenderer(readFile func(filename string) ([]byte, error), basePath string) *renderer {
 	return &renderer{
 		readFile:         readFile,
-		tmplFileRenderer: tmpl.NewFileRenderer(readFile),
+		tmplFileRenderer: tmpl.NewFileRenderer(readFile, basePath),
 	}
 }
 
