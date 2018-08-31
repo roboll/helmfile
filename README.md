@@ -371,6 +371,70 @@ proxy:
   scheme: {{ env "SCHEME" | default "https" }}
 ```
 
+## Environment
+
+When you want to customize the contents of `helmfile.yaml` or `values.yaml` files per environment, use this feature.
+
+You can define as many environments as you want under `environments` in `helmfile.yaml`.
+
+The environment name defaults to `default`, that is, `helmfile sync` implies the `default` environment.
+The selected environment name can be referenced from `helmfile.yaml` and `values.yaml.gotmpl` by `{{ .Environment.Name }}`.
+
+If you want to specify a non-default environment, provide a `--environment NAME` flag to `helmfile` like `helmfile --environment production sync`.
+
+The below example shows how to define a production-only release:
+
+```yaml
+environments:
+  default:
+  production:
+
+releases:
+
+{{ if (eq .Environment.Name "production" }}
+- name: newrelic-agent
+  # snip
+{{ end }}
+- name: myapp
+  # snip  
+```
+
+## Environment Values
+
+Environment Values allows you to inject a set of values specific to the selected environment, into values.yaml templates.
+Use it to inject common values from the environment to multiple values files, to make your configuration DRY.
+
+Suppose you have three files `helmfile.yaml`, `production.yaml` and `values.yaml.gotmpl`:
+
+`helmfile.yaml`
+
+```yaml
+environments:
+  production:
+    values:
+    - production.yaml
+
+releases:
+- name: myapp
+  values:
+  - values.yaml.gotmpl
+```
+
+`production.yaml`
+
+```yaml
+domain: prod.example.com
+```
+
+`values.yaml.gotmpl`
+
+```yaml
+domain: {{ .Environment.Values.domain | default "dev.example.com" }}
+```
+
+`helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
+whereas `helmfile --environment production sync` installs the app with the value `domain=production.example.com`.
+
 ## Separating helmfile.yaml into multiple independent files
 
 Once your `helmfile.yaml` got to contain too many releases,

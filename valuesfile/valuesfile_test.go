@@ -2,6 +2,7 @@ package valuesfile
 
 import (
 	"fmt"
+	"github.com/roboll/helmfile/environment"
 	"reflect"
 	"testing"
 )
@@ -24,7 +25,7 @@ func TestRenderToBytes_Gotmpl(t *testing.T) {
 			return []byte(dataFileContent), nil
 		}
 		return nil, fmt.Errorf("unexpected filename: expected=%v or %v, actual=%s", dataFile, valuesTmplFile, filename)
-	}, "")
+	}, "", environment.EmptyEnvironment)
 	buf, err := r.RenderToBytes(valuesTmplFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -49,7 +50,7 @@ func TestRenderToBytes_Yaml(t *testing.T) {
 			return []byte(valuesYamlContent), nil
 		}
 		return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", valuesFile, filename)
-	}, "")
+	}, "", environment.EmptyEnvironment)
 	buf, err := r.RenderToBytes(valuesFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

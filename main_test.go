@@ -16,7 +16,7 @@ func TestReadFromYaml_DuplicateReleaseName(t *testing.T) {
   labels:
     stage: post
 `)
-	_, _, _, err := loadDesiredStateFromFile(yamlContent, yamlFile, "default", "default", []string{}, logger)
+	_, _, _, err := loadDesiredStateFromFile(yamlContent, yamlFile, "default", "default", []string{}, "default", logger)
 	if err == nil {
 		t.Error("error expected but not happened")
 	}
