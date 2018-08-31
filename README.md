@@ -185,25 +185,28 @@ USAGE:
 
 COMMANDS:
      repos   sync repositories from state file (helm repo add && helm repo update)
-     charts  sync charts from state file (helm upgrade --install)
-     diff    diff charts from state file against env (helm diff)
+     charts  sync releases from state file (helm upgrade --install)
+     diff    diff releases from state file against env (helm diff)
      lint    lint charts from state file (helm lint)
-     sync    sync all resources from state file (repos, charts and local chart deps)
+     sync    sync all resources from state file (repos, releases and chart deps)
+     apply   apply all resources from state file only when there are changes
      status  retrieve status of releases in state file
-     delete  delete charts from state file (helm delete)
-     test    tets releases from state file (helm test)
+     delete  delete releases from state file (helm delete)
+     test    test releases from state file (helm test)
 
 GLOBAL OPTIONS:
-   --file FILE, -f FILE         load config from FILE (default: "helmfile.yaml")
-   --quiet, -q                  silence output
-   --namespace value, -n value  Set namespace. Uses the namespace set in the context by default
-   --selector,l value           Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
-	                              A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
-	                              --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
-	                              The name of a release can be used as a label. --selector name=myrelease
-   --kube-context value         Set kubectl context. Uses current context by default
-   --help, -h                   show help
-   --version, -v                print the version
+   --helm-binary value, -b value           path to helm binary
+   --file helmfile.yaml, -f helmfile.yaml  load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
+   --quiet, -q                             Silence output. Equivalent to log-level warn
+   --kube-context value                    Set kubectl context. Uses current context by default
+   --log-level value                       Set log level, default info
+   --namespace value, -n value             Set namespace. Uses the namespace set in the context by default
+   --selector value, -l value              Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
+                                           A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
+                                           --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
+                                           The name of a release can be used as a label. --selector name=myrelease
+   --help, -h                              show help
+   --version, -v                           print the version
 ```
 
 ### sync
@@ -223,6 +226,12 @@ the charts/releases defined in the manifest.
 To supply the diff functionality Helmfile needs the [helm-diff](https://github.com/databus23/helm-diff) plugin v2.9.0+1 or greater installed. For Helm 2.3+
 you should be able to simply execute `helm plugin install https://github.com/databus23/helm-diff`. For more details
 please look at their [documentation](https://github.com/databus23/helm-diff#helm-diff-plugin).
+
+### apply
+
+The `helmfile apply` sub-command begins by executing `diff`. If `diff` finds that there is any changes, `sync` is executed after prompting you for an confirmation. `--auto-approve` skips the confirmation.
+
+An expected use-case of `apply` is to schedule it to run periodically, so that you can auto-fix skews between the desired and the current state of your apps running on Kubernetes clusters.
 
 ### delete
 

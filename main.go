@@ -184,25 +184,7 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := args.GetArgs(c.String("args"), state)
-					if len(args) > 0 {
-						helm.SetExtraArgs(args...)
-					}
-					if c.GlobalString("helm-binary") != "" {
-						helm.SetHelmBinary(c.GlobalString("helm-binary"))
-					}
-
-					if c.Bool("sync-repos") {
-						if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-					}
-
-					values := c.StringSlice("values")
-					workers := c.Int("concurrency")
-					detailedExitCode := c.Bool("detailed-exitcode")
-
-					return state.DiffReleases(helm, values, workers, detailedExitCode)
+					return executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"))
 				})
 			},
 		},
@@ -263,26 +245,64 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
-						return errs
+					return executeSyncCommand(c, state, helm)
+				})
+			},
+		},
+		{
+			Name:  "apply",
+			Usage: "apply all resources from state file only when there are changes",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:  "values",
+					Usage: "additional value files to be merged into the command",
+				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm exec",
+				},
+				cli.BoolFlag{
+					Name:  "auto-approve",
+					Usage: "Skip interactive approval before applying",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					errs := executeDiffCommand(c, state, helm, true)
+
+					// sync only when there are changes
+					if len(errs) > 0 {
+						allErrsIndicateChanges := true
+						for _, err := range errs {
+							switch e := err.(type) {
+							case *exec.ExitError:
+								status := e.Sys().(syscall.WaitStatus)
+								// `helm diff --detailed-exitcode` returns 2 when there are changes
+								allErrsIndicateChanges = allErrsIndicateChanges && status.ExitStatus() == 2
+							default:
+								allErrsIndicateChanges = false
+							}
+						}
+
+						msg := `Do you really want to apply?
+  Helmfile will apply all your changes, as shown above.
+
+`
+						if allErrsIndicateChanges {
+							autoApprove := c.Bool("auto-approve")
+							if autoApprove || !autoApprove && askForConfirmation(msg) {
+								return executeSyncCommand(c, state, helm)
+							}
+						}
 					}
 
-					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
-						return errs
-					}
-
-					args := args.GetArgs(c.String("args"), state)
-					if len(args) > 0 {
-						helm.SetExtraArgs(args...)
-					}
-					if c.GlobalString("helm-binary") != "" {
-						helm.SetHelmBinary(c.GlobalString("helm-binary"))
-					}
-
-					values := c.StringSlice("values")
-					workers := c.Int("concurrency")
-
-					return state.SyncReleases(helm, values, workers)
+					return errs
 				})
 			},
 		},
@@ -391,6 +411,50 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(3)
 	}
+}
+
+func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {
+	if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+		return errs
+	}
+
+	if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
+		return errs
+	}
+
+	args := args.GetArgs(c.String("args"), state)
+	if len(args) > 0 {
+		helm.SetExtraArgs(args...)
+	}
+	if c.GlobalString("helm-binary") != "" {
+		helm.SetHelmBinary(c.GlobalString("helm-binary"))
+	}
+
+	values := c.StringSlice("values")
+	workers := c.Int("concurrency")
+
+	return state.SyncReleases(helm, values, workers)
+}
+
+func executeDiffCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface, detailedExitCode bool) []error {
+	args := args.GetArgs(c.String("args"), state)
+	if len(args) > 0 {
+		helm.SetExtraArgs(args...)
+	}
+	if c.GlobalString("helm-binary") != "" {
+		helm.SetHelmBinary(c.GlobalString("helm-binary"))
+	}
+
+	if c.Bool("sync-repos") {
+		if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+			return errs
+		}
+	}
+
+	values := c.StringSlice("values")
+	workers := c.Int("concurrency")
+
+	return state.DiffReleases(helm, values, workers, detailedExitCode)
 }
 
 func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
