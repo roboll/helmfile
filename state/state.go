@@ -215,7 +215,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 }
 
 // DiffReleases wrapper for executing helm diff on the releases
-func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode bool) []error {
+func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool) []error {
 	var wgRelease sync.WaitGroup
 	var wgError sync.WaitGroup
 	errs := []error{}
@@ -254,6 +254,10 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 
 				if detailedExitCode {
 					flags = append(flags, "--detailed-exitcode")
+				}
+
+				if suppressSecrets {
+					flags = append(flags, "--suppress-secrets")
 				}
 
 				if len(errs) == 0 {
