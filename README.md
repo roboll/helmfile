@@ -371,6 +371,76 @@ proxy:
   scheme: {{ env "SCHEME" | default "https" }}
 ```
 
+## Separating helmfile.yaml into multiple independent files
+
+Once your `helmfile.yaml` got to contain too many releases,
+split it into multiple yaml files.
+
+Recommended granularity of helmfile.yaml files is "per microservice" or "per team".
+And there are two ways to organize your files.
+
+- Single directory
+- Glob patterns
+
+### Single directory
+
+`helmfile -f path/to/directory` loads and runs all the yaml files under the specified directory, each file as an independent helmfile.yaml.
+The default helmfile directory is `helmfile.d`, that is,
+in case helmfile is unable to locate `helmfile.yaml`, it tries to locate `helmfile.d/*.yaml`.
+
+All the yaml files under the specified directory are processed in the alphabetical order. For example, you can use a `<two digit number>-<microservice>.yaml` naming convention to control the sync order.
+
+- `helmfile.d`/
+  - `00-database.yaml`
+  - `00-backend.yaml`
+  - `01-frontend.yaml`
+
+### Glob patterns
+
+In case you want more control over how multiple `helmfile.yaml` files are organized, use `helmfiles:` configuration key in the `helmfile.yaml`:
+
+Suppose you have multiple microservices organized in a Git reposistory that looks like:
+
+- `myteam/` (sometimes it is equivalent to a k8s ns, that is `kube-system` for `clusterops` team)
+  - `apps/`
+    - `filebeat/`
+      - `helmfile.yaml` (no `charts/` exists, because it depends on the stable/filebeat chart hosted on the official helm charts repository)
+      - `README.md` (each app managed by my team has a dedicated README maintained by the owners of the app)
+    - `metricbeat/`
+      - `helmfile.yaml`
+      - `README.md`
+    - `elastalert-operator/`
+      - `helmfile.yaml`
+      - `README.md`
+      - `charts/`
+        - `elastalert-operator/`
+          - `<the content of the local helm chart>`
+
+The benefits of this structure is that you can run `git diff` to locate in which directory=microservice a git commit has changes.
+It allows your CI system to run a workflow for the changed microservice only.
+
+A downside of this is that you don't have an obvious way to sync all microservices at once. That is, you have to run:
+
+```bash
+for d in apps/*; do helmfile -f $d diff; if [ $? -eq 2 ]; then helmfile -f $d sync; fi; done
+```
+
+At this point, you'll start writing a `Makefile` under `myteam/` so that `make sync-all` will do the job.
+
+It does work, but you can rely on the helmfile's feature instead.
+
+Put `myteam/helmfile.yaml` that looks like:
+
+```yaml
+helmfiles:
+- apps/*/helmfile.yaml
+```
+
+So that you can get rid of the `Makefile` and the bash snippet.
+Just run `helmfile sync` inside `myteam/`, and you are done.
+
+All the files are sorted alphabetically per group = array item inside `helmfiles:`, so that you have granular control over ordering, too.
+
 ## Using env files
 
 helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:
