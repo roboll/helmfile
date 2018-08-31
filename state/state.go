@@ -14,6 +14,7 @@ import (
 
 	"regexp"
 
+	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/valuesfile"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -21,7 +22,8 @@ import (
 
 // HelmState structure for the helmfile
 type HelmState struct {
-	BaseChartPath      string
+	basePath           string
+	Environments       map[string]EnvironmentSpec
 	FilePath           string
 	HelmDefaults       HelmSpec         `yaml:"helmDefaults"`
 	Helmfiles          []string         `yaml:"helmfiles"`
@@ -31,7 +33,11 @@ type HelmState struct {
 	Repositories       []RepositorySpec `yaml:"repositories"`
 	Releases           []ReleaseSpec    `yaml:"releases"`
 
+	env environment.Environment
+
 	logger *zap.SugaredLogger
+
+	readFile func(string) ([]byte, error)
 }
 
 // HelmSpec to defines helmDefault values
@@ -98,27 +104,7 @@ type SetValue struct {
 	Values []string `yaml:"values"`
 }
 
-func CreateFromYaml(content []byte, file string, logger *zap.SugaredLogger) (*HelmState, error) {
-	var state HelmState
-
-	state.BaseChartPath, _ = filepath.Abs(filepath.Dir(file))
-	if err := yaml.UnmarshalStrict(content, &state); err != nil {
-		return nil, err
-	}
-	state.FilePath = file
-
-	if len(state.DeprecatedReleases) > 0 {
-		if len(state.Releases) > 0 {
-			return nil, fmt.Errorf("failed to parse %s: you can't specify both `charts` and `releases` sections", file)
-		}
-		state.Releases = state.DeprecatedReleases
-		state.DeprecatedReleases = []ReleaseSpec{}
-	}
-
-	state.logger = logger
-
-	return &state, nil
-}
+const DefaultEnv = "default"
 
 func (state *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
 	if state.Namespace != "" {
@@ -196,7 +182,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 					continue
 				}
 
-				chart := normalizeChart(state.BaseChartPath, release.Chart)
+				chart := normalizeChart(state.basePath, release.Chart)
 				if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
 					errQueue <- &ReleaseError{release, err}
 				}
@@ -249,7 +235,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 
 				state.applyDefaultsTo(release)
 
-				flags, err := state.flagsForDiff(helm, state.BaseChartPath, release)
+				flags, err := state.flagsForDiff(helm, release)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -271,7 +257,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 				}
 
 				if len(errs) == 0 {
-					if err := helm.DiffRelease(release.Name, normalizeChart(state.BaseChartPath, release.Chart), flags...); err != nil {
+					if err := helm.DiffRelease(release.Name, normalizeChart(state.basePath, release.Chart), flags...); err != nil {
 						errs = append(errs, err)
 					}
 				}
@@ -333,7 +319,7 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 		go func() {
 			for release := range jobQueue {
 				errs := []error{}
-				flags, err := state.flagsForLint(helm, state.BaseChartPath, release)
+				flags, err := state.flagsForLint(helm, release)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -350,8 +336,8 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 				}
 
 				chartPath := ""
-				if pathExists(normalizeChart(state.BaseChartPath, release.Chart)) {
-					chartPath = normalizeChart(state.BaseChartPath, release.Chart)
+				if pathExists(normalizeChart(state.basePath, release.Chart)) {
+					chartPath = normalizeChart(state.basePath, release.Chart)
 				} else {
 					fetchFlags := []string{}
 					if release.Version != "" {
@@ -571,7 +557,7 @@ func (state *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 
 	for _, release := range state.Releases {
 		if isLocalChart(release.Chart) {
-			if err := helm.UpdateDeps(normalizeChart(state.BaseChartPath, release.Chart)); err != nil {
+			if err := helm.UpdateDeps(normalizeChart(state.basePath, release.Chart)); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -638,30 +624,35 @@ func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, release *Releas
 		flags = append(flags, "--recreate-pods")
 	}
 
-	common, err := state.namespaceAndValuesFlags(helm, state.BaseChartPath, release)
+	common, err := state.namespaceAndValuesFlags(helm, release)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
 }
 
-func (state *HelmState) flagsForDiff(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
+func (state *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
 	}
-	common, err := state.namespaceAndValuesFlags(helm, basePath, release)
+	common, err := state.namespaceAndValuesFlags(helm, release)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
 }
 
-func (state *HelmState) flagsForLint(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
-	return state.namespaceAndValuesFlags(helm, basePath, release)
+func (state *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+	return state.namespaceAndValuesFlags(helm, release)
 }
 
-func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePath string, release *ReleaseSpec) ([]string, error) {
+func (state *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
+	r := valuesfile.NewRenderer(state.readFile, state.basePath, state.env)
+	return r.RenderToBytes(path)
+}
+
+func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
@@ -673,23 +664,19 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePat
 			if filepath.IsAbs(typedValue) {
 				path = typedValue
 			} else {
-				path = filepath.Join(basePath, typedValue)
+				path = filepath.Join(state.basePath, typedValue)
 			}
 			if _, err := os.Stat(path); os.IsNotExist(err) {
 				return nil, err
 			}
+
+			yamlBytes, err := state.RenderValuesFileToBytes(path)
 
 			valfile, err := ioutil.TempFile("", "values")
 			if err != nil {
 				return nil, err
 			}
 			defer valfile.Close()
-
-			r := valuesfile.NewRenderer(ioutil.ReadFile, state.BaseChartPath)
-			yamlBytes, err := r.RenderToBytes(path)
-			if err != nil {
-				return nil, err
-			}
 
 			if _, err := valfile.Write(yamlBytes); err != nil {
 				return nil, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
@@ -713,7 +700,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, basePat
 		}
 	}
 	for _, value := range release.Secrets {
-		path := filepath.Join(basePath, value)
+		path := filepath.Join(state.basePath, value)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			return nil, err
 		}

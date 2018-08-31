@@ -12,6 +12,7 @@ import (
 	"os/exec"
 
 	"github.com/roboll/helmfile/args"
+	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
 	"github.com/roboll/helmfile/tmpl"
@@ -67,6 +68,10 @@ func main() {
 		cli.StringFlag{
 			Name:  "file, f",
 			Usage: "load config from file or directory. defaults to `helmfile.yaml` or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference",
+		},
+		cli.StringFlag{
+			Name:  "environment, e",
+			Usage: "specify the environment name. defaults to `default`",
 		},
 		cli.BoolFlag{
 			Name:  "quiet, q",
@@ -463,10 +468,16 @@ func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*st
 	namespace := c.GlobalString("namespace")
 	selectors := c.GlobalStringSlice("selector")
 	logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
-	return findAndIterateOverDesiredStates(fileOrDir, converge, kubeContext, namespace, selectors, logger)
+
+	env := c.GlobalString("environment")
+	if env == "" {
+		env = state.DefaultEnv
+	}
+
+	return findAndIterateOverDesiredStates(fileOrDir, converge, kubeContext, namespace, selectors, env, logger)
 }
 
-func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error, kubeContext, namespace string, selectors []string, logger *zap.SugaredLogger) error {
+func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error, kubeContext, namespace string, selectors []string, env string, logger *zap.SugaredLogger) error {
 	desiredStateFiles, err := findDesiredStateFiles(fileOrDir)
 	if err != nil {
 		return err
@@ -474,7 +485,7 @@ func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.Helm
 	allSelectorNotMatched := true
 	for _, f := range desiredStateFiles {
 		logger.Debugf("Processing %s", f)
-		yamlBuf, err := tmpl.NewFileRenderer(ioutil.ReadFile, "").RenderTemplateFileToBuffer(f)
+		yamlBuf, err := tmpl.NewFileRenderer(ioutil.ReadFile, "", environment.EmptyEnvironment).RenderTemplateFileToBuffer(f)
 		if err != nil {
 			return err
 		}
@@ -484,6 +495,7 @@ func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.Helm
 			kubeContext,
 			namespace,
 			selectors,
+			env,
 			logger,
 		)
 		if err != nil {
@@ -498,7 +510,7 @@ func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.Helm
 				}
 				sort.Strings(matches)
 				for _, m := range matches {
-					if err := findAndIterateOverDesiredStates(m, converge, kubeContext, namespace, selectors, logger); err != nil {
+					if err := findAndIterateOverDesiredStates(m, converge, kubeContext, namespace, selectors, env, logger); err != nil {
 						return fmt.Errorf("failed processing %s: %v", globPattern, err)
 					}
 				}
@@ -579,8 +591,8 @@ func directoryExistsAt(path string) bool {
 	return err == nil && fileInfo.Mode().IsDir()
 }
 
-func loadDesiredStateFromFile(yaml []byte, file string, kubeContext, namespace string, labels []string, logger *zap.SugaredLogger) (*state.HelmState, helmexec.Interface, bool, error) {
-	st, err := state.CreateFromYaml(yaml, file, logger)
+func loadDesiredStateFromFile(yaml []byte, file string, kubeContext, namespace string, labels []string, env string, logger *zap.SugaredLogger) (*state.HelmState, helmexec.Interface, bool, error) {
+	st, err := state.CreateFromYaml(yaml, file, env, logger)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("failed to read %s: %v", file, err)
 	}

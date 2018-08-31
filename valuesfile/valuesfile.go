@@ -2,6 +2,7 @@ package valuesfile
 
 import (
 	"fmt"
+	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/tmpl"
 	"strings"
 )
@@ -11,10 +12,10 @@ type renderer struct {
 	tmplFileRenderer tmpl.FileRenderer
 }
 
-func NewRenderer(readFile func(filename string) ([]byte, error), basePath string) *renderer {
+func NewRenderer(readFile func(filename string) ([]byte, error), basePath string, env environment.Environment) *renderer {
 	return &renderer{
 		readFile:         readFile,
-		tmplFileRenderer: tmpl.NewFileRenderer(readFile, basePath),
+		tmplFileRenderer: tmpl.NewFileRenderer(readFile, basePath, env),
 	}
 }
 

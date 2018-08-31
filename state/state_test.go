@@ -12,158 +12,6 @@ import (
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
 
-func TestReadFromYaml(t *testing.T) {
-	yamlFile := "example/path/to/yaml/file"
-	yamlContent := []byte(`releases:
-- name: myrelease
-  namespace: mynamespace
-  chart: mychart
-`)
-	state, err := CreateFromYaml(yamlContent, yamlFile, logger)
-	if err != nil {
-		t.Errorf("unxpected error: %v", err)
-	}
-
-	if state.Releases[0].Name != "myrelease" {
-		t.Errorf("unexpected release name: expected=myrelease actual=%s", state.Releases[0].Name)
-	}
-	if state.Releases[0].Namespace != "mynamespace" {
-		t.Errorf("unexpected chart namespace: expected=mynamespace actual=%s", state.Releases[0].Chart)
-	}
-	if state.Releases[0].Chart != "mychart" {
-		t.Errorf("unexpected chart name: expected=mychart actual=%s", state.Releases[0].Chart)
-	}
-}
-
-func TestReadFromYaml_StrictUnmarshalling(t *testing.T) {
-	yamlFile := "example/path/to/yaml/file"
-	yamlContent := []byte(`releases:
-- name: myrelease
-  namespace: mynamespace
-  releases: mychart
-`)
-	_, err := CreateFromYaml(yamlContent, yamlFile, logger)
-	if err == nil {
-		t.Error("expected an error for wrong key 'releases' which is not in struct")
-	}
-}
-
-func TestReadFromYaml_DeprecatedReleaseReferences(t *testing.T) {
-	yamlFile := "example/path/to/yaml/file"
-	yamlContent := []byte(`charts:
-- name: myrelease
-  chart: mychart
-`)
-	state, err := CreateFromYaml(yamlContent, yamlFile, logger)
-	if err != nil {
-		t.Errorf("unxpected error: %v", err)
-	}
-
-	if state.Releases[0].Name != "myrelease" {
-		t.Errorf("unexpected release name: expected=myrelease actual=%s", state.Releases[0].Name)
-	}
-	if state.Releases[0].Chart != "mychart" {
-		t.Errorf("unexpected chart name: expected=mychart actual=%s", state.Releases[0].Chart)
-	}
-}
-
-func TestReadFromYaml_ConflictingReleasesConfig(t *testing.T) {
-	yamlFile := "example/path/to/yaml/file"
-	yamlContent := []byte(`charts:
-- name: myrelease1
-  chart: mychart1
-releases:
-- name: myrelease2
-  chart: mychart2
-`)
-	_, err := CreateFromYaml(yamlContent, yamlFile, logger)
-	if err == nil {
-		t.Error("expected error")
-	}
-}
-
-func TestReadFromYaml_FilterReleasesOnLabels(t *testing.T) {
-	yamlFile := "example/path/to/yaml/file"
-	yamlContent := []byte(`releases:
-- name: myrelease1
-  chart: mychart1
-  labels:
-    tier: frontend
-    foo: bar
-- name: myrelease2
-  chart: mychart2
-  labels:
-    tier: frontend
-- name: myrelease3
-  chart: mychart3
-  labels:
-    tier: backend
-`)
-	cases := []struct {
-		filter  LabelFilter
-		results []bool
-	}{
-		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}}},
-			[]bool{true, true, false}},
-		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}, []string{"foo", "bar"}}},
-			[]bool{true, false, false}},
-		{LabelFilter{negativeLabels: [][]string{[]string{"tier", "frontend"}}},
-			[]bool{false, false, true}},
-		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}}, negativeLabels: [][]string{[]string{"foo", "bar"}}},
-			[]bool{false, true, false}},
-	}
-	state, err := CreateFromYaml(yamlContent, yamlFile, logger)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	for idx, c := range cases {
-		for idx2, expected := range c.results {
-			if f := c.filter.Match(state.Releases[idx2]); f != expected {
-				t.Errorf("[case: %d][outcome: %d] Unexpected outcome wanted %t, got %t", idx, idx2, expected, f)
-			}
-		}
-	}
-}
-
-func TestReadFromYaml_FilterNegatives(t *testing.T) {
-	yamlFile := "example/path/to/yaml/file"
-	yamlContent := []byte(`releases:
-- name: myrelease1
-  chart: mychart1
-  labels:
-    stage: pre
-    foo: bar
-- name: myrelease2
-  chart: mychart2
-  labels:
-    stage: post
-- name: myrelease3
-  chart: mychart3
-`)
-	cases := []struct {
-		filter  LabelFilter
-		results []bool
-	}{
-		{LabelFilter{positiveLabels: [][]string{[]string{"stage", "pre"}}},
-			[]bool{true, false, false}},
-		{LabelFilter{positiveLabels: [][]string{[]string{"stage", "post"}}},
-			[]bool{false, true, false}},
-		{LabelFilter{negativeLabels: [][]string{[]string{"stage", "pre"}, []string{"stage", "post"}}},
-			[]bool{false, false, true}},
-	}
-	state, err := CreateFromYaml(yamlContent, yamlFile, logger)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	for idx, c := range cases {
-		for idx2, expected := range c.results {
-			if f := c.filter.Match(state.Releases[idx2]); f != expected {
-				t.Errorf("[case: %d][outcome: %d] Unexpected outcome wanted %t, got %t", idx, idx2, expected, f)
-			}
-		}
-	}
-}
-
 func TestLabelParsing(t *testing.T) {
 	cases := []struct {
 		labelString    string
@@ -266,7 +114,7 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				BaseChartPath:      tt.fields.BaseChartPath,
+				basePath:           tt.fields.BaseChartPath,
 				Context:            tt.fields.Context,
 				DeprecatedReleases: tt.fields.DeprecatedReleases,
 				Namespace:          tt.fields.Namespace,
@@ -495,10 +343,10 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				BaseChartPath: "./",
-				Context:       "default",
-				Releases:      []ReleaseSpec{*tt.release},
-				HelmDefaults:  tt.defaults,
+				basePath:     "./",
+				Context:      "default",
+				Releases:     []ReleaseSpec{*tt.release},
+				HelmDefaults: tt.defaults,
 			}
 			helm := helmexec.New(logger, "default")
 			args, err := state.flagsForUpgrade(helm, tt.release)
@@ -861,7 +709,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 
 func TestHelmState_UpdateDeps(t *testing.T) {
 	state := &HelmState{
-		BaseChartPath: "/src",
+		basePath: "/src",
 		Releases: []ReleaseSpec{
 			{
 				Chart: "./..",

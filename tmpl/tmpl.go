@@ -14,14 +14,18 @@ func (c *Context) stringTemplate() *template.Template {
 	return template.New("stringTemplate").Funcs(funcMap)
 }
 
-func (c *Context) RenderTemplateToBuffer(s string) (*bytes.Buffer, error) {
+func (c *Context) RenderTemplateToBuffer(s string, data ...interface{}) (*bytes.Buffer, error) {
 	var t, parseErr = c.stringTemplate().Parse(s)
 	if parseErr != nil {
 		return nil, parseErr
 	}
 
 	var tplString bytes.Buffer
-	var execErr = t.Execute(&tplString, nil)
+	var d interface{}
+	if len(data) > 0 {
+		d = data[0]
+	}
+	var execErr = t.Execute(&tplString, d)
 
 	if execErr != nil {
 		return nil, execErr
