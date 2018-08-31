@@ -106,7 +106,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
@@ -139,7 +139,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
@@ -183,7 +183,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					return executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"))
 				})
 			},
@@ -208,7 +208,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
@@ -244,7 +244,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					return executeSyncCommand(c, state, helm)
 				})
 			},
@@ -273,7 +273,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					errs := executeDiffCommand(c, state, helm, true)
 
 					// sync only when there are changes
@@ -322,7 +322,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					workers := c.Int("concurrency")
 
 					args := args.GetArgs(c.String("args"), state)
@@ -352,7 +352,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					purge := c.Bool("purge")
 
 					args := args.GetArgs(c.String("args"), state)
@@ -388,7 +388,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return eachDesiredStateDo(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					cleanup := c.Bool("cleanup")
 					timeout := c.Int("timeout")
 
@@ -457,14 +457,23 @@ func executeDiffCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 	return state.DiffReleases(helm, values, workers, detailedExitCode)
 }
 
-func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
-	fileOrDirPath := c.GlobalString("file")
-	desiredStateFiles, err := findDesiredStateFiles(fileOrDirPath)
+func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
+	fileOrDir := c.GlobalString("file")
+	kubeContext := c.GlobalString("kube-context")
+	namespace := c.GlobalString("namespace")
+	selectors := c.GlobalStringSlice("selector")
+	logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
+	return findAndIterateOverDesiredStates(fileOrDir, converge, kubeContext, namespace, selectors, logger)
+}
+
+func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error, kubeContext, namespace string, selectors []string, logger *zap.SugaredLogger) error {
+	desiredStateFiles, err := findDesiredStateFiles(fileOrDir)
 	if err != nil {
 		return err
 	}
 	allSelectorNotMatched := true
 	for _, f := range desiredStateFiles {
+		logger.Debugf("Processing %s", f)
 		yamlBuf, err := tmpl.NewFileRenderer(ioutil.ReadFile, "").RenderTemplateFileToBuffer(f)
 		if err != nil {
 			return err
@@ -472,14 +481,31 @@ func eachDesiredStateDo(c *cli.Context, converge func(*state.HelmState, helmexec
 		state, helm, noReleases, err := loadDesiredStateFromFile(
 			yamlBuf.Bytes(),
 			f,
-			c.GlobalString("kube-context"),
-			c.GlobalString("namespace"),
-			c.GlobalStringSlice("selector"),
-			c.App.Metadata["logger"].(*zap.SugaredLogger),
+			kubeContext,
+			namespace,
+			selectors,
+			logger,
 		)
 		if err != nil {
 			return err
 		}
+
+		if len(state.Helmfiles) > 0 {
+			for _, globPattern := range state.Helmfiles {
+				matches, err := filepath.Glob(globPattern)
+				if err != nil {
+					return fmt.Errorf("failed processing %s: %v", globPattern, err)
+				}
+				sort.Strings(matches)
+				for _, m := range matches {
+					if err := findAndIterateOverDesiredStates(m, converge, kubeContext, namespace, selectors, logger); err != nil {
+						return fmt.Errorf("failed processing %s: %v", globPattern, err)
+					}
+				}
+			}
+			return nil
+		}
+
 		allSelectorNotMatched = allSelectorNotMatched && noReleases
 		if noReleases {
 			continue
