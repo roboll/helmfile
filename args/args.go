@@ -84,7 +84,7 @@ func GetArgs(args string, state *state.HelmState) []string {
 
 		if val != "" {
 			if spaceflagArg[flag] {
-				argArr = append(argArr, fmt.Sprintf("%s %s", flag, val))
+				argArr = append(argArr, flag, val)
 			} else {
 				argArr = append(argArr, fmt.Sprintf("%s=%s", flag, val))
 			}
