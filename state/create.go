@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/environment"
+	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/valuesfile"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 )
 
@@ -61,6 +63,32 @@ func (state *HelmState) loadEnv(name string, readFile func(string) ([]byte, erro
 			}
 			if err := mergo.Merge(&envVals, &m, mergo.WithOverride); err != nil {
 				return nil, fmt.Errorf("failed to load \"%s\": %v", envvalFile, err)
+			}
+		}
+
+		if len(envSpec.Secrets) > 0 {
+			helm := helmexec.New(state.logger, "")
+			for _, secFile := range envSpec.Secrets {
+				path := filepath.Join(state.basePath, secFile)
+				if _, err := os.Stat(path); os.IsNotExist(err) {
+					return nil, err
+				}
+
+				decFile, err := helm.DecryptSecret(path)
+				if err != nil {
+					return nil, err
+				}
+				bytes, err := readFile(decFile)
+				if err != nil {
+					return nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secFile, err)
+				}
+				m := map[string]interface{}{}
+				if err := yaml.Unmarshal(bytes, &m); err != nil {
+					return nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secFile, err)
+				}
+				if err := mergo.Merge(&envVals, &m, mergo.WithOverride); err != nil {
+					return nil, fmt.Errorf("failed to load \"%s\": %v", secFile, err)
+				}
 			}
 		}
 	} else if name != DefaultEnv {

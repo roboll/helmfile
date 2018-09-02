@@ -435,6 +435,34 @@ domain: {{ .Environment.Values.domain | default "dev.example.com" }}
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
 whereas `helmfile --environment production sync` installs the app with the value `domain=production.example.com`.
 
+## Environment Secrets
+
+Environment Secrets are encrypted versions of `Environment Values`.
+You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
+helmfile could automatically decrypt and merge the secrets into the environment values.
+
+Suppose you have environment secrets defined in `hemlfile.yaml`:
+
+```yaml
+environments:
+  production:
+    secrets:
+    - environments/produdction/secrets.yaml
+
+releases:
+- name: myapp
+  chart: mychart
+  values:
+  - values.yaml.gotmpl
+```
+
+an environment secret `foo.bar` can be referenced by the below template expression in your `values.yaml.gotmpl`:
+
+```yaml
+{{ .Values.foo.bar }
+```
+
+
 ## Separating helmfile.yaml into multiple independent files
 
 Once your `helmfile.yaml` got to contain too many releases,
