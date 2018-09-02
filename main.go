@@ -181,6 +181,10 @@ func main() {
 					Name:  "detailed-exitcode",
 					Usage: "return a non-zero exit code when there are changes",
 				},
+				cli.BoolFlag{
+					Name:  "suppress-secrets",
+					Usage: "suppress secrets in the output. highly recommended to specify on CI/CD use-cases",
+				},
 				cli.IntFlag{
 					Name:  "concurrency",
 					Value: 0,
@@ -189,7 +193,7 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					return executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"))
+					return executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"), c.Bool("suppress-secrets"))
 				})
 			},
 		},
@@ -276,10 +280,14 @@ func main() {
 					Name:  "auto-approve",
 					Usage: "Skip interactive approval before applying",
 				},
+				cli.BoolFlag{
+					Name:  "suppress-secrets",
+					Usage: "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					errs := executeDiffCommand(c, state, helm, true)
+					errs := executeDiffCommand(c, state, helm, true, c.Bool("suppress-secrets"))
 
 					// sync only when there are changes
 					if len(errs) > 0 {
@@ -441,7 +449,7 @@ func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 	return state.SyncReleases(helm, values, workers)
 }
 
-func executeDiffCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface, detailedExitCode bool) []error {
+func executeDiffCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) []error {
 	args := args.GetArgs(c.String("args"), state)
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
@@ -459,7 +467,7 @@ func executeDiffCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 	values := c.StringSlice("values")
 	workers := c.Int("concurrency")
 
-	return state.DiffReleases(helm, values, workers, detailedExitCode)
+	return state.DiffReleases(helm, values, workers, detailedExitCode, suppressSecrets)
 }
 
 func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
