@@ -9,7 +9,7 @@ import (
 )
 
 func TestGetArgs(t *testing.T) {
-	args := "--timeout=3600 --set app1.bootstrap=true,app2.bootstrap=false --tiller-namespace ns"
+	args := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false --tiller-namespace ns"
 	defaultArgs := []string{"--recreate-pods", "--force"}
 	fmt.Println(defaultArgs)
 	fmt.Println(len(defaultArgs))
@@ -17,7 +17,7 @@ func TestGetArgs(t *testing.T) {
 	testState := &state.HelmState{HelmDefaults: Helmdefaults}
 	receivedArgs := GetArgs(args, testState)
 
-	expectedOutput := "--timeout=3600 --set app1.bootstrap=true,app2.bootstrap=false --tiller-namespace ns --recreate-pods --force --kube-context=test"
+	expectedOutput := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false --tiller-namespace ns --recreate-pods --force --kube-context=test"
 
 	if compareArgs(expectedOutput, receivedArgs) == false {
 		t.Errorf("expected %s, got %s", expectedOutput, strings.Join(receivedArgs, " "))
