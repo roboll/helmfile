@@ -3,7 +3,6 @@ package state
 import (
 	"errors"
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
 	"io/ioutil"
 	"os"
 	"path"
@@ -11,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/roboll/helmfile/helmexec"
 
 	"regexp"
 
@@ -264,6 +265,116 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	}
 
 	if len(errs) > 0 {
+		return errs
+	}
+
+	return nil
+}
+
+// TemplateReleases wrapper for executing helm template on the releases
+func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, args []string) []error {
+	var wgRelease sync.WaitGroup
+	var wgError sync.WaitGroup
+	errs := []error{}
+	jobQueue := make(chan *ReleaseSpec, len(state.Releases))
+	errQueue := make(chan error)
+
+	if workerLimit < 1 {
+		workerLimit = len(state.Releases)
+	}
+
+	wgRelease.Add(len(state.Releases))
+
+	// Create tmp directory and bail immediately if it fails
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		errs = append(errs, err)
+		return errs
+	}
+	defer os.RemoveAll(dir)
+
+	for w := 1; w <= workerLimit; w++ {
+		go func() {
+			for release := range jobQueue {
+				errs := []error{}
+				flags, err := state.flagsForTemplate(helm, release)
+				if err != nil {
+					state.logger.Infof("ERRROORRRR3")
+					errs = append(errs, err)
+				}
+				for _, value := range additionalValues {
+					valfile, err := filepath.Abs(value)
+					if err != nil {
+						state.logger.Infof("ERRROORRRR2")
+						errs = append(errs, err)
+					}
+
+					if _, err := os.Stat(valfile); os.IsNotExist(err) {
+						state.logger.Infof("ERRROORRRR1")
+						errs = append(errs, err)
+					}
+					flags = append(flags, "--values", valfile)
+				}
+
+				chartPath := ""
+				if pathExists(normalizeChart(state.basePath, release.Chart)) {
+					chartPath = normalizeChart(state.basePath, release.Chart)
+				} else {
+					fetchFlags := []string{}
+					if release.Version != "" {
+						chartPath = path.Join(dir, release.Name, release.Version, release.Chart)
+						fetchFlags = append(fetchFlags, "--version", release.Version)
+					} else {
+						chartPath = path.Join(dir, release.Name, "latest", release.Chart)
+					}
+
+					// only fetch chart if it is not already fetched
+					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
+						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
+						if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
+							state.logger.Infof("ERRROORRRR %s", strings.Join(fetchFlags, ","))
+							errs = append(errs, err)
+						}
+					}
+					chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
+				}
+
+				if len(args) > 0 {
+					helm.SetExtraArgs(args...)
+				}
+
+				if len(errs) == 0 {
+					state.logger.Infof(strings.Join(flags, ","))
+					if err := helm.TemplateRelease(chartPath, flags...); err != nil {
+						errs = append(errs, err)
+					}
+				}
+				for _, err := range errs {
+					errQueue <- err
+				}
+				wgRelease.Done()
+			}
+		}()
+	}
+	wgError.Add(1)
+	go func() {
+		for err := range errQueue {
+			errs = append(errs, err)
+		}
+		wgError.Done()
+	}()
+
+	for i := 0; i < len(state.Releases); i++ {
+		jobQueue <- &state.Releases[i]
+	}
+
+	close(jobQueue)
+	wgRelease.Wait()
+
+	close(errQueue)
+	wgError.Wait()
+
+	if len(errs) != 0 {
 		return errs
 	}
 
@@ -684,6 +795,15 @@ func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, release *Releas
 		flags = append(flags, "--recreate-pods")
 	}
 
+	common, err := state.namespaceAndValuesFlags(helm, release)
+	if err != nil {
+		return nil, err
+	}
+	return append(flags, common...), nil
+}
+
+func (state *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+	flags := []string{}
 	common, err := state.namespaceAndValuesFlags(helm, release)
 	if err != nil {
 		return nil, err
