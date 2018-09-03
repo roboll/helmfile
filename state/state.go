@@ -299,18 +299,15 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 				errs := []error{}
 				flags, err := state.flagsForTemplate(helm, release)
 				if err != nil {
-					state.logger.Infof("ERRROORRRR3")
 					errs = append(errs, err)
 				}
 				for _, value := range additionalValues {
 					valfile, err := filepath.Abs(value)
 					if err != nil {
-						state.logger.Infof("ERRROORRRR2")
 						errs = append(errs, err)
 					}
 
 					if _, err := os.Stat(valfile); os.IsNotExist(err) {
-						state.logger.Infof("ERRROORRRR1")
 						errs = append(errs, err)
 					}
 					flags = append(flags, "--values", valfile)
@@ -332,7 +329,6 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
 						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
 						if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
-							state.logger.Infof("ERRROORRRR %s", strings.Join(fetchFlags, ","))
 							errs = append(errs, err)
 						}
 					}
@@ -344,7 +340,6 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 				}
 
 				if len(errs) == 0 {
-					state.logger.Infof(strings.Join(flags, ","))
 					if err := helm.TemplateRelease(chartPath, flags...); err != nil {
 						errs = append(errs, err)
 					}
