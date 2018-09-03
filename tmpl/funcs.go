@@ -3,8 +3,11 @@ package tmpl
 import (
 	"fmt"
 	"gopkg.in/yaml.v2"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"text/template"
 )
@@ -13,11 +16,86 @@ type Values = map[string]interface{}
 
 func (c *Context) createFuncMap() template.FuncMap {
 	return template.FuncMap{
+		"exec":           c.Exec,
 		"readFile":       c.ReadFile,
 		"toYaml":         ToYaml,
 		"fromYaml":       FromYaml,
 		"setValueAtPath": SetValueAtPath,
 		"requiredEnv":    RequiredEnv,
+	}
+}
+
+func (c *Context) Exec(command string, args []interface{}, inputs ...string) (string, error) {
+	var input string
+	if len(inputs) > 0 {
+		input = inputs[0]
+	}
+
+	strArgs := make([]string, len(args))
+	for i, a := range args {
+		switch a.(type) {
+		case string:
+			strArgs[i] = a.(string)
+		default:
+			return "", fmt.Errorf("unexpected type of arg \"%s\" in args %v at index %d", reflect.TypeOf(a), args, i)
+		}
+	}
+
+	cmd := exec.Command(command, strArgs...)
+
+	writeErrs := make(chan error)
+	cmdErrs := make(chan error)
+	cmdOuts := make(chan []byte)
+
+	if len(input) > 0 {
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return "", err
+		}
+		go func(input string, stdin io.WriteCloser) {
+			defer stdin.Close()
+			defer close(writeErrs)
+
+			size := len(input)
+
+			var n int
+			var err error
+			i := 0
+			for {
+				n, err = io.WriteString(stdin, input[i:])
+				if err != nil {
+					writeErrs <- fmt.Errorf("failed while writing %d bytes to stdin of \"%s\": %v", len(input), command, err)
+					break
+				}
+				i += n
+				if n == size {
+					break
+				}
+			}
+		}(input, stdin)
+	}
+
+	go func() {
+		defer close(cmdOuts)
+		defer close(cmdErrs)
+
+		bytes, err := cmd.Output()
+		if err != nil {
+			cmdErrs <- fmt.Errorf("exec cmd=%s args=[%s] failed: %v", command, strings.Join(strArgs, ", "), err)
+		} else {
+			cmdOuts <- bytes
+		}
+	}()
+
+	for {
+		select {
+		case bytes := <-cmdOuts:
+			return string(bytes), nil
+		case err := <-cmdErrs:
+			return "", err
+		case err := <-writeErrs:
+			return "", err
+		}
 	}
 }
 
