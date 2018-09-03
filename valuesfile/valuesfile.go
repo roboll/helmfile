@@ -25,7 +25,6 @@ func (r *renderer) RenderToBytes(path string) ([]byte, error) {
 	if len(splits) > 0 && splits[len(splits)-1] == "gotmpl" {
 		yamlBuf, err := r.tmplFileRenderer.RenderTemplateFileToBuffer(path)
 		if err != nil {
-
 			return nil, fmt.Errorf("failed to render [%s], because of %v", path, err)
 		}
 		yamlBytes = yamlBuf.Bytes()
