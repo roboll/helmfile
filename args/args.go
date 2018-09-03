@@ -7,44 +7,57 @@ import (
 	"github.com/roboll/helmfile/state"
 )
 
+type keyVal struct {
+	key       string
+	val       string
+	spaceFlag bool
+}
 type argMap struct {
-	m     map[string]string
+	//m map[string]string
+	m     map[string][]*keyVal
 	flags []string
 }
 
-func (a *argMap) SetArg(flag, arg string) {
+func (a *argMap) SetArg(flag, arg string, isSpace bool) {
 	if _, exists := a.m[flag]; !exists {
-		a.m[flag] = arg
+		keyarg := &keyVal{key: flag, val: arg, spaceFlag: isSpace}
+		a.m[flag] = append(a.m[flag], keyarg)
 		a.flags = append(a.flags, flag)
+	} else if flag == "--set" || flag == "-f" || flag == "--values" {
+		keyarg := &keyVal{key: flag, val: arg, spaceFlag: isSpace}
+		a.m[flag] = append(a.m[flag], keyarg)
 	}
 }
 
 func newArgMap() *argMap {
-	return &argMap{m: map[string]string{}}
+	return &argMap{m: map[string][]*keyVal{}}
 }
 
 func GetArgs(args string, state *state.HelmState) []string {
-	//args := c.String("args")
 	argsMap := newArgMap()
-	spaceflagArg := map[string]bool{}
 
 	if len(args) > 0 {
 		argsVals := strings.Split(args, " ")
-		prevFlag := ""
-		for _, arg := range argsVals {
+		for index, arg := range argsVals {
 			if strings.HasPrefix(arg, "--") {
 				argVal := strings.SplitN(arg, "=", 2)
 				if len(argVal) > 1 {
 					arg := argVal[0]
 					value := argVal[1]
-					argsMap.SetArg(arg, value)
+					argsMap.SetArg(arg, value, false)
 				} else {
-					argsMap.SetArg(arg, "")
+					//check if next value is arg to flag
+					if index+1 < len(argsVals) {
+						nextVal := argsVals[index+1]
+						if strings.HasPrefix(nextVal, "--") {
+							argsMap.SetArg(arg, "", false)
+						} else {
+							argsMap.SetArg(arg, nextVal, true)
+						}
+					} else {
+						argsMap.SetArg(arg, "", false)
+					}
 				}
-				prevFlag = arg
-			} else {
-				spaceflagArg[prevFlag] = true
-				argsMap.m[prevFlag] = arg
 			}
 		}
 	}
@@ -56,25 +69,25 @@ func GetArgs(args string, state *state.HelmState) []string {
 
 			argsNum, _ := fmt.Sscanf(arg, "--%s %s", &flag, &val)
 			if argsNum == 2 {
-				argsMap.SetArg(flag, arg)
+				argsMap.SetArg(flag, val, true)
 			} else {
 				argVal := strings.SplitN(arg, "=", 2)
 				argFirst := argVal[0]
 				if len(argVal) > 1 {
 					val = argVal[1]
-					argsMap.SetArg(argFirst, val)
+					argsMap.SetArg(argFirst, val, false)
 				} else {
-					argsMap.SetArg(argFirst, "")
+					argsMap.SetArg(argFirst, "", false)
 				}
 			}
 		}
 	}
 
 	if state.HelmDefaults.TillerNamespace != "" {
-		argsMap.SetArg("--tiller-namespace", state.HelmDefaults.TillerNamespace)
+		argsMap.SetArg("--tiller-namespace", state.HelmDefaults.TillerNamespace, false)
 	}
 	if state.HelmDefaults.KubeContext != "" {
-		argsMap.SetArg("--kube-context", state.HelmDefaults.KubeContext)
+		argsMap.SetArg("--kube-context", state.HelmDefaults.KubeContext, false)
 	}
 
 	var argArr []string
@@ -82,16 +95,18 @@ func GetArgs(args string, state *state.HelmState) []string {
 	for _, flag := range argsMap.flags {
 		val := argsMap.m[flag]
 
-		if val != "" {
-			if spaceflagArg[flag] {
-				argArr = append(argArr, flag, val)
+		for _, obj := range val {
+			if obj.val != "" {
+				if obj.spaceFlag {
+					argArr = append(argArr, obj.key, obj.val)
+				} else {
+					argArr = append(argArr, fmt.Sprintf("%s=%s", obj.key, obj.val))
+				}
 			} else {
-				argArr = append(argArr, fmt.Sprintf("%s=%s", flag, val))
+				argArr = append(argArr, fmt.Sprintf("%s", obj.key))
 			}
-
-		} else {
-			argArr = append(argArr, fmt.Sprintf("%s", flag))
 		}
+
 	}
 
 	state.HelmDefaults.Args = argArr
