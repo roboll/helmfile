@@ -145,7 +145,6 @@ func (helm *execer) DecryptSecret(name string) (string, error) {
 }
 
 func (helm *execer) TemplateRelease(chart string, flags ...string) error {
-	helm.logger.Infof("Templating %v", chart)
 	out, err := helm.exec(append([]string{"template", chart}, flags...)...)
 	helm.write(out)
 	return err
