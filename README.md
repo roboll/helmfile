@@ -533,6 +533,27 @@ Just run `helmfile sync` inside `myteam/`, and you are done.
 
 All the files are sorted alphabetically per group = array item inside `helmfiles:`, so that you have granular control over ordering, too.
 
+## Importing values from any source
+
+The `exec` template function that is available in `values.yaml.gotmpl` is useful for importing values from any source
+that is accessible by running a command:
+
+An usual usage of `exec` would look like this:
+
+```
+mysetting: |
+{{ exec "./mycmd" (list "arg1" "arg2" "--flag1") | indent 2 }}
+```
+
+Or even with a pipeline:
+
+```
+mysetting: |
+{{ yourinput | exec "./mycmd-consume-stdin" (list "arg1" "arg2") | indent 2 }}
+```
+
+The possibility is endless. Try importing values from your golang app, bash script, jsonnet, or anything!
+
 ## Using env files
 
 helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:
