@@ -281,7 +281,6 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string) (map
 	for w := 1; w <= len(state.Releases); w++ {
 		go func() {
 			for release := range jobQueue {
-				state.logger.Infof("here")
 				chartPath := ""
 				if pathExists(normalizeChart(state.basePath, release.Chart)) {
 					chartPath = normalizeChart(state.basePath, release.Chart)
@@ -307,6 +306,9 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string) (map
 				wgFetch.Done()
 			}
 		}()
+	}
+	for i := 0; i < len(state.Releases); i++ {
+		jobQueue <- &state.Releases[i]
 	}
 
 	close(jobQueue)
