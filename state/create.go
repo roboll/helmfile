@@ -13,6 +13,23 @@ import (
 	"path/filepath"
 )
 
+type StateLoadError struct {
+	msg   string
+	Cause error
+}
+
+func (e *StateLoadError) Error() string {
+	return fmt.Sprintf("%s: %v", e.msg, e.Cause)
+}
+
+type UndefinedEnvError struct {
+	msg string
+}
+
+func (e *UndefinedEnvError) Error() string {
+	return e.msg
+}
+
 func CreateFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {
 	return createFromYamlWithFileReader(content, file, env, logger, ioutil.ReadFile)
 }
@@ -22,7 +39,7 @@ func createFromYamlWithFileReader(content []byte, file string, env string, logge
 
 	state.basePath, _ = filepath.Abs(filepath.Dir(file))
 	if err := yaml.UnmarshalStrict(content, &state); err != nil {
-		return nil, err
+		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
 	}
 	state.FilePath = file
 
@@ -38,7 +55,7 @@ func createFromYamlWithFileReader(content []byte, file string, env string, logge
 
 	e, err := state.loadEnv(env, readFile)
 	if err != nil {
-		return nil, err
+		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
 	}
 	state.env = *e
 
@@ -92,7 +109,7 @@ func (state *HelmState) loadEnv(name string, readFile func(string) ([]byte, erro
 			}
 		}
 	} else if name != DefaultEnv {
-		return nil, fmt.Errorf("environment \"%s\" is not defined in \"%s\"", name, state.FilePath)
+		return nil, &UndefinedEnvError{msg: fmt.Sprintf("environment \"%s\" is not defined", name)}
 	}
 
 	return &environment.Environment{Name: name, Values: envVals}, nil
