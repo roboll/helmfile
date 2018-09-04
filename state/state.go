@@ -273,18 +273,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 
 // TemplateReleases wrapper for executing helm template on the releases
 func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, args []string) []error {
-	var wgRelease sync.WaitGroup
-	var wgError sync.WaitGroup
 	errs := []error{}
-	jobQueue := make(chan *ReleaseSpec, len(state.Releases))
-	errQueue := make(chan error)
-
-	if workerLimit < 1 {
-		workerLimit = len(state.Releases)
-	}
-
-	wgRelease.Add(len(state.Releases))
-
 	// Create tmp directory and bail immediately if it fails
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -293,6 +282,48 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 	}
 	defer os.RemoveAll(dir)
 
+	temp := make(map[string]string, len(state.Releases))
+
+	for _, release := range state.Releases {
+		chartPath := ""
+		if pathExists(normalizeChart(state.basePath, release.Chart)) {
+			chartPath = normalizeChart(state.basePath, release.Chart)
+		} else {
+			fetchFlags := []string{}
+			if release.Version != "" {
+				chartPath = path.Join(dir, release.Name, release.Version, release.Chart)
+				fetchFlags = append(fetchFlags, "--version", release.Version)
+			} else {
+				chartPath = path.Join(dir, release.Name, "latest", release.Chart)
+			}
+
+			// only fetch chart if it is not already fetched
+			if _, err := os.Stat(chartPath); os.IsNotExist(err) {
+				fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
+				if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
+					errs = append(errs, err)
+				}
+			}
+			chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
+		}
+		temp[release.Name] = chartPath
+	}
+
+	if len(args) > 0 {
+		helm.SetExtraArgs(args...)
+	}
+
+	errQueue := make(chan error)
+	jobQueue := make(chan *ReleaseSpec, len(state.Releases))
+
+	var wgRelease sync.WaitGroup
+	var wgError sync.WaitGroup
+
+	if workerLimit < 1 {
+		workerLimit = len(state.Releases)
+	}
+
+	wgRelease.Add(len(state.Releases))
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for release := range jobQueue {
@@ -313,34 +344,8 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--values", valfile)
 				}
 
-				chartPath := ""
-				if pathExists(normalizeChart(state.basePath, release.Chart)) {
-					chartPath = normalizeChart(state.basePath, release.Chart)
-				} else {
-					fetchFlags := []string{}
-					if release.Version != "" {
-						chartPath = path.Join(dir, release.Name, release.Version, release.Chart)
-						fetchFlags = append(fetchFlags, "--version", release.Version)
-					} else {
-						chartPath = path.Join(dir, release.Name, "latest", release.Chart)
-					}
-
-					// only fetch chart if it is not already fetched
-					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
-						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
-						if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
-							errs = append(errs, err)
-						}
-					}
-					chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
-				}
-
-				if len(args) > 0 {
-					helm.SetExtraArgs(args...)
-				}
-
 				if len(errs) == 0 {
-					if err := helm.TemplateRelease(chartPath, flags...); err != nil {
+					if err := helm.TemplateRelease(temp[release.Name], flags...); err != nil {
 						errs = append(errs, err)
 					}
 				}
