@@ -146,18 +146,7 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := args.GetArgs(c.String("args"), state)
-					if len(args) > 0 {
-						helm.SetExtraArgs(args...)
-					}
-					if c.GlobalString("helm-binary") != "" {
-						helm.SetHelmBinary(c.GlobalString("helm-binary"))
-					}
-
-					values := c.StringSlice("values")
-					workers := c.Int("concurrency")
-
-					return state.SyncReleases(helm, values, workers)
+					return executeSyncCommand(c, state, helm)
 				})
 			},
 		},
@@ -280,6 +269,12 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+						return errs
+					}
+					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
+						return errs
+					}
 					return executeSyncCommand(c, state, helm)
 				})
 			},
@@ -310,9 +305,22 @@ func main() {
 					Name:  "suppress-secrets",
 					Usage: "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases",
 				},
+				cli.BoolFlag{
+					Name:  "skip-repo-update",
+					Usage: "skip running `helm repo update` on repositories declared in helmfile",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					if !c.Bool("skip-repo-update") {
+						if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+					}
+					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
+						return errs
+					}
+
 					errs := executeDiffCommand(c, state, helm, true, c.Bool("suppress-secrets"))
 
 					// sync only when there are changes
@@ -453,14 +461,6 @@ func main() {
 }
 
 func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {
-	if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
-		return errs
-	}
-
-	if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
-		return errs
-	}
-
 	args := args.GetArgs(c.String("args"), state)
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
