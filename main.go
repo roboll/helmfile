@@ -202,6 +202,11 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent downloads of release charts",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
@@ -222,6 +227,11 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent downloads of release charts",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
@@ -231,8 +241,9 @@ func main() {
 
 					values := c.StringSlice("values")
 					args := args.GetArgs(c.String("args"), state)
+					workers := c.Int("concurrency")
 
-					return state.LintReleases(helm, values, args)
+					return state.LintReleases(helm, values, args, workers)
 				})
 			},
 		},
@@ -494,8 +505,9 @@ func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexe
 
 	args := args.GetArgs(c.String("args"), state)
 	values := c.StringSlice("values")
+	workers := c.Int("concurrency")
 
-	return state.TemplateReleases(helm, values, args)
+	return state.TemplateReleases(helm, values, args, workers)
 }
 
 func executeDiffCommand(c *cli.Context, st *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) ([]*state.ReleaseSpec, []error) {

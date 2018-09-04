@@ -272,39 +272,62 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 }
 
 // downloadCharts will download and untar charts for Lint and Template
-func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string) (map[string]string, error) {
+func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerLimit int) (map[string]string, []error) {
 	temp := make(map[string]string, len(state.Releases))
+	errs := []error{}
 
-	for _, release := range state.Releases {
-		chartPath := ""
-		if pathExists(normalizeChart(state.basePath, release.Chart)) {
-			chartPath = normalizeChart(state.basePath, release.Chart)
-		} else {
-			fetchFlags := []string{}
-			if release.Version != "" {
-				chartPath = path.Join(dir, release.Name, release.Version, release.Chart)
-				fetchFlags = append(fetchFlags, "--version", release.Version)
-			} else {
-				chartPath = path.Join(dir, release.Name, "latest", release.Chart)
-			}
+	var wgFetch sync.WaitGroup
+	jobQueue := make(chan *ReleaseSpec, len(state.Releases))
+	wgFetch.Add(len(state.Releases))
 
-			// only fetch chart if it is not already fetched
-			if _, err := os.Stat(chartPath); os.IsNotExist(err) {
-				fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
-				if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
-					return nil, err
-				}
-			}
-			chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
-		}
-		temp[release.Name] = chartPath
+	if workerLimit < 1 {
+		workerLimit = len(state.Releases)
 	}
 
+	for w := 1; w <= workerLimit; w++ {
+		go func() {
+			for release := range jobQueue {
+				chartPath := ""
+				if pathExists(normalizeChart(state.basePath, release.Chart)) {
+					chartPath = normalizeChart(state.basePath, release.Chart)
+				} else {
+					fetchFlags := []string{}
+					if release.Version != "" {
+						chartPath = path.Join(dir, release.Name, release.Version, release.Chart)
+						fetchFlags = append(fetchFlags, "--version", release.Version)
+					} else {
+						chartPath = path.Join(dir, release.Name, "latest", release.Chart)
+					}
+
+					// only fetch chart if it is not already fetched
+					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
+						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
+						if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
+							errs = append(errs, err)
+						}
+					}
+					chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
+				}
+				temp[release.Name] = chartPath
+				wgFetch.Done()
+			}
+		}()
+	}
+	for i := 0; i < len(state.Releases); i++ {
+		jobQueue <- &state.Releases[i]
+	}
+
+	close(jobQueue)
+	wgFetch.Wait()
+
+	if len(errs) > 0 {
+		return nil, errs
+	}
 	return temp, nil
 }
 
 // TemplateReleases wrapper for executing helm template on the releases
-func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string) []error {
+func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
 	errs := []error{}
 	// Create tmp directory and bail immediately if it fails
 	dir, err := ioutil.TempDir("", "")
@@ -314,8 +337,9 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 	}
 	defer os.RemoveAll(dir)
 
-	temp, err := state.downloadCharts(helm, dir)
-	if err != nil {
+	temp, errs := state.downloadCharts(helm, dir, workerLimit)
+
+	if errs != nil {
 		errs = append(errs, err)
 		return errs
 	}
@@ -356,7 +380,7 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 }
 
 // LintReleases wrapper for executing helm lint on the releases
-func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, args []string) []error {
+func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
 	errs := []error{}
 	// Create tmp directory and bail immediately if it fails
 	dir, err := ioutil.TempDir("", "")
@@ -366,8 +390,8 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 	}
 	defer os.RemoveAll(dir)
 
-	temp, err := state.downloadCharts(helm, dir)
-	if err != nil {
+	temp, errs := state.downloadCharts(helm, dir, workerLimit)
+	if errs != nil {
 		errs = append(errs, err)
 		return errs
 	}
