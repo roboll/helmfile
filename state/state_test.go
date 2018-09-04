@@ -6,8 +6,9 @@ import (
 	"testing"
 
 	"errors"
-	"github.com/roboll/helmfile/helmexec"
 	"strings"
+
+	"github.com/roboll/helmfile/helmexec"
 )
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
@@ -537,7 +538,9 @@ func (helm *mockHelmExec) Fetch(chart string, flags ...string) error {
 func (helm *mockHelmExec) Lint(chart string, flags ...string) error {
 	return nil
 }
-
+func (helm *mockHelmExec) TemplateRelease(chart string, flags ...string) error {
+	return nil
+}
 func TestHelmState_SyncRepos(t *testing.T) {
 	tests := []struct {
 		name  string

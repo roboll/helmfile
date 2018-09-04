@@ -6,9 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"sync"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"sync"
 )
 
 const (
@@ -141,6 +142,12 @@ func (helm *execer) DecryptSecret(name string) (string, error) {
 	}
 
 	return tmpFile.Name(), err
+}
+
+func (helm *execer) TemplateRelease(chart string, flags ...string) error {
+	out, err := helm.exec(append([]string{"template", chart}, flags...)...)
+	helm.write(out)
+	return err
 }
 
 func (helm *execer) DiffRelease(name, chart string, flags ...string) error {

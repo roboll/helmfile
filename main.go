@@ -11,6 +11,8 @@ import (
 
 	"os/exec"
 
+	"io/ioutil"
+
 	"github.com/roboll/helmfile/args"
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/helmexec"
@@ -19,7 +21,6 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"io/ioutil"
 )
 
 const (
@@ -194,6 +195,31 @@ func main() {
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					return executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"), c.Bool("suppress-secrets"))
+				})
+			},
+		},
+		{
+			Name:  "template",
+			Usage: "template releases from state file against env (helm template)",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm template",
+				},
+				cli.StringSliceFlag{
+					Name:  "values",
+					Usage: "additional value files to be merged into the command",
+				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					return executeTemplateCommand(c, state, helm)
 				})
 			},
 		},
@@ -447,6 +473,26 @@ func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 	workers := c.Int("concurrency")
 
 	return state.SyncReleases(helm, values, workers)
+}
+
+func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {
+	if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+		return errs
+	}
+
+	if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
+		return errs
+	}
+
+	if c.GlobalString("helm-binary") != "" {
+		helm.SetHelmBinary(c.GlobalString("helm-binary"))
+	}
+
+	args := args.GetArgs(c.String("args"), state)
+	values := c.StringSlice("values")
+	workers := c.Int("concurrency")
+
+	return state.TemplateReleases(helm, values, workers, args)
 }
 
 func executeDiffCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) []error {
