@@ -19,6 +19,8 @@ import (
 	"github.com/roboll/helmfile/valuesfile"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"os/exec"
+	"syscall"
 )
 
 // HelmState structure for the helmfile
@@ -405,23 +407,37 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 	return nil
 }
 
-// DiffReleases wrapper for executing helm diff on the releases
-func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool) []error {
-	var wgRelease sync.WaitGroup
-	var wgError sync.WaitGroup
-	errs := []error{}
-	jobQueue := make(chan *ReleaseSpec, len(state.Releases))
-	errQueue := make(chan error)
+type DiffError struct {
+	*ReleaseSpec
+	err  error
+	Code int
+}
 
-	if workerLimit < 1 {
-		workerLimit = len(state.Releases)
+func (e *DiffError) Error() string {
+	return e.err.Error()
+}
+
+type diffResult struct {
+	err *DiffError
+}
+
+type diffPrepareResult struct {
+	release *ReleaseSpec
+	flags   []string
+	errors  []*ReleaseError
+}
+
+func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, suppressSecrets bool) ([]diffPrepareResult, []error) {
+	jobs := make(chan *ReleaseSpec, len(state.Releases))
+	results := make(chan diffPrepareResult)
+
+	if concurrency < 1 {
+		concurrency = len(state.Releases)
 	}
 
-	wgRelease.Add(len(state.Releases))
-
-	for w := 1; w <= workerLimit; w++ {
+	for w := 1; w <= concurrency; w++ {
 		go func() {
-			for release := range jobQueue {
+			for release := range jobs {
 				errs := []error{}
 
 				state.applyDefaultsTo(release)
@@ -451,41 +467,100 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 					flags = append(flags, "--suppress-secrets")
 				}
 
-				if len(errs) == 0 {
-					if err := helm.DiffRelease(release.Name, normalizeChart(state.basePath, release.Chart), flags...); err != nil {
-						errs = append(errs, err)
+				if len(errs) > 0 {
+					rsErrs := make([]*ReleaseError, len(errs))
+					for i, e := range errs {
+						rsErrs[i] = &ReleaseError{release, e}
 					}
+					results <- diffPrepareResult{errors: rsErrs}
+				} else {
+					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}}
 				}
-				for _, err := range errs {
-					errQueue <- err
-				}
-				wgRelease.Done()
 			}
 		}()
 	}
-	wgError.Add(1)
-	go func() {
-		for err := range errQueue {
-			errs = append(errs, err)
-		}
-		wgError.Done()
-	}()
 
 	for i := 0; i < len(state.Releases); i++ {
-		jobQueue <- &state.Releases[i]
+		jobs <- &state.Releases[i]
+	}
+	close(jobs)
+
+	rs := []diffPrepareResult{}
+	errs := []error{}
+	for i := 0; i < len(state.Releases); {
+		select {
+		case res := <-results:
+			if res.errors != nil && len(res.errors) > 0 {
+				for _, e := range res.errors {
+					errs = append(errs, e)
+				}
+			} else if res.release != nil {
+				rs = append(rs, res)
+			}
+		}
+		i++
+	}
+	return rs, errs
+}
+
+// DiffReleases wrapper for executing helm diff on the releases
+// It returns releases that had any changes
+func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool) ([]*ReleaseSpec, []error) {
+	preps, prepErrs := state.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, suppressSecrets)
+	if len(prepErrs) > 0 {
+		return []*ReleaseSpec{}, prepErrs
 	}
 
+	jobQueue := make(chan *diffPrepareResult, len(preps))
+	results := make(chan diffResult, len(preps))
+
+	if workerLimit < 1 {
+		workerLimit = len(state.Releases)
+	}
+
+	for w := 1; w <= workerLimit; w++ {
+		go func() {
+			for prep := range jobQueue {
+				flags := prep.flags
+				release := prep.release
+				if err := helm.DiffRelease(release.Name, normalizeChart(state.basePath, release.Chart), flags...); err != nil {
+					switch e := err.(type) {
+					case *exec.ExitError:
+						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
+						status := e.Sys().(syscall.WaitStatus)
+						results <- diffResult{&DiffError{release, err, status.ExitStatus()}}
+					default:
+						results <- diffResult{&DiffError{release, err, 0}}
+					}
+				} else {
+					// diff succeeded, found no changes
+					results <- diffResult{}
+				}
+			}
+		}()
+	}
+
+	for i := 0; i < len(preps); i++ {
+		jobQueue <- &preps[i]
+	}
 	close(jobQueue)
-	wgRelease.Wait()
 
-	close(errQueue)
-	wgError.Wait()
-
-	if len(errs) != 0 {
-		return errs
+	rs := []*ReleaseSpec{}
+	errs := []error{}
+	for i := 0; i < len(preps); {
+		select {
+		case res := <-results:
+			if res.err != nil {
+				errs = append(errs, res.err)
+				if res.err.Code == 2 {
+					rs = append(rs, res.err.ReleaseSpec)
+				}
+			}
+			i++
+		}
 	}
-
-	return nil
+	close(results)
+	return rs, errs
 }
 
 func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {

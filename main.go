@@ -21,6 +21,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"strings"
 )
 
 const (
@@ -183,7 +184,8 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					return executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"), c.Bool("suppress-secrets"))
+					_, errs := executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"), c.Bool("suppress-secrets"))
+					return errs
 				})
 			},
 		},
@@ -297,40 +299,56 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface) []error {
 					if !c.Bool("skip-repo-update") {
-						if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+						if errs := st.SyncRepos(helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
 					}
-					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
+					if errs := st.UpdateDeps(helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
 
-					errs := executeDiffCommand(c, state, helm, true, c.Bool("suppress-secrets"))
+					releases, errs := executeDiffCommand(c, st, helm, true, c.Bool("suppress-secrets"))
+
+					noError := true
+					for _, e := range errs {
+						switch err := e.(type) {
+						case *state.DiffError:
+							noError = noError && err.Code == 2
+						default:
+							noError = false
+						}
+					}
 
 					// sync only when there are changes
-					if len(errs) > 0 {
-						allErrsIndicateChanges := true
-						for _, err := range errs {
-							switch e := err.(type) {
-							case *exec.ExitError:
-								status := e.Sys().(syscall.WaitStatus)
-								// `helm diff --detailed-exitcode` returns 2 when there are changes
-								allErrsIndicateChanges = allErrsIndicateChanges && status.ExitStatus() == 2
-							default:
-								allErrsIndicateChanges = false
+					if noError {
+						if len(releases) == 0 {
+							// TODO better way to get the logger
+							logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
+							logger.Infof("")
+							logger.Infof("No affected releases")
+						} else {
+							names := make([]string, len(releases))
+							for i, r := range releases {
+								names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
 							}
-						}
 
-						msg := `Do you really want to apply?
+							msg := fmt.Sprintf(`Affected releases are:
+%s
+
+Do you really want to apply?
   Helmfile will apply all your changes, as shown above.
 
-`
-						if allErrsIndicateChanges {
+`, strings.Join(names, "\n"))
 							autoApprove := c.Bool("auto-approve")
 							if autoApprove || !autoApprove && askForConfirmation(msg) {
-								return executeSyncCommand(c, state, helm)
+								rs := make([]state.ReleaseSpec, len(releases))
+								for i, r := range releases {
+									rs[i] = *r
+								}
+								st.Releases = rs
+								return executeSyncCommand(c, st, helm)
 							}
 						}
 					}
@@ -480,8 +498,8 @@ func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexe
 	return state.TemplateReleases(helm, values, args)
 }
 
-func executeDiffCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) []error {
-	args := args.GetArgs(c.String("args"), state)
+func executeDiffCommand(c *cli.Context, st *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) ([]*state.ReleaseSpec, []error) {
+	args := args.GetArgs(c.String("args"), st)
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
 	}
@@ -490,15 +508,15 @@ func executeDiffCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 	}
 
 	if c.Bool("sync-repos") {
-		if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
-			return errs
+		if errs := st.SyncRepos(helm); errs != nil && len(errs) > 0 {
+			return []*state.ReleaseSpec{}, errs
 		}
 	}
 
 	values := c.StringSlice("values")
 	workers := c.Int("concurrency")
 
-	return state.DiffReleases(helm, values, workers, detailedExitCode, suppressSecrets)
+	return st.DiffReleases(helm, values, workers, detailedExitCode, suppressSecrets)
 }
 
 func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
@@ -706,6 +724,8 @@ func clean(st *state.HelmState, errs []error) error {
 			// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
 			status := e.Sys().(syscall.WaitStatus)
 			os.Exit(status.ExitStatus())
+		case *state.DiffError:
+			os.Exit(e.Code)
 		default:
 			os.Exit(1)
 		}
