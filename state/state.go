@@ -223,7 +223,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 		return prepErrs
 	}
 
-	jobQueue := make(chan *ReleaseSpec)
+	jobQueue := make(chan *syncPrepareResult)
 	results := make(chan syncResult)
 
 	if workerLimit < 1 {
@@ -231,7 +231,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	}
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
-			for _, prep := range preps {
+			for prep := range jobQueue {
 				release := prep.release
 				flags := prep.flags
 				chart := normalizeChart(state.basePath, release.Chart)
@@ -244,15 +244,13 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 		}()
 	}
 
-	go func() {
-		for i := 0; i < len(state.Releases); i++ {
-			jobQueue <- &state.Releases[i]
-		}
-		close(jobQueue)
-	}()
+	for i := 0; i < len(preps); i++ {
+		jobQueue <- &preps[i]
+	}
+	close(jobQueue)
 
 	errs := []error{}
-	for i := 0; i < len(state.Releases); {
+	for i := 0; i < len(preps); {
 		select {
 		case res := <-results:
 			if len(res.errors) > 0 {
