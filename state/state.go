@@ -377,7 +377,6 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 	}
 
 	for _, release := range state.Releases {
-		errs := []error{}
 		flags, err := state.flagsForLint(helm, &release)
 		if err != nil {
 			errs = append(errs, err)
