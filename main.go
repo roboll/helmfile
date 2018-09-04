@@ -220,26 +220,17 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
-				cli.IntFlag{
-					Name:  "concurrency",
-					Value: 0,
-					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
-				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					args := args.GetArgs(c.String("args"), state)
-					if len(args) > 0 {
-						helm.SetExtraArgs(args...)
-					}
 					if c.GlobalString("helm-binary") != "" {
 						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
 					values := c.StringSlice("values")
-					workers := c.Int("concurrency")
+					args := args.GetArgs(c.String("args"), state)
 
-					return state.LintReleases(helm, values, workers)
+					return state.LintReleases(helm, values, args)
 				})
 			},
 		},
