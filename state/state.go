@@ -271,17 +271,8 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	return nil
 }
 
-// TemplateReleases wrapper for executing helm template on the releases
-func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string) []error {
-	errs := []error{}
-	// Create tmp directory and bail immediately if it fails
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		errs = append(errs, err)
-		return errs
-	}
-	defer os.RemoveAll(dir)
-
+// downloadCharts will download and untar charts for Lint and Template
+func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string) (map[string]string, error) {
 	temp := make(map[string]string, len(state.Releases))
 
 	for _, release := range state.Releases {
@@ -301,12 +292,32 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 			if _, err := os.Stat(chartPath); os.IsNotExist(err) {
 				fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
 				if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
-					errs = append(errs, err)
+					return nil, err
 				}
 			}
 			chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
 		}
 		temp[release.Name] = chartPath
+	}
+
+	return temp, nil
+}
+
+// TemplateReleases wrapper for executing helm template on the releases
+func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string) []error {
+	errs := []error{}
+	// Create tmp directory and bail immediately if it fails
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		errs = append(errs, err)
+		return errs
+	}
+	defer os.RemoveAll(dir)
+
+	temp, err := state.downloadCharts(helm, dir)
+	if err != nil {
+		errs = append(errs, err)
+		return errs
 	}
 
 	if len(args) > 0 {
