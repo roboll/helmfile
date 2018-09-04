@@ -270,7 +270,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 }
 
 // downloadCharts will download and untar charts for Lint and Template
-func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string) (map[string]string, []error) {
+func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerLimit int) (map[string]string, []error) {
 	temp := make(map[string]string, len(state.Releases))
 	errs := []error{}
 
@@ -278,7 +278,11 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string) (map
 	jobQueue := make(chan *ReleaseSpec, len(state.Releases))
 	wgFetch.Add(len(state.Releases))
 
-	for w := 1; w <= len(state.Releases); w++ {
+	if workerLimit < 1 {
+		workerLimit = len(state.Releases)
+	}
+
+	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for release := range jobQueue {
 				chartPath := ""
@@ -321,7 +325,7 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string) (map
 }
 
 // TemplateReleases wrapper for executing helm template on the releases
-func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string) []error {
+func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
 	errs := []error{}
 	// Create tmp directory and bail immediately if it fails
 	dir, err := ioutil.TempDir("", "")
@@ -331,7 +335,7 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 	}
 	defer os.RemoveAll(dir)
 
-	temp, errs := state.downloadCharts(helm, dir)
+	temp, errs := state.downloadCharts(helm, dir, workerLimit)
 
 	if errs != nil {
 		errs = append(errs, err)
@@ -374,7 +378,7 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 }
 
 // LintReleases wrapper for executing helm lint on the releases
-func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, args []string) []error {
+func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
 	errs := []error{}
 	// Create tmp directory and bail immediately if it fails
 	dir, err := ioutil.TempDir("", "")
@@ -384,7 +388,7 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 	}
 	defer os.RemoveAll(dir)
 
-	temp, errs := state.downloadCharts(helm, dir)
+	temp, errs := state.downloadCharts(helm, dir, workerLimit)
 	if errs != nil {
 		errs = append(errs, err)
 		return errs
