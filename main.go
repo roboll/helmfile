@@ -200,11 +200,6 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
-				cli.IntFlag{
-					Name:  "concurrency",
-					Value: 0,
-					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
-				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
@@ -490,9 +485,8 @@ func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexe
 
 	args := args.GetArgs(c.String("args"), state)
 	values := c.StringSlice("values")
-	workers := c.Int("concurrency")
 
-	return state.TemplateReleases(helm, values, workers, args)
+	return state.TemplateReleases(helm, values, args)
 }
 
 func executeDiffCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) []error {
