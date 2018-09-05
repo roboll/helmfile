@@ -583,7 +583,8 @@ func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.Helm
 			}
 		} else if len(st.Helmfiles) > 0 {
 			for _, globPattern := range st.Helmfiles {
-				matches, err := filepath.Glob(globPattern)
+				helmfileRelativePattern := st.JoinBase(globPattern)
+				matches, err := filepath.Glob(helmfileRelativePattern)
 				if err != nil {
 					return fmt.Errorf("failed processing %s: %v", globPattern, err)
 				}

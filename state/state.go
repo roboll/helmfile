@@ -761,6 +761,11 @@ func (state *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 	return nil
 }
 
+// JoinBase returns an absolute path in the form basePath/relative
+func (state *HelmState) JoinBase(relPath string) string {
+	return filepath.Join(state.basePath, relPath)
+}
+
 // normalizeChart allows for the distinction between a file path reference and repository references.
 // - Any single (or double character) followed by a `/` will be considered a local file reference and
 // 	 be constructed relative to the `base path`.
