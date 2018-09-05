@@ -11,7 +11,13 @@ func (c *Context) stringTemplate() *template.Template {
 	for name, f := range c.createFuncMap() {
 		funcMap[name] = f
 	}
-	return template.New("stringTemplate").Funcs(funcMap)
+	tmpl := template.New("stringTemplate").Funcs(funcMap)
+	if c.preRender {
+		tmpl.Option("missingkey=zero")
+	} else {
+		tmpl.Option("missingkey=error")
+	}
+	return tmpl
 }
 
 func (c *Context) RenderTemplateToBuffer(s string, data ...interface{}) (*bytes.Buffer, error) {
@@ -28,7 +34,7 @@ func (c *Context) RenderTemplateToBuffer(s string, data ...interface{}) (*bytes.
 	var execErr = t.Execute(&tplString, d)
 
 	if execErr != nil {
-		return nil, execErr
+		return &tplString, execErr
 	}
 
 	return &tplString, nil

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -588,6 +589,67 @@ func (e *noMatchingHelmfileError) Error() string {
 	)
 }
 
+func prependLineNumbers(text string) string {
+	buf := bytes.NewBufferString("")
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		buf.WriteString(fmt.Sprintf("%2d: %s\n", i, line))
+	}
+	return buf.String()
+}
+
+type twoPassRenderer struct {
+	reader   func(string) ([]byte, error)
+	env      string
+	filename string
+	logger   *zap.SugaredLogger
+	abs      func(string) (string, error)
+}
+
+func (r *twoPassRenderer) renderEnvironment(content []byte) environment.Environment {
+	firstPassEnv := environment.Environment{Name: r.env, Values: map[string]interface{}(nil)}
+	firstPassRenderer := tmpl.NewFirstPassRenderer(firstPassEnv)
+
+	// parse as much as we can, tolerate errors, this is a preparse
+	yamlBuf, err := firstPassRenderer.RenderTemplateContentToBuffer(content)
+	if err != nil && logger != nil {
+		r.logger.Debugf("first-pass rendering input of \"%s\":\n%s", r.filename, prependLineNumbers(string(content)))
+	}
+	c := state.NewCreator(r.logger, r.reader, r.abs)
+	c.Strict = false
+	// create preliminary state, as we may have an environment. Tolerate errors.
+	prestate, err := c.CreateFromYaml(yamlBuf.Bytes(), r.filename, r.env)
+	if err != nil && r.logger != nil {
+		switch err.(type) {
+		case *state.StateLoadError:
+			r.logger.Infof("could not deduce `environment:` block, configuring only .Environment.Name. error: %v", err)
+		}
+		r.logger.Debugf("error in first-pass rendering: result of \"%s\":\n%s", r.filename, prependLineNumbers(yamlBuf.String()))
+	}
+	if prestate != nil {
+		firstPassEnv = prestate.Env
+	}
+	return firstPassEnv
+}
+
+func (r *twoPassRenderer) renderTemplate(content []byte) (*bytes.Buffer, error) {
+	// try a first pass render. This will always succeed, but can produce a limited env
+	firstPassEnv := r.renderEnvironment(content)
+
+	secondPassRenderer := tmpl.NewFileRenderer(r.reader, "", firstPassEnv)
+	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
+	if err != nil {
+		if r.logger != nil {
+			r.logger.Debugf("second-pass rendering failed, input of \"%s\":\n%s", r.filename, prependLineNumbers(string(content)))
+		}
+		return nil, err
+	}
+	if r.logger != nil {
+		r.logger.Debugf("second-pass rendering result of \"%s\":\n%s", r.filename, prependLineNumbers(yamlBuf.String()))
+	}
+	return yamlBuf, nil
+}
+
 func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error, namespace string, selectors []string, env string) error {
 	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir)
 	if err != nil {
@@ -596,9 +658,22 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 	noMatchInHelmfiles := true
 	for _, f := range desiredStateFiles {
 		a.logger.Debugf("Processing %s", f)
-		yamlBuf, err := tmpl.NewFileRenderer(a.readFile, "", environment.Environment{Name: env, Values: map[string]interface{}(nil)}).RenderTemplateFileToBuffer(f)
+
+		content, err := a.readFile(f)
 		if err != nil {
 			return err
+		}
+		// render template, in two runs
+		r := &twoPassRenderer{
+			reader:   a.readFile,
+			env:      env,
+			filename: f,
+			logger:   a.logger,
+			abs:      a.abs,
+		}
+		yamlBuf, err := r.renderTemplate(content)
+		if err != nil {
+			return fmt.Errorf("error during %s parsing: %v", f, err)
 		}
 
 		st, noMatchInThisHelmfile, err := a.loadDesiredStateFromYaml(
@@ -757,7 +832,7 @@ func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 
 	releaseNameCounts := map[string]int{}
 	for _, r := range st.Releases {
-		releaseNameCounts[r.Name] += 1
+		releaseNameCounts[r.Name]++
 	}
 	for name, c := range releaseNameCounts {
 		if c > 1 {

@@ -1,6 +1,7 @@
 package tmpl
 
 type Context struct {
-	basePath string
-	readFile func(string) ([]byte, error)
+	preRender bool
+	basePath  string
+	readFile  func(string) ([]byte, error)
 }

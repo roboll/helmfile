@@ -35,6 +35,7 @@ func createFromYaml(content []byte, file string, env string, logger *zap.Sugared
 		logger,
 		ioutil.ReadFile,
 		filepath.Abs,
+		true,
 	}
 	return c.CreateFromYaml(content, file, env)
 }
@@ -43,6 +44,8 @@ type creator struct {
 	logger   *zap.SugaredLogger
 	readFile func(string) ([]byte, error)
 	abs      func(string) (string, error)
+
+	Strict bool
 }
 
 func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), abs func(string) (string, error)) *creator {
@@ -50,6 +53,7 @@ func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error)
 		logger:   logger,
 		readFile: readFile,
 		abs:      abs,
+		Strict:   true,
 	}
 }
 
@@ -62,7 +66,11 @@ func (c *creator) CreateFromYaml(content []byte, file string, env string) (*Helm
 	}
 	state.basePath = basePath
 
-	if err := yaml.UnmarshalStrict(content, &state); err != nil {
+	unmarshal := yaml.UnmarshalStrict
+	if !c.Strict {
+		unmarshal = yaml.Unmarshal
+	}
+	if err := unmarshal(content, &state); err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
 	}
 	state.FilePath = file
@@ -81,7 +89,7 @@ func (c *creator) CreateFromYaml(content []byte, file string, env string) (*Helm
 	if err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
 	}
-	state.env = *e
+	state.Env = *e
 
 	state.readFile = c.readFile
 

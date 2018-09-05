@@ -15,7 +15,7 @@ import (
 type Values = map[string]interface{}
 
 func (c *Context) createFuncMap() template.FuncMap {
-	return template.FuncMap{
+	funcMap := template.FuncMap{
 		"exec":           c.Exec,
 		"readFile":       c.ReadFile,
 		"toYaml":         ToYaml,
@@ -23,6 +23,17 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"setValueAtPath": SetValueAtPath,
 		"requiredEnv":    RequiredEnv,
 	}
+	if c.preRender {
+		// disable potential side-effect template calls
+		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
+			return "", nil
+		}
+		funcMap["readFile"] = func(string) (string, error) {
+			return "", nil
+		}
+	}
+
+	return funcMap
 }
 
 func (c *Context) Exec(command string, args []interface{}, inputs ...string) (string, error) {
