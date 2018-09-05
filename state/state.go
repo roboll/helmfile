@@ -15,12 +15,13 @@ import (
 
 	"regexp"
 
+	"os/exec"
+	"syscall"
+
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/valuesfile"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"os/exec"
-	"syscall"
 )
 
 // HelmState structure for the helmfile
@@ -225,23 +226,30 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 		return prepErrs
 	}
 
-	jobQueue := make(chan *syncPrepareResult)
-	results := make(chan syncResult)
+	jobQueue := make(chan *syncPrepareResult, len(preps))
+	results := make(chan syncResult, len(preps))
+
+	var wgSync sync.WaitGroup
+	wgSync.Add(len(preps))
 
 	if workerLimit < 1 {
-		workerLimit = len(state.Releases)
+		workerLimit = len(preps)
 	}
+
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for prep := range jobQueue {
 				release := prep.release
 				flags := prep.flags
 				chart := normalizeChart(state.basePath, release.Chart)
-				if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
+				err := helm.SyncRelease(release.Name, chart, flags...)
+
+				if err != nil {
 					results <- syncResult{errors: []*ReleaseError{&ReleaseError{release, err}}}
 				} else {
 					results <- syncResult{}
 				}
+				wgSync.Done()
 			}
 		}()
 	}
@@ -250,6 +258,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 		jobQueue <- &preps[i]
 	}
 	close(jobQueue)
+	wgSync.Wait()
 
 	errs := []error{}
 	for i := 0; i < len(preps); {
