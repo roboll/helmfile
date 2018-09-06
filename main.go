@@ -13,6 +13,8 @@ import (
 
 	"io/ioutil"
 
+	"strings"
+
 	"github.com/roboll/helmfile/args"
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/helmexec"
@@ -21,7 +23,6 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"strings"
 )
 
 const (
@@ -242,7 +243,9 @@ func main() {
 					values := c.StringSlice("values")
 					args := args.GetArgs(c.String("args"), state)
 					workers := c.Int("concurrency")
-
+					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+						return errs
+					}
 					return state.LintReleases(helm, values, args, workers)
 				})
 			},
