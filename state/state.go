@@ -156,11 +156,12 @@ type syncPrepareResult struct {
 
 // SyncReleases wrapper for executing helm upgrade on the releases
 func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int) ([]syncPrepareResult, []error) {
-	jobs := make(chan *ReleaseSpec)
-	results := make(chan syncPrepareResult)
+	numReleases := len(state.Releases)
+	jobs := make(chan *ReleaseSpec, numReleases)
+	results := make(chan syncPrepareResult, numReleases)
 
 	if concurrency < 1 {
-		concurrency = len(state.Releases)
+		concurrency = numReleases
 	}
 	for w := 1; w <= concurrency; w++ {
 		go func() {
@@ -195,16 +196,14 @@ func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalV
 		}()
 	}
 
-	go func() {
-		for i := 0; i < len(state.Releases); i++ {
-			jobs <- &state.Releases[i]
-		}
-		close(jobs)
-	}()
+	for i := 0; i < numReleases; i++ {
+		jobs <- &state.Releases[i]
+	}
+	close(jobs)
 
 	res := []syncPrepareResult{}
 	errs := []error{}
-	for i := 0; i < len(state.Releases); {
+	for i := 0; i < numReleases; {
 		select {
 		case r := <-results:
 			for _, e := range r.errors {
@@ -225,8 +224,8 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 		return prepErrs
 	}
 
-	jobQueue := make(chan *syncPrepareResult)
-	results := make(chan syncResult)
+	jobQueue := make(chan *syncPrepareResult, len(preps))
+	results := make(chan syncResult, len(preps))
 
 	if workerLimit < 1 {
 		workerLimit = len(state.Releases)
@@ -452,11 +451,12 @@ type diffPrepareResult struct {
 }
 
 func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, suppressSecrets bool) ([]diffPrepareResult, []error) {
-	jobs := make(chan *ReleaseSpec, len(state.Releases))
-	results := make(chan diffPrepareResult)
+	numReleases := len(state.Releases)
+	jobs := make(chan *ReleaseSpec, numReleases)
+	results := make(chan diffPrepareResult, numReleases)
 
 	if concurrency < 1 {
-		concurrency = len(state.Releases)
+		concurrency = numReleases
 	}
 
 	for w := 1; w <= concurrency; w++ {
@@ -504,14 +504,14 @@ func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalV
 		}()
 	}
 
-	for i := 0; i < len(state.Releases); i++ {
+	for i := 0; i < numReleases; i++ {
 		jobs <- &state.Releases[i]
 	}
 	close(jobs)
 
 	rs := []diffPrepareResult{}
 	errs := []error{}
-	for i := 0; i < len(state.Releases); {
+	for i := 0; i < numReleases; {
 		select {
 		case res := <-results:
 			if res.errors != nil && len(res.errors) > 0 {
