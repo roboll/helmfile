@@ -557,7 +557,7 @@ func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.Helm
 	noTargetFoundForAllHelmfiles := true
 	for _, f := range desiredStateFiles {
 		logger.Debugf("Processing %s", f)
-		yamlBuf, err := tmpl.NewFileRenderer(ioutil.ReadFile, "", environment.EmptyEnvironment).RenderTemplateFileToBuffer(f)
+		yamlBuf, err := tmpl.NewFileRenderer(ioutil.ReadFile, "", environment.Environment{Name: env, Values: map[string]interface{}(nil)}).RenderTemplateFileToBuffer(f)
 		if err != nil {
 			return err
 		}
