@@ -609,6 +609,7 @@ func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.Helm
 		if noTarget {
 			continue
 		}
+
 		errs := converge(st, helm)
 		if err := clean(st, errs); err != nil {
 			return err

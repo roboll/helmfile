@@ -287,6 +287,42 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "devel",
+			defaults: HelmSpec{
+				Devel: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Wait:      &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--devel",
+				"--wait",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "devel-release",
+			defaults: HelmSpec{
+				Devel: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Devel:     &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "wait-from-default",
 			defaults: HelmSpec{
 				Wait: true,

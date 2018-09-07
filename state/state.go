@@ -15,12 +15,13 @@ import (
 
 	"regexp"
 
+	"os/exec"
+	"syscall"
+
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/valuesfile"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"os/exec"
-	"syscall"
 )
 
 // HelmState structure for the helmfile
@@ -49,6 +50,8 @@ type HelmSpec struct {
 	TillerNamespace string   `yaml:"tillerNamespace"`
 	Args            []string `yaml:"args"`
 	Verify          bool     `yaml:"verify"`
+	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
+	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait bool `yaml:"wait"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -75,6 +78,8 @@ type ReleaseSpec struct {
 	Chart   string `yaml:"chart"`
 	Version string `yaml:"version"`
 	Verify  *bool  `yaml:"verify"`
+	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
+	Devel *bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait *bool `yaml:"wait"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -798,6 +803,10 @@ func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, release *Releas
 		flags = append(flags, "--version", release.Version)
 	}
 
+	if state.isDevelopment(release) {
+		flags = append(flags, "--devel")
+	}
+
 	if release.Verify != nil && *release.Verify || state.HelmDefaults.Verify {
 		flags = append(flags, "--verify")
 	}
@@ -843,11 +852,25 @@ func (state *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSp
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
 	}
+
+	if state.isDevelopment(release) {
+		flags = append(flags, "--devel")
+	}
+
 	common, err := state.namespaceAndValuesFlags(helm, release)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
+}
+
+func (state *HelmState) isDevelopment(release *ReleaseSpec) bool {
+	result := state.HelmDefaults.Devel
+	if release.Devel != nil {
+		result = *release.Devel
+	}
+
+	return result
 }
 
 func (state *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
