@@ -580,6 +580,8 @@ func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.Helm
 				switch stateLoadErr.Cause.(type) {
 				case *state.UndefinedEnvError:
 					noTarget = true
+				default:
+					return err
 				}
 			default:
 				return err
