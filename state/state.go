@@ -803,7 +803,7 @@ func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, release *Releas
 		flags = append(flags, "--version", release.Version)
 	}
 
-	if release.Devel != nil && *release.Devel || state.HelmDefaults.Devel {
+	if state.isDevelopment(release) {
 		flags = append(flags, "--devel")
 	}
 
@@ -853,7 +853,7 @@ func (state *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--version", release.Version)
 	}
 
-	if release.Devel != nil && *release.Devel || state.HelmDefaults.Devel {
+	if state.isDevelopment(release) {
 		flags = append(flags, "--devel")
 	}
 
@@ -862,6 +862,15 @@ func (state *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSp
 		return nil, err
 	}
 	return append(flags, common...), nil
+}
+
+func (state *HelmState) isDevelopment(release *ReleaseSpec) bool {
+	result := state.HelmDefaults.Devel
+	if release.Devel != nil {
+		result = *release.Devel
+	}
+
+	return result
 }
 
 func (state *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
