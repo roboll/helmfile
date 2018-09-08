@@ -534,6 +534,16 @@ func executeDiffCommand(c *cli.Context, st *state.HelmState, helm helmexec.Inter
 	return st.DiffReleases(helm, values, workers, detailedExitCode, suppressSecrets)
 }
 
+type app struct {
+	kubeContext       string
+	logger            *zap.SugaredLogger
+	readFile          func(string) ([]byte, error)
+	glob              func(string) ([]string, error)
+	abs               func(string) (string, error)
+	fileExistsAt      func(string) bool
+	directoryExistsAt func(string) bool
+}
+
 func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
 	fileOrDir := c.GlobalString("file")
 	kubeContext := c.GlobalString("kube-context")
@@ -546,101 +556,134 @@ func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*st
 		env = state.DefaultEnv
 	}
 
-	return findAndIterateOverDesiredStates(fileOrDir, converge, kubeContext, namespace, selectors, env, logger)
+	app := &app{
+		readFile:          ioutil.ReadFile,
+		glob:              filepath.Glob,
+		abs:               filepath.Abs,
+		fileExistsAt:      fileExistsAt,
+		directoryExistsAt: directoryExistsAt,
+		kubeContext:       kubeContext,
+		logger:            logger,
+	}
+	if err := app.FindAndIterateOverDesiredStates(fileOrDir, converge, namespace, selectors, env); err != nil {
+		switch e := err.(type) {
+		case *noMatchingHelmfileError:
+			return cli.NewExitError(e.Error(), 2)
+		}
+		return err
+	}
+	return nil
 }
 
-func findAndIterateOverDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error, kubeContext, namespace string, selectors []string, env string, logger *zap.SugaredLogger) error {
-	desiredStateFiles, err := findDesiredStateFiles(fileOrDir)
+type noMatchingHelmfileError struct {
+	selectors []string
+	env       string
+}
+
+func (e *noMatchingHelmfileError) Error() string {
+	return fmt.Sprintf(
+		"err: no releases found that matches specified selector(%s) and environment(%s), in any helmfile",
+		strings.Join(e.selectors, ", "),
+		e.env,
+	)
+}
+
+func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error, namespace string, selectors []string, env string) error {
+	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir)
 	if err != nil {
 		return err
 	}
-	noTargetFoundForAllHelmfiles := true
+	noMatchInHelmfiles := true
 	for _, f := range desiredStateFiles {
-		logger.Debugf("Processing %s", f)
-		yamlBuf, err := tmpl.NewFileRenderer(ioutil.ReadFile, "", environment.Environment{Name: env, Values: map[string]interface{}(nil)}).RenderTemplateFileToBuffer(f)
+		a.logger.Debugf("Processing %s", f)
+		yamlBuf, err := tmpl.NewFileRenderer(a.readFile, "", environment.Environment{Name: env, Values: map[string]interface{}(nil)}).RenderTemplateFileToBuffer(f)
 		if err != nil {
 			return err
 		}
 
-		st, helm, noReleasesMatchingSelector, err := loadDesiredStateFromFile(
+		st, noMatchInThisHelmfile, err := a.loadDesiredStateFromYaml(
 			yamlBuf.Bytes(),
 			f,
-			kubeContext,
 			namespace,
 			selectors,
 			env,
-			logger,
 		)
+		helm := helmexec.New(a.logger, a.kubeContext)
 
-		var noTarget bool
 		if err != nil {
 			switch stateLoadErr := err.(type) {
 			// Addresses https://github.com/roboll/helmfile/issues/279
 			case *state.StateLoadError:
 				switch stateLoadErr.Cause.(type) {
 				case *state.UndefinedEnvError:
-					noTarget = true
+					noMatchInThisHelmfile = true
 				default:
 					return err
 				}
 			default:
 				return err
 			}
-		} else if len(st.Helmfiles) > 0 {
+		}
+
+		errs := []error{}
+
+		if len(st.Helmfiles) > 0 {
+			noMatchInSubHelmfiles := true
 			for _, globPattern := range st.Helmfiles {
 				helmfileRelativePattern := st.JoinBase(globPattern)
-				matches, err := filepath.Glob(helmfileRelativePattern)
+				matches, err := a.glob(helmfileRelativePattern)
 				if err != nil {
 					return fmt.Errorf("failed processing %s: %v", globPattern, err)
 				}
 				sort.Strings(matches)
+
 				for _, m := range matches {
-					if err := findAndIterateOverDesiredStates(m, converge, kubeContext, namespace, selectors, env, logger); err != nil {
-						return fmt.Errorf("failed processing %s: %v", globPattern, err)
+					if err := a.FindAndIterateOverDesiredStates(m, converge, namespace, selectors, env); err != nil {
+						switch err.(type) {
+						case *noMatchingHelmfileError:
+
+						default:
+							return fmt.Errorf("failed processing %s: %v", globPattern, err)
+						}
+					} else {
+						noMatchInSubHelmfiles = false
 					}
 				}
 			}
-			return nil
+			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
 		} else {
-			noTarget = noReleasesMatchingSelector
+			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInThisHelmfile
+			if noMatchInThisHelmfile {
+				continue
+			}
+			errs = converge(st, helm)
 		}
 
-		noTargetFoundForAllHelmfiles = noTargetFoundForAllHelmfiles && noTarget
-		if noTarget {
-			continue
-		}
-
-		errs := converge(st, helm)
 		if err := clean(st, errs); err != nil {
 			return err
 		}
 	}
-	if noTargetFoundForAllHelmfiles {
-		logger.Errorf(
-			"err: no releases found that matches specified selector(%s) and environment(%s), in any helmfile",
-			strings.Join(selectors, ", "),
-			env,
-		)
-		os.Exit(2)
+	if noMatchInHelmfiles {
+		return &noMatchingHelmfileError{selectors, env}
 	}
 	return nil
 }
 
-func findDesiredStateFiles(specifiedPath string) ([]string, error) {
+func (a *app) findDesiredStateFiles(specifiedPath string) ([]string, error) {
 	var helmfileDir string
 	if specifiedPath != "" {
-		if fileExistsAt(specifiedPath) {
+		if a.fileExistsAt(specifiedPath) {
 			return []string{specifiedPath}, nil
-		} else if directoryExistsAt(specifiedPath) {
+		} else if a.directoryExistsAt(specifiedPath) {
 			helmfileDir = specifiedPath
 		} else {
 			return []string{}, fmt.Errorf("specified state file %s is not found", specifiedPath)
 		}
 	} else {
 		var defaultFile string
-		if fileExistsAt(DefaultHelmfile) {
+		if a.fileExistsAt(DefaultHelmfile) {
 			defaultFile = DefaultHelmfile
-		} else if fileExistsAt(DeprecatedHelmfile) {
+		} else if a.fileExistsAt(DeprecatedHelmfile) {
 			log.Printf(
 				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
 				DeprecatedHelmfile,
@@ -650,7 +693,7 @@ func findDesiredStateFiles(specifiedPath string) ([]string, error) {
 			defaultFile = DeprecatedHelmfile
 		}
 
-		if directoryExistsAt(DefaultHelmfileDirectory) {
+		if a.directoryExistsAt(DefaultHelmfileDirectory) {
 			if defaultFile != "" {
 				return []string{}, fmt.Errorf("configuration conlict error: you can have either %s or %s, but not both", defaultFile, DefaultHelmfileDirectory)
 			}
@@ -663,7 +706,7 @@ func findDesiredStateFiles(specifiedPath string) ([]string, error) {
 		}
 	}
 
-	files, err := filepath.Glob(filepath.Join(helmfileDir, "*.yaml"))
+	files, err := a.glob(filepath.Join(helmfileDir, "*.yaml"))
 	if err != nil {
 		return []string{}, err
 	}
@@ -683,19 +726,19 @@ func directoryExistsAt(path string) bool {
 	return err == nil && fileInfo.Mode().IsDir()
 }
 
-func loadDesiredStateFromFile(yaml []byte, file string, kubeContext, namespace string, labels []string, env string, logger *zap.SugaredLogger) (*state.HelmState, helmexec.Interface, bool, error) {
-	st, err := state.CreateFromYaml(yaml, file, env, logger)
+func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace string, labels []string, env string) (*state.HelmState, bool, error) {
+	c := state.NewCreator(a.logger, a.readFile, a.abs)
+	st, err := c.CreateFromYaml(yaml, file, env)
 	if err != nil {
-		return nil, nil, false, err
+		return nil, false, err
 	}
 
-	if st.Context != "" {
-		if kubeContext != "" {
+	if a.kubeContext != "" {
+		if st.Context != "" {
 			log.Printf("err: Cannot use option --kube-context and set attribute context.")
 			os.Exit(1)
 		}
-
-		kubeContext = st.Context
+		st.Context = a.kubeContext
 	}
 	if namespace != "" {
 		if st.Namespace != "" {
@@ -709,7 +752,7 @@ func loadDesiredStateFromFile(yaml []byte, file string, kubeContext, namespace s
 		err = st.FilterReleases(labels)
 		if err != nil {
 			log.Print(err)
-			return nil, nil, true, nil
+			return nil, true, nil
 		}
 	}
 
@@ -719,7 +762,7 @@ func loadDesiredStateFromFile(yaml []byte, file string, kubeContext, namespace s
 	}
 	for name, c := range releaseNameCounts {
 		if c > 1 {
-			return nil, nil, false, fmt.Errorf("duplicate release \"%s\" found: there were %d releases named \"%s\" matching specified selector", name, c, name)
+			return nil, false, fmt.Errorf("duplicate release \"%s\" found: there were %d releases named \"%s\" matching specified selector", name, c, name)
 		}
 	}
 
@@ -732,7 +775,7 @@ func loadDesiredStateFromFile(yaml []byte, file string, kubeContext, namespace s
 		clean(st, errs)
 	}()
 
-	return st, helmexec.New(logger, kubeContext), len(st.Releases) == 0, nil
+	return st, len(st.Releases) == 0, nil
 }
 
 func clean(st *state.HelmState, errs []error) error {

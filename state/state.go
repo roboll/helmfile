@@ -742,10 +742,8 @@ func (state *HelmState) FilterReleases(labels []string) error {
 		filteredReleases = append(filteredReleases, r)
 	}
 	state.Releases = filteredReleases
-	if len(filteredReleases) == 0 {
-		state.logger.Debugf("specified selector did not match any releases in %s\n", state.FilePath)
-		return nil
-	}
+	numFound := len(filteredReleases)
+	state.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(labels, ","), state.FilePath)
 	return nil
 }
 

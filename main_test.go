@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"io/ioutil"
+	"path/filepath"
+	"testing"
+)
 
 // See https://github.com/roboll/helmfile/issues/193
 func TestReadFromYaml_DuplicateReleaseName(t *testing.T) {
@@ -16,7 +20,14 @@ func TestReadFromYaml_DuplicateReleaseName(t *testing.T) {
   labels:
     stage: post
 `)
-	_, _, _, err := loadDesiredStateFromFile(yamlContent, yamlFile, "default", "default", []string{}, "default", logger)
+	app := &app{
+		readFile:    ioutil.ReadFile,
+		glob:        filepath.Glob,
+		abs:         filepath.Abs,
+		kubeContext: "default",
+		logger:      logger,
+	}
+	_, _, err := app.loadDesiredStateFromYaml(yamlContent, yamlFile, "default", []string{}, "default")
 	if err == nil {
 		t.Error("error expected but not happened")
 	}

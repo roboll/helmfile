@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestReadFromYaml(t *testing.T) {
   namespace: mynamespace
   chart: mychart
 `)
-	state, err := CreateFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
+	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
 	if err != nil {
 		t.Errorf("unxpected error: %v", err)
 	}
@@ -36,7 +37,7 @@ func TestReadFromYaml_InexistentEnv(t *testing.T) {
   namespace: mynamespace
   chart: mychart
 `)
-	_, err := CreateFromYaml(yamlContent, yamlFile, "production", logger)
+	_, err := createFromYaml(yamlContent, yamlFile, "production", logger)
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -97,7 +98,7 @@ bar: {{ readFile "bar.txt" }}
 		return nil, fmt.Errorf("unexpected filename: %s", filename)
 	}
 
-	state, err := createFromYamlWithFileReader(yamlContent, yamlFile, "production", logger, readFile)
+	state, err := NewCreator(logger, readFile, filepath.Abs).CreateFromYaml(yamlContent, yamlFile, "production")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -125,7 +126,7 @@ func TestReadFromYaml_StrictUnmarshalling(t *testing.T) {
   namespace: mynamespace
   releases: mychart
 `)
-	_, err := CreateFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
+	_, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
 	if err == nil {
 		t.Error("expected an error for wrong key 'releases' which is not in struct")
 	}
@@ -137,7 +138,7 @@ func TestReadFromYaml_DeprecatedReleaseReferences(t *testing.T) {
 - name: myrelease
   chart: mychart
 `)
-	state, err := CreateFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
+	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
 	if err != nil {
 		t.Errorf("unxpected error: %v", err)
 	}
@@ -159,7 +160,7 @@ releases:
 - name: myrelease2
   chart: mychart2
 `)
-	_, err := CreateFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
+	_, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -195,7 +196,7 @@ func TestReadFromYaml_FilterReleasesOnLabels(t *testing.T) {
 		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}}, negativeLabels: [][]string{[]string{"foo", "bar"}}},
 			[]bool{false, true, false}},
 	}
-	state, err := CreateFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
+	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -234,7 +235,7 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 		{LabelFilter{negativeLabels: [][]string{[]string{"stage", "pre"}, []string{"stage", "post"}}},
 			[]bool{false, false, true}},
 	}
-	state, err := CreateFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
+	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
