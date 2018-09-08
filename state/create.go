@@ -30,14 +30,38 @@ func (e *UndefinedEnvError) Error() string {
 	return e.msg
 }
 
-func CreateFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {
-	return createFromYamlWithFileReader(content, file, env, logger, ioutil.ReadFile)
+func createFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {
+	c := &creator{
+		logger,
+		ioutil.ReadFile,
+		filepath.Abs,
+	}
+	return c.CreateFromYaml(content, file, env)
 }
 
-func createFromYamlWithFileReader(content []byte, file string, env string, logger *zap.SugaredLogger, readFile func(string) ([]byte, error)) (*HelmState, error) {
+type creator struct {
+	logger   *zap.SugaredLogger
+	readFile func(string) ([]byte, error)
+	abs      func(string) (string, error)
+}
+
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), abs func(string) (string, error)) *creator {
+	return &creator{
+		logger:   logger,
+		readFile: readFile,
+		abs:      abs,
+	}
+}
+
+func (c *creator) CreateFromYaml(content []byte, file string, env string) (*HelmState, error) {
 	var state HelmState
 
-	state.basePath, _ = filepath.Abs(filepath.Dir(file))
+	basePath, err := c.abs(filepath.Dir(file))
+	if err != nil {
+		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
+	}
+	state.basePath = basePath
+
 	if err := yaml.UnmarshalStrict(content, &state); err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
 	}
@@ -51,15 +75,15 @@ func createFromYamlWithFileReader(content []byte, file string, env string, logge
 		state.DeprecatedReleases = []ReleaseSpec{}
 	}
 
-	state.logger = logger
+	state.logger = c.logger
 
-	e, err := state.loadEnv(env, readFile)
+	e, err := state.loadEnv(env, c.readFile)
 	if err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
 	}
 	state.env = *e
 
-	state.readFile = readFile
+	state.readFile = c.readFile
 
 	return &state, nil
 }
