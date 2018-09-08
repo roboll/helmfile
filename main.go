@@ -616,7 +616,7 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 			case *state.StateLoadError:
 				switch stateLoadErr.Cause.(type) {
 				case *state.UndefinedEnvError:
-					noMatchInThisHelmfile = true
+					continue
 				default:
 					return err
 				}

@@ -106,3 +106,95 @@ releases:
 		}
 	}
 }
+
+// See https://github.com/roboll/helmfile/issues/320
+func TestFindAndIterateOverDesiredStates_UndefinedEnv(t *testing.T) {
+	absPaths := map[string]string{
+		".": "/path/to",
+		"/path/to/helmfile.d": "/path/to/helmfile.d",
+	}
+	dirs := map[string]bool{
+		"helmfile.d": true,
+	}
+	files := map[string]string{
+		"helmfile.yaml": `
+environments:
+  prod:
+
+helmfiles:
+- helmfile.d/a*.yaml
+`,
+		"/path/to/helmfile.d/a1.yaml": `
+environments:
+  prod:
+
+releases:
+- name: zipkin
+  chart: stable/zipkin
+`,
+	}
+	globMatches := map[string][]string{
+		"/path/to/helmfile.d/a*.yaml": []string{"/path/to/helmfile.d/a1.yaml"},
+	}
+	fileExistsAt := func(path string) bool {
+		_, ok := files[path]
+		return ok
+	}
+	directoryExistsAt := func(path string) bool {
+		_, ok := dirs[path]
+		return ok
+	}
+	readFile := func(filename string) ([]byte, error) {
+		str, ok := files[filename]
+		if !ok {
+			return []byte(nil), fmt.Errorf("no file found: %s", filename)
+		}
+		return []byte(str), nil
+	}
+	glob := func(pattern string) ([]string, error) {
+		matches, ok := globMatches[pattern]
+		if !ok {
+			return []string(nil), fmt.Errorf("no file matched: %s", pattern)
+		}
+		return matches, nil
+	}
+	abs := func(path string) (string, error) {
+		a, ok := absPaths[path]
+		if !ok {
+			return "", fmt.Errorf("abs: unexpected path: %s", path)
+		}
+		return a, nil
+	}
+	app := &app{
+		readFile:          readFile,
+		glob:              glob,
+		abs:               abs,
+		fileExistsAt:      fileExistsAt,
+		directoryExistsAt: directoryExistsAt,
+		kubeContext:       "default",
+		logger:            helmexec.NewLogger(os.Stderr, "debug"),
+	}
+	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+		return []error{}
+	}
+
+	testcases := []struct {
+		name      string
+		expectErr bool
+	}{
+		{name: "undefined_env", expectErr: true},
+		{name: "default", expectErr: false},
+		{name: "prod", expectErr: false},
+	}
+
+	for _, testcase := range testcases {
+		err := app.FindAndIterateOverDesiredStates(
+			"helmfile.yaml", noop, "", []string{}, testcase.name,
+		)
+		if testcase.expectErr && err == nil {
+			t.Errorf("error expected but not happened for environment=%s", testcase.name)
+		} else if !testcase.expectErr && err != nil {
+			t.Errorf("unexpected error for environment=%s: %v", testcase.name, err)
+		}
+	}
+}
