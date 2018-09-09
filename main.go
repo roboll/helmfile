@@ -751,8 +751,7 @@ func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 	if len(labels) > 0 {
 		err = st.FilterReleases(labels)
 		if err != nil {
-			log.Print(err)
-			return nil, true, nil
+			return nil, false, err
 		}
 	}
 
