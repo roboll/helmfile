@@ -62,7 +62,7 @@ func ParseLabels(l string) (LabelFilter, error) {
 			kv := strings.Split(label, "=")
 			lf.positiveLabels = append(lf.positiveLabels, kv)
 		} else { // malformed case
-			err = fmt.Errorf("Malformed label: %s. Expected label in form k=v or k!=v", label)
+			return lf, fmt.Errorf("Malformed label: %s. Expected label in form k=v or k!=v", label)
 		}
 	}
 	return lf, err
