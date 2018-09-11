@@ -40,7 +40,7 @@ repositories:
 context: kube-context					 # kube-context (--kube-context)
 
 #default values to set for args along with dedicated keys that can be set by contributers, cli args take precedence overe these
-helmDefaults:           
+helmDefaults:
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
   kubeContext: kube-context          #dedicated default key for kube-context
   # additional and global args passed to helm
@@ -396,7 +396,7 @@ releases:
   # snip
 {{ end }}
 - name: myapp
-  # snip  
+  # snip
 ```
 
 ## Environment Values
@@ -424,6 +424,7 @@ releases:
 
 ```yaml
 domain: prod.example.com
+releaseName: prod
 ```
 
 `values.yaml.gotmpl`
@@ -434,6 +435,38 @@ domain: {{ .Environment.Values.domain | default "dev.example.com" }}
 
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
 whereas `helmfile --environment production sync` installs the app with the value `domain=production.example.com`.
+
+For even more flexibility, you can now use values declared in the `environments:` section in other parts of your helmfiles:
+
+consider:
+`default.yaml`
+
+```yaml
+domain: dev.example.com
+releaseName: dev
+```
+
+```yaml
+environments:
+  default:
+    values:
+    - default.yaml
+  production:
+    values:
+    - production.yaml #  template directives with potential side-effects like `exec` and `readFile` will NOT be executed
+    - other.yaml.gotmpl  #  `exec` and `readFile` will be honoured
+
+releases:
+- name: myapp-{{ .Environment.Values.releaseName }} # release name will be one of `dev` or `prod` depending on selected environment
+  values:
+  - values.yaml.gotmpl
+
+{{ if eq (.Environment.Values.releaseName "prod" ) }}
+# this release would be installed only if selected environment is `production`
+- name: production-specific-release
+  ...
+{{ end }}
+```
 
 ## Environment Secrets
 

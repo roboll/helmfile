@@ -103,7 +103,7 @@ bar: {{ readFile "bar.txt" }}
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	actual := state.env.Values
+	actual := state.Env.Values
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected environment values: expected=%v, actual=%v", expected, actual)
 	}
