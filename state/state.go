@@ -278,10 +278,15 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 // downloadCharts will download and untar charts for Lint and Template
 func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerLimit int) (map[string]string, []error) {
 	temp := make(map[string]string, len(state.Releases))
+	type downloadResults struct {
+		releaseName string
+		chartPath   string
+	}
 	errs := []error{}
 
 	var wgFetch sync.WaitGroup
 	jobQueue := make(chan *ReleaseSpec, len(state.Releases))
+	results := make(chan *downloadResults, len(state.Releases))
 	wgFetch.Add(len(state.Releases))
 
 	if workerLimit < 1 {
@@ -312,7 +317,7 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, work
 					}
 					chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
 				}
-				temp[release.Name] = chartPath
+				results <- &downloadResults{release.Name, chartPath}
 				wgFetch.Done()
 			}
 		}()
@@ -320,8 +325,13 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, work
 	for i := 0; i < len(state.Releases); i++ {
 		jobQueue <- &state.Releases[i]
 	}
-
 	close(jobQueue)
+
+	for i := 0; i < len(state.Releases); i++ {
+		downloadRes := <-results
+		temp[downloadRes.releaseName] = downloadRes.chartPath
+	}
+
 	wgFetch.Wait()
 
 	if len(errs) > 0 {
