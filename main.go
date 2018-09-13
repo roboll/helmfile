@@ -495,16 +495,15 @@ func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 }
 
 func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {
+	if c.GlobalString("helm-binary") != "" {
+		helm.SetHelmBinary(c.GlobalString("helm-binary"))
+	}
 	if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
 		return errs
 	}
 
 	if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
 		return errs
-	}
-
-	if c.GlobalString("helm-binary") != "" {
-		helm.SetHelmBinary(c.GlobalString("helm-binary"))
 	}
 
 	args := args.GetArgs(c.String("args"), state)
