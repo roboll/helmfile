@@ -413,6 +413,10 @@ Do you really want to apply?
 					Usage: "pass args to helm exec",
 				},
 				cli.BoolFlag{
+					Name:  "auto-approve",
+					Usage: "Skip interactive approval before deleting",
+				},
+				cli.BoolFlag{
 					Name:  "purge",
 					Usage: "purge releases i.e. free release names and histories",
 				},
@@ -430,7 +434,23 @@ Do you really want to apply?
 						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
-					return state.DeleteReleases(helm, purge)
+					names := make([]string, len(state.Releases))
+					for i, r := range state.Releases {
+						names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
+					}
+
+					msg := fmt.Sprintf(`Affected releases are:
+%s
+
+Do you really want to delete?
+  Helmfile will delete all your releases, as shown above.
+
+`, strings.Join(names, "\n"))
+					autoApprove := c.Bool("auto-approve")
+					if autoApprove || !autoApprove && askForConfirmation(msg) {
+						return state.DeleteReleases(helm, purge)
+					}
+					return nil
 				})
 			},
 		},
