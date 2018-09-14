@@ -667,7 +667,7 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 		r := &twoPassRenderer{
 			reader:    a.readFile,
 			env:       env,
-                        namespace: namespace,
+			namespace: namespace,
 			filename:  f,
 			logger:    a.logger,
 			abs:       a.abs,
