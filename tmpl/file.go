@@ -15,6 +15,7 @@ type templateFileRenderer struct {
 
 type TemplateData struct {
 	// Environment is accessible as `.Environment` from any template executed by the renderer
+	// Namespace is accessible as `.Namespace` from any non-values template executed by the renderer
 	Environment environment.Environment
 	Namespace   string
 }
