@@ -16,7 +16,7 @@ type templateFileRenderer struct {
 type TemplateData struct {
 	// Environment is accessible as `.Environment` from any template executed by the renderer
 	Environment environment.Environment
-	Namespace string
+	Namespace   string
 }
 
 type FileRenderer interface {
@@ -32,7 +32,7 @@ func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath st
 		},
 		Data: TemplateData{
 			Environment: env,
-			Namespace: namespace,
+			Namespace:   namespace,
 		},
 	}
 }
