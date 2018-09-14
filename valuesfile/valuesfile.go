@@ -15,7 +15,7 @@ type renderer struct {
 func NewRenderer(readFile func(filename string) ([]byte, error), basePath string, env environment.Environment) *renderer {
 	return &renderer{
 		readFile:         readFile,
-		tmplFileRenderer: tmpl.NewFileRenderer(readFile, basePath, env),
+		tmplFileRenderer: tmpl.NewFileRenderer(readFile, basePath, env, ""),
 	}
 }
 

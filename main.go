@@ -91,7 +91,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "namespace, n",
-			Usage: "Set namespace. Uses the namespace set in the context by default",
+			Usage: "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}",
 		},
 		cli.StringSliceFlag{
 			Name: "selector, l",
@@ -598,11 +598,12 @@ func prependLineNumbers(text string) string {
 }
 
 type twoPassRenderer struct {
-	reader   func(string) ([]byte, error)
-	env      string
-	filename string
-	logger   *zap.SugaredLogger
-	abs      func(string) (string, error)
+	reader    func(string) ([]byte, error)
+	env       string
+	namespace string
+	filename  string
+	logger    *zap.SugaredLogger
+	abs       func(string) (string, error)
 }
 
 func (r *twoPassRenderer) renderEnvironment(content []byte) environment.Environment {
@@ -635,7 +636,7 @@ func (r *twoPassRenderer) renderTemplate(content []byte) (*bytes.Buffer, error) 
 	// try a first pass render. This will always succeed, but can produce a limited env
 	firstPassEnv := r.renderEnvironment(content)
 
-	secondPassRenderer := tmpl.NewFileRenderer(r.reader, "", firstPassEnv)
+	secondPassRenderer := tmpl.NewFileRenderer(r.reader, "", firstPassEnv, r.namespace)
 	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
 	if err != nil {
 		if r.logger != nil {
@@ -664,11 +665,12 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 		}
 		// render template, in two runs
 		r := &twoPassRenderer{
-			reader:   a.readFile,
-			env:      env,
-			filename: f,
-			logger:   a.logger,
-			abs:      a.abs,
+			reader:    a.readFile,
+			env:       env,
+                        namespace: namespace,
+			filename:  f,
+			logger:    a.logger,
+			abs:       a.abs,
 		}
 		yamlBuf, err := r.renderTemplate(content)
 		if err != nil {
