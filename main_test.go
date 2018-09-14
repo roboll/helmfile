@@ -41,11 +41,11 @@ func TestReadFromYaml_DuplicateReleaseName(t *testing.T) {
 	}
 }
 
-func makeRenderer(readFile func(string) ([]byte, error), env string, namespace string) *twoPassRenderer {
+func makeRenderer(readFile func(string) ([]byte, error), env string) *twoPassRenderer {
 	return &twoPassRenderer{
 		reader:    readFile,
 		env:       env,
-		namespace: namespace,
+		namespace: "namespace",
 		filename:  "",
 		logger:    logger,
 		abs:       filepath.Abs,
@@ -80,7 +80,7 @@ releases:
 		return []byte(""), nil
 	}
 
-	r := makeRenderer(fileReader, "staging", "namespace")
+	r := makeRenderer(fileReader, "staging")
 	yamlBuf, err := r.renderTemplate(yamlContent)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -131,7 +131,7 @@ releases:
 		return defaultValuesYaml, nil
 	}
 
-	r := makeRenderer(fileReader, "staging", "namespace")
+	r := makeRenderer(fileReader, "staging")
 	// test the double rendering
 	yamlBuf, err := r.renderTemplate(yamlContent)
 	if err != nil {
@@ -180,7 +180,7 @@ releases:
 		return defaultValuesYaml, nil
 	}
 
-	r := makeRenderer(fileReader, "staging", "namespace")
+	r := makeRenderer(fileReader, "staging")
 	// test the double rendering
 	_, err := r.renderTemplate(yamlContent)
 
@@ -219,7 +219,7 @@ releases:
 		return defaultValuesYamlGotmpl, nil
 	}
 
-	r := makeRenderer(fileReader, "staging", "namespace")
+	r := makeRenderer(fileReader, "staging")
 	rendered, _ := r.renderTemplate(yamlContent)
 
 	var state state.HelmState
@@ -246,7 +246,7 @@ func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 		return defaultValuesYaml, nil
 	}
 
-	r := makeRenderer(fileReader, "staging", "namespace")
+	r := makeRenderer(fileReader, "staging")
 	yamlBuf, err := r.renderTemplate(yamlContent)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
