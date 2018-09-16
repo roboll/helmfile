@@ -326,6 +326,11 @@ func main() {
 
 					releases, errs := executeDiffCommand(c, st, helm, true, c.Bool("suppress-secrets"))
 
+					releasesToBeDeleted, err := st.DetectReleasesToBeDeleted(helm)
+					if err != nil {
+						errs = append(errs, err)
+					}
+
 					noError := true
 					for _, e := range errs {
 						switch err := e.(type) {
@@ -338,15 +343,18 @@ func main() {
 
 					// sync only when there are changes
 					if noError {
-						if len(releases) == 0 {
+						if len(releases) == 0 && len(releasesToBeDeleted) == 0 {
 							// TODO better way to get the logger
 							logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
 							logger.Infof("")
 							logger.Infof("No affected releases")
 						} else {
-							names := make([]string, len(releases))
-							for i, r := range releases {
-								names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
+							names := []string{}
+							for _, r := range releases {
+								names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
+							}
+							for _, r := range releasesToBeDeleted {
+								names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
 							}
 
 							msg := fmt.Sprintf(`Affected releases are:
@@ -358,10 +366,14 @@ Do you really want to apply?
 `, strings.Join(names, "\n"))
 							autoApprove := c.Bool("auto-approve")
 							if autoApprove || !autoApprove && askForConfirmation(msg) {
-								rs := make([]state.ReleaseSpec, len(releases))
-								for i, r := range releases {
-									rs[i] = *r
+								rs := []state.ReleaseSpec{}
+								for _, r := range releases {
+									rs = append(rs, *r)
 								}
+								for _, r := range releasesToBeDeleted {
+									rs = append(rs, *r)
+								}
+
 								st.Releases = rs
 								return executeSyncCommand(c, st, helm)
 							}
