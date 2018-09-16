@@ -100,9 +100,10 @@ func (state *HelmState) loadEnv(name string, readFile func(string) ([]byte, erro
 	envVals := map[string]interface{}{}
 	envSpec, ok := state.Environments[name]
 	if ok {
-		r := valuesfile.NewRenderer(readFile, state.basePath, environment.EmptyEnvironment)
 		for _, envvalFile := range envSpec.Values {
-			bytes, err := r.RenderToBytes(filepath.Join(state.basePath, envvalFile))
+			envvalFullPath := filepath.Join(state.basePath, envvalFile)
+			r := valuesfile.NewRenderer(readFile, filepath.Dir(envvalFullPath), environment.EmptyEnvironment)
+			bytes, err := r.RenderToBytes(envvalFullPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", envvalFile, err)
 			}

@@ -88,6 +88,8 @@ type ReleaseSpec struct {
 	RecreatePods *bool `yaml:"recreatePods"`
 	// Force, when set to true, forces resource update through delete/recreate if needed
 	Force *bool `yaml:"force"`
+	// Installed, when set to true, `delete --purge` the release
+	Installed *bool `yaml:"installed"`
 
 	// Name is the name of this release
 	Name      string            `yaml:"name"`
@@ -161,7 +163,8 @@ type syncPrepareResult struct {
 
 // SyncReleases wrapper for executing helm upgrade on the releases
 func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int) ([]syncPrepareResult, []error) {
-	numReleases := len(state.Releases)
+	releases := state.Releases
+	numReleases := len(releases)
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan syncPrepareResult, numReleases)
 
@@ -202,7 +205,7 @@ func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalV
 	}
 
 	for i := 0; i < numReleases; i++ {
-		jobs <- &state.Releases[i]
+		jobs <- &releases[i]
 	}
 	close(jobs)
 
@@ -222,6 +225,31 @@ func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalV
 	return res, errs
 }
 
+func (state *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*ReleaseSpec, error) {
+	detected := []*ReleaseSpec{}
+	for i, _ := range state.Releases {
+		release := state.Releases[i]
+		if release.Installed != nil && !*release.Installed {
+			err := helm.ReleaseStatus(release.Name)
+			if err != nil {
+				switch e := err.(type) {
+				case *exec.ExitError:
+					// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
+					status := e.Sys().(syscall.WaitStatus)
+					if status.ExitStatus() != 1 {
+						return nil, e
+					}
+				default:
+					return nil, e
+				}
+			} else {
+				detected = append(detected, &release)
+			}
+		}
+	}
+	return detected, nil
+}
+
 // SyncReleases wrapper for executing helm upgrade on the releases
 func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
 	preps, prepErrs := state.prepareSyncReleases(helm, additionalValues, workerLimit)
@@ -233,7 +261,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	results := make(chan syncResult, len(preps))
 
 	if workerLimit < 1 {
-		workerLimit = len(state.Releases)
+		workerLimit = len(preps)
 	}
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
@@ -241,7 +269,15 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 				release := prep.release
 				flags := prep.flags
 				chart := normalizeChart(state.basePath, release.Chart)
-				if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
+				if release.Installed != nil && !*release.Installed {
+					if err := helm.ReleaseStatus(release.Name); err == nil {
+						if err := helm.DeleteRelease(release.Name, "--purge"); err != nil {
+							results <- syncResult{errors: []*ReleaseError{&ReleaseError{release, err}}}
+						} else {
+							results <- syncResult{}
+						}
+					}
+				} else if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
 					results <- syncResult{errors: []*ReleaseError{&ReleaseError{release, err}}}
 				} else {
 					results <- syncResult{}
@@ -466,7 +502,13 @@ type diffPrepareResult struct {
 }
 
 func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, suppressSecrets bool) ([]diffPrepareResult, []error) {
-	numReleases := len(state.Releases)
+	releases := []ReleaseSpec{}
+	for _, r := range state.Releases {
+		if r.Installed == nil || *r.Installed {
+			releases = append(releases, r)
+		}
+	}
+	numReleases := len(releases)
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan diffPrepareResult, numReleases)
 
@@ -520,7 +562,7 @@ func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalV
 	}
 
 	for i := 0; i < numReleases; i++ {
-		jobs <- &state.Releases[i]
+		jobs <- &releases[i]
 	}
 	close(jobs)
 
@@ -554,7 +596,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 	results := make(chan diffResult, len(preps))
 
 	if workerLimit < 1 {
-		workerLimit = len(state.Releases)
+		workerLimit = len(preps)
 	}
 
 	for w := 1; w <= workerLimit; w++ {
@@ -886,7 +928,7 @@ func (state *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSp
 }
 
 func (state *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
-	r := valuesfile.NewRenderer(state.readFile, state.basePath, state.Env)
+	r := valuesfile.NewRenderer(state.readFile, filepath.Dir(path), state.Env)
 	return r.RenderToBytes(path)
 }
 

@@ -284,7 +284,10 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 
 ## Templates
 
-You can use go's text/template expressions in `helmfile.yaml` and `values.yaml`(helm values files).
+You can use go's text/template expressions in `helmfile.yaml` and `values.yaml.gotmpl` (templated helm values files). `values.yaml` references will be used verbatim. In other words:
+
+- for value files ending with `.gotmpl`, template expressions will be rendered
+- for plain value files (ending in `.yaml`), content will be used as-is
 
 In addition to built-in ones, the following custom template functions are available:
 
@@ -456,8 +459,8 @@ environments:
     - default.yaml
   production:
     values:
-    - production.yaml #  template directives with potential side-effects like `exec` and `readFile` will NOT be executed
-    - other.yaml.gotmpl  #  `exec` and `readFile` will be honoured
+    - production.yaml #  bare .yaml file, content will be used verbatim
+    - other.yaml.gotmpl  #  template directives with potential side-effects like `exec` and `readFile` will be honoured
 
 releases:
 - name: myapp-{{ .Environment.Values.releaseName }} # release name will be one of `dev` or `prod` depending on selected environment
@@ -574,7 +577,7 @@ All the files are sorted alphabetically per group = array item inside `helmfiles
 The `exec` template function that is available in `values.yaml.gotmpl` is useful for importing values from any source
 that is accessible by running a command:
 
-An usual usage of `exec` would look like this:
+A usual usage of `exec` would look like this:
 
 ```
 mysetting: |

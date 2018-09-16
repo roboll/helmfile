@@ -326,6 +326,11 @@ func main() {
 
 					releases, errs := executeDiffCommand(c, st, helm, true, c.Bool("suppress-secrets"))
 
+					releasesToBeDeleted, err := st.DetectReleasesToBeDeleted(helm)
+					if err != nil {
+						errs = append(errs, err)
+					}
+
 					noError := true
 					for _, e := range errs {
 						switch err := e.(type) {
@@ -338,15 +343,18 @@ func main() {
 
 					// sync only when there are changes
 					if noError {
-						if len(releases) == 0 {
+						if len(releases) == 0 && len(releasesToBeDeleted) == 0 {
 							// TODO better way to get the logger
 							logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
 							logger.Infof("")
 							logger.Infof("No affected releases")
 						} else {
-							names := make([]string, len(releases))
-							for i, r := range releases {
-								names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
+							names := []string{}
+							for _, r := range releases {
+								names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
+							}
+							for _, r := range releasesToBeDeleted {
+								names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
 							}
 
 							msg := fmt.Sprintf(`Affected releases are:
@@ -358,10 +366,14 @@ Do you really want to apply?
 `, strings.Join(names, "\n"))
 							autoApprove := c.Bool("auto-approve")
 							if autoApprove || !autoApprove && askForConfirmation(msg) {
-								rs := make([]state.ReleaseSpec, len(releases))
-								for i, r := range releases {
-									rs[i] = *r
+								rs := []state.ReleaseSpec{}
+								for _, r := range releases {
+									rs = append(rs, *r)
 								}
+								for _, r := range releasesToBeDeleted {
+									rs = append(rs, *r)
+								}
+
 								st.Releases = rs
 								return executeSyncCommand(c, st, helm)
 							}
@@ -413,12 +425,16 @@ Do you really want to apply?
 					Usage: "pass args to helm exec",
 				},
 				cli.BoolFlag{
+					Name:  "auto-approve",
+					Usage: "Skip interactive approval before deleting",
+				},
+				cli.BoolFlag{
 					Name:  "purge",
 					Usage: "purge releases i.e. free release names and histories",
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface) []error {
 					purge := c.Bool("purge")
 
 					args := args.GetArgs(c.String("args"), state)
@@ -430,7 +446,23 @@ Do you really want to apply?
 						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
-					return state.DeleteReleases(helm, purge)
+					names := make([]string, len(state.Releases))
+					for i, r := range state.Releases {
+						names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
+					}
+
+					msg := fmt.Sprintf(`Affected releases are:
+%s
+
+Do you really want to delete?
+  Helmfile will delete all your releases, as shown above.
+
+`, strings.Join(names, "\n"))
+					autoApprove := c.Bool("auto-approve")
+					if autoApprove || !autoApprove && askForConfirmation(msg) {
+						return state.DeleteReleases(helm, purge)
+					}
+					return nil
 				})
 			},
 		},
@@ -542,9 +574,14 @@ type app struct {
 	abs               func(string) (string, error)
 	fileExistsAt      func(string) bool
 	directoryExistsAt func(string) bool
+	reverse           bool
 }
 
 func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
+	return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, false, converge)
+}
+
+func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, reverse bool, converge func(*state.HelmState, helmexec.Interface) []error) error {
 	fileOrDir := c.GlobalString("file")
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
@@ -564,6 +601,7 @@ func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*st
 		directoryExistsAt: directoryExistsAt,
 		kubeContext:       kubeContext,
 		logger:            logger,
+		reverse:           reverse,
 	}
 	if err := app.FindAndIterateOverDesiredStates(fileOrDir, converge, namespace, selectors, env); err != nil {
 		switch e := err.(type) {
@@ -608,7 +646,7 @@ type twoPassRenderer struct {
 
 func (r *twoPassRenderer) renderEnvironment(content []byte) environment.Environment {
 	firstPassEnv := environment.Environment{Name: r.env, Values: map[string]interface{}(nil)}
-	firstPassRenderer := tmpl.NewFirstPassRenderer(firstPassEnv)
+	firstPassRenderer := tmpl.NewFirstPassRenderer(filepath.Dir(r.filename), firstPassEnv)
 
 	// parse as much as we can, tolerate errors, this is a preparse
 	yamlBuf, err := firstPassRenderer.RenderTemplateContentToBuffer(content)
@@ -636,7 +674,7 @@ func (r *twoPassRenderer) renderTemplate(content []byte) (*bytes.Buffer, error) 
 	// try a first pass render. This will always succeed, but can produce a limited env
 	firstPassEnv := r.renderEnvironment(content)
 
-	secondPassRenderer := tmpl.NewFileRenderer(r.reader, "", firstPassEnv, r.namespace)
+	secondPassRenderer := tmpl.NewFileRenderer(r.reader, filepath.Dir(r.filename), firstPassEnv, r.namespace)
 	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
 	if err != nil {
 		if r.logger != nil {
@@ -705,25 +743,16 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 
 		if len(st.Helmfiles) > 0 {
 			noMatchInSubHelmfiles := true
-			for _, globPattern := range st.Helmfiles {
-				helmfileRelativePattern := st.JoinBase(globPattern)
-				matches, err := a.glob(helmfileRelativePattern)
-				if err != nil {
-					return fmt.Errorf("failed processing %s: %v", globPattern, err)
-				}
-				sort.Strings(matches)
+			for _, m := range st.Helmfiles {
+				if err := a.FindAndIterateOverDesiredStates(m, converge, namespace, selectors, env); err != nil {
+					switch err.(type) {
+					case *noMatchingHelmfileError:
 
-				for _, m := range matches {
-					if err := a.FindAndIterateOverDesiredStates(m, converge, namespace, selectors, env); err != nil {
-						switch err.(type) {
-						case *noMatchingHelmfileError:
-
-						default:
-							return fmt.Errorf("failed processing %s: %v", globPattern, err)
-						}
-					} else {
-						noMatchInSubHelmfiles = false
+					default:
+						return fmt.Errorf("failed processing %s: %v", m, err)
 					}
+				} else {
+					noMatchInSubHelmfiles = false
 				}
 			}
 			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
@@ -807,6 +836,27 @@ func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 	st, err := c.CreateFromYaml(yaml, file, env)
 	if err != nil {
 		return nil, false, err
+	}
+
+	helmfiles := []string{}
+	for _, globPattern := range st.Helmfiles {
+		helmfileRelativePattern := st.JoinBase(globPattern)
+		matches, err := a.glob(helmfileRelativePattern)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed processing %s: %v", globPattern, err)
+		}
+		sort.Strings(matches)
+
+		helmfiles = append(helmfiles, matches...)
+	}
+	st.Helmfiles = helmfiles
+
+	if a.reverse {
+		rev := func(i, j int) bool {
+			return j < i
+		}
+		sort.Slice(st.Releases, rev)
+		sort.Slice(st.Helmfiles, rev)
 	}
 
 	if a.kubeContext != "" {
