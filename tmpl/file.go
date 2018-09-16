@@ -35,12 +35,12 @@ func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath st
 	}
 }
 
-func NewFirstPassRenderer(env environment.Environment) *templateFileRenderer {
+func NewFirstPassRenderer(basePath string, env environment.Environment) *templateFileRenderer {
 	return &templateFileRenderer{
 		ReadFile: ioutil.ReadFile,
 		Context: &Context{
 			preRender: true,
-			basePath:  "",
+			basePath:  basePath,
 			readFile:  ioutil.ReadFile,
 		},
 		Data: TemplateData{
