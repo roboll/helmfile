@@ -418,7 +418,7 @@ Do you really want to apply?
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface) []error {
 					purge := c.Bool("purge")
 
 					args := args.GetArgs(c.String("args"), state)
@@ -542,9 +542,14 @@ type app struct {
 	abs               func(string) (string, error)
 	fileExistsAt      func(string) bool
 	directoryExistsAt func(string) bool
+	reverse           bool
 }
 
 func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
+	return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, false, converge)
+}
+
+func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, reverse bool, converge func(*state.HelmState, helmexec.Interface) []error) error {
 	fileOrDir := c.GlobalString("file")
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
@@ -564,6 +569,7 @@ func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*st
 		directoryExistsAt: directoryExistsAt,
 		kubeContext:       kubeContext,
 		logger:            logger,
+		reverse:           reverse,
 	}
 	if err := app.FindAndIterateOverDesiredStates(fileOrDir, converge, namespace, selectors, env); err != nil {
 		switch e := err.(type) {
@@ -703,25 +709,16 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 
 		if len(st.Helmfiles) > 0 {
 			noMatchInSubHelmfiles := true
-			for _, globPattern := range st.Helmfiles {
-				helmfileRelativePattern := st.JoinBase(globPattern)
-				matches, err := a.glob(helmfileRelativePattern)
-				if err != nil {
-					return fmt.Errorf("failed processing %s: %v", globPattern, err)
-				}
-				sort.Strings(matches)
+			for _, m := range st.Helmfiles {
+				if err := a.FindAndIterateOverDesiredStates(m, converge, namespace, selectors, env); err != nil {
+					switch err.(type) {
+					case *noMatchingHelmfileError:
 
-				for _, m := range matches {
-					if err := a.FindAndIterateOverDesiredStates(m, converge, namespace, selectors, env); err != nil {
-						switch err.(type) {
-						case *noMatchingHelmfileError:
-
-						default:
-							return fmt.Errorf("failed processing %s: %v", globPattern, err)
-						}
-					} else {
-						noMatchInSubHelmfiles = false
+					default:
+						return fmt.Errorf("failed processing %s: %v", m, err)
 					}
+				} else {
+					noMatchInSubHelmfiles = false
 				}
 			}
 			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
@@ -805,6 +802,27 @@ func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 	st, err := c.CreateFromYaml(yaml, file, env)
 	if err != nil {
 		return nil, false, err
+	}
+
+	helmfiles := []string{}
+	for _, globPattern := range st.Helmfiles {
+		helmfileRelativePattern := st.JoinBase(globPattern)
+		matches, err := a.glob(helmfileRelativePattern)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed processing %s: %v", globPattern, err)
+		}
+		sort.Strings(matches)
+
+		helmfiles = append(helmfiles, matches...)
+	}
+	st.Helmfiles = helmfiles
+
+	if a.reverse {
+		rev := func(i, j int) bool {
+			return j < i
+		}
+		sort.Slice(st.Releases, rev)
+		sort.Slice(st.Helmfiles, rev)
 	}
 
 	if a.kubeContext != "" {
