@@ -83,6 +83,9 @@ releases:
       values:
       - 1
       - 2
+    # set a templated value
+    - name: namespace
+      value: {{ .Namespace }}
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
       - vault_secret.yaml
@@ -200,7 +203,7 @@ GLOBAL OPTIONS:
    --quiet, -q                             Silence output. Equivalent to log-level warn
    --kube-context value                    Set kubectl context. Uses current context by default
    --log-level value                       Set log level, default info
-   --namespace value, -n value             Set namespace. Uses the namespace set in the context by default
+   --namespace value, -n value             Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
    --selector value, -l value              Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
                                            A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                            --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.

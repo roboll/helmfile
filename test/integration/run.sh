@@ -61,7 +61,7 @@ wait_deploy_ready httpbin-httpbin
 retry 5 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-httpbin)/status/200"
 [ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
 info "Deleting release"
-${helmfile} -f ${dir}/happypath.yaml delete
+${helmfile} -f ${dir}/happypath.yaml delete --auto-approve
 ${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a delete"
 test_pass "happypath"
 

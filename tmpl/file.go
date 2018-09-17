@@ -16,13 +16,15 @@ type templateFileRenderer struct {
 type TemplateData struct {
 	// Environment is accessible as `.Environment` from any template executed by the renderer
 	Environment environment.Environment
+	// Namespace is accessible as `.Namespace` from any non-values template executed by the renderer
+	Namespace string
 }
 
 type FileRenderer interface {
 	RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error)
 }
 
-func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath string, env environment.Environment) *templateFileRenderer {
+func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath string, env environment.Environment, namespace string) *templateFileRenderer {
 	return &templateFileRenderer{
 		ReadFile: readFile,
 		Context: &Context{
@@ -31,6 +33,7 @@ func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath st
 		},
 		Data: TemplateData{
 			Environment: env,
+			Namespace:   namespace,
 		},
 	}
 }
