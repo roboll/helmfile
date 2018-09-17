@@ -952,7 +952,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 
 			yamlBytes, err := state.RenderValuesFileToBytes(path)
 			if err != nil {
-				return nil, fmt.Errorf("faield to render values files \"%s\": %v", typedValue, err)
+				return nil, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
 
 			valfile, err := ioutil.TempFile("", "values")
