@@ -582,6 +582,11 @@ func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*st
 }
 
 func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, reverse bool, converge func(*state.HelmState, helmexec.Interface) []error) error {
+	if c.NArg() > 0 {
+		cli.ShowAppHelp(c)
+		return fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
+	}
+
 	fileOrDir := c.GlobalString("file")
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
