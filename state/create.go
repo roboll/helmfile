@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/environment"
@@ -8,6 +9,7 @@ import (
 	"github.com/roboll/helmfile/valuesfile"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -64,16 +66,32 @@ func (c *creator) CreateFromYaml(content []byte, file string, env string) (*Helm
 	if err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
 	}
+	state.FilePath = file
 	state.basePath = basePath
 
-	unmarshal := yaml.UnmarshalStrict
+	decoder := yaml.NewDecoder(bytes.NewReader(content))
 	if !c.Strict {
-		unmarshal = yaml.Unmarshal
+		decoder.SetStrict(false)
+	} else {
+		decoder.SetStrict(true)
 	}
-	if err := unmarshal(content, &state); err != nil {
-		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
+	i := 0
+	for {
+		i++
+
+		var intermediate HelmState
+
+		err := decoder.Decode(&intermediate)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, &StateLoadError{fmt.Sprintf("failed to read %s: reading document at index %d", file, i), err}
+		}
+
+		if err := mergo.Merge(&state, &intermediate, mergo.WithAppendSlice); err != nil {
+			return nil, &StateLoadError{fmt.Sprintf("failed to read %s: merging document at index %d", file, i), err}
+		}
 	}
-	state.FilePath = file
 
 	if len(state.DeprecatedReleases) > 0 {
 		if len(state.Releases) > 0 {
