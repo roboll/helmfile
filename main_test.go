@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,36 +9,6 @@ import (
 	"github.com/roboll/helmfile/state"
 	"gopkg.in/yaml.v2"
 )
-
-// See https://github.com/roboll/helmfile/issues/193
-func TestReadFromYaml_DuplicateReleaseName(t *testing.T) {
-	yamlFile := "example/path/to/yaml/file"
-	yamlContent := []byte(`releases:
-- name: myrelease1
-  chart: mychart1
-  labels:
-    stage: pre
-    foo: bar
-- name: myrelease1
-  chart: mychart2
-  labels:
-    stage: post
-`)
-	app := &app{
-		readFile:    ioutil.ReadFile,
-		glob:        filepath.Glob,
-		abs:         filepath.Abs,
-		kubeContext: "default",
-		logger:      logger,
-	}
-	_, _, err := app.loadDesiredStateFromYaml(yamlContent, yamlFile, "default", []string{}, "default")
-	if err == nil {
-		t.Error("error expected but not happened")
-	}
-	if err.Error() != "duplicate release \"myrelease1\" found: there were 2 releases named \"myrelease1\" matching specified selector" {
-		t.Errorf("unexpected error happened: %v", err)
-	}
-}
 
 func makeRenderer(readFile func(string) ([]byte, error), env string) *twoPassRenderer {
 	return &twoPassRenderer{

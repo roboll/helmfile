@@ -765,7 +765,7 @@ func (state *HelmState) Clean() []error {
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
 func (state *HelmState) FilterReleases(labels []string) error {
 	var filteredReleases []ReleaseSpec
-	releaseSet := map[string]ReleaseSpec{}
+	releaseSet := map[string][]ReleaseSpec{}
 	filters := []ReleaseFilter{}
 	for _, label := range labels {
 		f, err := ParseLabels(label)
@@ -785,13 +785,13 @@ func (state *HelmState) FilterReleases(labels []string) error {
 				r.Labels = map[string]string{}
 			}
 			if f.Match(r) {
-				releaseSet[r.Name] = r
+				releaseSet[r.Name] = append(releaseSet[r.Name], r)
 				continue
 			}
 		}
 	}
 	for _, r := range releaseSet {
-		filteredReleases = append(filteredReleases, r)
+		filteredReleases = append(filteredReleases, r...)
 	}
 	state.Releases = filteredReleases
 	numFound := len(filteredReleases)
