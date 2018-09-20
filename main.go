@@ -120,9 +120,6 @@ func main() {
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.GlobalString("helm-binary") != "" {
-						helm.SetHelmBinary(c.GlobalString("helm-binary"))
-					}
 
 					return state.SyncRepos(helm)
 				})
@@ -237,10 +234,6 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					if c.GlobalString("helm-binary") != "" {
-						helm.SetHelmBinary(c.GlobalString("helm-binary"))
-					}
-
 					values := c.StringSlice("values")
 					args := args.GetArgs(c.String("args"), state)
 					workers := c.Int("concurrency")
@@ -407,9 +400,6 @@ Do you really want to apply?
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.GlobalString("helm-binary") != "" {
-						helm.SetHelmBinary(c.GlobalString("helm-binary"))
-					}
 
 					return state.ReleaseStatuses(helm, workers)
 				})
@@ -440,10 +430,6 @@ Do you really want to apply?
 					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
-					}
-
-					if c.GlobalString("helm-binary") != "" {
-						helm.SetHelmBinary(c.GlobalString("helm-binary"))
 					}
 
 					names := make([]string, len(state.Releases))
@@ -494,9 +480,6 @@ Do you really want to delete?
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
-					if c.GlobalString("helm-binary") != "" {
-						helm.SetHelmBinary(c.GlobalString("helm-binary"))
-					}
 
 					return state.TestReleases(helm, cleanup, timeout)
 				})
@@ -516,9 +499,6 @@ func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
 	}
-	if c.GlobalString("helm-binary") != "" {
-		helm.SetHelmBinary(c.GlobalString("helm-binary"))
-	}
 
 	values := c.StringSlice("values")
 	workers := c.Int("concurrency")
@@ -527,9 +507,6 @@ func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 }
 
 func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {
-	if c.GlobalString("helm-binary") != "" {
-		helm.SetHelmBinary(c.GlobalString("helm-binary"))
-	}
 	if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
 		return errs
 	}
@@ -549,9 +526,6 @@ func executeDiffCommand(c *cli.Context, st *state.HelmState, helm helmexec.Inter
 	args := args.GetArgs(c.String("args"), st)
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
-	}
-	if c.GlobalString("helm-binary") != "" {
-		helm.SetHelmBinary(c.GlobalString("helm-binary"))
 	}
 
 	if c.Bool("sync-repos") {
@@ -603,7 +577,13 @@ func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, revers
 		logger:            logger,
 		reverse:           reverse,
 	}
-	if err := app.FindAndIterateOverDesiredStates(fileOrDir, converge, namespace, selectors, env); err != nil {
+	convergeWithHelmBinary := func(st *state.HelmState, helm helmexec.Interface) []error {
+		if c.GlobalString("helm-binary") != "" {
+			helm.SetHelmBinary(c.GlobalString("helm-binary"))
+		}
+		return converge(st, helm)
+	}
+	if err := app.FindAndIterateOverDesiredStates(fileOrDir, convergeWithHelmBinary, namespace, selectors, env); err != nil {
 		switch e := err.(type) {
 		case *noMatchingHelmfileError:
 			return cli.NewExitError(e.Error(), 2)
