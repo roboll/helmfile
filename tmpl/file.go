@@ -22,6 +22,7 @@ type TemplateData struct {
 
 type FileRenderer interface {
 	RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error)
+	SetMissingKeyZero(value bool)
 }
 
 func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath string, env environment.Environment, namespace string) *templateFileRenderer {
@@ -50,6 +51,10 @@ func NewFirstPassRenderer(basePath string, env environment.Environment) *templat
 			Environment: env,
 		},
 	}
+}
+
+func (r *templateFileRenderer) SetMissingKeyZero(value bool) {
+	r.Context.SetMissingKeyZero(value)
 }
 
 func (r *templateFileRenderer) RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {

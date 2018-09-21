@@ -20,6 +20,10 @@ func (c *Context) stringTemplate() *template.Template {
 	return tmpl
 }
 
+func (c *Context) SetMissingKeyZero(value bool) {
+	c.preRender = value
+}
+
 func (c *Context) RenderTemplateToBuffer(s string, data ...interface{}) (*bytes.Buffer, error) {
 	var t, parseErr = c.stringTemplate().Parse(s)
 	if parseErr != nil {

@@ -19,6 +19,10 @@ func NewRenderer(readFile func(filename string) ([]byte, error), basePath string
 	}
 }
 
+func (r *renderer) SetMissingKeyZero(value bool) {
+	r.tmplFileRenderer.SetMissingKeyZero(value)
+}
+
 func (r *renderer) RenderToBytes(path string) ([]byte, error) {
 	var yamlBytes []byte
 	splits := strings.Split(path, ".")

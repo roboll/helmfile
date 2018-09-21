@@ -259,3 +259,57 @@ func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 		t.Errorf("release name should be namespace-myrelease")
 	}
 }
+
+func TestReadFromYaml_RenderReadmeExample(t *testing.T) {
+	yamlContent := []byte(`
+environments:
+  production:
+    values:
+    - production.yaml
+
+releases:
+- name: myapp
+  values:
+  - values.yaml.gotmpl
+`)
+
+	productionYaml := []byte(`
+domain: prod.example.com
+releaseName: prod
+`)
+	valuesYamlGotmpl := []byte(`
+domain: {{ .Environment.Values.domain | default "dev.example.com" }}
+`)
+
+	fileReader := func(filename string) ([]byte, error) {
+		if strings.Contains(filename, "production.yaml") {
+			return productionYaml, nil
+		}
+		if strings.Contains(filename, "values.yaml.gotmpl") {
+			return valuesYamlGotmpl, nil
+		}
+		return []byte(""), fmt.Errorf("Unexpected file read: %s", filename)
+	}
+
+	r := makeRenderer(fileReader, "default")
+	yamlBuf, err := r.renderTemplate(yamlContent)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	c := state.NewCreator(r.logger, r.reader, r.abs)
+	state, err := c.CreateFromYaml(yamlBuf.Bytes(), r.filename, r.env)
+
+	final, err := state.RenderValuesFileToBytes("values.yaml.gotmpl")
+	if err != nil {
+		t.Fatalf("failed to render values files %v", err)
+	}
+	var values map[string]interface{}
+
+	err = yaml.Unmarshal(final, &values)
+	fmt.Printf("%+v", values)
+
+	if values["domain"] != "dev.example.com" {
+		t.Errorf("domain name should be dev.example.com")
+	}
+}

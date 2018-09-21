@@ -994,6 +994,7 @@ func (state *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSp
 
 func (state *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
 	r := valuesfile.NewRenderer(state.readFile, filepath.Dir(path), state.Env)
+	r.SetMissingKeyZero(true)
 	return r.RenderToBytes(path)
 }
 
