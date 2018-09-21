@@ -593,6 +593,110 @@ mysetting: |
 
 The possibility is endless. Try importing values from your golang app, bash script, jsonnet, or anything!
 
+## Hooks
+
+A helmfile hook is a per-release extension point that is composed of:
+
+- `events`
+- `command`
+- `args`
+
+helmfile triggers various `events` while it is running.
+Once `events` are triggered, associated `hooks` are executed, by running the `command` with `args`.
+
+Currently supported `events` are:
+
+- `prepare`
+- `cleanup`
+
+Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before executed.
+
+Hooks associated to `cleanup` events are triggered after each release is processed.
+
+The following is an example hook that just prints the contextual information provided to hook:
+
+```
+releases:
+- name: myapp
+  chart: mychart
+  # *snip*
+  hooks:
+  - events: ["prepare", "cleanup"]
+    command: "echo"
+    args: ["{{`{{.Environment.Name}}`}}", "{{`{{.Release.Name}}`}}", "{{`{{.HelmfileCommand}}`}}\
+"]
+```
+
+Let's say you ran `helmfile --environment prod sync`, the above hook results in executing:
+
+```
+echo {{Environment.Name}} {{.Release.Name}} {{.HelmfileCommand}}
+```
+
+Whereas the template expressions are executed thus the command becomes:
+
+```
+echo prod myapp sync
+```
+
+Now, replace `echo` with any command you like, and rewrite `args` that actually conforms to the command, so that you can integrate any command that does:
+
+- templating
+- linting
+- testing
+
+For templating, imagine that you created a hook that generates a helm chart on-the-fly by running an external tool like ksonnet, kustomize, or your own template engine.
+It will allow you to write your helm releases with any language you like, while still leveraging goodies provided by helm.
+
+### Helmfile + Kustomize
+
+Do you prefer `kustomize` to write and organize your Kubernetes apps, but still want to leverage helm's useful features
+like rollback, history, and so on? This section is for you!
+
+The combination of `hooks` and [helmify-kustomize](https://gist.github.com/mumoshu/f9d0bd98e0eb77f636f79fc2fb130690)
+enables you to integrate [kustomize](https://github.com/kubernetes-sigs/kustomize) into helmfle.
+
+That is, you can use `kustommize` to build a local helm chart from a kustomize overlay.
+
+Let's assume you have a kustomize project named `foo-kustomize` like this:
+
+```
+foo-kustomize/
+├── base
+│   ├── configMap.yaml
+│   ├── deployment.yaml
+│   ├── kustomization.yaml
+│   └── service.yaml
+└── overlays
+    ├── default
+    │   ├── kustomization.yaml
+    │   └── map.yaml
+    ├── production
+    │   ├── deployment.yaml
+    │   └── kustomization.yaml
+    └── staging
+        ├── kustomization.yaml
+        └── map.yaml
+
+5 directories, 10 files
+```
+
+Write `helmfile.yaml`:
+
+```yaml
+- name: kustomize
+  chart: ./foo
+  hooks:
+  - events: ["prepare", "cleanup"]
+    command: "../helmify"
+    args: ["{{`{{if eq .Event.Name \"prepare\"}}build{{else}}clean{{end}}`}}", "{{`{{.Release.Ch\
+art}}`}}", "{{`{{.Environment.Name}}`}}"]
+```
+
+Run `helmfile --environment staging sync` and see it results in helmfile running `kustomize build foo-kustomize/overlays/staging > foo/templates/all.yaml`.
+
+Voilà! You can mix helm releases that are backed by remote charts, local charts, and even kustomize overlays.
+
 ## Using env files
 
 helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:

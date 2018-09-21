@@ -209,6 +209,10 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					if errs := state.PrepareRelease(helm, "template"); errs != nil && len(errs) > 0 {
+						return errs
+					}
+
 					return executeTemplateCommand(c, state, helm)
 				})
 			},
@@ -240,6 +244,9 @@ func main() {
 					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
+					if errs := state.PrepareRelease(helm, "lint"); errs != nil && len(errs) > 0 {
+						return errs
+					}
 					return state.LintReleases(helm, values, args, workers)
 				})
 			},
@@ -266,6 +273,9 @@ func main() {
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
 					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+						return errs
+					}
+					if errs := state.PrepareRelease(helm, "sync"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
@@ -312,6 +322,9 @@ func main() {
 						if errs := st.SyncRepos(helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
+					}
+					if errs := st.PrepareRelease(helm, "apply"); errs != nil && len(errs) > 0 {
+						return errs
 					}
 					if errs := st.UpdateDeps(helm); errs != nil && len(errs) > 0 {
 						return errs

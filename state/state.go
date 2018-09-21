@@ -19,6 +19,7 @@ import (
 	"syscall"
 
 	"github.com/roboll/helmfile/environment"
+	"github.com/roboll/helmfile/event"
 	"github.com/roboll/helmfile/valuesfile"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -42,6 +43,8 @@ type HelmState struct {
 	logger *zap.SugaredLogger
 
 	readFile func(string) ([]byte, error)
+
+	runner helmexec.Runner
 }
 
 // HelmSpec to defines helmDefault values
@@ -90,6 +93,9 @@ type ReleaseSpec struct {
 	Force *bool `yaml:"force"`
 	// Installed, when set to true, `delete --purge` the release
 	Installed *bool `yaml:"installed"`
+
+	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
+	Hooks []event.Hook `yaml:"hooks"`
 
 	// Name is the name of this release
 	Name      string            `yaml:"name"`
@@ -175,6 +181,7 @@ func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalV
 		go func() {
 			for release := range jobs {
 				state.applyDefaultsTo(release)
+
 				flags, flagsErr := state.flagsForUpgrade(helm, release)
 				if flagsErr != nil {
 					results <- syncPrepareResult{errors: []*ReleaseError{&ReleaseError{release, flagsErr}}}
@@ -282,6 +289,10 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 				} else {
 					results <- syncResult{}
 				}
+
+				if _, err := state.triggerCleanupEvent(prep.release, "sync"); err != nil {
+					state.logger.Warnf("warn: %v\n", err)
+				}
 			}
 		}()
 	}
@@ -312,7 +323,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 }
 
 // downloadCharts will download and untar charts for Lint and Template
-func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerLimit int) (map[string]string, []error) {
+func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerLimit int, helmfileCommand string) (map[string]string, []error) {
 	temp := make(map[string]string, len(state.Releases))
 	type downloadResults struct {
 		releaseName string
@@ -387,7 +398,7 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 	}
 	defer os.RemoveAll(dir)
 
-	temp, errs := state.downloadCharts(helm, dir, workerLimit)
+	temp, errs := state.downloadCharts(helm, dir, workerLimit, "template")
 
 	if errs != nil {
 		errs = append(errs, err)
@@ -420,6 +431,10 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 				errs = append(errs, err)
 			}
 		}
+
+		if _, err := state.triggerCleanupEvent(&release, "template"); err != nil {
+			state.logger.Warnf("warn: %v\n", err)
+		}
 	}
 
 	if len(errs) != 0 {
@@ -440,7 +455,7 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 	}
 	defer os.RemoveAll(dir)
 
-	temp, errs := state.downloadCharts(helm, dir, workerLimit)
+	temp, errs := state.downloadCharts(helm, dir, workerLimit, "lint")
 	if errs != nil {
 		errs = append(errs, err)
 		return errs
@@ -471,6 +486,10 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 			if err := helm.Lint(temp[release.Name], flags...); err != nil {
 				errs = append(errs, err)
 			}
+		}
+
+		if _, err := state.triggerCleanupEvent(&release, "lint"); err != nil {
+			state.logger.Warnf("warn: %v\n", err)
 		}
 	}
 
@@ -616,6 +635,10 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 				} else {
 					// diff succeeded, found no changes
 					results <- diffResult{}
+				}
+
+				if _, err := state.triggerCleanupEvent(prep.release, "diff"); err != nil {
+					state.logger.Warnf("warn: %v\n", err)
 				}
 			}
 		}()
@@ -797,6 +820,48 @@ func (state *HelmState) FilterReleases(labels []string) error {
 	numFound := len(filteredReleases)
 	state.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(labels, ","), state.FilePath)
 	return nil
+}
+
+func (state *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand string) []error {
+	errs := []error{}
+
+	for _, release := range state.Releases {
+		if isLocalChart(release.Chart) {
+			if _, err := state.triggerPrepareEvent(&release, helmfileCommand); err != nil {
+				errs = append(errs, &ReleaseError{&release, err})
+				continue
+			}
+		}
+	}
+	if len(errs) != 0 {
+		return errs
+	}
+	return nil
+}
+
+func (state *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+	return state.triggerReleaseEvent("prepare", r, helmfileCommand)
+}
+
+func (state *HelmState) triggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+	return state.triggerReleaseEvent("cleanup", r, helmfileCommand)
+}
+
+func (state *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd string) (bool, error) {
+	bus := &event.Bus{
+		Hooks:         r.Hooks,
+		StateFilePath: state.FilePath,
+		BasePath:      state.basePath,
+		Namespace:     state.Namespace,
+		Env:           state.Env,
+		Logger:        state.logger,
+		ReadFile:      state.readFile,
+	}
+	data := map[string]interface{}{
+		"Release":         r,
+		"HelmfileCommand": helmfileCmd,
+	}
+	return bus.Trigger(evt, data)
 }
 
 // UpdateDeps wrapper for updating dependencies on the releases
