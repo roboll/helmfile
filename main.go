@@ -114,13 +114,13 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return visitAllDesiredStates(c, func(state *state.HelmState, helm helmexec.Interface) (bool, []error) {
+				return visitAllDesiredStates(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) (bool, []error) {
 					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
 
-					errs := state.SyncRepos(helm)
+					errs := ctx.SyncReposOnce(state, helm)
 
 					ok := len(state.Repositories) > 0 && len(errs) == 0
 
@@ -148,7 +148,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ context) []error {
 					return executeSyncCommand(c, state, helm)
 				})
 			},
@@ -185,9 +185,11 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					if errs := state.PrepareRelease(helm, "diff"); errs != nil && len(errs) > 0 {
-						return errs
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) []error {
+					if c.Bool("sync-repos") {
+						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
 					}
 
 					_, errs := executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"), c.Bool("suppress-secrets"))
@@ -215,8 +217,15 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) []error {
 					if errs := state.PrepareRelease(helm, "template"); errs != nil && len(errs) > 0 {
+						return errs
+					}
+					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+						return errs
+					}
+
+					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
 
@@ -244,11 +253,11 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) []error {
 					values := c.StringSlice("values")
 					args := args.GetArgs(c.String("args"), state)
 					workers := c.Int("concurrency")
-					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					if errs := state.PrepareRelease(helm, "lint"); errs != nil && len(errs) > 0 {
@@ -278,8 +287,8 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
-					if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) []error {
+					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					if errs := state.PrepareRelease(helm, "sync"); errs != nil && len(errs) > 0 {
@@ -324,9 +333,9 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx context) []error {
 					if !c.Bool("skip-repo-update") {
-						if errs := st.SyncRepos(helm); errs != nil && len(errs) > 0 {
+						if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
 					}
@@ -413,7 +422,7 @@ Do you really want to apply?
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ context) []error {
 					workers := c.Int("concurrency")
 
 					args := args.GetArgs(c.String("args"), state)
@@ -444,7 +453,7 @@ Do you really want to apply?
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ context) []error {
 					purge := c.Bool("purge")
 
 					args := args.GetArgs(c.String("args"), state)
@@ -492,7 +501,7 @@ Do you really want to delete?
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ context) []error {
 					cleanup := c.Bool("cleanup")
 					timeout := c.Int("timeout")
 
@@ -527,14 +536,6 @@ func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 }
 
 func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {
-	if errs := state.SyncRepos(helm); errs != nil && len(errs) > 0 {
-		return errs
-	}
-
-	if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
-		return errs
-	}
-
 	args := args.GetArgs(c.String("args"), state)
 	values := c.StringSlice("values")
 	workers := c.Int("concurrency")
@@ -546,12 +547,6 @@ func executeDiffCommand(c *cli.Context, st *state.HelmState, helm helmexec.Inter
 	args := args.GetArgs(c.String("args"), st)
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
-	}
-
-	if c.Bool("sync-repos") {
-		if errs := st.SyncRepos(helm); errs != nil && len(errs) > 0 {
-			return []*state.ReleaseSpec{}, errs
-		}
 	}
 
 	values := c.StringSlice("values")
@@ -574,7 +569,7 @@ type app struct {
 	selectors         []string
 }
 
-func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
+func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, context) []error) error {
 	return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, false, converge)
 }
 
@@ -612,17 +607,43 @@ func initAppEntry(c *cli.Context, reverse bool) (*app, string, error) {
 	return app, fileOrDir, nil
 }
 
-func visitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+type context struct {
+	updatedRepos map[string]struct{}
+}
+
+func (ctx context) SyncReposOnce(st *state.HelmState, helm state.RepoUpdater) []error {
+	var errs []error
+
+	allUpdated := true
+	for _, r := range st.Repositories {
+		_, exists := ctx.updatedRepos[r.Name]
+		allUpdated = allUpdated && exists
+	}
+
+	if !allUpdated {
+		errs = st.SyncRepos(helm)
+
+		for _, r := range st.Repositories {
+			ctx.updatedRepos[r.Name] = struct{}{}
+		}
+	}
+
+	return errs
+}
+
+func visitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, context) (bool, []error)) error {
 	app, fileOrDir, err := initAppEntry(c, false)
 	if err != nil {
 		return err
 	}
 
+	ctx := context{}
+
 	convergeWithHelmBinary := func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		if c.GlobalString("helm-binary") != "" {
 			helm.SetHelmBinary(c.GlobalString("helm-binary"))
 		}
-		return converge(st, helm)
+		return converge(st, helm, ctx)
 	}
 
 	err = app.VisitDesiredStates(fileOrDir, convergeWithHelmBinary)
@@ -648,17 +669,19 @@ func toCliError(err error) error {
 	return err
 }
 
-func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, reverse bool, converge func(*state.HelmState, helmexec.Interface) []error) error {
+func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, reverse bool, converge func(*state.HelmState, helmexec.Interface, context) []error) error {
 	app, fileOrDir, err := initAppEntry(c, reverse)
 	if err != nil {
 		return err
 	}
 
+	ctx := context{}
+
 	convergeWithHelmBinary := func(st *state.HelmState, helm helmexec.Interface) []error {
 		if c.GlobalString("helm-binary") != "" {
 			helm.SetHelmBinary(c.GlobalString("helm-binary"))
 		}
-		return converge(st, helm)
+		return converge(st, helm, ctx)
 	}
 
 	err = app.VisitDesiredStatesWithReleasesFiltered(fileOrDir, convergeWithHelmBinary)
