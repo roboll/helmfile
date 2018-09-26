@@ -637,7 +637,9 @@ func visitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helme
 		return err
 	}
 
-	ctx := context{}
+	ctx := context{
+		updatedRepos: map[string]struct{}{},
+	}
 
 	convergeWithHelmBinary := func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		if c.GlobalString("helm-binary") != "" {
@@ -675,7 +677,9 @@ func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, revers
 		return err
 	}
 
-	ctx := context{}
+	ctx := context{
+		updatedRepos: map[string]struct{}{},
+	}
 
 	convergeWithHelmBinary := func(st *state.HelmState, helm helmexec.Interface) []error {
 		if c.GlobalString("helm-binary") != "" {
