@@ -182,6 +182,11 @@ func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalV
 	if concurrency < 1 {
 		concurrency = numReleases
 	}
+
+	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(concurrency)
+
 	for w := 1; w <= concurrency; w++ {
 		go func() {
 			for release := range jobs {
@@ -213,6 +218,7 @@ func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalV
 
 				results <- syncPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}}
 			}
+			waitGroup.Done()
 		}()
 	}
 
@@ -233,6 +239,8 @@ func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalV
 			i++
 		}
 	}
+
+	waitGroup.Wait()
 
 	return res, errs
 }
@@ -275,6 +283,13 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 	if workerLimit < 1 {
 		workerLimit = len(preps)
 	}
+
+	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
+	// Otherwise, cleanup hooks won't run fully.
+	// See #363 for more context.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(workerLimit)
+
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for prep := range jobQueue {
@@ -299,6 +314,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 					state.logger.Warnf("warn: %v\n", err)
 				}
 			}
+			waitGroup.Done()
 		}()
 	}
 
@@ -319,6 +335,8 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 		}
 		i++
 	}
+
+	waitGroup.Wait()
 
 	if len(errs) > 0 {
 		return errs
@@ -370,8 +388,8 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, work
 					chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
 				}
 				results <- &downloadResults{release.Name, chartPath}
-				wgFetch.Done()
 			}
+			wgFetch.Done()
 		}()
 	}
 	for i := 0; i < len(state.Releases); i++ {
@@ -540,6 +558,10 @@ func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalV
 		concurrency = numReleases
 	}
 
+	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(concurrency)
+
 	for w := 1; w <= concurrency; w++ {
 		go func() {
 			for release := range jobs {
@@ -582,6 +604,7 @@ func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalV
 					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}}
 				}
 			}
+			waitGroup.Done()
 		}()
 	}
 
@@ -605,6 +628,9 @@ func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalV
 		}
 		i++
 	}
+
+	waitGroup.Wait()
+
 	return rs, errs
 }
 
@@ -622,6 +648,12 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 	if workerLimit < 1 {
 		workerLimit = len(preps)
 	}
+
+	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
+	// Otherwise, cleanup hooks won't run fully.
+	// See #363 for more context.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(workerLimit)
 
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
@@ -646,6 +678,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 					state.logger.Warnf("warn: %v\n", err)
 				}
 			}
+			waitGroup.Done()
 		}()
 	}
 
@@ -669,6 +702,9 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 		}
 	}
 	close(results)
+
+	waitGroup.Wait()
+
 	return rs, errs
 }
 
@@ -681,6 +717,11 @@ func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int
 	if workerLimit < 1 {
 		workerLimit = len(state.Releases)
 	}
+
+	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(workerLimit)
+
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for release := range jobQueue {
@@ -689,6 +730,7 @@ func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int
 				}
 				doneQueue <- true
 			}
+			waitGroup.Done()
 		}()
 	}
 
@@ -707,6 +749,8 @@ func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int
 			i++
 		}
 	}
+
+	waitGroup.Wait()
 
 	if len(errs) != 0 {
 		return errs

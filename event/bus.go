@@ -90,6 +90,7 @@ func (bus *Bus) Trigger(evt string, context map[string]interface{}) (bool, error
 
 		bytes, err := bus.Runner.Execute(command, args)
 		bus.Logger.Debugf("hook[%s]: %s\n", name, string(bytes))
+
 		if err != nil {
 			return false, fmt.Errorf("hook[%s]: command `%s` failed: %v", name, command, err)
 		}
