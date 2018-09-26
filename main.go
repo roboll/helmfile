@@ -10,8 +10,6 @@ import (
 	"sort"
 	"syscall"
 
-	"os/exec"
-
 	"io/ioutil"
 
 	"strings"
@@ -24,6 +22,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"os/exec"
 )
 
 const (
@@ -115,13 +114,17 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+				return visitAllDesiredStates(c, func(state *state.HelmState, helm helmexec.Interface) (bool, []error) {
 					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
 
-					return state.SyncRepos(helm)
+					errs := state.SyncRepos(helm)
+
+					ok := len(state.Repositories) > 0 && len(errs) == 0
+
+					return ok, errs
 				})
 			},
 		},
@@ -566,16 +569,19 @@ type app struct {
 	fileExistsAt      func(string) bool
 	directoryExistsAt func(string) bool
 	reverse           bool
+	env               string
+	namespace         string
+	selectors         []string
 }
 
 func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) []error) error {
 	return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, false, converge)
 }
 
-func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, reverse bool, converge func(*state.HelmState, helmexec.Interface) []error) error {
+func initAppEntry(c *cli.Context, reverse bool) (*app, string, error) {
 	if c.NArg() > 0 {
 		cli.ShowAppHelp(c)
-		return fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
+		return nil, "", fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
 	}
 
 	fileOrDir := c.GlobalString("file")
@@ -598,21 +604,66 @@ func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, revers
 		kubeContext:       kubeContext,
 		logger:            logger,
 		reverse:           reverse,
+		env:               env,
+		namespace:         namespace,
+		selectors:         selectors,
 	}
+
+	return app, fileOrDir, nil
+}
+
+func visitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+	app, fileOrDir, err := initAppEntry(c, false)
+	if err != nil {
+		return err
+	}
+
+	convergeWithHelmBinary := func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+		if c.GlobalString("helm-binary") != "" {
+			helm.SetHelmBinary(c.GlobalString("helm-binary"))
+		}
+		return converge(st, helm)
+	}
+
+	err = app.VisitDesiredStates(fileOrDir, convergeWithHelmBinary)
+
+	return toCliError(err)
+}
+
+func toCliError(err error) error {
+	if err != nil {
+		switch e := err.(type) {
+		case *noMatchingHelmfileError:
+			return cli.NewExitError(e.Error(), 2)
+		case *exec.ExitError:
+			// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
+			status := e.Sys().(syscall.WaitStatus)
+			return cli.NewExitError(e.Error(), status.ExitStatus())
+		case *state.DiffError:
+			return cli.NewExitError(e.Error(), e.Code)
+		default:
+			return cli.NewExitError(e.Error(), 1)
+		}
+	}
+	return err
+}
+
+func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, reverse bool, converge func(*state.HelmState, helmexec.Interface) []error) error {
+	app, fileOrDir, err := initAppEntry(c, reverse)
+	if err != nil {
+		return err
+	}
+
 	convergeWithHelmBinary := func(st *state.HelmState, helm helmexec.Interface) []error {
 		if c.GlobalString("helm-binary") != "" {
 			helm.SetHelmBinary(c.GlobalString("helm-binary"))
 		}
 		return converge(st, helm)
 	}
-	if err := app.FindAndIterateOverDesiredStates(fileOrDir, convergeWithHelmBinary, namespace, selectors, env); err != nil {
-		switch e := err.(type) {
-		case *noMatchingHelmfileError:
-			return cli.NewExitError(e.Error(), 2)
-		}
-		return err
-	}
-	return nil
+
+	err = app.VisitDesiredStatesWithReleasesFiltered(fileOrDir, convergeWithHelmBinary)
+
+	return toCliError(err)
 }
 
 type noMatchingHelmfileError struct {
@@ -690,11 +741,12 @@ func (r *twoPassRenderer) renderTemplate(content []byte) (*bytes.Buffer, error) 
 	return yamlBuf, nil
 }
 
-func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error, namespace string, selectors []string, env string) error {
+func (a *app) VisitDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir)
 	if err != nil {
 		return err
 	}
+
 	noMatchInHelmfiles := true
 	for _, f := range desiredStateFiles {
 		a.logger.Debugf("Processing %s", f)
@@ -706,8 +758,8 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 		// render template, in two runs
 		r := &twoPassRenderer{
 			reader:    a.readFile,
-			env:       env,
-			namespace: namespace,
+			env:       a.env,
+			namespace: a.namespace,
 			filename:  f,
 			logger:    a.logger,
 			abs:       a.abs,
@@ -717,13 +769,13 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 			return fmt.Errorf("error during %s parsing: %v", f, err)
 		}
 
-		st, noMatchInThisHelmfile, err := a.loadDesiredStateFromYaml(
+		st, err := a.loadDesiredStateFromYaml(
 			yamlBuf.Bytes(),
 			f,
-			namespace,
-			selectors,
-			env,
+			a.namespace,
+			a.env,
 		)
+
 		helm := helmexec.New(a.logger, a.kubeContext)
 
 		if err != nil {
@@ -746,7 +798,7 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 		if len(st.Helmfiles) > 0 {
 			noMatchInSubHelmfiles := true
 			for _, m := range st.Helmfiles {
-				if err := a.FindAndIterateOverDesiredStates(m, converge, namespace, selectors, env); err != nil {
+				if err := a.VisitDesiredStates(m, converge); err != nil {
 					switch err.(type) {
 					case *noMatchingHelmfileError:
 
@@ -759,11 +811,9 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 			}
 			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
 		} else {
-			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInThisHelmfile
-			if noMatchInThisHelmfile {
-				continue
-			}
-			errs = converge(st, helm)
+			var processed bool
+			processed, errs = converge(st, helm)
+			noMatchInHelmfiles = noMatchInHelmfiles && !processed
 		}
 
 		if err := clean(st, errs); err != nil {
@@ -771,7 +821,40 @@ func (a *app) FindAndIterateOverDesiredStates(fileOrDir string, converge func(*s
 		}
 	}
 	if noMatchInHelmfiles {
-		return &noMatchingHelmfileError{selectors, env}
+		return &noMatchingHelmfileError{selectors: a.selectors, env: a.env}
+	}
+	return nil
+}
+
+func (a *app) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
+	selectors := a.selectors
+
+	err := a.VisitDesiredStates(fileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+		if len(selectors) > 0 {
+			err := st.FilterReleases(selectors)
+			if err != nil {
+				return false, []error{err}
+			}
+		}
+
+		releaseNameCounts := map[string]int{}
+		for _, r := range st.Releases {
+			releaseNameCounts[r.Name]++
+		}
+		for name, c := range releaseNameCounts {
+			if c > 1 {
+				return false, []error{fmt.Errorf("duplicate release \"%s\" found: there were %d releases named \"%s\" matching specified selector", name, c, name)}
+			}
+		}
+
+		errs := converge(st, helm)
+
+		processed := len(st.Releases) != 0 && len(errs) == 0
+
+		return processed, errs
+	})
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -833,11 +916,11 @@ func directoryExistsAt(path string) bool {
 	return err == nil && fileInfo.Mode().IsDir()
 }
 
-func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace string, labels []string, env string) (*state.HelmState, bool, error) {
+func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace string, env string) (*state.HelmState, error) {
 	c := state.NewCreator(a.logger, a.readFile, a.abs)
 	st, err := c.CreateFromYaml(yaml, file, env)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	helmfiles := []string{}
@@ -845,7 +928,7 @@ func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 		helmfileRelativePattern := st.JoinBase(globPattern)
 		matches, err := a.glob(helmfileRelativePattern)
 		if err != nil {
-			return nil, false, fmt.Errorf("failed processing %s: %v", globPattern, err)
+			return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
 		}
 		sort.Strings(matches)
 
@@ -876,23 +959,6 @@ func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 		st.Namespace = namespace
 	}
 
-	if len(labels) > 0 {
-		err = st.FilterReleases(labels)
-		if err != nil {
-			return nil, false, err
-		}
-	}
-
-	releaseNameCounts := map[string]int{}
-	for _, r := range st.Releases {
-		releaseNameCounts[r.Name]++
-	}
-	for name, c := range releaseNameCounts {
-		if c > 1 {
-			return nil, false, fmt.Errorf("duplicate release \"%s\" found: there were %d releases named \"%s\" matching specified selector", name, c, name)
-		}
-	}
-
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -902,7 +968,7 @@ func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 		clean(st, errs)
 	}()
 
-	return st, len(st.Releases) == 0, nil
+	return st, nil
 }
 
 func clean(st *state.HelmState, errs []error) error {
@@ -924,16 +990,7 @@ func clean(st *state.HelmState, errs []error) error {
 				fmt.Printf("err: %v\n", e)
 			}
 		}
-		switch e := errs[0].(type) {
-		case *exec.ExitError:
-			// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-			status := e.Sys().(syscall.WaitStatus)
-			os.Exit(status.ExitStatus())
-		case *state.DiffError:
-			os.Exit(e.Code)
-		default:
-			os.Exit(1)
-		}
+		return errs[0]
 	}
 	return nil
 }
