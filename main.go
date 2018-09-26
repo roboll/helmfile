@@ -99,6 +99,10 @@ func main() {
 	--selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
 	The name of a release can be used as a label. --selector name=myrelease`,
 		},
+		cli.BoolFlag{
+			Name:  "interactive, i",
+			Usage: "Request confirmation before attempting to modify clusters",
+		},
 	}
 
 	app.Before = configureLogging
@@ -320,10 +324,6 @@ func main() {
 					Usage: "pass args to helm exec",
 				},
 				cli.BoolFlag{
-					Name:  "auto-approve",
-					Usage: "Skip interactive approval before applying",
-				},
-				cli.BoolFlag{
 					Name:  "suppress-secrets",
 					Usage: "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases",
 				},
@@ -386,8 +386,8 @@ Do you really want to apply?
   Helmfile will apply all your changes, as shown above.
 
 `, strings.Join(names, "\n"))
-							autoApprove := c.Bool("auto-approve")
-							if autoApprove || !autoApprove && askForConfirmation(msg) {
+							interactive := c.GlobalBool("interactive")
+							if !interactive || interactive && askForConfirmation(msg) {
 								rs := []state.ReleaseSpec{}
 								for _, r := range releases {
 									rs = append(rs, *r)
@@ -444,10 +444,6 @@ Do you really want to apply?
 					Usage: "pass args to helm exec",
 				},
 				cli.BoolFlag{
-					Name:  "auto-approve",
-					Usage: "Skip interactive approval before deleting",
-				},
-				cli.BoolFlag{
 					Name:  "purge",
 					Usage: "purge releases i.e. free release names and histories",
 				},
@@ -473,8 +469,8 @@ Do you really want to delete?
   Helmfile will delete all your releases, as shown above.
 
 `, strings.Join(names, "\n"))
-					autoApprove := c.Bool("auto-approve")
-					if autoApprove || !autoApprove && askForConfirmation(msg) {
+					interactive := c.GlobalBool("interactive")
+					if !interactive || interactive && askForConfirmation(msg) {
 						return state.DeleteReleases(helm, purge)
 					}
 					return nil

@@ -170,7 +170,7 @@ releases:
 Sync your Kubernetes cluster state to the desired one by running:
 
 ```console
-helmfile sync
+helmfile apply
 ```
 
 Congratulations! You now have your first Prometheus deployment running inside your cluster.
@@ -187,19 +187,21 @@ USAGE:
    helmfile [global options] command [command options] [arguments...]
 
 COMMANDS:
-     repos   sync repositories from state file (helm repo add && helm repo update)
-     charts  sync releases from state file (helm upgrade --install)
-     diff    diff releases from state file against env (helm diff)
-     lint    lint charts from state file (helm lint)
-     sync    sync all resources from state file (repos, releases and chart deps)
-     apply   apply all resources from state file only when there are changes
-     status  retrieve status of releases in state file
-     delete  delete releases from state file (helm delete)
-     test    test releases from state file (helm test)
+     repos     sync repositories from state file (helm repo add && helm repo update)
+     charts    sync releases from state file (helm upgrade --install)
+     diff      diff releases from state file against env (helm diff)
+     template  template releases from state file against env (helm template)
+     lint      lint charts from state file (helm lint)
+     sync      sync all resources from state file (repos, releases and chart deps)
+     apply     apply all resources from state file only when there are changes
+     status    retrieve status of releases in state file
+     delete    delete releases from state file (helm delete)
+     test      test releases from state file (helm test)
 
 GLOBAL OPTIONS:
    --helm-binary value, -b value           path to helm binary
    --file helmfile.yaml, -f helmfile.yaml  load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
+   --environment default, -e default       specify the environment name. defaults to default
    --quiet, -q                             Silence output. Equivalent to log-level warn
    --kube-context value                    Set kubectl context. Uses current context by default
    --log-level value                       Set log level, default info
@@ -208,6 +210,7 @@ GLOBAL OPTIONS:
                                            A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                            --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
                                            The name of a release can be used as a label. --selector name=myrelease
+   --interactive, -i                       Request confirmation before attempting to modify clusters
    --help, -h                              show help
    --version, -v                           print the version
 ```
@@ -706,6 +709,14 @@ set -a; . .env; set +a; helmfile sync
 ```
 
 Please see #203 for more context.
+
+## Running helmfile interactively
+
+`helmfile --interactive [apply|delete]` requests confirmation from you before actually modifying your cluster.
+
+Use it when you're running `helmfile` manually on your local machine or a kind of secure administrative hosts.
+
+For your local use-case, aliasing it like `alias hi='helmfile --interactive'` would be convenient.
 
 ## Running helmfile without an Internet connection
 
