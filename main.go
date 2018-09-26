@@ -988,7 +988,14 @@ func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 		sig := <-sigs
 
 		errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
-		clean(st, errs)
+		_ = clean(st, errs)
+		// See http://tldp.org/LDP/abs/html/exitcodes.html
+		switch sig {
+		case syscall.SIGINT:
+			os.Exit(130)
+		case syscall.SIGTERM:
+			os.Exit(143)
+		}
 	}()
 
 	return st, nil
