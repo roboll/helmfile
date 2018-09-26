@@ -183,6 +183,10 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface) []error {
+					if errs := state.PrepareRelease(helm, "diff"); errs != nil && len(errs) > 0 {
+						return errs
+					}
+
 					_, errs := executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"), c.Bool("suppress-secrets"))
 					return errs
 				})

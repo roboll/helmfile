@@ -826,11 +826,8 @@ func (state *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand 
 	errs := []error{}
 
 	for _, release := range state.Releases {
-		if isLocalChart(release.Chart) {
-			if _, err := state.triggerPrepareEvent(&release, helmfileCommand); err != nil {
-				errs = append(errs, &ReleaseError{&release, err})
-				continue
-			}
+		if _, err := state.triggerPrepareEvent(&release, helmfileCommand); err != nil {
+			errs = append(errs, &ReleaseError{&release, err})
 		}
 	}
 	if len(errs) != 0 {
