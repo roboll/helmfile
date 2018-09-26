@@ -97,6 +97,8 @@ releases:
     recreatePods: true
     # forces resource update through delete/recreate if needed
     force: true
+    # set `false` to uninstall on sync
+    installed: true
 
   # Local chart example
   - name: grafana                            # name of this release
