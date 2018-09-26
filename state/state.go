@@ -957,7 +957,9 @@ func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, release *Releas
 }
 
 func (state *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
-	flags := []string{}
+	flags := []string{
+		"--name", release.Name,
+	}
 	common, err := state.namespaceAndValuesFlags(helm, release)
 	if err != nil {
 		return nil, err
