@@ -128,8 +128,13 @@ func (state *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
 	}
 }
 
+type RepoUpdater interface {
+	AddRepo(name, repository, certfile, keyfile, username, password string) error
+	UpdateRepo() error
+}
+
 // SyncRepos will update the given helm releases
-func (state *HelmState) SyncRepos(helm helmexec.Interface) []error {
+func (state *HelmState) SyncRepos(helm RepoUpdater) []error {
 	errs := []error{}
 
 	for _, repo := range state.Repositories {
@@ -828,6 +833,7 @@ func (state *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand 
 	for _, release := range state.Releases {
 		if _, err := state.triggerPrepareEvent(&release, helmfileCommand); err != nil {
 			errs = append(errs, &ReleaseError{&release, err})
+			continue
 		}
 	}
 	if len(errs) != 0 {
