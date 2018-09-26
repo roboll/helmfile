@@ -443,7 +443,7 @@ releaseName: prod
 `values.yaml.gotmpl`
 
 ```yaml
-domain: {{ .Environment.Values.domain | default "dev.example.com" }}
+domain: {{ .Environment.Values | getOrNil "domain" | default "dev.example.com" }}
 ```
 
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,

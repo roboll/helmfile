@@ -22,6 +22,8 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"fromYaml":       FromYaml,
 		"setValueAtPath": SetValueAtPath,
 		"requiredEnv":    RequiredEnv,
+		"get":            get,
+		"getOrNil":       getOrNil,
 	}
 	if c.preRender {
 		// disable potential side-effect template calls
