@@ -152,6 +152,7 @@ releases:
 - `go get github.com/roboll/helmfile` or
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
 - run as a [container](https://quay.io/roboll/helmfile)
+- Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 
 ## getting started
 
