@@ -443,7 +443,7 @@ releaseName: prod
 `values.yaml.gotmpl`
 
 ```yaml
-domain: {{ .Environment.Values.domain | default "dev.example.com" }}
+domain: {{ .Environment.Values | getOrNil "my.domain" | default "dev.example.com" }}
 ```
 
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
@@ -703,6 +703,13 @@ art}}`}}", "{{`{{.Environment.Name}}`}}"]
 Run `helmfile --environment staging sync` and see it results in helmfile running `kustomize build foo-kustomize/overlays/staging > foo/templates/all.yaml`.
 
 Voilà! You can mix helm releases that are backed by remote charts, local charts, and even kustomize overlays.
+
+## Guides
+
+Use the [Helmfile Best Practices Guide](/docs/writing-helmfile.md) to write advanced helmfiles that features:
+
+- Default values
+- Layering
 
 ## Using env files
 
