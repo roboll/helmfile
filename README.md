@@ -402,7 +402,7 @@ environments:
 
 releases:
 
-{{ if (eq .Environment.Name "production" }}
+{{ if eq .Environment.Name "production" }}
 - name: newrelic-agent
   # snip
 {{ end }}
