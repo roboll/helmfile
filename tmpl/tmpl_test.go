@@ -68,8 +68,7 @@ func TestRenderTemplate_AccessingMissingKeyWithGetOrNil(t *testing.T) {
   bar: <no value>
 `
 	expectedFilename := "values.yaml"
-	data := map[string]interface{}{
-	}
+	data := map[string]interface{}{}
 	ctx := &Context{readFile: func(filename string) ([]byte, error) {
 		if filename != expectedFilename {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
@@ -94,8 +93,7 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
   bar: DEFAULT
 `
 	expectedFilename := "values.yaml"
-	data := map[string]interface{}{
-	}
+	data := map[string]interface{}{}
 	ctx := &Context{readFile: func(filename string) ([]byte, error) {
 		if filename != expectedFilename {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
