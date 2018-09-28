@@ -237,13 +237,15 @@ please look at their [documentation](https://github.com/databus23/helm-diff#helm
 
 ### apply
 
-The `helmfile apply` sub-command begins by executing `diff`. If `diff` finds that there is any changes, `sync` is executed after prompting you for an confirmation. `--auto-approve` skips the confirmation.
+The `helmfile apply` sub-command begins by executing `diff`. If `diff` finds that there is any changes, `sync` is executed. Adding `--interactive` instructs helmfile to request your confirmation before `sync`.
 
 An expected use-case of `apply` is to schedule it to run periodically, so that you can auto-fix skews between the desired and the current state of your apps running on Kubernetes clusters.
 
 ### delete
 
-The `helmfile delete` sub-command deletes all the releases defined in the manfiests
+The `helmfile delete` sub-command deletes all the releases defined in the manfiests.
+
+`helmfile --interactive delete` instructs helmfile to request your confirmation before actually deleting releases.
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
 
