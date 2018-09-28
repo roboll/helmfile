@@ -3,16 +3,15 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"sort"
-	"syscall"
-
-	"io/ioutil"
-
 	"strings"
+	"syscall"
 
 	"github.com/roboll/helmfile/args"
 	"github.com/roboll/helmfile/environment"
@@ -22,7 +21,6 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os/exec"
 )
 
 const (
@@ -726,8 +724,12 @@ func (r *twoPassRenderer) renderEnvironment(content []byte) environment.Environm
 
 	// parse as much as we can, tolerate errors, this is a preparse
 	yamlBuf, err := firstPassRenderer.RenderTemplateContentToBuffer(content)
-	if err != nil && logger != nil {
+	if err != nil && r.logger != nil {
 		r.logger.Debugf("first-pass rendering input of \"%s\":\n%s", r.filename, prependLineNumbers(string(content)))
+		if yamlBuf == nil { // we have a template syntax error, let the second parse report
+			r.logger.Debugf("template syntax error: %v", err)
+			return firstPassEnv
+		}
 	}
 	c := state.NewCreator(r.logger, r.reader, r.abs)
 	c.Strict = false

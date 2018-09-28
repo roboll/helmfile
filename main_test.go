@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
 	"gopkg.in/yaml.v2"
 )
@@ -16,7 +18,7 @@ func makeRenderer(readFile func(string) ([]byte, error), env string) *twoPassRen
 		env:       env,
 		namespace: "namespace",
 		filename:  "",
-		logger:    logger,
+		logger:    helmexec.NewLogger(os.Stdout, "debug"),
 		abs:       filepath.Abs,
 	}
 }
@@ -226,5 +228,29 @@ func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 
 	if state.Releases[0].Name != "namespace-myrelease" {
 		t.Errorf("release name should be namespace-myrelease")
+	}
+}
+
+func TestReadFromYaml_HelfileShouldBeResilentToTemplateErrors(t *testing.T) {
+	yamlContent := []byte(`environments:
+  staging:
+	production:
+
+releases:
+{{ if (eq .Environment.Name "production" }}  # notice syntax error: unclosed left paren
+- name: prod-myrelease
+{{ else }}
+- name: myapp
+{{ end }}
+  chart: mychart
+`)
+	fileReader := func(filename string) ([]byte, error) {
+		return yamlContent, nil
+	}
+
+	r := makeRenderer(fileReader, "staging")
+	_, err := r.renderTemplate(yamlContent)
+	if err == nil {
+		t.Fatalf("wanted error, none returned")
 	}
 }
