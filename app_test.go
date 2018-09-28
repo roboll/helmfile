@@ -14,7 +14,7 @@ import (
 // See https://github.com/roboll/helmfile/issues/193
 func TestVisitDesiredStatesWithReleasesFiltered(t *testing.T) {
 	absPaths := map[string]string{
-		".": "/path/to",
+		".":                   "/path/to",
 		"/path/to/helmfile.d": "/path/to/helmfile.d",
 	}
 	dirs := map[string]bool{
@@ -116,7 +116,7 @@ releases:
 // See https://github.com/roboll/helmfile/issues/320
 func TestVisitDesiredStatesWithReleasesFiltered_UndefinedEnv(t *testing.T) {
 	absPaths := map[string]string{
-		".": "/path/to",
+		".":                   "/path/to",
 		"/path/to/helmfile.d": "/path/to/helmfile.d",
 	}
 	dirs := map[string]bool{
@@ -211,7 +211,7 @@ releases:
 // See https://github.com/roboll/helmfile/issues/322
 func TestVisitDesiredStatesWithReleasesFiltered_Selectors(t *testing.T) {
 	absPaths := map[string]string{
-		".": "/path/to",
+		".":                   "/path/to",
 		"/path/to/helmfile.d": "/path/to/helmfile.d",
 	}
 	dirs := map[string]bool{
@@ -339,7 +339,7 @@ releases:
 // See https://github.com/roboll/helmfile/issues/312
 func TestVisitDesiredStatesWithReleasesFiltered_ReverseOrder(t *testing.T) {
 	absPaths := map[string]string{
-		".": "/path/to",
+		".":                   "/path/to",
 		"/path/to/helmfile.d": "/path/to/helmfile.d",
 	}
 	dirs := map[string]bool{
