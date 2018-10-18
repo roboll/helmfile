@@ -24,7 +24,7 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 ## configuration syntax
 
-**CAUTION**: This documentation is for the development version of helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.31.0](https://github.com/roboll/helmfile/tree/v0.31.0).
+**CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.31.0](https://github.com/roboll/helmfile/tree/v0.31.0).
 
 The default helmfile is `helmfile.yaml`:
 
@@ -39,7 +39,7 @@ repositories:
 
 context: kube-context					 # kube-context (--kube-context)
 
-#default values to set for args along with dedicated keys that can be set by contributers, cli args take precedence overe these
+#default values to set for args along with dedicated keys that can be set by contributers, cli args take precedence over these
 helmDefaults:
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
   kubeContext: kube-context          #dedicated default key for kube-context
@@ -238,15 +238,15 @@ please look at their [documentation](https://github.com/databus23/helm-diff#helm
 
 ### apply
 
-The `helmfile apply` sub-command begins by executing `diff`. If `diff` finds that there is any changes, `sync` is executed. Adding `--interactive` instructs helmfile to request your confirmation before `sync`.
+The `helmfile apply` sub-command begins by executing `diff`. If `diff` finds that there is any changes, `sync` is executed. Adding `--interactive` instructs Helmfile to request your confirmation before `sync`.
 
 An expected use-case of `apply` is to schedule it to run periodically, so that you can auto-fix skews between the desired and the current state of your apps running on Kubernetes clusters.
 
 ### delete
 
-The `helmfile delete` sub-command deletes all the releases defined in the manfiests.
+The `helmfile delete` sub-command deletes all the releases defined in the manifests.
 
-`helmfile --interactive delete` instructs helmfile to request your confirmation before actually deleting releases.
+`helmfile --interactive delete` instructs Helmfile to request your confirmation before actually deleting releases.
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
 
@@ -274,13 +274,13 @@ Using manifest files in conjunction with command line argument can be a bit conf
 A few rules to clear up this ambiguity:
 
 - Absolute paths are always resolved as absolute paths
-- Relative paths referenced *in* the helmfile manifest itself are relative to that manifest
+- Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
 - Relative paths referenced on the command line are relative to the current working directory the user is in
 
 For additional context, take a look at [paths examples](PATHS.md)
 
 ## Labels Overview
-A selector can be used to only target a subset of releases when running helmfile. This is useful for large helmfiles with releases that are logically grouped together.
+A selector can be used to only target a subset of releases when running Helmfile. This is useful for large helmfiles with releases that are logically grouped together.
 
 Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
 
@@ -301,7 +301,7 @@ In addition to built-in ones, the following custom template functions are availa
 
 - `readFile` reads the specified local file and generate a golang string
 - `fromYaml` reads a golang string and generates a map
-- `setValuleAtPath PATH NEW_VALUE` traverses a golang map, replaces the value at the PATH with NEW_VALUE
+- `setValueAtPath PATH NEW_VALUE` traverses a golang map, replaces the value at the PATH with NEW_VALUE
 - `toYaml` marshals a map into a string
 
 ### Values Files Templates
@@ -316,7 +316,7 @@ releases
   - values.yaml.gotmpl
 ```
 
-Every values file whose file extension is `.gotmpl` is considered as a tempalte file.
+Every values file whose file extension is `.gotmpl` is considered as a template file.
 
 Suppose `values.yaml.gotmpl` was something like:
 
@@ -486,15 +486,15 @@ releases:
 
 Environment Secrets are encrypted versions of `Environment Values`.
 You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
-helmfile could automatically decrypt and merge the secrets into the environment values.
+Helmfile could automatically decrypt and merge the secrets into the environment values.
 
-Suppose you have environment secrets defined in `hemlfile.yaml`:
+Suppose you have environment secrets defined in `helmfile.yaml`:
 
 ```yaml
 environments:
   production:
     secrets:
-    - environments/produdction/secrets.yaml
+    - environments/production/secrets.yaml
 
 releases:
 - name: myapp
@@ -538,7 +538,7 @@ All the yaml files under the specified directory are processed in the alphabetic
 
 In case you want more control over how multiple `helmfile.yaml` files are organized, use `helmfiles:` configuration key in the `helmfile.yaml`:
 
-Suppose you have multiple microservices organized in a Git reposistory that looks like:
+Suppose you have multiple microservices organized in a Git repository that looks like:
 
 - `myteam/` (sometimes it is equivalent to a k8s ns, that is `kube-system` for `clusterops` team)
   - `apps/`
@@ -566,7 +566,7 @@ for d in apps/*; do helmfile -f $d diff; if [ $? -eq 2 ]; then helmfile -f $d sy
 
 At this point, you'll start writing a `Makefile` under `myteam/` so that `make sync-all` will do the job.
 
-It does work, but you can rely on the helmfile's feature instead.
+It does work, but you can rely on the Helmfile feature instead.
 
 Put `myteam/helmfile.yaml` that looks like:
 
@@ -603,13 +603,13 @@ The possibility is endless. Try importing values from your golang app, bash scri
 
 ## Hooks
 
-A helmfile hook is a per-release extension point that is composed of:
+A Helmfile hook is a per-release extension point that is composed of:
 
 - `events`
 - `command`
 - `args`
 
-helmfile triggers various `events` while it is running.
+Helmfile triggers various `events` while it is running.
 Once `events` are triggered, associated `hooks` are executed, by running the `command` with `args`.
 
 Currently supported `events` are:
@@ -617,7 +617,7 @@ Currently supported `events` are:
 - `prepare`
 - `cleanup`
 
-Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before executed.
+Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before execution.
 
 Hooks associated to `cleanup` events are triggered after each release is processed.
 
@@ -662,7 +662,7 @@ Do you prefer `kustomize` to write and organize your Kubernetes apps, but still 
 like rollback, history, and so on? This section is for you!
 
 The combination of `hooks` and [helmify-kustomize](https://gist.github.com/mumoshu/f9d0bd98e0eb77f636f79fc2fb130690)
-enables you to integrate [kustomize](https://github.com/kubernetes-sigs/kustomize) into helmfle.
+enables you to integrate [kustomize](https://github.com/kubernetes-sigs/kustomize) into Helmfile.
 
 That is, you can use `kustommize` to build a local helm chart from a kustomize overlay.
 
@@ -707,14 +707,14 @@ Voilà! You can mix helm releases that are backed by remote charts, local charts
 
 ## Guides
 
-Use the [Helmfile Best Practices Guide](/docs/writing-helmfile.md) to write advanced helmfiles that features:
+Use the [Helmfile Best Practices Guide](/docs/writing-helmfile.md) to write advanced helmfiles that feature:
 
 - Default values
 - Layering
 
 ## Using env files
 
-helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:
+Helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:
 
 ```console
 set -a; . .env; set +a; helmfile sync
@@ -730,7 +730,7 @@ Use it when you're running `helmfile` manually on your local machine or a kind o
 
 For your local use-case, aliasing it like `alias hi='helmfile --interactive'` would be convenient.
 
-## Running helmfile without an Internet connection
+## Running Helmfile without an Internet connection
 
 Once you download all required charts into your machine, you can run `helmfile charts` to deploy your apps.
 It basically run only `helm upgrade --install` with your already-downloaded charts, hence no Internet connection is required.
