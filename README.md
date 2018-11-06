@@ -484,12 +484,22 @@ releases:
 
 ## Environment Secrets
 
-Environment Secrets are encrypted versions of `Environment Values`.
+Environment Secrets (not to be confused with Kubernetes Secrets) are encrypted versions of `Environment Values`.
 You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
 Helmfile could automatically decrypt and merge the secrets into the environment values.
 
-Suppose you have environment secrets defined in `helmfile.yaml`:
+First you must have the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin installed along with a 
+`.sops.yaml` file to configure the method of encryption (this can be in the same directory as your helmfile or 
+in the sub-directory containing your secrets files).
 
+Then suppose you have a a foo.bar secret defined in `environments/production/secrets.yaml`:
+```yaml
+foo.bar: "mysupersecretstring"
+```
+
+You can then encrypt it with `helm secrets enc environments/production/secrets.yaml`
+
+Then reference that encrypted file in `helmfile.yaml`:
 ```yaml
 environments:
   production:
@@ -503,12 +513,11 @@ releases:
   - values.yaml.gotmpl
 ```
 
-an environment secret `foo.bar` can be referenced by the below template expression in your `values.yaml.gotmpl`:
+Then the environment secret `foo.bar` can be referenced by the below template expression in your `values.yaml.gotmpl`:
 
 ```yaml
-{{ .Values.foo.bar }
+{{ .Environment.Values.foo.bar }}
 ```
-
 
 ## Separating helmfile.yaml into multiple independent files
 
