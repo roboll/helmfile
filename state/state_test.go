@@ -116,7 +116,7 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				basePath:           tt.fields.BaseChartPath,
-				Context:            tt.fields.Context,
+				DeprecatedContext:  tt.fields.Context,
 				DeprecatedReleases: tt.fields.DeprecatedReleases,
 				Namespace:          tt.fields.Namespace,
 				Repositories:       tt.fields.Repositories,
@@ -380,10 +380,10 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath:     "./",
-				Context:      "default",
-				Releases:     []ReleaseSpec{*tt.release},
-				HelmDefaults: tt.defaults,
+				basePath:          "./",
+				DeprecatedContext: "default",
+				Releases:          []ReleaseSpec{*tt.release},
+				HelmDefaults:      tt.defaults,
 			}
 			helm := helmexec.New(logger, "default")
 			args, err := state.flagsForUpgrade(helm, tt.release)
