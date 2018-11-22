@@ -2,7 +2,8 @@ repositories:
   - name: stable
     url: https://kubernetes-charts.storage.googleapis.com/
 
-context: minikube
+helmDefaults:
+  kubeContext: minikube
 
 releases:
 
