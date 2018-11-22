@@ -970,11 +970,11 @@ func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 	}
 
 	if a.kubeContext != "" {
-		if st.Context != "" {
-			log.Printf("err: Cannot use option --kube-context and set attribute context.")
+		if st.HelmDefaults.KubeContext != "" {
+			log.Printf("err: Cannot use option --kube-context and set attribute helmDefaults.kubeContext.")
 			os.Exit(1)
 		}
-		st.Context = a.kubeContext
+		st.HelmDefaults.KubeContext = a.kubeContext
 	}
 	if namespace != "" {
 		if st.Namespace != "" {

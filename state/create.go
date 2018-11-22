@@ -101,6 +101,10 @@ func (c *creator) CreateFromYaml(content []byte, file string, env string) (*Helm
 		state.DeprecatedReleases = []ReleaseSpec{}
 	}
 
+	if state.DeprecatedContext != "" && state.HelmDefaults.KubeContext == "" {
+		state.HelmDefaults.KubeContext = state.DeprecatedContext
+	}
+
 	state.logger = c.logger
 
 	e, err := state.loadEnv(env, c.readFile)

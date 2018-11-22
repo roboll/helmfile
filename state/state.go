@@ -32,7 +32,7 @@ type HelmState struct {
 	FilePath           string
 	HelmDefaults       HelmSpec         `yaml:"helmDefaults"`
 	Helmfiles          []string         `yaml:"helmfiles"`
-	Context            string           `yaml:"context"`
+	DeprecatedContext  string           `yaml:"context"`
 	DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
 	Namespace          string           `yaml:"namespace"`
 	Repositories       []RepositorySpec `yaml:"repositories"`
