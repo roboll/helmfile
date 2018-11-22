@@ -933,6 +933,15 @@ func (state *HelmState) JoinBase(relPath string) string {
 	return filepath.Join(state.basePath, relPath)
 }
 
+// normalizes relative path to absolute one
+func (state *HelmState) normalizePath(path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	} else {
+		return state.JoinBase(path)
+	}
+}
+
 // normalizeChart allows for the distinction between a file path reference and repository references.
 // - Any single (or double character) followed by a `/` will be considered a local file reference and
 // 	 be constructed relative to the `base path`.
@@ -1054,12 +1063,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 	for _, value := range release.Values {
 		switch typedValue := value.(type) {
 		case string:
-			var path string
-			if filepath.IsAbs(typedValue) {
-				path = typedValue
-			} else {
-				path = filepath.Join(state.basePath, typedValue)
-			}
+			path := state.normalizePath(typedValue)
 			if _, err := os.Stat(path); os.IsNotExist(err) {
 				return nil, err
 			}
@@ -1097,7 +1101,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 		}
 	}
 	for _, value := range release.Secrets {
-		path := filepath.Join(state.basePath, value)
+		path := state.normalizePath(value)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			return nil, err
 		}
@@ -1115,7 +1119,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 			if set.Value != "" {
 				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(set.Value)))
 			} else if set.File != "" {
-				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), set.File))
+				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), state.normalizePath(set.File)))
 			} else if len(set.Values) > 0 {
 				items := make([]string, len(set.Values))
 				for i, raw := range set.Values {
