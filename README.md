@@ -37,12 +37,12 @@ repositories:
     username: optional_username
     password: optional_password
 
-context: kube-context					 # kube-context (--kube-context)
+# context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
 #default values to set for args along with dedicated keys that can be set by contributers, cli args take precedence over these
 helmDefaults:
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
-  kubeContext: kube-context          #dedicated default key for kube-context
+  kubeContext: kube-context          #dedicated default key for kube-context (--kube-context)
   # additional and global args passed to helm
   args:
     - "--set k=v"
