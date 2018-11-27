@@ -151,7 +151,8 @@ releases:
 
 - `go get github.com/roboll/helmfile` or
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
-- run as a [container](https://quay.io/roboll/helmfile)
+- run as a [container](https://quay.io/roboll/helmfile) or
+- install from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) for Archlinux or
 - Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 
 ## getting started
