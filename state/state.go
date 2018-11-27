@@ -385,7 +385,6 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, work
 							errs = append(errs, err)
 						}
 					}
-					chartPath = path.Join(chartPath, chartNameWithoutRepository(release.Chart))
 				}
 				results <- &downloadResults{release.Name, chartPath}
 			}
