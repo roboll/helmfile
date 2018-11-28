@@ -108,6 +108,8 @@ type ReleaseSpec struct {
 	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
 	EnvValues []SetValue `yaml:"env"`
 
+	ValuePath string  	`yaml:"valuePath"`
+
 	// generatedValues are values that need cleaned up on exit
 	generatedValues []string
 }
@@ -1063,7 +1065,8 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 	for _, value := range release.Values {
 		switch typedValue := value.(type) {
 		case string:
-			path := state.normalizePath(typedValue)
+			path := state.normalizePath(release.ValuePath + typedValue)
+
 			if _, err := os.Stat(path); os.IsNotExist(err) {
 				return nil, err
 			}
@@ -1101,7 +1104,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 		}
 	}
 	for _, value := range release.Secrets {
-		path := state.normalizePath(value)
+		path := state.normalizePath(release.ValuePath + value)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			return nil, err
 		}
