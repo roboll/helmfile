@@ -108,7 +108,7 @@ type ReleaseSpec struct {
 	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
 	EnvValues []SetValue `yaml:"env"`
 
-	ValuePath string  	`yaml:"valuePath"`
+	ValuePath string `yaml:"valuePath"`
 
 	// generatedValues are values that need cleaned up on exit
 	generatedValues []string
