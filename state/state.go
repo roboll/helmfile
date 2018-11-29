@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -385,7 +386,13 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, work
 							errs = append(errs, err)
 						}
 					}
+					// Set chartPath to be the path containing Chart.yaml, if found
+					fullChartPath, err := findChartDirectory(chartPath)
+					if err == nil {
+						chartPath = filepath.Dir(fullChartPath)
+					}
 				}
+
 				results <- &downloadResults{release.Name, chartPath}
 			}
 			wgFetch.Done()
@@ -956,6 +963,28 @@ func pathExists(chart string) bool {
 func chartNameWithoutRepository(chart string) string {
 	chartSplit := strings.Split(chart, "/")
 	return chartSplit[len(chartSplit)-1]
+}
+
+// find "Chart.yaml"
+func findChartDirectory(topLevelDir string) (string, error) {
+	var files []string
+	filepath.Walk(topLevelDir, func(path string, f os.FileInfo, _ error) error {
+		if !f.IsDir() {
+			r, err := regexp.MatchString("Chart.yaml", f.Name())
+			if err == nil && r {
+				files = append(files, path)
+			}
+		}
+		return nil
+	})
+	// Sort to get the shortest path
+	sort.Strings(files)
+	if len(files) > 0 {
+		first := files[0]
+		return first, nil
+	}
+
+	return topLevelDir, errors.New("No Chart.yaml found")
 }
 
 func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
