@@ -1,4 +1,4 @@
-FROM golang:1.10.1-alpine3.7 as builder
+FROM golang:1.11.2-alpine3.8 as builder
 
 RUN apk add --no-cache make git
 WORKDIR /go/src/github.com/roboll/helmfile/
@@ -7,14 +7,14 @@ RUN make static-linux
 
 # -----------------------------------------------------------------------------
 
-FROM alpine:3.7
+FROM alpine:3.8
 
 RUN apk add --no-cache ca-certificates git bash curl
 
-ARG HELM_VERSION=v2.11.0
+ARG HELM_VERSION=v2.12.0
 ARG HELM_LOCATION="https://kubernetes-helm.storage.googleapis.com"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
-ARG HELM_SHA256="02a4751586d6a80f6848b58e7f6bd6c973ffffadc52b4c06652db7def02773a1"
+ARG HELM_SHA256="9f96a6e4fc52b5df906da381532cc2eb2f3f57cc203ccaec2b11cf5dc26a7dfc"
 RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
     sha256sum ${HELM_FILENAME} | grep -q "${HELM_SHA256}" && \
     tar zxf ${HELM_FILENAME} && mv /linux-amd64/helm /usr/local/bin/ && \
