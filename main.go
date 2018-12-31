@@ -545,8 +545,9 @@ func executeDiffCommand(c *cli.Context, st *state.HelmState, helm helmexec.Inter
 
 	values := c.StringSlice("values")
 	workers := c.Int("concurrency")
+	triggerCleanupEvents := c.Command.HasName("diff")
 
-	return st.DiffReleases(helm, values, workers, detailedExitCode, suppressSecrets)
+	return st.DiffReleases(helm, values, workers, detailedExitCode, suppressSecrets, triggerCleanupEvents)
 }
 
 type app struct {

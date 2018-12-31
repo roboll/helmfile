@@ -644,7 +644,7 @@ func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalV
 
 // DiffReleases wrapper for executing helm diff on the releases
 // It returns releases that had any changes
-func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool) ([]*ReleaseSpec, []error) {
+func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, triggerCleanupEvents bool) ([]*ReleaseSpec, []error) {
 	preps, prepErrs := state.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, suppressSecrets)
 	if len(prepErrs) > 0 {
 		return []*ReleaseSpec{}, prepErrs
@@ -682,8 +682,10 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 					results <- diffResult{}
 				}
 
-				if _, err := state.triggerCleanupEvent(prep.release, "diff"); err != nil {
-					state.logger.Warnf("warn: %v\n", err)
+				if triggerCleanupEvents {
+					if _, err := state.triggerCleanupEvent(prep.release, "diff"); err != nil {
+						state.logger.Warnf("warn: %v\n", err)
+					}
 				}
 			}
 			waitGroup.Done()
