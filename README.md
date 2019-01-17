@@ -149,7 +149,6 @@ releases:
 
 ## installation
 
-- `go get github.com/roboll/helmfile` or
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
 - run as a [container](https://quay.io/roboll/helmfile) or
 - install from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) for Archlinux or
