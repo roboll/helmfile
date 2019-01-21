@@ -21,7 +21,7 @@ import (
 
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/event"
-	"github.com/roboll/helmfile/valuesfile"
+	"github.com/roboll/helmfile/tmpl"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
@@ -38,6 +38,8 @@ type HelmState struct {
 	Namespace          string           `yaml:"namespace"`
 	Repositories       []RepositorySpec `yaml:"repositories"`
 	Releases           []ReleaseSpec    `yaml:"releases"`
+
+	Templates map[string]TemplateSpec `yaml:"templates"`
 
 	Env environment.Environment
 
@@ -95,6 +97,10 @@ type ReleaseSpec struct {
 	// Installed, when set to true, `delete --purge` the release
 	Installed *bool `yaml:"installed"`
 
+	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
+	// The default value for MissingFileHandler is "Error".
+	MissingFileHandler *string `yaml:"missingFileHandler"`
+
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
 	Hooks []event.Hook `yaml:"hooks"`
 
@@ -125,9 +131,9 @@ type SetValue struct {
 
 const DefaultEnv = "default"
 
-func (state *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
-	if state.Namespace != "" {
-		spec.Namespace = state.Namespace
+func (st *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
+	if st.Namespace != "" {
+		spec.Namespace = st.Namespace
 	}
 }
 
@@ -137,10 +143,10 @@ type RepoUpdater interface {
 }
 
 // SyncRepos will update the given helm releases
-func (state *HelmState) SyncRepos(helm RepoUpdater) []error {
+func (st *HelmState) SyncRepos(helm RepoUpdater) []error {
 	errs := []error{}
 
-	for _, repo := range state.Repositories {
+	for _, repo := range st.Repositories {
 		if err := helm.AddRepo(repo.Name, repo.URL, repo.CertFile, repo.KeyFile, repo.Username, repo.Password); err != nil {
 			errs = append(errs, err)
 		}
@@ -176,8 +182,8 @@ type syncPrepareResult struct {
 }
 
 // SyncReleases wrapper for executing helm upgrade on the releases
-func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int) ([]syncPrepareResult, []error) {
-	releases := state.Releases
+func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int) ([]syncPrepareResult, []error) {
+	releases := st.Releases
 	numReleases := len(releases)
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan syncPrepareResult, numReleases)
@@ -193,9 +199,9 @@ func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalV
 	for w := 1; w <= concurrency; w++ {
 		go func() {
 			for release := range jobs {
-				state.applyDefaultsTo(release)
+				st.applyDefaultsTo(release)
 
-				flags, flagsErr := state.flagsForUpgrade(helm, release)
+				flags, flagsErr := st.flagsForUpgrade(helm, release)
 				if flagsErr != nil {
 					results <- syncPrepareResult{errors: []*ReleaseError{&ReleaseError{release, flagsErr}}}
 					continue
@@ -248,10 +254,10 @@ func (state *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalV
 	return res, errs
 }
 
-func (state *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*ReleaseSpec, error) {
+func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*ReleaseSpec, error) {
 	detected := []*ReleaseSpec{}
-	for i, _ := range state.Releases {
-		release := state.Releases[i]
+	for i, _ := range st.Releases {
+		release := st.Releases[i]
 		if release.Installed != nil && !*release.Installed {
 			err := helm.ReleaseStatus(release.Name)
 			if err != nil {
@@ -274,8 +280,8 @@ func (state *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*R
 }
 
 // SyncReleases wrapper for executing helm upgrade on the releases
-func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
-	preps, prepErrs := state.prepareSyncReleases(helm, additionalValues, workerLimit)
+func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
+	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit)
 	if len(prepErrs) > 0 {
 		return prepErrs
 	}
@@ -298,7 +304,7 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 			for prep := range jobQueue {
 				release := prep.release
 				flags := prep.flags
-				chart := normalizeChart(state.basePath, release.Chart)
+				chart := normalizeChart(st.basePath, release.Chart)
 				if release.Installed != nil && !*release.Installed {
 					if err := helm.ReleaseStatus(release.Name); err == nil {
 						if err := helm.DeleteRelease(release.Name, "--purge"); err != nil {
@@ -313,8 +319,8 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 					results <- syncResult{}
 				}
 
-				if _, err := state.triggerCleanupEvent(prep.release, "sync"); err != nil {
-					state.logger.Warnf("warn: %v\n", err)
+				if _, err := st.triggerCleanupEvent(prep.release, "sync"); err != nil {
+					st.logger.Warnf("warn: %v\n", err)
 				}
 			}
 			waitGroup.Done()
@@ -349,8 +355,8 @@ func (state *HelmState) SyncReleases(helm helmexec.Interface, additionalValues [
 }
 
 // downloadCharts will download and untar charts for Lint and Template
-func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerLimit int, helmfileCommand string) (map[string]string, []error) {
-	temp := make(map[string]string, len(state.Releases))
+func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerLimit int, helmfileCommand string) (map[string]string, []error) {
+	temp := make(map[string]string, len(st.Releases))
 	type downloadResults struct {
 		releaseName string
 		chartPath   string
@@ -358,20 +364,20 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, work
 	errs := []error{}
 
 	var wgFetch sync.WaitGroup
-	jobQueue := make(chan *ReleaseSpec, len(state.Releases))
-	results := make(chan *downloadResults, len(state.Releases))
-	wgFetch.Add(len(state.Releases))
+	jobQueue := make(chan *ReleaseSpec, len(st.Releases))
+	results := make(chan *downloadResults, len(st.Releases))
+	wgFetch.Add(len(st.Releases))
 
 	if workerLimit < 1 {
-		workerLimit = len(state.Releases)
+		workerLimit = len(st.Releases)
 	}
 
 	for w := 1; w <= workerLimit; w++ {
 		go func() {
 			for release := range jobQueue {
 				chartPath := ""
-				if pathExists(normalizeChart(state.basePath, release.Chart)) {
-					chartPath = normalizeChart(state.basePath, release.Chart)
+				if pathExists(normalizeChart(st.basePath, release.Chart)) {
+					chartPath = normalizeChart(st.basePath, release.Chart)
 				} else {
 					fetchFlags := []string{}
 					if release.Version != "" {
@@ -400,12 +406,12 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, work
 			wgFetch.Done()
 		}()
 	}
-	for i := 0; i < len(state.Releases); i++ {
-		jobQueue <- &state.Releases[i]
+	for i := 0; i < len(st.Releases); i++ {
+		jobQueue <- &st.Releases[i]
 	}
 	close(jobQueue)
 
-	for i := 0; i < len(state.Releases); i++ {
+	for i := 0; i < len(st.Releases); i++ {
 		downloadRes := <-results
 		temp[downloadRes.releaseName] = downloadRes.chartPath
 	}
@@ -419,7 +425,7 @@ func (state *HelmState) downloadCharts(helm helmexec.Interface, dir string, work
 }
 
 // TemplateReleases wrapper for executing helm template on the releases
-func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
+func (st *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
 	errs := []error{}
 	// Create tmp directory and bail immediately if it fails
 	dir, err := ioutil.TempDir("", "")
@@ -429,7 +435,7 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 	}
 	defer os.RemoveAll(dir)
 
-	temp, errs := state.downloadCharts(helm, dir, workerLimit, "template")
+	temp, errs := st.downloadCharts(helm, dir, workerLimit, "template")
 
 	if errs != nil {
 		errs = append(errs, err)
@@ -440,8 +446,8 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 		helm.SetExtraArgs(args...)
 	}
 
-	for _, release := range state.Releases {
-		flags, err := state.flagsForTemplate(helm, &release)
+	for _, release := range st.Releases {
+		flags, err := st.flagsForTemplate(helm, &release)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -463,8 +469,8 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 			}
 		}
 
-		if _, err := state.triggerCleanupEvent(&release, "template"); err != nil {
-			state.logger.Warnf("warn: %v\n", err)
+		if _, err := st.triggerCleanupEvent(&release, "template"); err != nil {
+			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
 
@@ -476,7 +482,7 @@ func (state *HelmState) TemplateReleases(helm helmexec.Interface, additionalValu
 }
 
 // LintReleases wrapper for executing helm lint on the releases
-func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
+func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
 	errs := []error{}
 	// Create tmp directory and bail immediately if it fails
 	dir, err := ioutil.TempDir("", "")
@@ -486,7 +492,7 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 	}
 	defer os.RemoveAll(dir)
 
-	temp, errs := state.downloadCharts(helm, dir, workerLimit, "lint")
+	temp, errs := st.downloadCharts(helm, dir, workerLimit, "lint")
 	if errs != nil {
 		errs = append(errs, err)
 		return errs
@@ -496,8 +502,8 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 		helm.SetExtraArgs(args...)
 	}
 
-	for _, release := range state.Releases {
-		flags, err := state.flagsForLint(helm, &release)
+	for _, release := range st.Releases {
+		flags, err := st.flagsForLint(helm, &release)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -519,8 +525,8 @@ func (state *HelmState) LintReleases(helm helmexec.Interface, additionalValues [
 			}
 		}
 
-		if _, err := state.triggerCleanupEvent(&release, "lint"); err != nil {
-			state.logger.Warnf("warn: %v\n", err)
+		if _, err := st.triggerCleanupEvent(&release, "lint"); err != nil {
+			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
 
@@ -551,9 +557,9 @@ type diffPrepareResult struct {
 	errors  []*ReleaseError
 }
 
-func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, suppressSecrets bool) ([]diffPrepareResult, []error) {
+func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, suppressSecrets bool) ([]diffPrepareResult, []error) {
 	releases := []ReleaseSpec{}
-	for _, r := range state.Releases {
+	for _, r := range st.Releases {
 		if r.Installed == nil || *r.Installed {
 			releases = append(releases, r)
 		}
@@ -575,9 +581,9 @@ func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalV
 			for release := range jobs {
 				errs := []error{}
 
-				state.applyDefaultsTo(release)
+				st.applyDefaultsTo(release)
 
-				flags, err := state.flagsForDiff(helm, release)
+				flags, err := st.flagsForDiff(helm, release)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -644,8 +650,8 @@ func (state *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalV
 
 // DiffReleases wrapper for executing helm diff on the releases
 // It returns releases that had any changes
-func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, triggerCleanupEvents bool) ([]*ReleaseSpec, []error) {
-	preps, prepErrs := state.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, suppressSecrets)
+func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, triggerCleanupEvents bool) ([]*ReleaseSpec, []error) {
+	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, suppressSecrets)
 	if len(prepErrs) > 0 {
 		return []*ReleaseSpec{}, prepErrs
 	}
@@ -668,7 +674,7 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 			for prep := range jobQueue {
 				flags := prep.flags
 				release := prep.release
-				if err := helm.DiffRelease(release.Name, normalizeChart(state.basePath, release.Chart), flags...); err != nil {
+				if err := helm.DiffRelease(release.Name, normalizeChart(st.basePath, release.Chart), flags...); err != nil {
 					switch e := err.(type) {
 					case *exec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
@@ -683,8 +689,8 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 				}
 
 				if triggerCleanupEvents {
-					if _, err := state.triggerCleanupEvent(prep.release, "diff"); err != nil {
-						state.logger.Warnf("warn: %v\n", err)
+					if _, err := st.triggerCleanupEvent(prep.release, "diff"); err != nil {
+						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
 			}
@@ -718,14 +724,14 @@ func (state *HelmState) DiffReleases(helm helmexec.Interface, additionalValues [
 	return rs, errs
 }
 
-func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
+func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
 	var errs []error
 	jobQueue := make(chan ReleaseSpec)
 	doneQueue := make(chan bool)
 	errQueue := make(chan error)
 
 	if workerLimit < 1 {
-		workerLimit = len(state.Releases)
+		workerLimit = len(st.Releases)
 	}
 
 	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
@@ -745,13 +751,13 @@ func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int
 	}
 
 	go func() {
-		for _, release := range state.Releases {
+		for _, release := range st.Releases {
 			jobQueue <- release
 		}
 		close(jobQueue)
 	}()
 
-	for i := 0; i < len(state.Releases); {
+	for i := 0; i < len(st.Releases); {
 		select {
 		case err := <-errQueue:
 			errs = append(errs, err)
@@ -770,11 +776,11 @@ func (state *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
-func (state *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error {
+func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
-	for _, release := range state.Releases {
+	for _, release := range st.Releases {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, release ReleaseSpec) {
 			flags := []string{}
@@ -797,11 +803,11 @@ func (state *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []er
 }
 
 // TestReleases wrapper for executing helm test on the releases
-func (state *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int) []error {
+func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int) []error {
 	var wg sync.WaitGroup
 	errs := []error{}
 
-	for _, release := range state.Releases {
+	for _, release := range st.Releases {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, release ReleaseSpec) {
 			flags := []string{}
@@ -825,10 +831,10 @@ func (state *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, time
 }
 
 // Clean will remove any generated secrets
-func (state *HelmState) Clean() []error {
+func (st *HelmState) Clean() []error {
 	errs := []error{}
 
-	for _, release := range state.Releases {
+	for _, release := range st.Releases {
 		for _, value := range release.generatedValues {
 			err := os.Remove(value)
 			if err != nil {
@@ -845,7 +851,7 @@ func (state *HelmState) Clean() []error {
 }
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
-func (state *HelmState) FilterReleases(labels []string) error {
+func (st *HelmState) FilterReleases(labels []string) error {
 	var filteredReleases []ReleaseSpec
 	releaseSet := map[string][]ReleaseSpec{}
 	filters := []ReleaseFilter{}
@@ -856,7 +862,7 @@ func (state *HelmState) FilterReleases(labels []string) error {
 		}
 		filters = append(filters, f)
 	}
-	for _, r := range state.Releases {
+	for _, r := range st.Releases {
 		if r.Labels == nil {
 			r.Labels = map[string]string{}
 		}
@@ -875,17 +881,17 @@ func (state *HelmState) FilterReleases(labels []string) error {
 	for _, r := range releaseSet {
 		filteredReleases = append(filteredReleases, r...)
 	}
-	state.Releases = filteredReleases
+	st.Releases = filteredReleases
 	numFound := len(filteredReleases)
-	state.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(labels, ","), state.FilePath)
+	st.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(labels, ","), st.FilePath)
 	return nil
 }
 
-func (state *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand string) []error {
+func (st *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand string) []error {
 	errs := []error{}
 
-	for _, release := range state.Releases {
-		if _, err := state.triggerPrepareEvent(&release, helmfileCommand); err != nil {
+	for _, release := range st.Releases {
+		if _, err := st.triggerPrepareEvent(&release, helmfileCommand); err != nil {
 			errs = append(errs, &ReleaseError{&release, err})
 			continue
 		}
@@ -896,23 +902,23 @@ func (state *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand 
 	return nil
 }
 
-func (state *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return state.triggerReleaseEvent("prepare", r, helmfileCommand)
+func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+	return st.triggerReleaseEvent("prepare", r, helmfileCommand)
 }
 
-func (state *HelmState) triggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return state.triggerReleaseEvent("cleanup", r, helmfileCommand)
+func (st *HelmState) triggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+	return st.triggerReleaseEvent("cleanup", r, helmfileCommand)
 }
 
-func (state *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd string) (bool, error) {
+func (st *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd string) (bool, error) {
 	bus := &event.Bus{
 		Hooks:         r.Hooks,
-		StateFilePath: state.FilePath,
-		BasePath:      state.basePath,
-		Namespace:     state.Namespace,
-		Env:           state.Env,
-		Logger:        state.logger,
-		ReadFile:      state.readFile,
+		StateFilePath: st.FilePath,
+		BasePath:      st.basePath,
+		Namespace:     st.Namespace,
+		Env:           st.Env,
+		Logger:        st.logger,
+		ReadFile:      st.readFile,
 	}
 	data := map[string]interface{}{
 		"Release":         r,
@@ -922,12 +928,12 @@ func (state *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfile
 }
 
 // UpdateDeps wrapper for updating dependencies on the releases
-func (state *HelmState) UpdateDeps(helm helmexec.Interface) []error {
+func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 	errs := []error{}
 
-	for _, release := range state.Releases {
+	for _, release := range st.Releases {
 		if isLocalChart(release.Chart) {
-			if err := helm.UpdateDeps(normalizeChart(state.basePath, release.Chart)); err != nil {
+			if err := helm.UpdateDeps(normalizeChart(st.basePath, release.Chart)); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -939,16 +945,16 @@ func (state *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 }
 
 // JoinBase returns an absolute path in the form basePath/relative
-func (state *HelmState) JoinBase(relPath string) string {
-	return filepath.Join(state.basePath, relPath)
+func (st *HelmState) JoinBase(relPath string) string {
+	return filepath.Join(st.basePath, relPath)
 }
 
 // normalizes relative path to absolute one
-func (state *HelmState) normalizePath(path string) string {
+func (st *HelmState) normalizePath(path string) string {
 	if filepath.IsAbs(path) {
 		return path
 	} else {
-		return state.JoinBase(path)
+		return st.JoinBase(path)
 	}
 }
 
@@ -1000,25 +1006,25 @@ func findChartDirectory(topLevelDir string) (string, error) {
 	return topLevelDir, errors.New("No Chart.yaml found")
 }
 
-func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
 	}
 
-	if state.isDevelopment(release) {
+	if st.isDevelopment(release) {
 		flags = append(flags, "--devel")
 	}
 
-	if release.Verify != nil && *release.Verify || state.HelmDefaults.Verify {
+	if release.Verify != nil && *release.Verify || st.HelmDefaults.Verify {
 		flags = append(flags, "--verify")
 	}
 
-	if release.Wait != nil && *release.Wait || state.HelmDefaults.Wait {
+	if release.Wait != nil && *release.Wait || st.HelmDefaults.Wait {
 		flags = append(flags, "--wait")
 	}
 
-	timeout := state.HelmDefaults.Timeout
+	timeout := st.HelmDefaults.Timeout
 	if release.Timeout != nil {
 		timeout = *release.Timeout
 	}
@@ -1026,51 +1032,51 @@ func (state *HelmState) flagsForUpgrade(helm helmexec.Interface, release *Releas
 		flags = append(flags, "--timeout", fmt.Sprintf("%d", timeout))
 	}
 
-	if release.Force != nil && *release.Force || state.HelmDefaults.Force {
+	if release.Force != nil && *release.Force || st.HelmDefaults.Force {
 		flags = append(flags, "--force")
 	}
 
-	if release.RecreatePods != nil && *release.RecreatePods || state.HelmDefaults.RecreatePods {
+	if release.RecreatePods != nil && *release.RecreatePods || st.HelmDefaults.RecreatePods {
 		flags = append(flags, "--recreate-pods")
 	}
 
-	common, err := state.namespaceAndValuesFlags(helm, release)
+	common, err := st.namespaceAndValuesFlags(helm, release)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
 }
 
-func (state *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
 	flags := []string{
 		"--name", release.Name,
 	}
-	common, err := state.namespaceAndValuesFlags(helm, release)
+	common, err := st.namespaceAndValuesFlags(helm, release)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
 }
 
-func (state *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
 	}
 
-	if state.isDevelopment(release) {
+	if st.isDevelopment(release) {
 		flags = append(flags, "--devel")
 	}
 
-	common, err := state.namespaceAndValuesFlags(helm, release)
+	common, err := st.namespaceAndValuesFlags(helm, release)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
 }
 
-func (state *HelmState) isDevelopment(release *ReleaseSpec) bool {
-	result := state.HelmDefaults.Devel
+func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {
+	result := st.HelmDefaults.Devel
 	if release.Devel != nil {
 		result = *release.Devel
 	}
@@ -1078,16 +1084,16 @@ func (state *HelmState) isDevelopment(release *ReleaseSpec) bool {
 	return result
 }
 
-func (state *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
-	return state.namespaceAndValuesFlags(helm, release)
+func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+	return st.namespaceAndValuesFlags(helm, release)
 }
 
-func (state *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
-	r := valuesfile.NewRenderer(state.readFile, filepath.Dir(path), state.Env)
+func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
+	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), st.envTemplateData())
 	return r.RenderToBytes(path)
 }
 
-func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
@@ -1095,13 +1101,18 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 	for _, value := range release.Values {
 		switch typedValue := value.(type) {
 		case string:
-			path := state.normalizePath(release.ValuesPathPrefix + typedValue)
+			path := st.normalizePath(release.ValuesPathPrefix + typedValue)
 
 			if _, err := os.Stat(path); os.IsNotExist(err) {
-				return nil, err
+				if release.MissingFileHandler == nil && *release.MissingFileHandler == "Error" {
+					return nil, err
+				} else {
+					st.logger.Warnf("skipping missing values file \"%s\"", path)
+					continue
+				}
 			}
 
-			yamlBytes, err := state.RenderValuesFileToBytes(path)
+			yamlBytes, err := st.RenderValuesFileToBytes(path)
 			if err != nil {
 				return nil, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
@@ -1115,7 +1126,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 			if _, err := valfile.Write(yamlBytes); err != nil {
 				return nil, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
 			}
-			state.logger.Debugf("successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+			st.logger.Debugf("successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
 			flags = append(flags, "--values", valfile.Name())
 
 		case map[interface{}]interface{}:
@@ -1133,10 +1144,16 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 			flags = append(flags, "--values", valfile.Name())
 		}
 	}
+
 	for _, value := range release.Secrets {
-		path := state.normalizePath(release.ValuesPathPrefix + value)
+		path := st.normalizePath(release.ValuesPathPrefix + value)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			return nil, err
+			if release.MissingFileHandler == nil && *release.MissingFileHandler == "Error" {
+				return nil, err
+			} else {
+				st.logger.Warnf("skipping missing secrets file \"%s\"", path)
+				continue
+			}
 		}
 
 		valfile, err := helm.DecryptSecret(path)
@@ -1152,7 +1169,7 @@ func (state *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release
 			if set.Value != "" {
 				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(set.Value)))
 			} else if set.File != "" {
-				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), state.normalizePath(set.File)))
+				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.normalizePath(set.File)))
 			} else if len(set.Values) > 0 {
 				items := make([]string, len(set.Values))
 				for i, raw := range set.Values {
