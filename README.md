@@ -754,3 +754,9 @@ See #155 for more information on this topic.
 ## Examples
 
 For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile.d`](https://github.com/cloudposse/helmfiles/tree/master/helmfile.d) distribution of helmfiles by [Cloud Posse](https://github.com/cloudposse/).
+
+# Attribution
+
+We use:
+
+- [semtag](https://github.com/pnikosis/semtag) for automated semver tagging. I greatly appreciate the author(pnikosis)'s effort on creating it and their kindness to share it!
