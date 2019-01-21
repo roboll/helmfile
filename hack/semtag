@@ -406,7 +406,7 @@ $__commitlist"
       git tag -a $__version -m "$__message" 
 
       # If we have a remote, we push there
-      local __remote=$(git remote)
+      local __remote=${SEMTAG_REMOTE:-$(git remote)}
       if [[ -n $__remote ]]; then
         git push $__remote $__version > /dev/null
         if [ $? -eq 0 ]; then
