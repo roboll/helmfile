@@ -756,7 +756,8 @@ func (r *twoPassRenderer) renderTemplate(content []byte) (*bytes.Buffer, error) 
 	// try a first pass render. This will always succeed, but can produce a limited env
 	firstPassEnv := r.renderEnvironment(content)
 
-	secondPassRenderer := tmpl.NewFileRenderer(r.reader, filepath.Dir(r.filename), firstPassEnv, r.namespace)
+	tmplData := state.EnvironmentTemplateData{Environment: firstPassEnv, Namespace: r.namespace}
+	secondPassRenderer := tmpl.NewFileRenderer(r.reader, filepath.Dir(r.filename), tmplData)
 	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
 	if err != nil {
 		if r.logger != nil {
@@ -840,6 +841,12 @@ func (a *app) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 			}
 			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
 		} else {
+			var err error
+			st, err = st.ExecuteTemplates()
+			if err != nil {
+				return fmt.Errorf("failed executing release templates in \"%s\": %v", fileOrDir, err)
+			}
+
 			var processed bool
 			processed, errs = converge(st, helm)
 			noMatchInHelmfiles = noMatchInHelmfiles && !processed

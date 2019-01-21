@@ -6,7 +6,7 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/valuesfile"
+	"github.com/roboll/helmfile/tmpl"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"io"
@@ -118,13 +118,14 @@ func (c *creator) CreateFromYaml(content []byte, file string, env string) (*Helm
 	return &state, nil
 }
 
-func (state *HelmState) loadEnv(name string, readFile func(string) ([]byte, error)) (*environment.Environment, error) {
+func (st *HelmState) loadEnv(name string, readFile func(string) ([]byte, error)) (*environment.Environment, error) {
 	envVals := map[string]interface{}{}
-	envSpec, ok := state.Environments[name]
+	envSpec, ok := st.Environments[name]
 	if ok {
 		for _, envvalFile := range envSpec.Values {
-			envvalFullPath := filepath.Join(state.basePath, envvalFile)
-			r := valuesfile.NewRenderer(readFile, filepath.Dir(envvalFullPath), environment.EmptyEnvironment)
+			envvalFullPath := filepath.Join(st.basePath, envvalFile)
+			tmplData := EnvironmentTemplateData{Environment: environment.EmptyEnvironment, Namespace: ""}
+			r := tmpl.NewFileRenderer(readFile, filepath.Dir(envvalFullPath), tmplData)
 			bytes, err := r.RenderToBytes(envvalFullPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", envvalFile, err)
@@ -139,9 +140,9 @@ func (state *HelmState) loadEnv(name string, readFile func(string) ([]byte, erro
 		}
 
 		if len(envSpec.Secrets) > 0 {
-			helm := helmexec.New(state.logger, "")
+			helm := helmexec.New(st.logger, "")
 			for _, secFile := range envSpec.Secrets {
-				path := filepath.Join(state.basePath, secFile)
+				path := filepath.Join(st.basePath, secFile)
 				if _, err := os.Stat(path); os.IsNotExist(err) {
 					return nil, err
 				}
