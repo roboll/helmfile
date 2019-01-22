@@ -1104,10 +1104,16 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 			path := st.normalizePath(release.ValuesPathPrefix + typedValue)
 
 			if _, err := os.Stat(path); os.IsNotExist(err) {
-				if release.MissingFileHandler == nil && *release.MissingFileHandler == "Error" {
+				if release.MissingFileHandler == nil || *release.MissingFileHandler == "Error" {
 					return nil, err
-				} else {
+				} else if *release.MissingFileHandler == "Warn" {
 					st.logger.Warnf("skipping missing values file \"%s\"", path)
+					continue
+				} else if *release.MissingFileHandler == "Info" {
+					st.logger.Infof("skipping missing values file \"%s\"", path)
+					continue
+				} else {
+					st.logger.Debugf("skipping missing values file \"%s\"", path)
 					continue
 				}
 			}
@@ -1148,10 +1154,16 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	for _, value := range release.Secrets {
 		path := st.normalizePath(release.ValuesPathPrefix + value)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			if release.MissingFileHandler == nil && *release.MissingFileHandler == "Error" {
+			if release.MissingFileHandler == nil || *release.MissingFileHandler == "Error" {
 				return nil, err
-			} else {
+			} else if *release.MissingFileHandler == "Warn" {
 				st.logger.Warnf("skipping missing secrets file \"%s\"", path)
+				continue
+			} else if *release.MissingFileHandler == "Info" {
+				st.logger.Infof("skipping missing secrets file \"%s\"", path)
+				continue
+			} else {
+				st.logger.Debugf("skipping missing secrets file \"%s\"", path)
 				continue
 			}
 		}
