@@ -496,18 +496,24 @@ Do you really want to delete?
 					Value: 300,
 					Usage: "maximum time for tests to run before being considered failed",
 				},
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ context) []error {
 					cleanup := c.Bool("cleanup")
 					timeout := c.Int("timeout")
+					concurrency := c.Int("concurrency")
 
 					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
 
-					return state.TestReleases(helm, cleanup, timeout)
+					return state.TestReleases(helm, cleanup, timeout, concurrency)
 				})
 			},
 		},

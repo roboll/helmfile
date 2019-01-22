@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"github.com/roboll/helmfile/helmexec"
 	"io/ioutil"
 	"os"
 	"path"
@@ -10,9 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
-
-	"github.com/roboll/helmfile/helmexec"
 
 	"regexp"
 
@@ -188,16 +186,19 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan syncPrepareResult, numReleases)
 
-	if concurrency < 1 {
-		concurrency = numReleases
-	}
+	res := []syncPrepareResult{}
+	errs := []error{}
 
-	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
-	var waitGroup sync.WaitGroup
-	waitGroup.Add(concurrency)
-
-	for w := 1; w <= concurrency; w++ {
-		go func() {
+	st.scatterGather(
+		concurrency,
+		numReleases,
+		func() {
+			for i := 0; i < numReleases; i++ {
+				jobs <- &releases[i]
+			}
+			close(jobs)
+		},
+		func(_ int) {
 			for release := range jobs {
 				st.applyDefaultsTo(release)
 
@@ -227,29 +228,20 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 
 				results <- syncPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}}
 			}
-			waitGroup.Done()
-		}()
-	}
-
-	for i := 0; i < numReleases; i++ {
-		jobs <- &releases[i]
-	}
-	close(jobs)
-
-	res := []syncPrepareResult{}
-	errs := []error{}
-	for i := 0; i < numReleases; {
-		select {
-		case r := <-results:
-			for _, e := range r.errors {
-				errs = append(errs, e)
+		},
+		func() {
+			for i := 0; i < numReleases; {
+				select {
+				case r := <-results:
+					for _, e := range r.errors {
+						errs = append(errs, e)
+					}
+					res = append(res, r)
+					i++
+				}
 			}
-			res = append(res, r)
-			i++
-		}
-	}
-
-	waitGroup.Wait()
+		},
+	)
 
 	return res, errs
 }
@@ -286,21 +278,20 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 		return prepErrs
 	}
 
+	errs := []error{}
 	jobQueue := make(chan *syncPrepareResult, len(preps))
 	results := make(chan syncResult, len(preps))
 
-	if workerLimit < 1 {
-		workerLimit = len(preps)
-	}
-
-	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
-	// Otherwise, cleanup hooks won't run fully.
-	// See #363 for more context.
-	var waitGroup sync.WaitGroup
-	waitGroup.Add(workerLimit)
-
-	for w := 1; w <= workerLimit; w++ {
-		go func() {
+	st.scatterGather(
+		workerLimit,
+		len(preps),
+		func() {
+			for i := 0; i < len(preps); i++ {
+				jobQueue <- &preps[i]
+			}
+			close(jobQueue)
+		},
+		func(_ int) {
 			for prep := range jobQueue {
 				release := prep.release
 				flags := prep.flags
@@ -323,29 +314,21 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 					st.logger.Warnf("warn: %v\n", err)
 				}
 			}
-			waitGroup.Done()
-		}()
-	}
-
-	for i := 0; i < len(preps); i++ {
-		jobQueue <- &preps[i]
-	}
-	close(jobQueue)
-
-	errs := []error{}
-	for i := 0; i < len(preps); {
-		select {
-		case res := <-results:
-			if len(res.errors) > 0 {
-				for _, e := range res.errors {
-					errs = append(errs, e)
+		},
+		func() {
+			for i := 0; i < len(preps); {
+				select {
+				case res := <-results:
+					if len(res.errors) > 0 {
+						for _, e := range res.errors {
+							errs = append(errs, e)
+						}
+					}
 				}
+				i++
 			}
-		}
-		i++
-	}
-
-	waitGroup.Wait()
+		},
+	)
 
 	if len(errs) > 0 {
 		return errs
@@ -355,7 +338,7 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 }
 
 // downloadCharts will download and untar charts for Lint and Template
-func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerLimit int, helmfileCommand string) (map[string]string, []error) {
+func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string) (map[string]string, []error) {
 	temp := make(map[string]string, len(st.Releases))
 	type downloadResults struct {
 		releaseName string
@@ -363,17 +346,19 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerL
 	}
 	errs := []error{}
 
-	var wgFetch sync.WaitGroup
 	jobQueue := make(chan *ReleaseSpec, len(st.Releases))
 	results := make(chan *downloadResults, len(st.Releases))
-	wgFetch.Add(len(st.Releases))
 
-	if workerLimit < 1 {
-		workerLimit = len(st.Releases)
-	}
-
-	for w := 1; w <= workerLimit; w++ {
-		go func() {
+	st.scatterGather(
+		concurrency,
+		len(st.Releases),
+		func() {
+			for i := 0; i < len(st.Releases); i++ {
+				jobQueue <- &st.Releases[i]
+			}
+			close(jobQueue)
+		},
+		func(_ int) {
 			for release := range jobQueue {
 				chartPath := ""
 				if pathExists(normalizeChart(st.basePath, release.Chart)) {
@@ -403,20 +388,14 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, workerL
 
 				results <- &downloadResults{release.Name, chartPath}
 			}
-			wgFetch.Done()
-		}()
-	}
-	for i := 0; i < len(st.Releases); i++ {
-		jobQueue <- &st.Releases[i]
-	}
-	close(jobQueue)
-
-	for i := 0; i < len(st.Releases); i++ {
-		downloadRes := <-results
-		temp[downloadRes.releaseName] = downloadRes.chartPath
-	}
-
-	wgFetch.Wait()
+		},
+		func() {
+			for i := 0; i < len(st.Releases); i++ {
+				downloadRes := <-results
+				temp[downloadRes.releaseName] = downloadRes.chartPath
+			}
+		},
+	)
 
 	if len(errs) > 0 {
 		return nil, errs
@@ -568,16 +547,19 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan diffPrepareResult, numReleases)
 
-	if concurrency < 1 {
-		concurrency = numReleases
-	}
+	rs := []diffPrepareResult{}
+	errs := []error{}
 
-	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
-	var waitGroup sync.WaitGroup
-	waitGroup.Add(concurrency)
-
-	for w := 1; w <= concurrency; w++ {
-		go func() {
+	st.scatterGather(
+		concurrency,
+		numReleases,
+		func() {
+			for i := 0; i < numReleases; i++ {
+				jobs <- &releases[i]
+			}
+			close(jobs)
+		},
+		func(_ int) {
 			for release := range jobs {
 				errs := []error{}
 
@@ -618,32 +600,20 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}}
 				}
 			}
-			waitGroup.Done()
-		}()
-	}
-
-	for i := 0; i < numReleases; i++ {
-		jobs <- &releases[i]
-	}
-	close(jobs)
-
-	rs := []diffPrepareResult{}
-	errs := []error{}
-	for i := 0; i < numReleases; {
-		select {
-		case res := <-results:
-			if res.errors != nil && len(res.errors) > 0 {
-				for _, e := range res.errors {
-					errs = append(errs, e)
+		},
+		func() {
+			for i := 0; i < numReleases; i++ {
+				res := <-results
+				if res.errors != nil && len(res.errors) > 0 {
+					for _, e := range res.errors {
+						errs = append(errs, e)
+					}
+				} else if res.release != nil {
+					rs = append(rs, res)
 				}
-			} else if res.release != nil {
-				rs = append(rs, res)
 			}
-		}
-		i++
-	}
-
-	waitGroup.Wait()
+		},
+	)
 
 	return rs, errs
 }
@@ -659,18 +629,19 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 	jobQueue := make(chan *diffPrepareResult, len(preps))
 	results := make(chan diffResult, len(preps))
 
-	if workerLimit < 1 {
-		workerLimit = len(preps)
-	}
+	rs := []*ReleaseSpec{}
+	errs := []error{}
 
-	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
-	// Otherwise, cleanup hooks won't run fully.
-	// See #363 for more context.
-	var waitGroup sync.WaitGroup
-	waitGroup.Add(workerLimit)
-
-	for w := 1; w <= workerLimit; w++ {
-		go func() {
+	st.scatterGather(
+		workerLimit,
+		len(preps),
+		func() {
+			for i := 0; i < len(preps); i++ {
+				jobQueue <- &preps[i]
+			}
+			close(jobQueue)
+		},
+		func(_ int) {
 			for prep := range jobQueue {
 				flags := prep.flags
 				release := prep.release
@@ -694,140 +665,50 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					}
 				}
 			}
-			waitGroup.Done()
-		}()
-	}
-
-	for i := 0; i < len(preps); i++ {
-		jobQueue <- &preps[i]
-	}
-	close(jobQueue)
-
-	rs := []*ReleaseSpec{}
-	errs := []error{}
-	for i := 0; i < len(preps); {
-		select {
-		case res := <-results:
-			if res.err != nil {
-				errs = append(errs, res.err)
-				if res.err.Code == 2 {
-					rs = append(rs, res.err.ReleaseSpec)
+		},
+		func() {
+			for i := 0; i < len(preps); i++ {
+				res := <-results
+				if res.err != nil {
+					errs = append(errs, res.err)
+					if res.err.Code == 2 {
+						rs = append(rs, res.err.ReleaseSpec)
+					}
 				}
 			}
-			i++
-		}
-	}
-	close(results)
-
-	waitGroup.Wait()
+		},
+	)
 
 	return rs, errs
 }
 
 func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
-	var errs []error
-	jobQueue := make(chan ReleaseSpec)
-	doneQueue := make(chan bool)
-	errQueue := make(chan error)
-
-	if workerLimit < 1 {
-		workerLimit = len(st.Releases)
-	}
-
-	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
-	var waitGroup sync.WaitGroup
-	waitGroup.Add(workerLimit)
-
-	for w := 1; w <= workerLimit; w++ {
-		go func() {
-			for release := range jobQueue {
-				if err := helm.ReleaseStatus(release.Name); err != nil {
-					errQueue <- err
-				}
-				doneQueue <- true
-			}
-			waitGroup.Done()
-		}()
-	}
-
-	go func() {
-		for _, release := range st.Releases {
-			jobQueue <- release
-		}
-		close(jobQueue)
-	}()
-
-	for i := 0; i < len(st.Releases); {
-		select {
-		case err := <-errQueue:
-			errs = append(errs, err)
-		case <-doneQueue:
-			i++
-		}
-	}
-
-	waitGroup.Wait()
-
-	if len(errs) != 0 {
-		return errs
-	}
-
-	return nil
+	return st.scatterGatherReleases(helm, workerLimit, func(release ReleaseSpec) error {
+		return helm.ReleaseStatus(release.Name)
+	})
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error {
-	var wg sync.WaitGroup
-	errs := []error{}
-
-	for _, release := range st.Releases {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, release ReleaseSpec) {
-			flags := []string{}
-			if purge {
-				flags = append(flags, "--purge")
-			}
-			if err := helm.DeleteRelease(release.Name, flags...); err != nil {
-				errs = append(errs, err)
-			}
-			wg.Done()
-		}(&wg, release)
-	}
-	wg.Wait()
-
-	if len(errs) != 0 {
-		return errs
-	}
-
-	return nil
+	return st.scatterGatherReleases(helm, len(st.Releases), func(release ReleaseSpec) error {
+		flags := []string{}
+		if purge {
+			flags = append(flags, "--purge")
+		}
+		return helm.DeleteRelease(release.Name, flags...)
+	})
 }
 
 // TestReleases wrapper for executing helm test on the releases
-func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int) []error {
-	var wg sync.WaitGroup
-	errs := []error{}
-
-	for _, release := range st.Releases {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, release ReleaseSpec) {
-			flags := []string{}
-			if cleanup {
-				flags = append(flags, "--cleanup")
-			}
-			flags = append(flags, "--timeout", strconv.Itoa(timeout))
-			if err := helm.TestRelease(release.Name, flags...); err != nil {
-				errs = append(errs, err)
-			}
-			wg.Done()
-		}(&wg, release)
-	}
-	wg.Wait()
-
-	if len(errs) != 0 {
-		return errs
-	}
-
-	return nil
+func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int) []error {
+	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec) error {
+		flags := []string{}
+		if cleanup {
+			flags = append(flags, "--cleanup")
+		}
+		flags = append(flags, "--timeout", strconv.Itoa(timeout))
+		return helm.TestRelease(release.Name, flags...)
+	})
 }
 
 // Clean will remove any generated secrets
