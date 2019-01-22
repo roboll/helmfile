@@ -724,7 +724,8 @@ type twoPassRenderer struct {
 
 func (r *twoPassRenderer) renderEnvironment(content []byte) environment.Environment {
 	firstPassEnv := environment.Environment{Name: r.env, Values: map[string]interface{}(nil)}
-	firstPassRenderer := tmpl.NewFirstPassRenderer(filepath.Dir(r.filename), firstPassEnv)
+	tmplData := state.EnvironmentTemplateData{Environment: firstPassEnv, Namespace: r.namespace}
+	firstPassRenderer := tmpl.NewFirstPassRenderer(filepath.Dir(r.filename), tmplData)
 
 	// parse as much as we can, tolerate errors, this is a preparse
 	yamlBuf, err := firstPassRenderer.RenderTemplateContentToBuffer(content)
