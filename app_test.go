@@ -8,20 +8,122 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
+type testFs struct {
+	wd    string
+	dirs  map[string]bool
+	files map[string]string
+}
+
+func appWithFs(app *app, files map[string]string) *app {
+	fs := newTestFs(files)
+	return injectFs(app, fs)
+}
+
+func injectFs(app *app, fs *testFs) *app {
+	app.readFile = fs.readFile
+	app.glob = fs.glob
+	app.abs = fs.abs
+	app.getwd = fs.getwd
+	app.chdir = fs.chdir
+	app.fileExistsAt = fs.fileExistsAt
+	app.directoryExistsAt = fs.directoryExistsAt
+	return app
+}
+
+func newTestFs(files map[string]string) *testFs {
+	dirs := map[string]bool{}
+	for abs, _ := range files {
+		d := filepath.Dir(abs)
+		dirs[d] = true
+	}
+	return &testFs{
+		wd:    "/path/to",
+		dirs:  dirs,
+		files: files,
+	}
+}
+
+func (f *testFs) fileExistsAt(path string) bool {
+	var ok bool
+	if strings.Contains(path, "/") {
+		_, ok = f.files[path]
+	} else {
+		_, ok = f.files[filepath.Join(f.wd, path)]
+	}
+	return ok
+}
+
+func (f *testFs) directoryExistsAt(path string) bool {
+	var ok bool
+	if strings.Contains(path, "/") {
+		_, ok = f.dirs[path]
+	} else {
+		_, ok = f.dirs[filepath.Join(f.wd, path)]
+	}
+	return ok
+}
+
+func (f *testFs) readFile(filename string) ([]byte, error) {
+	var str string
+	var ok bool
+	if strings.Contains(filename, "/") {
+		str, ok = f.files[filename]
+	} else {
+		str, ok = f.files[filepath.Join(f.wd, filename)]
+	}
+	if !ok {
+		return []byte(nil), fmt.Errorf("no file found: %s", filename)
+	}
+	return []byte(str), nil
+}
+
+func (f *testFs) glob(pattern string) ([]string, error) {
+	matches := []string{}
+	for name, _ := range f.files {
+		matched, err := filepath.Match(pattern, name)
+		if err != nil {
+			return nil, err
+		}
+		if matched {
+			matches = append(matches, name)
+		}
+	}
+	if len(matches) == 0 {
+		return []string(nil), fmt.Errorf("no file matched: %s", pattern)
+	}
+	return matches, nil
+}
+
+func (f *testFs) abs(path string) (string, error) {
+	var p string
+	if path[0] == '/' {
+		p = path
+	} else {
+		p = filepath.Join(f.wd, path)
+	}
+	return filepath.Clean(p), nil
+}
+
+func (f *testFs) getwd() (string, error) {
+	return f.wd, nil
+}
+
+func (f *testFs) chdir(dir string) error {
+	if dir == "/path/to" || dir == "/path/to/helmfile.d" {
+		f.wd = dir
+		return nil
+	}
+	return fmt.Errorf("unexpected chdir \"%s\"", dir)
+}
+
 // See https://github.com/roboll/helmfile/issues/193
 func TestVisitDesiredStatesWithReleasesFiltered(t *testing.T) {
-	absPaths := map[string]string{
-		".":                   "/path/to",
-		"/path/to/helmfile.d": "/path/to/helmfile.d",
-	}
-	dirs := map[string]bool{
-		"helmfile.d": true,
-	}
 	files := map[string]string{
-		"helmfile.yaml": `
+		"/path/to/helmfile.yaml": `
 helmfiles:
 - helmfile.d/a*.yaml
 - helmfile.d/b*.yaml
@@ -41,39 +143,6 @@ releases:
 - name: grafana
   chart: stable/grafana
 `,
-	}
-	globMatches := map[string][]string{
-		"/path/to/helmfile.d/a*.yaml": []string{"/path/to/helmfile.d/a1.yaml", "/path/to/helmfile.d/a2.yaml"},
-		"/path/to/helmfile.d/b*.yaml": []string{"/path/to/helmfile.d/b.yaml"},
-	}
-	fileExistsAt := func(path string) bool {
-		_, ok := files[path]
-		return ok
-	}
-	directoryExistsAt := func(path string) bool {
-		_, ok := dirs[path]
-		return ok
-	}
-	readFile := func(filename string) ([]byte, error) {
-		str, ok := files[filename]
-		if !ok {
-			return []byte(nil), fmt.Errorf("no file found: %s", filename)
-		}
-		return []byte(str), nil
-	}
-	glob := func(pattern string) ([]string, error) {
-		matches, ok := globMatches[pattern]
-		if !ok {
-			return []string(nil), fmt.Errorf("no file matched: %s", pattern)
-		}
-		return matches, nil
-	}
-	abs := func(path string) (string, error) {
-		a, ok := absPaths[path]
-		if !ok {
-			return "", fmt.Errorf("abs: unexpected path: %s", path)
-		}
-		return a, nil
 	}
 	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
 		return []error{}
@@ -90,18 +159,13 @@ releases:
 	}
 
 	for _, testcase := range testcases {
-		app := &app{
-			readFile:          readFile,
-			glob:              glob,
-			abs:               abs,
-			fileExistsAt:      fileExistsAt,
-			directoryExistsAt: directoryExistsAt,
-			kubeContext:       "default",
-			logger:            helmexec.NewLogger(os.Stderr, "debug"),
-			selectors:         []string{fmt.Sprintf("name=%s", testcase.name)},
-			namespace:         "",
-			env:               "default",
-		}
+		app := appWithFs(&app{
+			kubeContext: "default",
+			logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			selectors:   []string{fmt.Sprintf("name=%s", testcase.name)},
+			namespace:   "",
+			env:         "default",
+		}, files)
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", noop,
 		)
@@ -115,15 +179,8 @@ releases:
 
 // See https://github.com/roboll/helmfile/issues/320
 func TestVisitDesiredStatesWithReleasesFiltered_UndefinedEnv(t *testing.T) {
-	absPaths := map[string]string{
-		".":                   "/path/to",
-		"/path/to/helmfile.d": "/path/to/helmfile.d",
-	}
-	dirs := map[string]bool{
-		"helmfile.d": true,
-	}
 	files := map[string]string{
-		"helmfile.yaml": `
+		"/path/to/helmfile.yaml": `
 environments:
   prod:
 
@@ -139,38 +196,6 @@ releases:
   chart: stable/zipkin
 `,
 	}
-	globMatches := map[string][]string{
-		"/path/to/helmfile.d/a*.yaml": []string{"/path/to/helmfile.d/a1.yaml"},
-	}
-	fileExistsAt := func(path string) bool {
-		_, ok := files[path]
-		return ok
-	}
-	directoryExistsAt := func(path string) bool {
-		_, ok := dirs[path]
-		return ok
-	}
-	readFile := func(filename string) ([]byte, error) {
-		str, ok := files[filename]
-		if !ok {
-			return []byte(nil), fmt.Errorf("no file found: %s", filename)
-		}
-		return []byte(str), nil
-	}
-	glob := func(pattern string) ([]string, error) {
-		matches, ok := globMatches[pattern]
-		if !ok {
-			return []string(nil), fmt.Errorf("no file matched: %s", pattern)
-		}
-		return matches, nil
-	}
-	abs := func(path string) (string, error) {
-		a, ok := absPaths[path]
-		if !ok {
-			return "", fmt.Errorf("abs: unexpected path: %s", path)
-		}
-		return a, nil
-	}
 	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
 		return []error{}
 	}
@@ -185,18 +210,13 @@ releases:
 	}
 
 	for _, testcase := range testcases {
-		app := &app{
-			readFile:          readFile,
-			glob:              glob,
-			abs:               abs,
-			fileExistsAt:      fileExistsAt,
-			directoryExistsAt: directoryExistsAt,
-			kubeContext:       "default",
-			logger:            helmexec.NewLogger(os.Stderr, "debug"),
-			namespace:         "",
-			selectors:         []string{},
-			env:               testcase.name,
-		}
+		app := appWithFs(&app{
+			kubeContext: "default",
+			logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			namespace:   "",
+			selectors:   []string{},
+			env:         testcase.name,
+		}, files)
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", noop,
 		)
@@ -210,15 +230,8 @@ releases:
 
 // See https://github.com/roboll/helmfile/issues/322
 func TestVisitDesiredStatesWithReleasesFiltered_Selectors(t *testing.T) {
-	absPaths := map[string]string{
-		".":                   "/path/to",
-		"/path/to/helmfile.d": "/path/to/helmfile.d",
-	}
-	dirs := map[string]bool{
-		"helmfile.d": true,
-	}
 	files := map[string]string{
-		"helmfile.yaml": `
+		"/path/to/helmfile.yaml": `
 helmfiles:
 - helmfile.d/a*.yaml
 - helmfile.d/b*.yaml
@@ -246,39 +259,6 @@ releases:
   labels:
     duplicated: yes
 `,
-	}
-	globMatches := map[string][]string{
-		"/path/to/helmfile.d/a*.yaml": []string{"/path/to/helmfile.d/a1.yaml", "/path/to/helmfile.d/a2.yaml"},
-		"/path/to/helmfile.d/b*.yaml": []string{"/path/to/helmfile.d/b.yaml"},
-	}
-	fileExistsAt := func(path string) bool {
-		_, ok := files[path]
-		return ok
-	}
-	directoryExistsAt := func(path string) bool {
-		_, ok := dirs[path]
-		return ok
-	}
-	readFile := func(filename string) ([]byte, error) {
-		str, ok := files[filename]
-		if !ok {
-			return []byte(nil), fmt.Errorf("no file found: %s", filename)
-		}
-		return []byte(str), nil
-	}
-	glob := func(pattern string) ([]string, error) {
-		matches, ok := globMatches[pattern]
-		if !ok {
-			return []string(nil), fmt.Errorf("no file matched: %s", pattern)
-		}
-		return matches, nil
-	}
-	abs := func(path string) (string, error) {
-		a, ok := absPaths[path]
-		if !ok {
-			return "", fmt.Errorf("abs: unexpected path: %s", path)
-		}
-		return a, nil
 	}
 
 	testcases := []struct {
@@ -305,18 +285,13 @@ releases:
 			return []error{}
 		}
 
-		app := &app{
-			readFile:          readFile,
-			glob:              glob,
-			abs:               abs,
-			fileExistsAt:      fileExistsAt,
-			directoryExistsAt: directoryExistsAt,
-			kubeContext:       "default",
-			logger:            helmexec.NewLogger(os.Stderr, "debug"),
-			namespace:         "",
-			selectors:         []string{testcase.label},
-			env:               "default",
-		}
+		app := appWithFs(&app{
+			kubeContext: "default",
+			logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			namespace:   "",
+			selectors:   []string{testcase.label},
+			env:         "default",
+		}, files)
 
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", collectReleases,
@@ -338,15 +313,8 @@ releases:
 
 // See https://github.com/roboll/helmfile/issues/312
 func TestVisitDesiredStatesWithReleasesFiltered_ReverseOrder(t *testing.T) {
-	absPaths := map[string]string{
-		".":                   "/path/to",
-		"/path/to/helmfile.d": "/path/to/helmfile.d",
-	}
-	dirs := map[string]bool{
-		"helmfile.d": true,
-	}
 	files := map[string]string{
-		"helmfile.yaml": `
+		"/path/to/helmfile.yaml": `
 helmfiles:
 - helmfile.d/a*.yaml
 - helmfile.d/b*.yaml
@@ -369,39 +337,6 @@ releases:
   chart: stable/grafana
 `,
 	}
-	globMatches := map[string][]string{
-		"/path/to/helmfile.d/a*.yaml": []string{"/path/to/helmfile.d/a1.yaml", "/path/to/helmfile.d/a2.yaml"},
-		"/path/to/helmfile.d/b*.yaml": []string{"/path/to/helmfile.d/b.yaml"},
-	}
-	fileExistsAt := func(path string) bool {
-		_, ok := files[path]
-		return ok
-	}
-	directoryExistsAt := func(path string) bool {
-		_, ok := dirs[path]
-		return ok
-	}
-	readFile := func(filename string) ([]byte, error) {
-		str, ok := files[filename]
-		if !ok {
-			return []byte(nil), fmt.Errorf("no file found: %s", filename)
-		}
-		return []byte(str), nil
-	}
-	glob := func(pattern string) ([]string, error) {
-		matches, ok := globMatches[pattern]
-		if !ok {
-			return []string(nil), fmt.Errorf("no file matched: %s", pattern)
-		}
-		return matches, nil
-	}
-	abs := func(path string) (string, error) {
-		a, ok := absPaths[path]
-		if !ok {
-			return "", fmt.Errorf("abs: unexpected path: %s", path)
-		}
-		return a, nil
-	}
 
 	expected := []string{"grafana", "elasticsearch", "prometheus", "zipkin"}
 
@@ -421,20 +356,14 @@ releases:
 			}
 			return []error{}
 		}
-
-		app := &app{
-			readFile:          readFile,
-			glob:              glob,
-			abs:               abs,
-			fileExistsAt:      fileExistsAt,
-			directoryExistsAt: directoryExistsAt,
-			kubeContext:       "default",
-			logger:            helmexec.NewLogger(os.Stderr, "debug"),
-			reverse:           testcase.reverse,
-			namespace:         "",
-			selectors:         []string{},
-			env:               "default",
-		}
+		app := appWithFs(&app{
+			kubeContext: "default",
+			logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			reverse:     testcase.reverse,
+			namespace:   "",
+			selectors:   []string{},
+			env:         "default",
+		}, files)
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", collectReleases,
 		)
