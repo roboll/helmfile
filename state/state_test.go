@@ -738,6 +738,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
+				logger:   logger,
 			}
 			if _ = state.SyncReleases(tt.helm, []string{}, 1); !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
 				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
@@ -815,6 +816,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 		i := func(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
+				logger:   logger,
 			}
 			errs := state.ReleaseStatuses(tt.helm, 1)
 			if (errs != nil) != tt.wantErr {
@@ -874,8 +876,9 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 		i := func(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
+				logger:   logger,
 			}
-			errs := state.TestReleases(tt.helm, tt.cleanup, 1)
+			errs := state.TestReleases(tt.helm, tt.cleanup, 1, 1)
 			if (errs != nil) != tt.wantErr {
 				t.Errorf("TestReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 				return
