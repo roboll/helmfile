@@ -753,7 +753,7 @@ See #155 for more information on this topic.
 
 ## Examples
 
-For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile.d`](https://github.com/cloudposse/helmfiles/tree/master/helmfile.d) distribution of helmfiles by [Cloud Posse](https://github.com/cloudposse/).
+For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`releases`](https://github.com/cloudposse/helmfiles/tree/master/releases) distribution of helmfiles by [Cloud Posse](https://github.com/cloudposse/).
 
 # Attribution
 
