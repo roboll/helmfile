@@ -571,6 +571,9 @@ type app struct {
 	env               string
 	namespace         string
 	selectors         []string
+
+	getwd func() (string, error)
+	chdir func(string) error
 }
 
 func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, context) []error) error {
@@ -598,6 +601,8 @@ func initAppEntry(c *cli.Context, reverse bool) (*app, string, error) {
 		readFile:          ioutil.ReadFile,
 		glob:              filepath.Glob,
 		abs:               filepath.Abs,
+		getwd:             os.Getwd,
+		chdir:             os.Chdir,
 		fileExistsAt:      fileExistsAt,
 		directoryExistsAt: directoryExistsAt,
 		kubeContext:       kubeContext,
@@ -778,16 +783,69 @@ func (r *twoPassRenderer) renderTemplate(content []byte) (*bytes.Buffer, error) 
 	return yamlBuf, nil
 }
 
-func (a *app) VisitDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+func (a *app) within(dir string, do func() error) error {
+	prev, err := a.getwd()
+	if err != nil {
+		return fmt.Errorf("failed getting current working direcotyr: %v", err)
+	}
+
+	absDir, err := a.abs(dir)
+	if err != nil {
+		return err
+	}
+
+	a.logger.Debugf("changing working directory to \"%s\"", absDir)
+
+	if err := a.chdir(absDir); err != nil {
+		return fmt.Errorf("failed changing working directory to \"%s\": %v", absDir, err)
+	}
+
+	appErr := do()
+
+	a.logger.Debugf("changing working directory back to \"%s\"", prev)
+
+	if chdirBackErr := a.chdir(prev); chdirBackErr != nil {
+		if appErr != nil {
+			a.logger.Warnf("%v", appErr)
+		}
+		return fmt.Errorf("failed chaging working directory back to \"%s\": %v", prev, chdirBackErr)
+	}
+
+	return appErr
+}
+
+func (a *app) visitStateFiles(fileOrDir string, do func(string) error) error {
 	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir)
 	if err != nil {
 		return err
 	}
 
-	noMatchInHelmfiles := true
-	for _, f := range desiredStateFiles {
-		a.logger.Debugf("Processing %s", f)
+	for _, relPath := range desiredStateFiles {
+		a.logger.Debugf("Processing %s", relPath)
 
+		var file string
+		var dir string
+		if a.directoryExistsAt(fileOrDir) {
+			file = fileOrDir
+			dir = fileOrDir
+		} else {
+			file = filepath.Base(fileOrDir)
+			dir = filepath.Dir(fileOrDir)
+		}
+		err := a.within(dir, func() error {
+			return do(file)
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a *app) VisitDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+	noMatchInHelmfiles := true
+	err := a.visitStateFiles(fileOrDir, func(f string) error {
 		content, err := a.readFile(f)
 		if err != nil {
 			return err
@@ -821,7 +879,7 @@ func (a *app) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 			case *state.StateLoadError:
 				switch stateLoadErr.Cause.(type) {
 				case *state.UndefinedEnvError:
-					continue
+					return nil
 				default:
 					return err
 				}
@@ -859,9 +917,10 @@ func (a *app) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 			noMatchInHelmfiles = noMatchInHelmfiles && !processed
 		}
 
-		if err := clean(st, errs); err != nil {
-			return err
-		}
+		return clean(st, errs)
+	})
+	if err != nil {
+		return err
 	}
 	if noMatchInHelmfiles {
 		return &noMatchingHelmfileError{selectors: a.selectors, env: a.env}
@@ -900,6 +959,22 @@ func (a *app) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge 
 		return err
 	}
 	return nil
+}
+
+func (a *app) findStateFilesInAbsPaths(specifiedPath string) ([]string, error) {
+	rels, err := a.findDesiredStateFiles(specifiedPath)
+	if err != nil {
+		return rels, err
+	}
+
+	files := make([]string, len(rels))
+	for i := range rels {
+		files[i], err = filepath.Abs(rels[i])
+		if err != nil {
+			return []string{}, err
+		}
+	}
+	return files, nil
 }
 
 func (a *app) findDesiredStateFiles(specifiedPath string) ([]string, error) {
