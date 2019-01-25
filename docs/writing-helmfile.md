@@ -50,7 +50,7 @@ releases:
   - "./config/heapster/secrets.yaml"
   - "./config/heapster/{{ .Environment.Name }}-secrets.yaml"
 
- - name: kubernetes-dashboard
+- name: kubernetes-dashboard
   namespace: kube-system
   chart: stable/kubernetes-dashboard
   version: 0.10.0
