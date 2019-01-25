@@ -784,6 +784,10 @@ func (r *twoPassRenderer) renderTemplate(content []byte) (*bytes.Buffer, error) 
 }
 
 func (a *app) within(dir string, do func() error) error {
+	if dir == "." {
+		return do()
+	}
+
 	prev, err := a.getwd()
 	if err != nil {
 		return fmt.Errorf("failed getting current working direcotyr: %v", err)
@@ -821,17 +825,18 @@ func (a *app) visitStateFiles(fileOrDir string, do func(string) error) error {
 	}
 
 	for _, relPath := range desiredStateFiles {
-		a.logger.Debugf("Processing %s", relPath)
-
 		var file string
 		var dir string
-		if a.directoryExistsAt(fileOrDir) {
-			file = fileOrDir
-			dir = fileOrDir
+		if a.directoryExistsAt(relPath) {
+			file = relPath
+			dir = relPath
 		} else {
-			file = filepath.Base(fileOrDir)
-			dir = filepath.Dir(fileOrDir)
+			file = filepath.Base(relPath)
+			dir = filepath.Dir(relPath)
 		}
+
+		a.logger.Debugf("processing file \"%s\" in directory \"%s\"", file, dir)
+
 		err := a.within(dir, func() error {
 			return do(file)
 		})
@@ -909,7 +914,7 @@ func (a *app) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 			var err error
 			st, err = st.ExecuteTemplates()
 			if err != nil {
-				return fmt.Errorf("failed executing release templates in \"%s\": %v", fileOrDir, err)
+				return fmt.Errorf("failed executing release templates in \"%s\": %v", f, err)
 			}
 
 			var processed bool
