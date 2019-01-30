@@ -295,6 +295,8 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 
 `--selector tier=frontend --selector tier=backend` will select all the charts
 
+In addition to user supplied labels the name, namespace, and chart are available to be used as selectors.  The chart will just be the chart name excluding the repository (Example `stable/filebeat` would be selected using `--selector chart=filebeat`).
+
 ## Templates
 
 You can use go's text/template expressions in `helmfile.yaml` and `values.yaml.gotmpl` (templated helm values files). `values.yaml` references will be used verbatim. In other words:
@@ -493,8 +495,8 @@ Environment Secrets (not to be confused with Kubernetes Secrets) are encrypted v
 You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
 Helmfile could automatically decrypt and merge the secrets into the environment values.
 
-First you must have the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin installed along with a 
-`.sops.yaml` file to configure the method of encryption (this can be in the same directory as your helmfile or 
+First you must have the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin installed along with a
+`.sops.yaml` file to configure the method of encryption (this can be in the same directory as your helmfile or
 in the sub-directory containing your secrets files).
 
 Then suppose you have a a foo.bar secret defined in `environments/production/secrets.yaml`:

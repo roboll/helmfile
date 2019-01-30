@@ -3,7 +3,6 @@ package state
 import (
 	"errors"
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
 	"io/ioutil"
 	"os"
 	"path"
@@ -11,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/roboll/helmfile/helmexec"
 
 	"regexp"
 
@@ -747,8 +748,12 @@ func (st *HelmState) FilterReleases(labels []string) error {
 		if r.Labels == nil {
 			r.Labels = map[string]string{}
 		}
-		// Let the release name be used as a tag
+		// Let the release name, namespace, and chart be used as a tag
 		r.Labels["name"] = r.Name
+		r.Labels["namespace"] = r.Namespace
+		// Strip off just the last portion for the name stable/newrelic would give newrelic
+		chartSplit := strings.Split(r.Chart, "/")
+		r.Labels["chart"] = chartSplit[len(chartSplit)-1]
 		for _, f := range filters {
 			if r.Labels == nil {
 				r.Labels = map[string]string{}
