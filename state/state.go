@@ -297,18 +297,21 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 				release := prep.release
 				flags := prep.flags
 				chart := normalizeChart(st.basePath, release.Chart)
+				var relErr *ReleaseError
 				if release.Installed != nil && !*release.Installed {
 					if err := helm.ReleaseStatus(release.Name); err == nil {
 						if err := helm.DeleteRelease(release.Name, "--purge"); err != nil {
-							results <- syncResult{errors: []*ReleaseError{&ReleaseError{release, err}}}
-						} else {
-							results <- syncResult{}
+							relErr = &ReleaseError{release, err}
 						}
 					}
 				} else if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
-					results <- syncResult{errors: []*ReleaseError{&ReleaseError{release, err}}}
-				} else {
+					relErr = &ReleaseError{release, err}
+				}
+
+				if relErr == nil {
 					results <- syncResult{}
+				} else {
+					results <- syncResult{errors: []*ReleaseError{relErr}}
 				}
 
 				if _, err := st.triggerCleanupEvent(prep.release, "sync"); err != nil {
