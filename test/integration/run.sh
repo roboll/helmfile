@@ -55,14 +55,32 @@ trap "{ $kubectl delete namespace ${test_ns}; }" EXIT # remove namespace wheneve
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
 test_start "happypath - simple rollout of httpbin chart"
+
+info "Diffing ${dir}/happypath.yaml"
+helmfile -f ${dir}/happypath.yaml diff --detailed-exitcode
+code=$?
+[ ${code} -eq 2 ] || fail "unexpected exit code returned by helmfile diff: ${code}"
+
+info "Templating ${dir}/happypath.yaml"
+helmfile -f ${dir}/happypath.yaml template
+code=$?
+[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile template: ${code}"
+
 info "Syncing ${dir}/happypath.yaml"
 ${helmfile} -f ${dir}/happypath.yaml sync
 wait_deploy_ready httpbin-httpbin
 retry 5 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-httpbin)/status/200"
 [ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
+
+info "Applying ${dir}/happypath.yaml"
+helmfile -f ${dir}/happypath.yaml apply
+code=$?
+[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
+
 info "Deleting release"
 ${helmfile} -f ${dir}/happypath.yaml delete
 ${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a delete"
+
 test_pass "happypath"
 
 

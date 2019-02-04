@@ -89,6 +89,13 @@ func (helm *execer) UpdateDeps(chart string) error {
 	return err
 }
 
+func (helm *execer) BuildDeps(chart string) error {
+	helm.logger.Infof("Building dependency %v", chart)
+	out, err := helm.exec("dependency", "build", chart)
+	helm.write(out)
+	return err
+}
+
 func (helm *execer) SyncRelease(name, chart string, flags ...string) error {
 	helm.logger.Infof("Upgrading %v", chart)
 	out, err := helm.exec(append([]string{"upgrade", "--install", "--reset-values", name, chart}, flags...)...)

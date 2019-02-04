@@ -7,6 +7,7 @@ type Interface interface {
 
 	AddRepo(name, repository, certfile, keyfile, username, password string) error
 	UpdateRepo() error
+	BuildDeps(chart string) error
 	UpdateDeps(chart string) error
 	SyncRelease(name, chart string, flags ...string) error
 	DiffRelease(name, chart string, flags ...string) error

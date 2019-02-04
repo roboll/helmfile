@@ -159,6 +159,29 @@ exec: helm dependency update ./chart/foo --verify --kube-context dev
 	}
 }
 
+func Test_BuildDeps(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := MockExecer(logger, "dev")
+	helm.BuildDeps("./chart/foo")
+	expected := `Building dependency ./chart/foo
+exec: helm dependency build ./chart/foo --kube-context dev
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.BuildDeps()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	helm.SetExtraArgs("--verify")
+	helm.BuildDeps("./chart/foo")
+	expected = `Building dependency ./chart/foo
+exec: helm dependency build ./chart/foo --verify --kube-context dev
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.BuildDeps()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
 func Test_DecryptSecret(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")

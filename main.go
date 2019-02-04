@@ -1,32 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
-	"os/exec"
-	"os/signal"
-	"path/filepath"
-	"sort"
-	"strings"
-	"syscall"
-
 	"github.com/roboll/helmfile/args"
-	"github.com/roboll/helmfile/environment"
+	"github.com/roboll/helmfile/cmd"
 	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/pkg/app"
 	"github.com/roboll/helmfile/state"
-	"github.com/roboll/helmfile/tmpl"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-)
-
-const (
-	DefaultHelmfile          = "helmfile.yaml"
-	DeprecatedHelmfile       = "charts.yaml"
-	DefaultHelmfileDirectory = "helmfile.d"
+	"os"
+	"strings"
 )
 
 var Version string
@@ -57,11 +42,11 @@ func configureLogging(c *cli.Context) error {
 
 func main() {
 
-	app := cli.NewApp()
-	app.Name = "helmfile"
-	app.Usage = ""
-	app.Version = Version
-	app.Flags = []cli.Flag{
+	cliApp := cli.NewApp()
+	cliApp.Name = "helmfile"
+	cliApp.Usage = ""
+	cliApp.Version = Version
+	cliApp.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "helm-binary, b",
 			Usage: "path to helm binary",
@@ -103,8 +88,8 @@ func main() {
 		},
 	}
 
-	app.Before = configureLogging
-	app.Commands = []cli.Command{
+	cliApp.Before = configureLogging
+	cliApp.Commands = []cli.Command{
 		{
 			Name:  "repos",
 			Usage: "sync repositories from state file (helm repo add && helm repo update)",
@@ -116,7 +101,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return visitAllDesiredStates(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) (bool, []error) {
+				return cmd.VisitAllDesiredStates(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) (bool, []error) {
 					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
@@ -150,7 +135,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ context) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
 					return executeSyncCommand(c, state, helm)
 				})
 			},
@@ -173,8 +158,8 @@ func main() {
 					Usage: "DEPRECATED",
 				},
 				cli.BoolFlag{
-					Name:  "skip-repo-update",
-					Usage: "skip running `helm repo update` on repositories declared in helmfile",
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
 				cli.BoolFlag{
 					Name:  "detailed-exitcode",
@@ -191,12 +176,15 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) []error {
-					if !c.Bool("skip-repo-update") {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
+					if !c.Bool("skip-deps") {
 						if c.Bool("sync-repos") {
 							logger.Warnf("--sync-repos has been removed and `helmfile diff` updates repositories by default. Provide `--skip-repo-update` to opt-out.")
 						}
 						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
 					}
@@ -227,20 +215,24 @@ func main() {
 					Value: 0,
 					Usage: "maximum number of concurrent downloads of release charts",
 				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
+				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
+					if !c.Bool("skip-deps") {
+						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+					}
 					if errs := state.PrepareRelease(helm, "template"); errs != nil && len(errs) > 0 {
 						return errs
 					}
-					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
-						return errs
-					}
-
-					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
-						return errs
-					}
-
 					return executeTemplateCommand(c, state, helm)
 				})
 			},
@@ -265,7 +257,7 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
 					values := c.StringSlice("values")
 					args := args.GetArgs(c.String("args"), state)
 					workers := c.Int("concurrency")
@@ -297,16 +289,22 @@ func main() {
 					Value: "",
 					Usage: "pass args to helm exec",
 				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
+				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) []error {
-					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
-						return errs
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
+					if !c.Bool("skip-deps") {
+						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
 					}
 					if errs := state.PrepareRelease(helm, "sync"); errs != nil && len(errs) > 0 {
-						return errs
-					}
-					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					return executeSyncCommand(c, state, helm)
@@ -339,18 +337,25 @@ func main() {
 					Name:  "skip-repo-update",
 					Usage: "skip running `helm repo update` on repositories declared in helmfile",
 				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
+				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx context) []error {
-					if !c.Bool("skip-repo-update") {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
+					if !c.Bool("skip-deps") || !c.Bool("skip-repo-update") {
+						if !c.Bool("skip-repo-update") {
+							logger.Warn("--skip-repo-update has been deprecated. Provide --skip-deps instead.")
+						}
 						if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
 					}
 					if errs := st.PrepareRelease(helm, "apply"); errs != nil && len(errs) > 0 {
-						return errs
-					}
-					if errs := st.UpdateDeps(helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
 
@@ -430,7 +435,7 @@ Do you really want to apply?
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ context) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
 					workers := c.Int("concurrency")
 
 					args := args.GetArgs(c.String("args"), state)
@@ -457,7 +462,7 @@ Do you really want to apply?
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ context) []error {
+				return cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
 					purge := c.Bool("purge")
 
 					args := args.GetArgs(c.String("args"), state)
@@ -510,7 +515,7 @@ Do you really want to delete?
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ context) []error {
+				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
 					cleanup := c.Bool("cleanup")
 					timeout := c.Int("timeout")
 					concurrency := c.Int("concurrency")
@@ -526,7 +531,7 @@ Do you really want to delete?
 		},
 	}
 
-	err := app.Run(os.Args)
+	err := cliApp.Run(os.Args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(3)
@@ -566,568 +571,6 @@ func executeDiffCommand(c *cli.Context, st *state.HelmState, helm helmexec.Inter
 	return st.DiffReleases(helm, values, workers, detailedExitCode, suppressSecrets, triggerCleanupEvents)
 }
 
-type app struct {
-	kubeContext       string
-	logger            *zap.SugaredLogger
-	readFile          func(string) ([]byte, error)
-	glob              func(string) ([]string, error)
-	abs               func(string) (string, error)
-	fileExistsAt      func(string) bool
-	directoryExistsAt func(string) bool
-	reverse           bool
-	env               string
-	namespace         string
-	selectors         []string
-
-	getwd func() (string, error)
-	chdir func(string) error
-}
-
-func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, context) []error) error {
-	return findAndIterateOverDesiredStatesUsingFlagsWithReverse(c, false, converge)
-}
-
-func initAppEntry(c *cli.Context, reverse bool) (*app, string, error) {
-	if c.NArg() > 0 {
-		cli.ShowAppHelp(c)
-		return nil, "", fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
-	}
-
-	fileOrDir := c.GlobalString("file")
-	kubeContext := c.GlobalString("kube-context")
-	namespace := c.GlobalString("namespace")
-	selectors := c.GlobalStringSlice("selector")
-	logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
-
-	env := c.GlobalString("environment")
-	if env == "" {
-		env = state.DefaultEnv
-	}
-
-	app := &app{
-		readFile:          ioutil.ReadFile,
-		glob:              filepath.Glob,
-		abs:               filepath.Abs,
-		getwd:             os.Getwd,
-		chdir:             os.Chdir,
-		fileExistsAt:      fileExistsAt,
-		directoryExistsAt: directoryExistsAt,
-		kubeContext:       kubeContext,
-		logger:            logger,
-		reverse:           reverse,
-		env:               env,
-		namespace:         namespace,
-		selectors:         selectors,
-	}
-
-	return app, fileOrDir, nil
-}
-
-type context struct {
-	updatedRepos map[string]struct{}
-}
-
-func (ctx context) SyncReposOnce(st *state.HelmState, helm state.RepoUpdater) []error {
-	var errs []error
-
-	allUpdated := true
-	for _, r := range st.Repositories {
-		_, exists := ctx.updatedRepos[r.Name]
-		allUpdated = allUpdated && exists
-	}
-
-	if !allUpdated {
-		errs = st.SyncRepos(helm)
-
-		for _, r := range st.Repositories {
-			ctx.updatedRepos[r.Name] = struct{}{}
-		}
-	}
-
-	return errs
-}
-
-func visitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, context) (bool, []error)) error {
-	app, fileOrDir, err := initAppEntry(c, false)
-	if err != nil {
-		return err
-	}
-
-	ctx := context{
-		updatedRepos: map[string]struct{}{},
-	}
-
-	convergeWithHelmBinary := func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
-		if c.GlobalString("helm-binary") != "" {
-			helm.SetHelmBinary(c.GlobalString("helm-binary"))
-		}
-		return converge(st, helm, ctx)
-	}
-
-	err = app.VisitDesiredStates(fileOrDir, convergeWithHelmBinary)
-
-	return toCliError(err)
-}
-
-func toCliError(err error) error {
-	if err != nil {
-		switch e := err.(type) {
-		case *noMatchingHelmfileError:
-			return cli.NewExitError(e.Error(), 2)
-		case *exec.ExitError:
-			// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-			status := e.Sys().(syscall.WaitStatus)
-			return cli.NewExitError(e.Error(), status.ExitStatus())
-		case *state.DiffError:
-			return cli.NewExitError(e.Error(), e.Code)
-		default:
-			return cli.NewExitError(e.Error(), 1)
-		}
-	}
-	return err
-}
-
-func findAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, reverse bool, converge func(*state.HelmState, helmexec.Interface, context) []error) error {
-	app, fileOrDir, err := initAppEntry(c, reverse)
-	if err != nil {
-		return err
-	}
-
-	ctx := context{
-		updatedRepos: map[string]struct{}{},
-	}
-
-	convergeWithHelmBinary := func(st *state.HelmState, helm helmexec.Interface) []error {
-		if c.GlobalString("helm-binary") != "" {
-			helm.SetHelmBinary(c.GlobalString("helm-binary"))
-		}
-		return converge(st, helm, ctx)
-	}
-
-	err = app.VisitDesiredStatesWithReleasesFiltered(fileOrDir, convergeWithHelmBinary)
-
-	return toCliError(err)
-}
-
-type noMatchingHelmfileError struct {
-	selectors []string
-	env       string
-}
-
-func (e *noMatchingHelmfileError) Error() string {
-	return fmt.Sprintf(
-		"err: no releases found that matches specified selector(%s) and environment(%s), in any helmfile",
-		strings.Join(e.selectors, ", "),
-		e.env,
-	)
-}
-
-func prependLineNumbers(text string) string {
-	buf := bytes.NewBufferString("")
-	lines := strings.Split(text, "\n")
-	for i, line := range lines {
-		buf.WriteString(fmt.Sprintf("%2d: %s\n", i, line))
-	}
-	return buf.String()
-}
-
-type twoPassRenderer struct {
-	reader    func(string) ([]byte, error)
-	env       string
-	namespace string
-	filename  string
-	logger    *zap.SugaredLogger
-	abs       func(string) (string, error)
-}
-
-func (r *twoPassRenderer) renderEnvironment(content []byte) environment.Environment {
-	firstPassEnv := environment.Environment{Name: r.env, Values: map[string]interface{}(nil)}
-	tmplData := state.EnvironmentTemplateData{Environment: firstPassEnv, Namespace: r.namespace}
-	firstPassRenderer := tmpl.NewFirstPassRenderer(filepath.Dir(r.filename), tmplData)
-
-	// parse as much as we can, tolerate errors, this is a preparse
-	yamlBuf, err := firstPassRenderer.RenderTemplateContentToBuffer(content)
-	if err != nil && r.logger != nil {
-		r.logger.Debugf("first-pass rendering input of \"%s\":\n%s", r.filename, prependLineNumbers(string(content)))
-		if yamlBuf == nil { // we have a template syntax error, let the second parse report
-			r.logger.Debugf("template syntax error: %v", err)
-			return firstPassEnv
-		}
-	}
-	c := state.NewCreator(r.logger, r.reader, r.abs)
-	c.Strict = false
-	// create preliminary state, as we may have an environment. Tolerate errors.
-	prestate, err := c.CreateFromYaml(yamlBuf.Bytes(), r.filename, r.env)
-	if err != nil && r.logger != nil {
-		switch err.(type) {
-		case *state.StateLoadError:
-			r.logger.Infof("could not deduce `environment:` block, configuring only .Environment.Name. error: %v", err)
-		}
-		r.logger.Debugf("error in first-pass rendering: result of \"%s\":\n%s", r.filename, prependLineNumbers(yamlBuf.String()))
-	}
-	if prestate != nil {
-		firstPassEnv = prestate.Env
-	}
-	return firstPassEnv
-}
-
-func (r *twoPassRenderer) renderTemplate(content []byte) (*bytes.Buffer, error) {
-	// try a first pass render. This will always succeed, but can produce a limited env
-	firstPassEnv := r.renderEnvironment(content)
-
-	tmplData := state.EnvironmentTemplateData{Environment: firstPassEnv, Namespace: r.namespace}
-	secondPassRenderer := tmpl.NewFileRenderer(r.reader, filepath.Dir(r.filename), tmplData)
-	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
-	if err != nil {
-		if r.logger != nil {
-			r.logger.Debugf("second-pass rendering failed, input of \"%s\":\n%s", r.filename, prependLineNumbers(string(content)))
-		}
-		return nil, err
-	}
-	if r.logger != nil {
-		r.logger.Debugf("second-pass rendering result of \"%s\":\n%s", r.filename, prependLineNumbers(yamlBuf.String()))
-	}
-	return yamlBuf, nil
-}
-
-func (a *app) within(dir string, do func() error) error {
-	if dir == "." {
-		return do()
-	}
-
-	prev, err := a.getwd()
-	if err != nil {
-		return fmt.Errorf("failed getting current working direcotyr: %v", err)
-	}
-
-	absDir, err := a.abs(dir)
-	if err != nil {
-		return err
-	}
-
-	a.logger.Debugf("changing working directory to \"%s\"", absDir)
-
-	if err := a.chdir(absDir); err != nil {
-		return fmt.Errorf("failed changing working directory to \"%s\": %v", absDir, err)
-	}
-
-	appErr := do()
-
-	a.logger.Debugf("changing working directory back to \"%s\"", prev)
-
-	if chdirBackErr := a.chdir(prev); chdirBackErr != nil {
-		if appErr != nil {
-			a.logger.Warnf("%v", appErr)
-		}
-		return fmt.Errorf("failed chaging working directory back to \"%s\": %v", prev, chdirBackErr)
-	}
-
-	return appErr
-}
-
-func (a *app) visitStateFiles(fileOrDir string, do func(string) error) error {
-	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir)
-	if err != nil {
-		return err
-	}
-
-	for _, relPath := range desiredStateFiles {
-		var file string
-		var dir string
-		if a.directoryExistsAt(relPath) {
-			file = relPath
-			dir = relPath
-		} else {
-			file = filepath.Base(relPath)
-			dir = filepath.Dir(relPath)
-		}
-
-		a.logger.Debugf("processing file \"%s\" in directory \"%s\"", file, dir)
-
-		err := a.within(dir, func() error {
-			return do(file)
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a *app) VisitDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
-	noMatchInHelmfiles := true
-	err := a.visitStateFiles(fileOrDir, func(f string) error {
-		content, err := a.readFile(f)
-		if err != nil {
-			return err
-		}
-		// render template, in two runs
-		r := &twoPassRenderer{
-			reader:    a.readFile,
-			env:       a.env,
-			namespace: a.namespace,
-			filename:  f,
-			logger:    a.logger,
-			abs:       a.abs,
-		}
-		yamlBuf, err := r.renderTemplate(content)
-		if err != nil {
-			return fmt.Errorf("error during %s parsing: %v", f, err)
-		}
-
-		st, err := a.loadDesiredStateFromYaml(
-			yamlBuf.Bytes(),
-			f,
-			a.namespace,
-			a.env,
-		)
-
-		helm := helmexec.New(a.logger, a.kubeContext)
-
-		if err != nil {
-			switch stateLoadErr := err.(type) {
-			// Addresses https://github.com/roboll/helmfile/issues/279
-			case *state.StateLoadError:
-				switch stateLoadErr.Cause.(type) {
-				case *state.UndefinedEnvError:
-					return nil
-				default:
-					return err
-				}
-			default:
-				return err
-			}
-		}
-
-		errs := []error{}
-
-		if len(st.Helmfiles) > 0 {
-			noMatchInSubHelmfiles := true
-			for _, m := range st.Helmfiles {
-				if err := a.VisitDesiredStates(m, converge); err != nil {
-					switch err.(type) {
-					case *noMatchingHelmfileError:
-
-					default:
-						return fmt.Errorf("failed processing %s: %v", m, err)
-					}
-				} else {
-					noMatchInSubHelmfiles = false
-				}
-			}
-			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
-		} else {
-			var err error
-			st, err = st.ExecuteTemplates()
-			if err != nil {
-				return fmt.Errorf("failed executing release templates in \"%s\": %v", f, err)
-			}
-
-			var processed bool
-			processed, errs = converge(st, helm)
-			noMatchInHelmfiles = noMatchInHelmfiles && !processed
-		}
-
-		return clean(st, errs)
-	})
-	if err != nil {
-		return err
-	}
-	if noMatchInHelmfiles {
-		return &noMatchingHelmfileError{selectors: a.selectors, env: a.env}
-	}
-	return nil
-}
-
-func (a *app) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
-	selectors := a.selectors
-
-	err := a.VisitDesiredStates(fileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
-		if len(selectors) > 0 {
-			err := st.FilterReleases(selectors)
-			if err != nil {
-				return false, []error{err}
-			}
-		}
-
-		releaseNameCounts := map[string]int{}
-		for _, r := range st.Releases {
-			releaseNameCounts[r.Name]++
-		}
-		for name, c := range releaseNameCounts {
-			if c > 1 {
-				return false, []error{fmt.Errorf("duplicate release \"%s\" found: there were %d releases named \"%s\" matching specified selector", name, c, name)}
-			}
-		}
-
-		errs := converge(st, helm)
-
-		processed := len(st.Releases) != 0 && len(errs) == 0
-
-		return processed, errs
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *app) findStateFilesInAbsPaths(specifiedPath string) ([]string, error) {
-	rels, err := a.findDesiredStateFiles(specifiedPath)
-	if err != nil {
-		return rels, err
-	}
-
-	files := make([]string, len(rels))
-	for i := range rels {
-		files[i], err = filepath.Abs(rels[i])
-		if err != nil {
-			return []string{}, err
-		}
-	}
-	return files, nil
-}
-
-func (a *app) findDesiredStateFiles(specifiedPath string) ([]string, error) {
-	var helmfileDir string
-	if specifiedPath != "" {
-		if a.fileExistsAt(specifiedPath) {
-			return []string{specifiedPath}, nil
-		} else if a.directoryExistsAt(specifiedPath) {
-			helmfileDir = specifiedPath
-		} else {
-			return []string{}, fmt.Errorf("specified state file %s is not found", specifiedPath)
-		}
-	} else {
-		var defaultFile string
-		if a.fileExistsAt(DefaultHelmfile) {
-			defaultFile = DefaultHelmfile
-		} else if a.fileExistsAt(DeprecatedHelmfile) {
-			log.Printf(
-				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
-				DeprecatedHelmfile,
-				DeprecatedHelmfile,
-				DefaultHelmfile,
-			)
-			defaultFile = DeprecatedHelmfile
-		}
-
-		if a.directoryExistsAt(DefaultHelmfileDirectory) {
-			if defaultFile != "" {
-				return []string{}, fmt.Errorf("configuration conlict error: you can have either %s or %s, but not both", defaultFile, DefaultHelmfileDirectory)
-			}
-
-			helmfileDir = DefaultHelmfileDirectory
-		} else if defaultFile != "" {
-			return []string{defaultFile}, nil
-		} else {
-			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.yaml, %s, or %s, or otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DeprecatedHelmfile)
-		}
-	}
-
-	files, err := a.glob(filepath.Join(helmfileDir, "*.yaml"))
-	if err != nil {
-		return []string{}, err
-	}
-	sort.Slice(files, func(i, j int) bool {
-		return files[i] < files[j]
-	})
-	return files, nil
-}
-
-func fileExistsAt(path string) bool {
-	fileInfo, err := os.Stat(path)
-	return err == nil && fileInfo.Mode().IsRegular()
-}
-
-func directoryExistsAt(path string) bool {
-	fileInfo, err := os.Stat(path)
-	return err == nil && fileInfo.Mode().IsDir()
-}
-
-func (a *app) loadDesiredStateFromYaml(yaml []byte, file string, namespace string, env string) (*state.HelmState, error) {
-	c := state.NewCreator(a.logger, a.readFile, a.abs)
-	st, err := c.CreateFromYaml(yaml, file, env)
-	if err != nil {
-		return nil, err
-	}
-
-	helmfiles := []string{}
-	for _, globPattern := range st.Helmfiles {
-		helmfileRelativePattern := st.JoinBase(globPattern)
-		matches, err := a.glob(helmfileRelativePattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
-		}
-		sort.Strings(matches)
-
-		helmfiles = append(helmfiles, matches...)
-	}
-	st.Helmfiles = helmfiles
-
-	if a.reverse {
-		rev := func(i, j int) bool {
-			return j < i
-		}
-		sort.Slice(st.Releases, rev)
-		sort.Slice(st.Helmfiles, rev)
-	}
-
-	if a.kubeContext != "" {
-		if st.HelmDefaults.KubeContext != "" {
-			log.Printf("err: Cannot use option --kube-context and set attribute helmDefaults.kubeContext.")
-			os.Exit(1)
-		}
-		st.HelmDefaults.KubeContext = a.kubeContext
-	}
-	if namespace != "" {
-		if st.Namespace != "" {
-			log.Printf("err: Cannot use option --namespace and set attribute namespace.")
-			os.Exit(1)
-		}
-		st.Namespace = namespace
-	}
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigs
-
-		errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
-		_ = clean(st, errs)
-		// See http://tldp.org/LDP/abs/html/exitcodes.html
-		switch sig {
-		case syscall.SIGINT:
-			os.Exit(130)
-		case syscall.SIGTERM:
-			os.Exit(143)
-		}
-	}()
-
-	return st, nil
-}
-
-func clean(st *state.HelmState, errs []error) error {
-	if errs == nil {
-		errs = []error{}
-	}
-
-	cleanErrs := st.Clean()
-	if cleanErrs != nil {
-		errs = append(errs, cleanErrs...)
-	}
-
-	if errs != nil && len(errs) > 0 {
-		for _, err := range errs {
-			switch e := err.(type) {
-			case *state.ReleaseError:
-				fmt.Printf("err: release \"%s\" in \"%s\" failed: %v\n", e.Name, st.FilePath, e)
-			default:
-				fmt.Printf("err: %v\n", e)
-			}
-		}
-		return errs[0]
-	}
-	return nil
+func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, app.Context) []error) error {
+	return cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, false, converge)
 }
