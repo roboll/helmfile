@@ -158,8 +158,8 @@ func main() {
 					Usage: "DEPRECATED",
 				},
 				cli.BoolFlag{
-					Name:  "skip-repo-update",
-					Usage: "skip running `helm repo update` on repositories declared in helmfile",
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
 				cli.BoolFlag{
 					Name:  "detailed-exitcode",
@@ -177,11 +177,14 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
-					if !c.Bool("skip-repo-update") {
+					if !c.Bool("skip-deps") {
 						if c.Bool("sync-repos") {
 							logger.Warnf("--sync-repos has been removed and `helmfile diff` updates repositories by default. Provide `--skip-repo-update` to opt-out.")
 						}
 						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
 					}
@@ -212,20 +215,24 @@ func main() {
 					Value: 0,
 					Usage: "maximum number of concurrent downloads of release charts",
 				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
+					if !c.Bool("skip-deps") {
+						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+					}
 					if errs := state.PrepareRelease(helm, "template"); errs != nil && len(errs) > 0 {
 						return errs
 					}
-					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
-						return errs
-					}
-
-					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
-						return errs
-					}
-
 					return executeTemplateCommand(c, state, helm)
 				})
 			},
@@ -282,16 +289,22 @@ func main() {
 					Value: "",
 					Usage: "pass args to helm exec",
 				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
-					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
-						return errs
+					if !c.Bool("skip-deps") {
+						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
 					}
 					if errs := state.PrepareRelease(helm, "sync"); errs != nil && len(errs) > 0 {
-						return errs
-					}
-					if errs := state.UpdateDeps(helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					return executeSyncCommand(c, state, helm)
@@ -324,18 +337,25 @@ func main() {
 					Name:  "skip-repo-update",
 					Usage: "skip running `helm repo update` on repositories declared in helmfile",
 				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
-					if !c.Bool("skip-repo-update") {
+					if !c.Bool("skip-deps") || !c.Bool("skip-repo-update") {
+						if !c.Bool("skip-repo-update") {
+							logger.Warn("--skip-repo-update has been deprecated. Provide --skip-deps instead.")
+						}
 						if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
 					}
 					if errs := st.PrepareRelease(helm, "apply"); errs != nil && len(errs) > 0 {
-						return errs
-					}
-					if errs := st.UpdateDeps(helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
 

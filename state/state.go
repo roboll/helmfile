@@ -830,6 +830,23 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 	return nil
 }
 
+// BuildDeps wrapper for building dependencies on the releases
+func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
+	errs := []error{}
+
+	for _, release := range st.Releases {
+		if isLocalChart(release.Chart) {
+			if err := helm.BuildDeps(normalizeChart(st.basePath, release.Chart)); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	if len(errs) != 0 {
+		return errs
+	}
+	return nil
+}
+
 // JoinBase returns an absolute path in the form basePath/relative
 func (st *HelmState) JoinBase(relPath string) string {
 	return filepath.Join(st.basePath, relPath)

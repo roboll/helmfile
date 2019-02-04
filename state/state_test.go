@@ -524,6 +524,14 @@ func (helm *mockHelmExec) UpdateDeps(chart string) error {
 	return nil
 }
 
+func (helm *mockHelmExec) BuildDeps(chart string) error {
+	if strings.Contains(chart, "error") {
+		return errors.New("error")
+	}
+	helm.charts = append(helm.charts, chart)
+	return nil
+}
+
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 	return
 }
