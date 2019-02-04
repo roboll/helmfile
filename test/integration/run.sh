@@ -47,6 +47,7 @@ set -e
 info "Using namespace: ${test_ns}"
 info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
 ${helm} init --wait --override spec.template.spec.automountServiceAccountToken=true
+${helm} plugin install https://github.com/databus23/helm-diff --version master
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
 $kubectl create namespace ${test_ns} || fail "Could not create namespace ${test_ns}"
 trap "{ $kubectl delete namespace ${test_ns}; }" EXIT # remove namespace whenever we exit this script
@@ -57,9 +58,7 @@ trap "{ $kubectl delete namespace ${test_ns}; }" EXIT # remove namespace wheneve
 test_start "happypath - simple rollout of httpbin chart"
 
 info "Diffing ${dir}/happypath.yaml"
-${helmfile} -f ${dir}/happypath.yaml diff --detailed-exitcode
-code=$?
-[ ${code} -eq 2 ] || fail "unexpected exit code returned by helmfile diff: ${code}"
+bash -c "${helmfile} -f ${dir}/happypath.yaml diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
 info "Templating ${dir}/happypath.yaml"
 ${helmfile} -f ${dir}/happypath.yaml template
