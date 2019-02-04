@@ -170,7 +170,11 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "sync-repos",
-					Usage: "enable a repo sync prior to diffing",
+					Usage: "DEPRECATED",
+				},
+				cli.BoolFlag{
+					Name:  "skip-repo-update",
+					Usage: "skip running `helm repo update` on repositories declared in helmfile",
 				},
 				cli.BoolFlag{
 					Name:  "detailed-exitcode",
@@ -188,7 +192,10 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx context) []error {
-					if c.Bool("sync-repos") {
+					if !c.Bool("skip-repo-update") {
+						if c.Bool("sync-repos") {
+							logger.Warnf("--sync-repos has been removed and `helmfile diff` updates repositories by default. Provide `--skip-repo-update` to opt-out.")
+						}
 						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
