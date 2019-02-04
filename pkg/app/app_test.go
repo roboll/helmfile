@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -18,12 +18,12 @@ type testFs struct {
 	files map[string]string
 }
 
-func appWithFs(app *app, files map[string]string) *app {
+func appWithFs(app *App, files map[string]string) *App {
 	fs := newTestFs(files)
 	return injectFs(app, fs)
 }
 
-func injectFs(app *app, fs *testFs) *app {
+func injectFs(app *App, fs *testFs) *App {
 	app.readFile = fs.readFile
 	app.glob = fs.glob
 	app.abs = fs.abs
@@ -159,12 +159,12 @@ releases:
 	}
 
 	for _, testcase := range testcases {
-		app := appWithFs(&app{
-			kubeContext: "default",
-			logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			selectors:   []string{fmt.Sprintf("name=%s", testcase.name)},
-			namespace:   "",
-			env:         "default",
+		app := appWithFs(&App{
+			KubeContext: "default",
+			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			Selectors:   []string{fmt.Sprintf("name=%s", testcase.name)},
+			Namespace:   "",
+			Env:         "default",
 		}, files)
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", noop,
@@ -210,12 +210,12 @@ releases:
 	}
 
 	for _, testcase := range testcases {
-		app := appWithFs(&app{
-			kubeContext: "default",
-			logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			namespace:   "",
-			selectors:   []string{},
-			env:         testcase.name,
+		app := appWithFs(&App{
+			KubeContext: "default",
+			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			Namespace:   "",
+			Selectors:   []string{},
+			Env:         testcase.name,
 		}, files)
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", noop,
@@ -285,12 +285,12 @@ releases:
 			return []error{}
 		}
 
-		app := appWithFs(&app{
-			kubeContext: "default",
-			logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			namespace:   "",
-			selectors:   []string{testcase.label},
-			env:         "default",
+		app := appWithFs(&App{
+			KubeContext: "default",
+			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			Namespace:   "",
+			Selectors:   []string{testcase.label},
+			Env:         "default",
 		}, files)
 
 		err := app.VisitDesiredStatesWithReleasesFiltered(
@@ -356,13 +356,13 @@ releases:
 			}
 			return []error{}
 		}
-		app := appWithFs(&app{
-			kubeContext: "default",
-			logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			reverse:     testcase.reverse,
-			namespace:   "",
-			selectors:   []string{},
-			env:         "default",
+		app := appWithFs(&App{
+			KubeContext: "default",
+			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			Reverse:     testcase.reverse,
+			Namespace:   "",
+			Selectors:   []string{},
+			Env:         "default",
 		}, files)
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", collectReleases,
@@ -389,12 +389,12 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
   labels:
     stage: post
 `)
-	app := &app{
+	app := &App{
 		readFile:    ioutil.ReadFile,
 		glob:        filepath.Glob,
 		abs:         filepath.Abs,
-		kubeContext: "default",
-		logger:      logger,
+		KubeContext: "default",
+		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
 	}
 	_, err := app.loadDesiredStateFromYaml(yamlContent, yamlFile, "default", "default")
 	if err != nil {
