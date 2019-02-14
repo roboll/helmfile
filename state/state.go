@@ -23,6 +23,7 @@ import (
 	"github.com/roboll/helmfile/tmpl"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"net/url"
 )
 
 // HelmState structure for the helmfile
@@ -857,7 +858,8 @@ func (st *HelmState) JoinBase(relPath string) string {
 
 // normalizes relative path to absolute one
 func (st *HelmState) normalizePath(path string) string {
-	if filepath.IsAbs(path) {
+	u, _ := url.Parse(path)
+	if u.Scheme != "" || filepath.IsAbs(path) {
 		return path
 	} else {
 		return st.JoinBase(path)

@@ -33,6 +33,10 @@ static-linux:
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "dist/helmfile_linux_amd64" -ldflags '-X main.Version=${TAG}' ${TARGETS}
 .PHONY: linux
 
+install:
+	env CGO_ENABLED=0 go install -ldflags '-X main.Version=${TAG}' ${TARGETS}
+.PHONY: install
+
 clean:
 	rm dist/helmfile_*
 .PHONY: clean
