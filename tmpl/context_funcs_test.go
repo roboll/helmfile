@@ -2,6 +2,7 @@ package tmpl
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -11,7 +12,27 @@ func TestReadFile(t *testing.T) {
   bar: BAR
 `
 	expectedFilename := "values.yaml"
-	ctx := &Context{readFile: func(filename string) ([]byte, error) {
+	ctx := &Context{basePath: ".", readFile: func(filename string) ([]byte, error) {
+		if filename != expectedFilename {
+			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
+		}
+		return []byte(expected), nil
+	}}
+	actual, err := ctx.ReadFile(expectedFilename)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("unexpected result: expected=%v, actual=%v", expected, actual)
+	}
+}
+
+func TestReadFile_PassAbsPath(t *testing.T) {
+	expected := `foo:
+  bar: BAR
+`
+	expectedFilename, _ := filepath.Abs("values.yaml")
+	ctx := &Context{basePath: ".", readFile: func(filename string) ([]byte, error) {
 		if filename != expectedFilename {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
 		}
