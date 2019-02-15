@@ -114,7 +114,12 @@ func (c *Context) Exec(command string, args []interface{}, inputs ...string) (st
 }
 
 func (c *Context) ReadFile(filename string) (string, error) {
-	path := filepath.Join(c.basePath, filename)
+	var path string
+	if filepath.IsAbs(filename) {
+		path = filename
+	} else {
+		path = filepath.Join(c.basePath, filename)
+	}
 
 	bytes, err := c.readFile(path)
 	if err != nil {
