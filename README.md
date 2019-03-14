@@ -99,6 +99,8 @@ releases:
     force: true
     # set `false` to uninstall on sync
     installed: true
+    # restores previous state in case of failed release
+    atomic: true
 
   # Local chart example
   - name: grafana                            # name of this release

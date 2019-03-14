@@ -11,7 +11,7 @@ FROM alpine:3.8
 
 RUN apk add --no-cache ca-certificates git bash curl
 
-ARG HELM_VERSION=v2.12.0
+ARG HELM_VERSION=v2.13.0
 ARG HELM_LOCATION="https://kubernetes-helm.storage.googleapis.com"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
 ARG HELM_SHA256="9f96a6e4fc52b5df906da381532cc2eb2f3f57cc203ccaec2b11cf5dc26a7dfc"
