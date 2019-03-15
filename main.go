@@ -154,10 +154,6 @@ func main() {
 					Usage: "additional value files to be merged into the command",
 				},
 				cli.BoolFlag{
-					Name:  "sync-repos",
-					Usage: "DEPRECATED",
-				},
-				cli.BoolFlag{
 					Name:  "skip-deps",
 					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
@@ -178,9 +174,6 @@ func main() {
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
 					if !c.Bool("skip-deps") {
-						if c.Bool("sync-repos") {
-							logger.Warnf("--sync-repos has been removed and `helmfile diff` updates repositories by default. Provide `--skip-repo-update` to opt-out.")
-						}
 						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
@@ -334,20 +327,13 @@ func main() {
 					Usage: "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases",
 				},
 				cli.BoolFlag{
-					Name:  "skip-repo-update",
-					Usage: "skip running `helm repo update` on repositories declared in helmfile",
-				},
-				cli.BoolFlag{
 					Name:  "skip-deps",
 					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
-					if !c.Bool("skip-deps") || !c.Bool("skip-repo-update") {
-						if !c.Bool("skip-repo-update") {
-							logger.Warn("--skip-repo-update has been deprecated. Provide --skip-deps instead.")
-						}
+					if !c.Bool("skip-deps") {
 						if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
