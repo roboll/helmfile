@@ -127,6 +127,7 @@ type SetValue struct {
 	Value  string   `yaml:"value"`
 	File   string   `yaml:"file"`
 	Values []string `yaml:"values"`
+	String string   `yaml:"string"`
 }
 
 const DefaultEnv = "default"
@@ -1090,6 +1091,8 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(set.Value)))
 			} else if set.File != "" {
 				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.normalizePath(set.File)))
+			} else if set.String != "" {
+				flags = append(flags, "--set-string", fmt.Sprintf("%s=%s", escape(set.Name), escape(set.String)))
 			} else if len(set.Values) > 0 {
 				items := make([]string, len(set.Values))
 				for i, raw := range set.Values {

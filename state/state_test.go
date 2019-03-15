@@ -741,6 +741,27 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			helm:         &mockHelmExec{},
 			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo.bar[0]={A,B}"}}},
 		},
+		{
+			name: "explicit string value",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  "someList",
+							Value: "a,b,c",
+						},
+						{
+							Name:   "bigint",
+							String: "123456789012",
+						},
+					},
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{"--set", "someList=a\\,b\\,c", "--set-string", "bigint=123456789012"}}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

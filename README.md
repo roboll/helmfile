@@ -86,6 +86,9 @@ releases:
     # set a templated value
     - name: namespace
       value: {{ .Namespace }}
+    # force value to be evaluated as a string, translates to --set-string bigint=123456789012 https://github.com/helm/helm/pull/3599
+    - name: bigint
+      string: "123456789012"
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
       - vault_secret.yaml
