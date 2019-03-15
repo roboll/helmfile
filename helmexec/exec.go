@@ -118,6 +118,9 @@ func (helm *execer) DecryptSecret(name string) (string, error) {
 	helm.logger.Infof("Decrypting secret %v", name)
 	out, err := helm.exec(append([]string{"secrets", "dec", name})...)
 	helm.write(out)
+	if err != nil {
+		return "", err
+	}
 
 	tmpFile, err := ioutil.TempFile("", "secret")
 	if err != nil {
