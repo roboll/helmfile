@@ -95,7 +95,7 @@ See the [issue 428](https://github.com/roboll/helmfile/issues/428) for more cont
 
 You may occasionally end up with many helmfiles that shares common parts like which repositories to use, and whichi release to be bundled by default.
 
-Use Layering to extract te common parts into a dedicated *library helmfile*s, so that each helmfile becomes DRY.
+Use Layering to extract the common parts into a dedicated *library helmfile*s, so that each helmfile becomes DRY.
 
 Let's assume that your `helmfile.yaml` looks like:
 
