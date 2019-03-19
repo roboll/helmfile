@@ -66,6 +66,8 @@ type HelmSpec struct {
 	RecreatePods bool `yaml:"recreatePods"`
 	// Force, when set to true, forces resource update through delete/recreate if needed
 	Force bool `yaml:"force"`
+	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
+	Atomic bool `yaml:"atomic"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -96,6 +98,8 @@ type ReleaseSpec struct {
 	Force *bool `yaml:"force"`
 	// Installed, when set to true, `delete --purge` the release
 	Installed *bool `yaml:"installed"`
+	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
+	Atomic *bool `yaml:"atomic"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
@@ -946,6 +950,10 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	if release.RecreatePods != nil && *release.RecreatePods || st.HelmDefaults.RecreatePods {
 		flags = append(flags, "--recreate-pods")
+	}
+
+	if release.Atomic != nil && *release.Atomic || st.HelmDefaults.Atomic {
+		flags = append(flags, "--atomic")
 	}
 
 	common, err := st.namespaceAndValuesFlags(helm, release)

@@ -376,6 +376,42 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--namespace", "test-namespace",
 			},
 		},
+		{
+			name: "atomic",
+			defaults: HelmSpec{
+				Atomic: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Atomic:    &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--atomic",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "atomic-from-default",
+			defaults: HelmSpec{
+				Atomic: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Atomic:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--atomic",
+				"--namespace", "test-namespace",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
