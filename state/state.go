@@ -928,11 +928,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--devel")
 	}
 
-	if release.Verify != nil && *release.Verify || st.HelmDefaults.Verify {
+	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
 		flags = append(flags, "--verify")
 	}
 
-	if release.Wait != nil && *release.Wait || st.HelmDefaults.Wait {
+	if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
 		flags = append(flags, "--wait")
 	}
 
@@ -944,15 +944,15 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--timeout", fmt.Sprintf("%d", timeout))
 	}
 
-	if release.Force != nil && *release.Force || st.HelmDefaults.Force {
+	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
 		flags = append(flags, "--force")
 	}
 
-	if release.RecreatePods != nil && *release.RecreatePods || st.HelmDefaults.RecreatePods {
+	if release.RecreatePods != nil && *release.RecreatePods || release.RecreatePods == nil && st.HelmDefaults.RecreatePods {
 		flags = append(flags, "--recreate-pods")
 	}
 
-	if release.Atomic != nil && *release.Atomic || st.HelmDefaults.Atomic {
+	if release.Atomic != nil && *release.Atomic || release.Atomic == nil && st.HelmDefaults.Atomic {
 		flags = append(flags, "--atomic")
 	}
 
