@@ -192,7 +192,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--verify",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -228,7 +227,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--force",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -264,7 +262,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--recreate-pods",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -336,7 +333,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--wait",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -395,7 +391,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name: "atomic-from-default",
+			name: "atomic-override-default",
 			defaults: HelmSpec{
 				Atomic: true,
 			},
@@ -403,6 +399,22 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Chart:     "test/chart",
 				Version:   "0.1",
 				Atomic:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "atomic-from-default",
+			defaults: HelmSpec{
+				Atomic: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
 				Name:      "test-charts",
 				Namespace: "test-namespace",
 			},
