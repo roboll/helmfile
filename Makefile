@@ -72,6 +72,7 @@ release/minor:
 	bash -c 'if git branch | grep autorelease; then git branch -D autorelease; else echo no branch to be cleaned; fi'
 	git checkout -b autorelease origin/master
 	bash -c 'SEMTAG_REMOTE=origin hack/semtag final -s minor'
+	git checkout master
 
 release/patch:
 	git checkout master
@@ -79,3 +80,4 @@ release/patch:
 	bash -c 'if git branch | grep autorelease; then git branch -D autorelease; else echo no branch to be cleaned; fi'
 	git checkout -b autorelease origin/master
 	bash -c 'SEMTAG_REMOTE=origin hack/semtag final -s patch'
+	git checkout master
