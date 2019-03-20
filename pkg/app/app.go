@@ -308,8 +308,13 @@ func (a *App) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 
 	helmfiles := []string{}
 	for _, globPattern := range st.Helmfiles {
-		helmfileRelativePattern := st.JoinBase(globPattern)
-		matches, err := a.glob(helmfileRelativePattern)
+		var absPathPattern string
+		if filepath.IsAbs(globPattern) {
+			absPathPattern = globPattern
+		} else {
+			absPathPattern = st.JoinBase(globPattern)
+		}
+		matches, err := a.glob(absPathPattern)
 		if err != nil {
 			return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
 		}
