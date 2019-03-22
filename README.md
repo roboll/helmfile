@@ -105,7 +105,7 @@ releases:
   # Local chart example
   - name: grafana                            # name of this release
     namespace: another                       # target namespace
-    chart: ../my-charts/grafana              # the chart being installed to create this release, referenced by relative path to local chart
+    chart: ../my-charts/grafana              # the chart being installed to create this release, referenced by relative path to local helmfile
     values:
     - "../../my-values/grafana/values.yaml"             # Values file (relative path to manifest)
     - ./values/{{ requiredEnv "PLATFORM_ENV" }}/config.yaml # Values file taken from path with environment variable. $PLATFORM_ENV must be set in the calling environment.
