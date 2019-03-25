@@ -24,6 +24,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"requiredEnv":    RequiredEnv,
 		"get":            get,
 		"getOrNil":       getOrNil,
+		"tpl":            c.Tpl,
 	}
 	if c.preRender {
 		// disable potential side-effect template calls
@@ -126,6 +127,14 @@ func (c *Context) ReadFile(filename string) (string, error) {
 		return "", err
 	}
 	return string(bytes), nil
+}
+
+func (c *Context) Tpl(text string, data interface{}) (string, error) {
+	buf, err := c.RenderTemplateToBuffer(text, data)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 func ToYaml(v interface{}) (string, error) {

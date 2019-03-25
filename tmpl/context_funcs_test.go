@@ -118,3 +118,18 @@ func TestSetValueAtPath_TwoComponents(t *testing.T) {
 		t.Errorf("unexpected result: expected=%v, actual=%v", expected, actual)
 	}
 }
+
+func TestTpl(t *testing.T) {
+	text := `foo: {{ .foo }}
+`
+	expected := `foo: FOO
+`
+	ctx := &Context{basePath: "."}
+	actual, err := ctx.Tpl(text, map[string]interface{}{"foo": "FOO"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("unexpected result: expected=%v, actual=%v", expected, actual)
+	}
+}
