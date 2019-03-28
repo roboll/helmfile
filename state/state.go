@@ -708,7 +708,14 @@ func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error
 		if purge {
 			flags = append(flags, "--purge")
 		}
-		return helm.DeleteRelease(release.Name, flags...)
+		installed, err := isReleaseInstalled(helm, release)
+		if err != nil {
+			return err
+		}
+		if installed {
+			return helm.DeleteRelease(release.Name, flags...)
+		}
+		return nil
 	})
 }
 

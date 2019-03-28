@@ -80,6 +80,9 @@ info "Deleting release"
 ${helmfile} -f ${dir}/happypath.yaml delete
 ${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a delete"
 
+info "Ensuring \"helmfile delete\" doesn't fail when no releases installed"
+${helmfile} -f ${dir}/happypath.yaml delete || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
+
 test_pass "happypath"
 
 
