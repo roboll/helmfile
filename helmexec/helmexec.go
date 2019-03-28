@@ -17,6 +17,6 @@ type Interface interface {
 	ReleaseStatus(name string) error
 	DeleteRelease(name string, flags ...string) error
 	TestRelease(name string, flags ...string) error
-
+	List(filter string) (string, error)
 	DecryptSecret(name string) (string, error)
 }

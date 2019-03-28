@@ -110,6 +110,13 @@ func (helm *execer) ReleaseStatus(name string) error {
 	return err
 }
 
+func (helm *execer) List(filter string) (string, error) {
+	helm.logger.Infof("Listing releases matching %v", filter)
+	out, err := helm.exec(append([]string{"list", filter})...)
+	helm.write(out)
+	return string(out), err
+}
+
 func (helm *execer) DecryptSecret(name string) (string, error) {
 	// Prevents https://github.com/roboll/helmfile/issues/258
 	helm.decryptionMutex.Lock()

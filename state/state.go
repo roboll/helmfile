@@ -252,24 +252,25 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 	return res, errs
 }
 
+func isReleaseInstalled(helm helmexec.Interface, release ReleaseSpec) (bool, error) {
+	out, err := helm.List("^" + release.Name + "$")
+	if err != nil {
+		return false, err
+	} else if out != "" {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*ReleaseSpec, error) {
 	detected := []*ReleaseSpec{}
 	for i, _ := range st.Releases {
 		release := st.Releases[i]
 		if release.Installed != nil && !*release.Installed {
-			err := helm.ReleaseStatus(release.Name)
+			installed, err := isReleaseInstalled(helm, release)
 			if err != nil {
-				switch e := err.(type) {
-				case *exec.ExitError:
-					// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-					status := e.Sys().(syscall.WaitStatus)
-					if status.ExitStatus() != 1 {
-						return nil, e
-					}
-				default:
-					return nil, e
-				}
-			} else {
+				return nil, err
+			} else if installed {
 				detected = append(detected, &release)
 			}
 		}
@@ -304,7 +305,10 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 				chart := normalizeChart(st.basePath, release.Chart)
 				var relErr *ReleaseError
 				if release.Installed != nil && !*release.Installed {
-					if err := helm.ReleaseStatus(release.Name); err == nil {
+					installed, err := isReleaseInstalled(helm, *release)
+					if err != nil {
+						relErr = &ReleaseError{release, err}
+					} else if installed {
 						if err := helm.DeleteRelease(release.Name, "--purge"); err != nil {
 							relErr = &ReleaseError{release, err}
 						}
