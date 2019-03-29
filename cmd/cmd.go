@@ -13,7 +13,7 @@ import (
 )
 
 func VisitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, app.Context) (bool, []error)) error {
-	a, fileOrDir, err := InitAppEntry(c, false)
+	a, specifiedPaths, err := InitAppEntry(c, false)
 	if err != nil {
 		return err
 	}
@@ -27,18 +27,18 @@ func VisitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helme
 		return converge(st, helm, ctx)
 	}
 
-	err = a.VisitDesiredStates(fileOrDir, convergeWithHelmBinary)
+	err = a.VisitDesiredStates(specifiedPaths, convergeWithHelmBinary)
 
 	return toCliError(err)
 }
 
-func InitAppEntry(c *cli.Context, reverse bool) (*app.App, string, error) {
+func InitAppEntry(c *cli.Context, reverse bool) (*app.App, []string, error) {
 	if c.NArg() > 0 {
 		cli.ShowAppHelp(c)
-		return nil, "", fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
+		return nil, []string{}, fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
 	}
 
-	fileOrDir := c.GlobalString("file")
+	specifiedPaths := c.GlobalStringSlice("file")
 	kubeContext := c.GlobalString("kube-context")
 	namespace := c.GlobalString("namespace")
 	selectors := c.GlobalStringSlice("selector")
@@ -58,7 +58,7 @@ func InitAppEntry(c *cli.Context, reverse bool) (*app.App, string, error) {
 		Selectors:   selectors,
 	})
 
-	return app, fileOrDir, nil
+	return app, specifiedPaths, nil
 }
 
 func FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, reverse bool, converge func(*state.HelmState, helmexec.Interface, app.Context) []error) error {

@@ -78,8 +78,8 @@ func (a *App) within(dir string, do func() error) error {
 	return appErr
 }
 
-func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
-	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir)
+func (a *App) visitStateFiles(specifiedPaths []string, do func(string) error) error {
+	desiredStateFiles, err := a.findDesiredStateFiles(specifiedPaths)
 	if err != nil {
 		return err
 	}
@@ -108,9 +108,9 @@ func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
 	return nil
 }
 
-func (a *App) VisitDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+func (a *App) VisitDesiredStates(specifiedPaths []string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	noMatchInHelmfiles := true
-	err := a.visitStateFiles(fileOrDir, func(f string) error {
+	err := a.visitStateFiles(specifiedPaths, func(f string) error {
 		content, err := a.readFile(f)
 		if err != nil {
 			return err
@@ -158,7 +158,7 @@ func (a *App) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 		if len(st.Helmfiles) > 0 {
 			noMatchInSubHelmfiles := true
 			for _, m := range st.Helmfiles {
-				if err := a.VisitDesiredStates(m, converge); err != nil {
+				if err := a.VisitDesiredStates([]string{m}, converge); err != nil {
 					switch err.(type) {
 					case *NoMatchingHelmfileError:
 
@@ -193,10 +193,10 @@ func (a *App) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 	return nil
 }
 
-func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
+func (a *App) VisitDesiredStatesWithReleasesFiltered(specifiedPaths []string, converge func(*state.HelmState, helmexec.Interface) []error) error {
 	selectors := a.Selectors
 
-	err := a.VisitDesiredStates(fileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+	err := a.VisitDesiredStates(specifiedPaths, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		if len(selectors) > 0 {
 			err := st.FilterReleases(selectors)
 			if err != nil {
@@ -226,8 +226,8 @@ func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge 
 	return nil
 }
 
-func (a *App) findStateFilesInAbsPaths(specifiedPath string) ([]string, error) {
-	rels, err := a.findDesiredStateFiles(specifiedPath)
+func (a *App) findStateFilesInAbsPaths(specifiedPaths []string) ([]string, error) {
+	rels, err := a.findDesiredStateFiles(specifiedPaths)
 	if err != nil {
 		return rels, err
 	}
@@ -242,51 +242,55 @@ func (a *App) findStateFilesInAbsPaths(specifiedPath string) ([]string, error) {
 	return files, nil
 }
 
-func (a *App) findDesiredStateFiles(specifiedPath string) ([]string, error) {
-	var helmfileDir string
-	if specifiedPath != "" {
-		if a.fileExistsAt(specifiedPath) {
-			return []string{specifiedPath}, nil
-		} else if a.directoryExistsAt(specifiedPath) {
-			helmfileDir = specifiedPath
+func (a *App) findDesiredStateFiles(specifiedPaths []string) ([]string, error) {
+	var allFiles []string
+	for _, specifiedPath := range specifiedPaths {
+		var helmfileDir string
+		if specifiedPath != "" {
+			if a.fileExistsAt(specifiedPath) {
+				return []string{specifiedPath}, nil
+			} else if a.directoryExistsAt(specifiedPath) {
+				helmfileDir = specifiedPath
+			} else {
+				return []string{}, fmt.Errorf("specified state file %s is not found", specifiedPath)
+			}
 		} else {
-			return []string{}, fmt.Errorf("specified state file %s is not found", specifiedPath)
-		}
-	} else {
-		var defaultFile string
-		if a.fileExistsAt(DefaultHelmfile) {
-			defaultFile = DefaultHelmfile
-		} else if a.fileExistsAt(DeprecatedHelmfile) {
-			log.Printf(
-				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
-				DeprecatedHelmfile,
-				DeprecatedHelmfile,
-				DefaultHelmfile,
-			)
-			defaultFile = DeprecatedHelmfile
-		}
-
-		if a.directoryExistsAt(DefaultHelmfileDirectory) {
-			if defaultFile != "" {
-				return []string{}, fmt.Errorf("configuration conlict error: you can have either %s or %s, but not both", defaultFile, DefaultHelmfileDirectory)
+			var defaultFile string
+			if a.fileExistsAt(DefaultHelmfile) {
+				defaultFile = DefaultHelmfile
+			} else if a.fileExistsAt(DeprecatedHelmfile) {
+				log.Printf(
+					"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
+					DeprecatedHelmfile,
+					DeprecatedHelmfile,
+					DefaultHelmfile,
+				)
+				defaultFile = DeprecatedHelmfile
 			}
 
-			helmfileDir = DefaultHelmfileDirectory
-		} else if defaultFile != "" {
-			return []string{defaultFile}, nil
-		} else {
-			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.yaml, %s, or %s, or otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DeprecatedHelmfile)
-		}
-	}
+			if a.directoryExistsAt(DefaultHelmfileDirectory) {
+				if defaultFile != "" {
+					return []string{}, fmt.Errorf("configuration conlict error: you can have either %s or %s, but not both", defaultFile, DefaultHelmfileDirectory)
+				}
 
-	files, err := a.glob(filepath.Join(helmfileDir, "*.yaml"))
-	if err != nil {
-		return []string{}, err
+				helmfileDir = DefaultHelmfileDirectory
+			} else if defaultFile != "" {
+				return []string{defaultFile}, nil
+			} else {
+				return []string{}, fmt.Errorf("no state file found. It must be named %s/*.yaml, %s, or %s, or otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DeprecatedHelmfile)
+			}
+		}
+
+		files, err := a.glob(filepath.Join(helmfileDir, "*.yaml"))
+		if err != nil {
+			return []string{}, err
+		}
+		sort.Slice(files, func(i, j int) bool {
+			return files[i] < files[j]
+		})
+		allFiles = append(allFiles, files...)
 	}
-	sort.Slice(files, func(i, j int) bool {
-		return files[i] < files[j]
-	})
-	return files, nil
+	return allFiles, nil
 }
 
 func fileExistsAt(path string) bool {

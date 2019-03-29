@@ -51,9 +51,9 @@ func main() {
 			Name:  "helm-binary, b",
 			Usage: "path to helm binary",
 		},
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:  "file, f",
-			Usage: "load config from file or directory. defaults to `helmfile.yaml` or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference",
+			Usage: "load config from files and directories. defaults to `helmfile.yaml` or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference",
 		},
 		cli.StringFlag{
 			Name:  "environment, e",

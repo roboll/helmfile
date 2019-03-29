@@ -167,7 +167,7 @@ releases:
 			Env:         "default",
 		}, files)
 		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", noop,
+			[]string{"helmfile.yaml"}, noop,
 		)
 		if testcase.expectErr && err == nil {
 			t.Errorf("error expected but not happened for name=%s", testcase.name)
@@ -218,7 +218,7 @@ releases:
 			Env:         testcase.name,
 		}, files)
 		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", noop,
+			[]string{"helmfile.yaml"}, noop,
 		)
 		if testcase.expectErr && err == nil {
 			t.Errorf("error expected but not happened for environment=%s", testcase.name)
@@ -294,7 +294,7 @@ releases:
 		}, files)
 
 		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", collectReleases,
+			[]string{"helmfile.yaml"}, collectReleases,
 		)
 		if testcase.expectErr {
 			if err == nil {
@@ -365,7 +365,7 @@ releases:
 			Env:         "default",
 		}, files)
 		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", collectReleases,
+			[]string{"helmfile.yaml"}, collectReleases,
 		)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
