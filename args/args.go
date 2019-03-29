@@ -83,9 +83,6 @@ func GetArgs(args string, state *state.HelmState) []string {
 		}
 	}
 
-	if state.HelmDefaults.TillerNamespace != "" {
-		argsMap.SetArg("--tiller-namespace", state.HelmDefaults.TillerNamespace, false)
-	}
 	if state.HelmDefaults.KubeContext != "" {
 		argsMap.SetArg("--kube-context", state.HelmDefaults.KubeContext, false)
 	}
