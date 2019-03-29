@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+type EmptyStruct struct {
+}
+
 func TestGetStruct(t *testing.T) {
 	type Foo struct{ Bar string }
 
@@ -23,6 +26,12 @@ func TestGetStruct(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected error but was not occurred")
 	}
+
+	_, err = get("foo", EmptyStruct{})
+
+	if err == nil {
+		t.Errorf("expected error but was not occurred")
+	}
 }
 
 func TestGetMap(t *testing.T) {
@@ -38,6 +47,34 @@ func TestGetMap(t *testing.T) {
 	}
 
 	_, err = get("Foo.baz", obj)
+
+	if err == nil {
+		t.Errorf("expected error but was not occurred")
+	}
+}
+
+func TestGet_Default(t *testing.T) {
+	obj := map[string]interface{}{"Foo": map[string]interface{}{}, "foo": 1}
+
+	v1, err := get("Foo.Bar", "Bar", obj)
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if v1 != "Bar" {
+		t.Errorf("unexpected value for path Foo.Bar in %v: expected=Bar, actual=%v", obj, v1)
+	}
+
+	v2, err := get("Baz", "Baz", obj)
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if v2 != "Baz" {
+		t.Errorf("unexpected value for path Baz in %v: expected=Baz, actual=%v", obj, v2)
+	}
+
+	_, err = get("foo.Bar", "fooBar", obj)
 
 	if err == nil {
 		t.Errorf("expected error but was not occurred")

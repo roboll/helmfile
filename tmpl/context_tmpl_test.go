@@ -110,11 +110,11 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
 	}
 }
 
-func renderTemplateToString(s string) (string, error) {
+func renderTemplateToString(s string, data ...interface{}) (string, error) {
 	ctx := &Context{readFile: func(filename string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected call to readFile: filename=%s", filename)
 	}}
-	tplString, err := ctx.RenderTemplateToBuffer(s)
+	tplString, err := ctx.RenderTemplateToBuffer(s, data...)
 	if err != nil {
 		return "", err
 	}
@@ -125,6 +125,7 @@ func Test_renderTemplateToString(t *testing.T) {
 	type args struct {
 		s    string
 		envs map[string]string
+		data interface{}
 	}
 	tests := []struct {
 		name    string
@@ -178,6 +179,18 @@ func Test_renderTemplateToString(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "get",
+			args: args{
+				s:    `{{ . | get "Foo" }}, {{ . | get "Bar" "2" }}`,
+				envs: map[string]string{},
+				data: map[string]interface{}{
+					"Foo": "1",
+				},
+			},
+			want:    "1, 2",
+			wantErr: false,
+		},
+		{
 			name: "env var not set",
 			args: args{
 				s: "{{ env \"HF_TEST_NONE\" }}",
@@ -225,7 +238,7 @@ func Test_renderTemplateToString(t *testing.T) {
 					t.Error("renderTemplateToString() could not set env var for testing")
 				}
 			}
-			got, err := renderTemplateToString(tt.args.s)
+			got, err := renderTemplateToString(tt.args.s, tt.args.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("renderTemplateToString() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 				return
