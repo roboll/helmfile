@@ -52,6 +52,14 @@ helmDefaults:
   timeout: 600
   recreatePods: true
   force: true
+  # enable TLS for request to Tiller
+  tls: true
+  # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
+  tlsCACert: "path/to/ca.pem"
+  # path to TLS certificate file (default "$HELM_HOME/cert.pem")
+  tlsCert: "path/to/cert.pem"
+  # path to TLS key file (default "$HELM_HOME/key.pem")
+  tlsKey: "path/to/key.pem"
 
 releases:
   # Published chart example
@@ -101,6 +109,14 @@ releases:
     installed: true
     # restores previous state in case of failed release
     atomic: true
+    # enable TLS for request to Tiller
+    tls: true
+    # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
+    tlsCACert: "path/to/ca.pem"
+    # path to TLS certificate file (default "$HELM_HOME/cert.pem")
+    tlsCert: "path/to/cert.pem"
+    # path to TLS key file (default "$HELM_HOME/key.pem")
+    tlsKey: "path/to/key.pem"
 
   # Local chart example
   - name: grafana                            # name of this release

@@ -68,6 +68,11 @@ type HelmSpec struct {
 	Force bool `yaml:"force"`
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic bool `yaml:"atomic"`
+
+	TLS       bool   `yaml:"tls"`
+	TLSCACert string `yaml:"tlsCACert"`
+	TLSKey    string `yaml:"tlsKey"`
+	TLSCert   string `yaml:"tlsCert"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -120,6 +125,13 @@ type ReleaseSpec struct {
 	EnvValues []SetValue `yaml:"env"`
 
 	ValuesPathPrefix string `yaml:"valuesPathPrefix"`
+
+	TillerNamespace string `yaml:"tillerNamespace"`
+
+	TLS       *bool  `yaml:"tls"`
+	TLSCACert string `yaml:"tlsCACert"`
+	TLSKey    string `yaml:"tlsKey"`
+	TLSCert   string `yaml:"tlsCert"`
 
 	// generatedValues are values that need cleaned up on exit
 	generatedValues []string
@@ -929,6 +941,38 @@ func findChartDirectory(topLevelDir string) (string, error) {
 	return topLevelDir, errors.New("No Chart.yaml found")
 }
 
+func (st *HelmState) appendTillerFlags(flags []string, release *ReleaseSpec) []string {
+	if release.TillerNamespace != "" {
+		flags = append(flags, "--tiller-namespace", release.TillerNamespace)
+	} else if st.HelmDefaults.TillerNamespace != "" {
+		flags = append(flags, "--tiller-namespace", st.HelmDefaults.TillerNamespace)
+	}
+
+	if release.TLS != nil && *release.TLS || release.TLS == nil && st.HelmDefaults.TLS {
+		flags = append(flags, "--tls")
+	}
+
+	if release.TLSKey != "" {
+		flags = append(flags, "--tls-key", release.TLSKey)
+	} else if st.HelmDefaults.TLSKey != "" {
+		flags = append(flags, "--tls-key", st.HelmDefaults.TLSKey)
+	}
+
+	if release.TLSCert != "" {
+		flags = append(flags, "--tls-cert", release.TLSCert)
+	} else if st.HelmDefaults.TLSCert != "" {
+		flags = append(flags, "--tls-cert", st.HelmDefaults.TLSCert)
+	}
+
+	if release.TLSCACert != "" {
+		flags = append(flags, "--tls-ca-cert", release.TLSCACert)
+	} else if st.HelmDefaults.TLSCACert != "" {
+		flags = append(flags, "--tls-ca-cert", st.HelmDefaults.TLSCACert)
+	}
+
+	return flags
+}
+
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
@@ -967,6 +1011,8 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--atomic")
 	}
 
+	flags = st.appendTillerFlags(flags, release)
+
 	common, err := st.namespaceAndValuesFlags(helm, release)
 	if err != nil {
 		return nil, err
@@ -994,6 +1040,8 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec)
 	if st.isDevelopment(release) {
 		flags = append(flags, "--devel")
 	}
+
+	flags = st.appendTillerFlags(flags, release)
 
 	common, err := st.namespaceAndValuesFlags(helm, release)
 	if err != nil {

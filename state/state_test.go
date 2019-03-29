@@ -129,6 +129,10 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	}
 }
 
+func boolValue(v bool) *bool {
+	return &v
+}
+
 func TestHelmState_flagsForUpgrade(t *testing.T) {
 	enable := true
 	disable := false
@@ -422,6 +426,79 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--version", "0.1",
 				"--atomic",
 				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name:     "tiller",
+			defaults: HelmSpec{},
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Name:            "test-charts",
+				TLS:             boolValue(true),
+				TillerNamespace: "tiller-system",
+				TLSKey:          "key.pem",
+				TLSCert:         "cert.pem",
+				TLSCACert:       "ca.pem",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--tiller-namespace", "tiller-system",
+				"--tls",
+				"--tls-key", "key.pem",
+				"--tls-cert", "cert.pem",
+				"--tls-ca-cert", "ca.pem",
+			},
+		},
+		{
+			name: "tiller-override-defaults",
+			defaults: HelmSpec{
+				TLS:             false,
+				TillerNamespace: "a",
+				TLSKey:          "b.pem",
+				TLSCert:         "c.pem",
+				TLSCACert:       "d.pem",
+			},
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Name:            "test-charts",
+				TLS:             boolValue(true),
+				TillerNamespace: "tiller-system",
+				TLSKey:          "key.pem",
+				TLSCert:         "cert.pem",
+				TLSCACert:       "ca.pem",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--tiller-namespace", "tiller-system",
+				"--tls",
+				"--tls-key", "key.pem",
+				"--tls-cert", "cert.pem",
+				"--tls-ca-cert", "ca.pem",
+			},
+		},
+		{
+			name: "tiller-from-defaults",
+			defaults: HelmSpec{
+				TLS:             true,
+				TillerNamespace: "tiller-system",
+				TLSKey:          "key.pem",
+				TLSCert:         "cert.pem",
+				TLSCACert:       "ca.pem",
+			},
+			release: &ReleaseSpec{
+				Chart:   "test/chart",
+				Version: "0.1",
+				Name:    "test-charts",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--tiller-namespace", "tiller-system",
+				"--tls",
+				"--tls-key", "key.pem",
+				"--tls-cert", "cert.pem",
+				"--tls-ca-cert", "ca.pem",
 			},
 		},
 	}
