@@ -114,6 +114,18 @@ func (c *creator) CreateFromYaml(content []byte, file string, env string) (*Helm
 	state.Env = *e
 
 	state.readFile = c.readFile
+	state.removeFile = os.Remove
+	state.fileExists = func(path string) (bool, error) {
+		_, err := os.Stat(path)
+
+		if err != nil {
+			if os.IsNotExist(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	}
 
 	return &state, nil
 }
