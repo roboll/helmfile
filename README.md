@@ -746,6 +746,10 @@ Use the [Helmfile Best Practices Guide](/docs/writing-helmfile.md) to write adva
 - Default values
 - Layering
 
+We also have dedicated documentations for the following topics you might be interested:
+
+- [Shared Configurations Across Teams](/docs/shared-configurations-across-teams.md)
+
 ## Using env files
 
 Helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:

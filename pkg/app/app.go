@@ -110,6 +110,7 @@ func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
 
 func (a *App) VisitDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	noMatchInHelmfiles := true
+
 	err := a.visitStateFiles(fileOrDir, func(f string) error {
 		content, err := a.readFile(f)
 		if err != nil {
@@ -153,8 +154,6 @@ func (a *App) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 			}
 		}
 
-		errs := []error{}
-
 		if len(st.Helmfiles) > 0 {
 			noMatchInSubHelmfiles := true
 			for _, m := range st.Helmfiles {
@@ -170,26 +169,25 @@ func (a *App) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 				}
 			}
 			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
-		} else {
-			var err error
-			st, err = st.ExecuteTemplates()
-			if err != nil {
-				return fmt.Errorf("failed executing release templates in \"%s\": %v", f, err)
-			}
-
-			var processed bool
-			processed, errs = converge(st, helm)
-			noMatchInHelmfiles = noMatchInHelmfiles && !processed
 		}
 
-		return clean(st, errs)
+		templated, tmplErr := st.ExecuteTemplates()
+		if tmplErr != nil {
+			return fmt.Errorf("failed executing release templates in \"%s\": %v", f, tmplErr)
+		}
+		processed, errs := converge(templated, helm)
+		noMatchInHelmfiles = noMatchInHelmfiles && !processed
+		return clean(templated, errs)
 	})
+
 	if err != nil {
 		return err
 	}
+
 	if noMatchInHelmfiles {
 		return &NoMatchingHelmfileError{selectors: a.Selectors, env: a.Env}
 	}
+
 	return nil
 }
 
