@@ -47,6 +47,9 @@ type HelmState struct {
 
 	readFile func(string) ([]byte, error)
 
+	removeFile func(string) error
+	fileExists func(string) (bool, error)
+
 	runner helmexec.Runner
 }
 
@@ -233,8 +236,11 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 						errs = append(errs, &ReleaseError{release, err})
 					}
 
-					if _, err := os.Stat(valfile); os.IsNotExist(err) {
+					ok, err := st.fileExists(valfile)
+					if err != nil {
 						errs = append(errs, &ReleaseError{release, err})
+					} else if !ok {
+						errs = append(errs, &ReleaseError{release, fmt.Errorf("file does not exist: %s", valfile)})
 					}
 					flags = append(flags, "--values", valfile)
 				}
@@ -749,7 +755,7 @@ func (st *HelmState) Clean() []error {
 
 	for _, release := range st.Releases {
 		for _, value := range release.generatedValues {
-			err := os.Remove(value)
+			err := st.removeFile(value)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -1068,23 +1074,25 @@ func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
 	return r.RenderToBytes(path)
 }
 
-func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
-	flags := []string{}
-	if release.Namespace != "" {
-		flags = append(flags, "--namespace", release.Namespace)
-	}
-	for _, value := range release.Values {
+func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingFileHandler *string) ([]string, error) {
+	generatedFiles := []string{}
+
+	for _, value := range values {
 		switch typedValue := value.(type) {
 		case string:
-			path := st.normalizePath(release.ValuesPathPrefix + typedValue)
+			path := st.normalizePath(typedValue)
 
-			if _, err := os.Stat(path); os.IsNotExist(err) {
-				if release.MissingFileHandler == nil || *release.MissingFileHandler == "Error" {
-					return nil, err
-				} else if *release.MissingFileHandler == "Warn" {
+			ok, err := st.fileExists(path)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				if missingFileHandler == nil || *missingFileHandler == "Error" {
+					return nil, fmt.Errorf("file does not exist: %s", path)
+				} else if *missingFileHandler == "Warn" {
 					st.logger.Warnf("skipping missing values file \"%s\"", path)
 					continue
-				} else if *release.MissingFileHandler == "Info" {
+				} else if *missingFileHandler == "Info" {
 					st.logger.Infof("skipping missing values file \"%s\"", path)
 					continue
 				} else {
@@ -1108,8 +1116,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 				return nil, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
 			}
 			st.logger.Debugf("successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
-			flags = append(flags, "--values", valfile.Name())
-
+			generatedFiles = append(generatedFiles, valfile.Name())
 		case map[interface{}]interface{}:
 			valfile, err := ioutil.TempFile("", "values")
 			if err != nil {
@@ -1121,14 +1128,49 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 			if err := encoder.Encode(typedValue); err != nil {
 				return nil, err
 			}
-			release.generatedValues = append(release.generatedValues, valfile.Name())
-			flags = append(flags, "--values", valfile.Name())
+			generatedFiles = append(generatedFiles, valfile.Name())
+		default:
+			return nil, fmt.Errorf("unexpected type of values entry: %T", typedValue)
+		}
+	}
+	return generatedFiles, nil
+}
+
+func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+	flags := []string{}
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
+	}
+
+	values := []interface{}{}
+	for _, v := range release.Values {
+		switch typedValue := v.(type) {
+		case string:
+			path := st.normalizePath(release.ValuesPathPrefix + typedValue)
+			values = append(values, path)
+		default:
+			values = append(values, v)
 		}
 	}
 
+	generatedFiles, err := st.generateTemporaryValuesFiles(values, release.MissingFileHandler)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range generatedFiles {
+		flags = append(flags, "--values", f)
+	}
+
+	release.generatedValues = append(release.generatedValues, generatedFiles...)
+
 	for _, value := range release.Secrets {
 		path := st.normalizePath(release.ValuesPathPrefix + value)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
+		ok, err := st.fileExists(path)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
 			if release.MissingFileHandler == nil || *release.MissingFileHandler == "Error" {
 				return nil, err
 			} else if *release.MissingFileHandler == "Warn" {

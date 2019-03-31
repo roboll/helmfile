@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 
+	"fmt"
 	"github.com/roboll/helmfile/helmexec"
 )
 
@@ -878,6 +879,95 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			}
 			if _ = state.SyncReleases(tt.helm, []string{}, 1); !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
 				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
+			}
+		})
+	}
+}
+
+func TestHelmState_SyncReleasesCleanup(t *testing.T) {
+	tests := []struct {
+		name                    string
+		releases                []ReleaseSpec
+		helm                    *mockHelmExec
+		expectedNumRemovedFiles int
+	}{
+		{
+			name: "normal release",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+				},
+			},
+			helm:                    &mockHelmExec{},
+			expectedNumRemovedFiles: 0,
+		},
+		{
+			name: "inline values",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					Values: []interface{}{
+						map[interface{}]interface{}{
+							"someList": "a,b,c",
+						},
+					},
+				},
+			},
+			helm:                    &mockHelmExec{},
+			expectedNumRemovedFiles: 1,
+		},
+		{
+			name: "inline values and values file",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					Values: []interface{}{
+						map[interface{}]interface{}{
+							"someList": "a,b,c",
+						},
+						"someFile",
+					},
+				},
+			},
+			helm:                    &mockHelmExec{},
+			expectedNumRemovedFiles: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			numRemovedFiles := 0
+			state := &HelmState{
+				Releases: tt.releases,
+				logger:   logger,
+				readFile: func(f string) ([]byte, error) {
+					if f != "someFile" {
+						return nil, fmt.Errorf("unexpected file to read: %s", f)
+					}
+					someFileContent := []byte(`foo: bar
+`)
+					return someFileContent, nil
+				},
+				removeFile: func(f string) error {
+					numRemovedFiles += 1
+					return nil
+				},
+				fileExists: func(f string) (bool, error) {
+					return true, nil
+				},
+			}
+			if errs := state.SyncReleases(tt.helm, []string{}, 1); errs != nil && len(errs) > 0 {
+				t.Errorf("unexpected errors: %v", errs)
+			}
+
+			if errs := state.Clean(); errs != nil && len(errs) > 0 {
+				t.Errorf("unexpected errors: %v", errs)
+			}
+
+			if numRemovedFiles != tt.expectedNumRemovedFiles {
+				t.Errorf("unexpected number of removed files: expected %d, got %d", tt.expectedNumRemovedFiles, numRemovedFiles)
 			}
 		})
 	}
