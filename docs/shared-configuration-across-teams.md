@@ -121,7 +121,7 @@ releases:
 
 You can go even further by generalizing the product related releases as a pair of `api` and `web`:
 
-`product/helmfile.yaml`:
+`shared/helmfile.yaml`:
 
 ```yaml
 releases:
@@ -133,28 +133,20 @@ releases:
   # snip
 ```
 
-And reusing it from the two product helmfiles:
+Then you only need one single product helmfile
 
 
-`product1/helmfile.yaml`:
-
-```yaml
-helmfiles:
-- ../observability/helmfile.yaml
-- ../product/helmfile.yaml
-```
-
-`product2/helmfile.yaml`:
+`product/helmfile.yaml`:
 
 ```yaml
 helmfiles:
 - ../observability/helmfile.yaml
-- ../product/helmfile.yaml
+- ../shared/helmfile.yaml
 ```
 
 Now that we use the environment variable `PRODUCT_ID` to as the parameters of release names, you need to set it before running `helmfile`, so that it produces the differently named releases per product:
 
 ```console
-$ PRODUCT_ID=1 helmfile -f product1/helmfile.yaml apply
-$ PRODUCT_ID=2 helmfile -f product2/helmfile.yaml apply
+$ PRODUCT_ID=1 helmfile -f product/helmfile.yaml apply
+$ PRODUCT_ID=2 helmfile -f product/helmfile.yaml apply
 ```
