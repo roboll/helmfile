@@ -568,12 +568,14 @@ type diffPrepareResult struct {
 }
 
 func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, suppressSecrets bool) ([]diffPrepareResult, []error) {
-	releases := []ReleaseSpec{}
-	for _, r := range st.Releases {
-		if r.Installed == nil || *r.Installed {
-			releases = append(releases, r)
+	releases := []*ReleaseSpec{}
+	for i, _ := range st.Releases {
+		if !st.Releases[i].Desired() {
+			continue
 		}
+		releases = append(releases, &st.Releases[i])
 	}
+
 	numReleases := len(releases)
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan diffPrepareResult, numReleases)
@@ -586,7 +588,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		numReleases,
 		func() {
 			for i := 0; i < numReleases; i++ {
-				jobs <- &releases[i]
+				jobs <- releases[i]
 			}
 			close(jobs)
 		},

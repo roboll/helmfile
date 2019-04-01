@@ -67,3 +67,7 @@ func (r ReleaseSpec) Clone() (*ReleaseSpec, error) {
 
 	return &deserialized, nil
 }
+
+func (r ReleaseSpec) Desired() bool {
+	return r.Installed == nil || *r.Installed
+}
