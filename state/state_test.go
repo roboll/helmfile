@@ -1126,12 +1126,51 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 			helm:    &mockHelmExec{},
 			wantErr: true,
 		},
+		{
+			name: "complain missing values file for desired release",
+			releases: []ReleaseSpec{
+				{
+					Name: "error",
+					Values: []interface{}{
+						"foo.yaml",
+					},
+				},
+			},
+			helm:    &mockHelmExec{},
+			wantErr: true,
+		},
+		{
+			name: "should not complain missing values file for undesired release",
+			releases: []ReleaseSpec{
+				{
+					Name: "error",
+					Values: []interface{}{
+						"foo.yaml",
+					},
+					Installed: boolValue(false),
+				},
+			},
+			helm:    &mockHelmExec{},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		i := func(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
 				logger:   logger,
+				fileExists: func(f string) (bool, error) {
+					if f != "foo.yaml" {
+						return false, fmt.Errorf("unexpected file: %s", f)
+					}
+					return true, nil
+				},
+				readFile: func(f string) ([]byte, error) {
+					if f != "foo.yaml" {
+						return nil, fmt.Errorf("unexpected file: %s", f)
+					}
+					return []byte{}, nil
+				},
 			}
 			errs := state.ReleaseStatuses(tt.helm, 1)
 			if (errs != nil) != tt.wantErr {

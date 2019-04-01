@@ -202,7 +202,14 @@ type syncPrepareResult struct {
 
 // SyncReleases wrapper for executing helm upgrade on the releases
 func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int) ([]syncPrepareResult, []error) {
-	releases := st.Releases
+	releases := []*ReleaseSpec{}
+	for i, _ := range st.Releases {
+		if !st.Releases[i].Desired() {
+			continue
+		}
+		releases = append(releases, &st.Releases[i])
+	}
+
 	numReleases := len(releases)
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan syncPrepareResult, numReleases)
@@ -215,7 +222,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 		numReleases,
 		func() {
 			for i := 0; i < numReleases; i++ {
-				jobs <- &releases[i]
+				jobs <- releases[i]
 			}
 			close(jobs)
 		},
@@ -284,7 +291,7 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*Rele
 	detected := []*ReleaseSpec{}
 	for i, _ := range st.Releases {
 		release := st.Releases[i]
-		if release.Installed != nil && !*release.Installed {
+		if !release.Desired() {
 			installed, err := isReleaseInstalled(helm, release)
 			if err != nil {
 				return nil, err
@@ -322,7 +329,7 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 				flags := prep.flags
 				chart := normalizeChart(st.basePath, release.Chart)
 				var relErr *ReleaseError
-				if release.Installed != nil && !*release.Installed {
+				if !release.Desired() {
 					installed, err := isReleaseInstalled(helm, *release)
 					if err != nil {
 						relErr = &ReleaseError{release, err}
@@ -457,6 +464,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues 
 	}
 
 	for _, release := range st.Releases {
+		if !release.Desired() {
+			continue
+		}
+
 		flags, err := st.flagsForTemplate(helm, &release)
 		if err != nil {
 			errs = append(errs, err)
@@ -513,6 +524,10 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 	}
 
 	for _, release := range st.Releases {
+		if !release.Desired() {
+			continue
+		}
+
 		flags, err := st.flagsForLint(helm, &release)
 		if err != nil {
 			errs = append(errs, err)
@@ -717,6 +732,9 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 
 func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
 	return st.scatterGatherReleases(helm, workerLimit, func(release ReleaseSpec) error {
+		if !release.Desired() {
+			return nil
+		}
 		return helm.ReleaseStatus(release.Name)
 	})
 }
@@ -742,6 +760,10 @@ func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error
 // TestReleases wrapper for executing helm test on the releases
 func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int) []error {
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec) error {
+		if !release.Desired() {
+			return nil
+		}
+
 		flags := []string{}
 		if cleanup {
 			flags = append(flags, "--cleanup")
