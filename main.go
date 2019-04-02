@@ -477,6 +477,43 @@ Do you really want to delete?
 			},
 		},
 		{
+			Name:  "destroy",
+			Usage: "deletes and then purges releases",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm exec",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				return cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
+					args := args.GetArgs(c.String("args"), state)
+					if len(args) > 0 {
+						helm.SetExtraArgs(args...)
+					}
+
+					names := make([]string, len(state.Releases))
+					for i, r := range state.Releases {
+						names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
+					}
+
+					msg := fmt.Sprintf(`Affected releases are:
+%s
+
+Do you really want to delete?
+  Helmfile will delete all your releases, as shown above.
+
+`, strings.Join(names, "\n"))
+					interactive := c.GlobalBool("interactive")
+					if !interactive || interactive && askForConfirmation(msg) {
+						return state.DeleteReleases(helm, true)
+					}
+					return nil
+				})
+			},
+		},
+		{
 			Name:  "test",
 			Usage: "test releases from state file (helm test)",
 			Flags: []cli.Flag{

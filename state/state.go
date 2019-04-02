@@ -742,6 +742,10 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error {
 	return st.scatterGatherReleases(helm, len(st.Releases), func(release ReleaseSpec) error {
+		if !release.Desired() {
+			return nil
+		}
+
 		flags := []string{}
 		if purge {
 			flags = append(flags, "--purge")
