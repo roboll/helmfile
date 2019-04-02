@@ -635,6 +635,8 @@ type mockHelmExec struct {
 	charts   []string
 	repo     []string
 	releases []mockRelease
+	deleted  []mockRelease
+	lists    map[string]string
 }
 
 type mockRelease struct {
@@ -690,10 +692,11 @@ func (helm *mockHelmExec) ReleaseStatus(release string) error {
 	return nil
 }
 func (helm *mockHelmExec) DeleteRelease(name string, flags ...string) error {
+	helm.deleted = append(helm.deleted, mockRelease{name: name, flags: flags})
 	return nil
 }
 func (helm *mockHelmExec) List(filter string) (string, error) {
-	return "", nil
+	return helm.lists[filter], nil
 }
 func (helm *mockHelmExec) DecryptSecret(name string) (string, error) {
 	return "", nil
@@ -1286,6 +1289,121 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 			if (errs != nil) != tt.wantErr {
 				t.Errorf("ReleaseStatuses() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 				return
+			}
+		}
+		t.Run(tt.name, i)
+	}
+}
+
+func TestHelmState_Delete(t *testing.T) {
+	tests := []struct {
+		name      string
+		deleted   []mockRelease
+		wantErr   bool
+		desired   *bool
+		installed bool
+		purge     bool
+	}{
+		{
+			name:      "desired and installed (purge=false)",
+			wantErr:   false,
+			desired:   boolValue(true),
+			installed: true,
+			purge:     false,
+			deleted:   []mockRelease{{"releaseA", []string{}}},
+		},
+		{
+			name:      "desired(default) and installed (purge=false)",
+			wantErr:   false,
+			desired:   nil,
+			installed: true,
+			purge:     false,
+			deleted:   []mockRelease{{"releaseA", []string{}}},
+		},
+		{
+			name:      "desired and installed (purge=true)",
+			wantErr:   false,
+			desired:   boolValue(true),
+			installed: true,
+			purge:     true,
+			deleted:   []mockRelease{{"releaseA", []string{"--purge"}}},
+		},
+		{
+			name:      "desired but not installed (purge=false)",
+			wantErr:   false,
+			desired:   boolValue(true),
+			installed: false,
+			purge:     false,
+			deleted:   []mockRelease{},
+		},
+		{
+			name:      "desired but not installed (purge=true)",
+			wantErr:   false,
+			desired:   boolValue(true),
+			installed: false,
+			purge:     true,
+			deleted:   []mockRelease{},
+		},
+		{
+			name:      "installed but filtered (purge=false)",
+			wantErr:   false,
+			desired:   boolValue(false),
+			installed: true,
+			purge:     false,
+			deleted:   []mockRelease{},
+		},
+		{
+			name:      "installed but filtered (purge=true)",
+			wantErr:   false,
+			desired:   boolValue(false),
+			installed: true,
+			purge:     true,
+			deleted:   []mockRelease{},
+		},
+		{
+			name:      "not installed, and filtered (purge=false)",
+			wantErr:   false,
+			desired:   boolValue(false),
+			installed: false,
+			purge:     false,
+			deleted:   []mockRelease{},
+		},
+		{
+			name:      "not installed, and filtered (purge=true)",
+			wantErr:   false,
+			desired:   boolValue(false),
+			installed: false,
+			purge:     true,
+			deleted:   []mockRelease{},
+		},
+	}
+	for _, tt := range tests {
+		i := func(t *testing.T) {
+			release := ReleaseSpec{
+				Name:      "releaseA",
+				Installed: tt.desired,
+			}
+			releases := []ReleaseSpec{
+				release,
+			}
+			state := &HelmState{
+				Releases: releases,
+				logger:   logger,
+			}
+			helm := &mockHelmExec{
+				lists:   map[string]string{},
+				deleted: []mockRelease{},
+			}
+			if tt.installed {
+				helm.lists["^releaseA$"] = "releaseA"
+			}
+			errs := state.DeleteReleases(helm, tt.purge)
+			if (errs != nil) != tt.wantErr {
+				t.Errorf("DeleteREleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(tt.deleted, helm.deleted) {
+				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, helm.deleted)
 			}
 		}
 		t.Run(tt.name, i)
