@@ -247,6 +247,8 @@ releases:
   chart: stable/prometheus
 `,
 		"/path/to/helmfile.d/b.yaml": `
+helmDefaults:
+  tillerNamespace: zoo
 releases:
 - name: grafana
   chart: stable/grafana
@@ -258,6 +260,16 @@ releases:
   chart: charts/foo
   labels:
     duplicated: yes
+- name: bar
+  chart: charts/foo
+  tillerNamespace:  bar1
+  labels:
+    duplicatedOK: yes
+- name: bar
+  chart: charts/foo
+  tillerNamespace: bar2
+  labels:
+    duplicatedOK: yes
 `,
 	}
 
@@ -272,7 +284,8 @@ releases:
 		{label: "name!=", expectedCount: 0, expectErr: true, errMsg: "failed processing /path/to/helmfile.d/a1.yaml: Malformed label: name!=. Expected label in form k=v or k!=v"},
 		{label: "name", expectedCount: 0, expectErr: true, errMsg: "failed processing /path/to/helmfile.d/a1.yaml: Malformed label: name. Expected label in form k=v or k!=v"},
 		// See https://github.com/roboll/helmfile/issues/193
-		{label: "duplicated=yes", expectedCount: 0, expectErr: true, errMsg: "failed processing /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found: there were 2 releases named \"foo\" matching specified selector"},
+		{label: "duplicated=yes", expectedCount: 0, expectErr: true, errMsg: "failed processing /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in \"zoo\": there were 2 releases named \"foo\" matching specified selector"},
+		{label: "duplicatedOK=yes", expectedCount: 2, expectErr: false},
 	}
 
 	for _, testcase := range testcases {

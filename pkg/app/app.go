@@ -202,13 +202,20 @@ func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge 
 			}
 		}
 
-		releaseNameCounts := map[string]int{}
+		type Key struct {
+			TillerNamespace, Name string
+		}
+		releaseNameCounts := map[Key]int{}
 		for _, r := range st.Releases {
-			releaseNameCounts[r.Name]++
+			tillerNamespace := st.HelmDefaults.TillerNamespace
+			if r.TillerNamespace != "" {
+				tillerNamespace = r.TillerNamespace
+			}
+			releaseNameCounts[Key{tillerNamespace, r.Name}]++
 		}
 		for name, c := range releaseNameCounts {
 			if c > 1 {
-				return false, []error{fmt.Errorf("duplicate release \"%s\" found: there were %d releases named \"%s\" matching specified selector", name, c, name)}
+				return false, []error{fmt.Errorf("duplicate release \"%s\" found in \"%s\": there were %d releases named \"%s\" matching specified selector", name.Name, name.TillerNamespace, c, name.Name)}
 			}
 		}
 
