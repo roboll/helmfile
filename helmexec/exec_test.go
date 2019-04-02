@@ -118,7 +118,7 @@ func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.SyncRelease("release", "chart", "--timeout 10", "--wait")
+	helm.SyncRelease(HelmContext{Tillerless: false}, "release", "chart", "--timeout 10", "--wait")
 	expected := `Upgrading chart
 exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev
 `
@@ -127,9 +127,23 @@ exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --
 	}
 
 	buffer.Reset()
-	helm.SyncRelease("release", "chart")
+	helm.SyncRelease(HelmContext{Tillerless: false}, "release", "chart")
 	expected = `Upgrading chart
 exec: helm upgrade --install --reset-values release chart --kube-context dev
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_SyncReleaseTillerless(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := MockExecer(logger, "dev")
+	helm.SyncRelease(HelmContext{Tillerless: true, TillerNamespace: "foo"}, "release", "chart",
+		"--timeout 10", "--wait")
+	expected := `Upgrading chart
+exec: helm tiller run foo -- helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -199,7 +213,7 @@ func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DiffRelease("release", "chart", "--timeout 10", "--wait")
+	helm.DiffRelease(HelmContext{Tillerless: false}, "release", "chart", "--timeout 10", "--wait")
 	expected := `Comparing release chart
 exec: helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --kube-context dev
 `
@@ -208,9 +222,22 @@ exec: helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --k
 	}
 
 	buffer.Reset()
-	helm.DiffRelease("release", "chart")
+	helm.DiffRelease(HelmContext{Tillerless: false}, "release", "chart")
 	expected = `Comparing release chart
 exec: helm diff upgrade --allow-unreleased release chart --kube-context dev
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_DiffReleaseTillerless(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := MockExecer(logger, "dev")
+	helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", "--timeout 10", "--wait")
+	expected := `Comparing release chart
+exec: helm tiller run -- helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --kube-context dev
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -221,7 +248,7 @@ func Test_DeleteRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DeleteRelease("release")
+	helm.DeleteRelease(HelmContext{Tillerless: false}, "release")
 	expected := `Deleting release
 exec: helm delete release --kube-context dev
 `
@@ -233,7 +260,7 @@ func Test_DeleteRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DeleteRelease("release", "--purge")
+	helm.DeleteRelease(HelmContext{Tillerless: false}, "release", "--purge")
 	expected := `Deleting release
 exec: helm delete release --purge --kube-context dev
 `
@@ -246,7 +273,7 @@ func Test_TestRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.TestRelease("release")
+	helm.TestRelease(HelmContext{Tillerless: false}, "release")
 	expected := `Testing release
 exec: helm test release --kube-context dev
 `
@@ -258,7 +285,7 @@ func Test_TestRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.TestRelease("release", "--cleanup", "--timeout", "60")
+	helm.TestRelease(HelmContext{Tillerless: false}, "release", "--cleanup", "--timeout", "60")
 	expected := `Testing release
 exec: helm test release --cleanup --timeout 60 --kube-context dev
 `

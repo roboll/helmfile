@@ -679,7 +679,7 @@ func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile, username,
 func (helm *mockHelmExec) UpdateRepo() error {
 	return nil
 }
-func (helm *mockHelmExec) SyncRelease(name, chart string, flags ...string) error {
+func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
 	if strings.Contains(name, "error") {
 		return errors.New("error")
 	}
@@ -687,7 +687,7 @@ func (helm *mockHelmExec) SyncRelease(name, chart string, flags ...string) error
 	helm.charts = append(helm.charts, chart)
 	return nil
 }
-func (helm *mockHelmExec) DiffRelease(name, chart string, flags ...string) error {
+func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
 	helm.diffed = append(helm.diffed, mockRelease{name: name, flags: flags})
 	return nil
 }
@@ -698,17 +698,17 @@ func (helm *mockHelmExec) ReleaseStatus(release string, flags ...string) error {
 	helm.releases = append(helm.releases, mockRelease{name: release, flags: flags})
 	return nil
 }
-func (helm *mockHelmExec) DeleteRelease(name string, flags ...string) error {
+func (helm *mockHelmExec) DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error {
 	helm.deleted = append(helm.deleted, mockRelease{name: name, flags: flags})
 	return nil
 }
-func (helm *mockHelmExec) List(filter string, flags ...string) (string, error) {
+func (helm *mockHelmExec) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
 	return helm.lists[listKey{filter: filter, flags: strings.Join(flags, "")}], nil
 }
 func (helm *mockHelmExec) DecryptSecret(name string) (string, error) {
 	return "", nil
 }
-func (helm *mockHelmExec) TestRelease(name string, flags ...string) error {
+func (helm *mockHelmExec) TestRelease(context helmexec.HelmContext, name string, flags ...string) error {
 	if strings.Contains(name, "error") {
 		return errors.New("error")
 	}

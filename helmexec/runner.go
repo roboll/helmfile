@@ -1,6 +1,7 @@
 package helmexec
 
 import (
+	"os"
 	"os/exec"
 )
 
@@ -23,5 +24,7 @@ type ShellRunner struct {
 func (shell ShellRunner) Execute(cmd string, args []string) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
+	preparedCmd.Env = os.Environ()
+	preparedCmd.Env = append(preparedCmd.Env, "HELM_TILLER_SILENT=true")
 	return preparedCmd.CombinedOutput()
 }

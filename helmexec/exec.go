@@ -96,9 +96,10 @@ func (helm *execer) BuildDeps(chart string) error {
 	return err
 }
 
-func (helm *execer) SyncRelease(name, chart string, flags ...string) error {
+func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
 	helm.logger.Infof("Upgrading %v", chart)
-	out, err := helm.exec(append([]string{"upgrade", "--install", "--reset-values", name, chart}, flags...)...)
+	preArgs := context.GetPrefixArgs(helm.helmBinary)
+	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", "--reset-values", name, chart), flags...)...)
 	helm.write(out)
 	return err
 }
@@ -110,9 +111,10 @@ func (helm *execer) ReleaseStatus(name string, flags ...string) error {
 	return err
 }
 
-func (helm *execer) List(filter string, flags ...string) (string, error) {
+func (helm *execer) List(context HelmContext, filter string, flags ...string) (string, error) {
 	helm.logger.Infof("Listing releases matching %v", filter)
-	out, err := helm.exec(append([]string{"list", filter}, flags...)...)
+	preArgs := context.GetPrefixArgs(helm.helmBinary)
+	out, err := helm.exec(append(append(preArgs, "list", filter), flags...)...)
 	helm.write(out)
 	return string(out), err
 }
@@ -167,9 +169,10 @@ func (helm *execer) TemplateRelease(chart string, flags ...string) error {
 	return err
 }
 
-func (helm *execer) DiffRelease(name, chart string, flags ...string) error {
+func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags ...string) error {
 	helm.logger.Infof("Comparing %v %v", name, chart)
-	out, err := helm.exec(append([]string{"diff", "upgrade", "--allow-unreleased", name, chart}, flags...)...)
+	preArgs := context.GetPrefixArgs(helm.helmBinary)
+	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...)...)
 	helm.write(out)
 	return err
 }
@@ -188,16 +191,18 @@ func (helm *execer) Fetch(chart string, flags ...string) error {
 	return err
 }
 
-func (helm *execer) DeleteRelease(name string, flags ...string) error {
+func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Deleting %v", name)
-	out, err := helm.exec(append([]string{"delete", name}, flags...)...)
+	preArgs := context.GetPrefixArgs(helm.helmBinary)
+	out, err := helm.exec(append(append(preArgs, "delete", name), flags...)...)
 	helm.write(out)
 	return err
 }
 
-func (helm *execer) TestRelease(name string, flags ...string) error {
+func (helm *execer) TestRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Testing %v", name)
-	out, err := helm.exec(append([]string{"test", name}, flags...)...)
+	preArgs := context.GetPrefixArgs(helm.helmBinary)
+	out, err := helm.exec(append(append(preArgs, "test", name), flags...)...)
 	helm.write(out)
 	return err
 }
