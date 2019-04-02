@@ -212,16 +212,20 @@ NAME:
 USAGE:
    helmfile [global options] command [command options] [arguments...]
 
+VERSION:
+   v0.52.0
+
 COMMANDS:
      repos     sync repositories from state file (helm repo add && helm repo update)
-     charts    sync releases from state file (helm upgrade --install)
+     charts    DEPRECATED: sync releases from state file (helm upgrade --install)
      diff      diff releases from state file against env (helm diff)
      template  template releases from state file against env (helm template)
      lint      lint charts from state file (helm lint)
      sync      sync all resources from state file (repos, releases and chart deps)
      apply     apply all resources from state file only when there are changes
      status    retrieve status of releases in state file
-     delete    delete releases from state file (helm delete)
+     delete    DEPRECATED: delete releases from state file (helm delete)
+     destroy   deletes and then purges releases
      test      test releases from state file (helm test)
 
 GLOBAL OPTIONS:
@@ -265,7 +269,15 @@ The `helmfile apply` sub-command begins by executing `diff`. If `diff` finds tha
 
 An expected use-case of `apply` is to schedule it to run periodically, so that you can auto-fix skews between the desired and the current state of your apps running on Kubernetes clusters.
 
-### delete
+### destroy
+
+The `helmfile destroy` sub-command deletes and purges all the releases defined in the manifests.
+
+`helmfile --interactive destroy` instructs Helmfile to request your confirmation before actually deleting releases.
+
+`destroy` basically runs `helm delete --purge` on all the targeted releases. If you don't want purging, use `helmfile delete` instead.
+
+### delete (DEPRECATED)
 
 The `helmfile delete` sub-command deletes all the releases defined in the manifests.
 
@@ -762,7 +774,7 @@ Please see #203 for more context.
 
 ## Running helmfile interactively
 
-`helmfile --interactive [apply|delete]` requests confirmation from you before actually modifying your cluster.
+`helmfile --interactive [apply|destroy]` requests confirmation from you before actually modifying your cluster.
 
 Use it when you're running `helmfile` manually on your local machine or a kind of secure administrative hosts.
 

@@ -117,7 +117,7 @@ func main() {
 		},
 		{
 			Name:  "charts",
-			Usage: "sync releases from state file (helm upgrade --install)",
+			Usage: "DEPRECATED: sync releases from state file (helm upgrade --install)",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "args",
@@ -435,7 +435,7 @@ Do you really want to apply?
 		},
 		{
 			Name:  "delete",
-			Usage: "delete releases from state file (helm delete)",
+			Usage: "DEPRECATED: delete releases from state file (helm delete)",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "args",
