@@ -1009,9 +1009,9 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				Releases: tt.releases,
 				logger:   logger,
 			}
-			_, err := state.DiffReleases(tt.helm, []string{}, 1, false, false, false)
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
+			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false)
+			if errs != nil && len(errs) > 0 {
+				t.Errorf("unexpected error: %v", errs)
 			}
 			if !reflect.DeepEqual(tt.helm.diffed, tt.wantReleases) {
 				t.Errorf("HelmState.DiffReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
