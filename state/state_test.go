@@ -512,7 +512,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				HelmDefaults:      tt.defaults,
 			}
 			helm := helmexec.New(logger, "default")
-			args, err := state.flagsForUpgrade(helm, tt.release)
+			args, err := state.flagsForUpgrade(helm, tt.release, 0)
 			if err != nil {
 				t.Errorf("unexpected error flagsForUpgade: %v", err)
 			}
@@ -691,7 +691,7 @@ func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart 
 	helm.diffed = append(helm.diffed, mockRelease{name: name, flags: flags})
 	return nil
 }
-func (helm *mockHelmExec) ReleaseStatus(release string, flags ...string) error {
+func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {
 	if strings.Contains(release, "error") {
 		return errors.New("error")
 	}

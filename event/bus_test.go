@@ -13,7 +13,7 @@ var logger = helmexec.NewLogger(os.Stdout, "warn")
 type runner struct {
 }
 
-func (r *runner) Execute(cmd string, args []string) ([]byte, error) {
+func (r *runner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
 	if cmd == "ng" {
 		return nil, fmt.Errorf("cmd failed due to invalid cmd: %s", cmd)
 	}

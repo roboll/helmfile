@@ -569,6 +569,9 @@ With the [helm-tiller](https://github.com/rimusz/helm-tiller) plugin installed, 
 To enable this mode, you need to define `tillerless: true` and set the `tillerNamespace` in the `helmDefaults` section
 or in the `releases` entries.
 
+Since every commands is run with `helm tiller run ...`, you have to disable concurrency. Otherwise you'll get
+mysterious errors about the tiller daemon.
+
 ## Separating helmfile.yaml into multiple independent files
 
 Once your `helmfile.yaml` got to contain too many releases,

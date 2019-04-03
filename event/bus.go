@@ -88,7 +88,7 @@ func (bus *Bus) Trigger(evt string, context map[string]interface{}) (bool, error
 			}
 		}
 
-		bytes, err := bus.Runner.Execute(command, args)
+		bytes, err := bus.Runner.Execute(command, args, map[string]string{})
 		bus.Logger.Debugf("hook[%s]: %s\n", name, string(bytes))
 
 		if err != nil {
