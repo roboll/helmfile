@@ -103,16 +103,16 @@ func (helm *execer) SyncRelease(name, chart string, flags ...string) error {
 	return err
 }
 
-func (helm *execer) ReleaseStatus(name string) error {
+func (helm *execer) ReleaseStatus(name string, flags ...string) error {
 	helm.logger.Infof("Getting status %v", name)
-	out, err := helm.exec(append([]string{"status", name})...)
+	out, err := helm.exec(append([]string{"status", name}, flags...)...)
 	helm.write(out)
 	return err
 }
 
-func (helm *execer) List(filter string) (string, error) {
+func (helm *execer) List(filter string, flags ...string) (string, error) {
 	helm.logger.Infof("Listing releases matching %v", filter)
-	out, err := helm.exec(append([]string{"list", filter})...)
+	out, err := helm.exec(append([]string{"list", filter}, flags...)...)
 	helm.write(out)
 	return string(out), err
 }
