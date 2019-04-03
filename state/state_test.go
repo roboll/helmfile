@@ -705,7 +705,7 @@ func (helm *mockHelmExec) DeleteRelease(context helmexec.HelmContext, name strin
 func (helm *mockHelmExec) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
 	return helm.lists[listKey{filter: filter, flags: strings.Join(flags, "")}], nil
 }
-func (helm *mockHelmExec) DecryptSecret(name string) (string, error) {
+func (helm *mockHelmExec) DecryptSecret(context helmexec.HelmContext, name string, flags ...string) (string, error) {
 	return "", nil
 }
 func (helm *mockHelmExec) TestRelease(context helmexec.HelmContext, name string, flags ...string) error {

@@ -119,13 +119,14 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	return string(out), err
 }
 
-func (helm *execer) DecryptSecret(name string) (string, error) {
+func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...string) (string, error) {
 	// Prevents https://github.com/roboll/helmfile/issues/258
 	helm.decryptionMutex.Lock()
 	defer helm.decryptionMutex.Unlock()
 
 	helm.logger.Infof("Decrypting secret %v", name)
-	out, err := helm.exec(append([]string{"secrets", "dec", name})...)
+	preArgs := context.GetPrefixArgs(helm.helmBinary)
+	out, err := helm.exec(append(append(preArgs, "secrets", "dec", name), flags...)...)
 	helm.write(out)
 	if err != nil {
 		return "", err

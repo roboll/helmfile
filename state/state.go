@@ -1255,7 +1255,8 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 			}
 		}
 
-		valfile, err := helm.DecryptSecret(path)
+		decryptFlags := st.appendTillerFlags([]string{}, release)
+		valfile, err := helm.DecryptSecret(st.createHelmContext(release), path, decryptFlags...)
 		if err != nil {
 			return nil, err
 		}

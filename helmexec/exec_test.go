@@ -200,7 +200,7 @@ func Test_DecryptSecret(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DecryptSecret("secretName")
+	helm.DecryptSecret(HelmContext{Tillerless: false}, "secretName")
 	expected := `Decrypting secret secretName
 exec: helm secrets dec secretName --kube-context dev
 `

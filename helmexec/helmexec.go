@@ -18,5 +18,5 @@ type Interface interface {
 	DeleteRelease(context HelmContext, name string, flags ...string) error
 	TestRelease(context HelmContext, name string, flags ...string) error
 	List(context HelmContext, filter string, flags ...string) (string, error)
-	DecryptSecret(name string) (string, error)
+	DecryptSecret(context HelmContext, name string) (string, error)
 }
