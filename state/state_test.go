@@ -631,12 +631,18 @@ func Test_normalizeChart(t *testing.T) {
 
 // mocking helmexec.Interface
 
+type listKey struct {
+	filter string
+	flags  string
+}
+
 type mockHelmExec struct {
 	charts   []string
 	repo     []string
 	releases []mockRelease
 	deleted  []mockRelease
-	lists    map[string]string
+	lists    map[listKey]string
+	diffed   []mockRelease
 }
 
 type mockRelease struct {
@@ -682,21 +688,22 @@ func (helm *mockHelmExec) SyncRelease(name, chart string, flags ...string) error
 	return nil
 }
 func (helm *mockHelmExec) DiffRelease(name, chart string, flags ...string) error {
+	helm.diffed = append(helm.diffed, mockRelease{name: name, flags: flags})
 	return nil
 }
-func (helm *mockHelmExec) ReleaseStatus(release string) error {
+func (helm *mockHelmExec) ReleaseStatus(release string, flags ...string) error {
 	if strings.Contains(release, "error") {
 		return errors.New("error")
 	}
-	helm.releases = append(helm.releases, mockRelease{name: release, flags: []string{}})
+	helm.releases = append(helm.releases, mockRelease{name: release, flags: flags})
 	return nil
 }
 func (helm *mockHelmExec) DeleteRelease(name string, flags ...string) error {
 	helm.deleted = append(helm.deleted, mockRelease{name: name, flags: flags})
 	return nil
 }
-func (helm *mockHelmExec) List(filter string) (string, error) {
-	return helm.lists[filter], nil
+func (helm *mockHelmExec) List(filter string, flags ...string) (string, error) {
+	return helm.lists[listKey{filter: filter, flags: strings.Join(flags, "")}], nil
 }
 func (helm *mockHelmExec) DecryptSecret(name string) (string, error) {
 	return "", nil
@@ -808,6 +815,18 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			wantReleases: []mockRelease{{"releaseName", []string{}}},
 		},
 		{
+			name: "with tiller args",
+			releases: []ReleaseSpec{
+				{
+					Name:            "releaseName",
+					Chart:           "foo",
+					TillerNamespace: "tillerns",
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{"--tiller-namespace", "tillerns"}}},
+		},
+		{
 			name: "escaped values",
 			releases: []ReleaseSpec{
 				{
@@ -882,6 +901,120 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			}
 			if _ = state.SyncReleases(tt.helm, []string{}, 1); !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
 				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
+			}
+		})
+	}
+}
+
+func TestHelmState_DiffReleases(t *testing.T) {
+	tests := []struct {
+		name         string
+		releases     []ReleaseSpec
+		helm         *mockHelmExec
+		wantReleases []mockRelease
+	}{
+		{
+			name: "normal release",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{}}},
+		},
+		{
+			name: "with tiller args",
+			releases: []ReleaseSpec{
+				{
+					Name:            "releaseName",
+					Chart:           "foo",
+					TillerNamespace: "tillerns",
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{"--tiller-namespace", "tillerns"}}},
+		},
+		{
+			name: "escaped values",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  "someList",
+							Value: "a,b,c",
+						},
+						{
+							Name:  "json",
+							Value: "{\"name\": \"john\"}",
+						},
+					},
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}}},
+		},
+		{
+			name: "set single value from file",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  "foo",
+							Value: "FOO",
+						},
+						{
+							Name: "bar",
+							File: "path/to/bar",
+						},
+						{
+							Name:  "baz",
+							Value: "BAZ",
+						},
+					},
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
+		},
+		{
+			name: "set single array value in an array",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name: "foo.bar[0]",
+							Values: []string{
+								"A",
+								"B",
+							},
+						},
+					},
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo.bar[0]={A,B}"}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				Releases: tt.releases,
+				logger:   logger,
+			}
+			_, err := state.DiffReleases(tt.helm, []string{}, 1, false, false, false)
+			if err != nil {
+				fmt.Errorf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(tt.helm.diffed, tt.wantReleases) {
+				t.Errorf("HelmState.DiffReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
 			}
 		})
 	}
@@ -1156,6 +1289,17 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 			helm:    &mockHelmExec{},
 			wantErr: false,
 		},
+		{
+			name: "with tiller args",
+			releases: []ReleaseSpec{
+				{
+					Name:            "releaseA",
+					TillerNamespace: "tillerns",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []mockRelease{{"releaseA", []string{"--tiller-namespace", "tillerns"}}},
+		},
 	}
 	for _, tt := range tests {
 		i := func(t *testing.T) {
@@ -1190,12 +1334,13 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 
 func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 	tests := []struct {
-		name     string
-		cleanup  bool
-		releases []ReleaseSpec
-		helm     *mockHelmExec
-		want     []mockRelease
-		wantErr  bool
+		name            string
+		cleanup         bool
+		releases        []ReleaseSpec
+		helm            *mockHelmExec
+		want            []mockRelease
+		wantErr         bool
+		tillerNamespace string
 	}{
 		{
 			name: "happy path",
@@ -1227,6 +1372,17 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 			},
 			helm:    &mockHelmExec{},
 			wantErr: true,
+		},
+		{
+			name: "with tiller args",
+			releases: []ReleaseSpec{
+				{
+					Name:            "releaseA",
+					TillerNamespace: "tillerns",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []mockRelease{{"releaseA", []string{"--timeout", "1", "--tiller-namespace", "tillerns"}}},
 		},
 	}
 	for _, tt := range tests {
@@ -1297,12 +1453,14 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 
 func TestHelmState_Delete(t *testing.T) {
 	tests := []struct {
-		name      string
-		deleted   []mockRelease
-		wantErr   bool
-		desired   *bool
-		installed bool
-		purge     bool
+		name            string
+		deleted         []mockRelease
+		wantErr         bool
+		desired         *bool
+		installed       bool
+		purge           bool
+		flags           string
+		tillerNamespace string
 	}{
 		{
 			name:      "desired and installed (purge=false)",
@@ -1376,12 +1534,23 @@ func TestHelmState_Delete(t *testing.T) {
 			purge:     true,
 			deleted:   []mockRelease{},
 		},
+		{
+			name:            "with tiller args",
+			wantErr:         false,
+			desired:         nil,
+			installed:       true,
+			purge:           true,
+			tillerNamespace: "tillerns",
+			flags:           "--tiller-namespacetillerns",
+			deleted:         []mockRelease{{"releaseA", []string{"--purge", "--tiller-namespace", "tillerns"}}},
+		},
 	}
 	for _, tt := range tests {
 		i := func(t *testing.T) {
 			release := ReleaseSpec{
-				Name:      "releaseA",
-				Installed: tt.desired,
+				Name:            "releaseA",
+				Installed:       tt.desired,
+				TillerNamespace: tt.tillerNamespace,
 			}
 			releases := []ReleaseSpec{
 				release,
@@ -1391,15 +1560,15 @@ func TestHelmState_Delete(t *testing.T) {
 				logger:   logger,
 			}
 			helm := &mockHelmExec{
-				lists:   map[string]string{},
+				lists:   map[listKey]string{},
 				deleted: []mockRelease{},
 			}
 			if tt.installed {
-				helm.lists["^releaseA$"] = "releaseA"
+				helm.lists[listKey{filter: "^releaseA$", flags: tt.flags}] = "releaseA"
 			}
 			errs := state.DeleteReleases(helm, tt.purge)
 			if (errs != nil) != tt.wantErr {
-				t.Errorf("DeleteREleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
+				t.Errorf("DeleteReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(tt.deleted, helm.deleted) {

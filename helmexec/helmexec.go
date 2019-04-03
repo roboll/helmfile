@@ -14,9 +14,9 @@ type Interface interface {
 	TemplateRelease(chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
 	Lint(chart string, flags ...string) error
-	ReleaseStatus(name string) error
+	ReleaseStatus(name string, flags ...string) error
 	DeleteRelease(name string, flags ...string) error
 	TestRelease(name string, flags ...string) error
-	List(filter string) (string, error)
+	List(filter string, flags ...string) (string, error)
 	DecryptSecret(name string) (string, error)
 }

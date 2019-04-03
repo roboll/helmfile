@@ -277,8 +277,8 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 	return res, errs
 }
 
-func isReleaseInstalled(helm helmexec.Interface, release ReleaseSpec) (bool, error) {
-	out, err := helm.List("^" + release.Name + "$")
+func (st *HelmState) isReleaseInstalled(helm helmexec.Interface, release ReleaseSpec) (bool, error) {
+	out, err := helm.List("^"+release.Name+"$", st.tillerFlags(&release)...)
 	if err != nil {
 		return false, err
 	} else if out != "" {
@@ -292,7 +292,7 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*Rele
 	for i, _ := range st.Releases {
 		release := st.Releases[i]
 		if !release.Desired() {
-			installed, err := isReleaseInstalled(helm, release)
+			installed, err := st.isReleaseInstalled(helm, release)
 			if err != nil {
 				return nil, err
 			} else if installed {
@@ -330,7 +330,7 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 				chart := normalizeChart(st.basePath, release.Chart)
 				var relErr *ReleaseError
 				if !release.Desired() {
-					installed, err := isReleaseInstalled(helm, *release)
+					installed, err := st.isReleaseInstalled(helm, *release)
 					if err != nil {
 						relErr = &ReleaseError{release, err}
 					} else if installed {
@@ -735,7 +735,11 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		if !release.Desired() {
 			return nil
 		}
-		return helm.ReleaseStatus(release.Name)
+
+		flags := []string{}
+		flags = st.appendTillerFlags(flags, &release)
+
+		return helm.ReleaseStatus(release.Name, flags...)
 	})
 }
 
@@ -750,7 +754,9 @@ func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error
 		if purge {
 			flags = append(flags, "--purge")
 		}
-		installed, err := isReleaseInstalled(helm, release)
+		flags = st.appendTillerFlags(flags, &release)
+
+		installed, err := st.isReleaseInstalled(helm, release)
 		if err != nil {
 			return err
 		}
@@ -773,6 +779,8 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 			flags = append(flags, "--cleanup")
 		}
 		flags = append(flags, "--timeout", strconv.Itoa(timeout))
+		flags = st.appendTillerFlags(flags, &release)
+
 		return helm.TestRelease(release.Name, flags...)
 	})
 }
@@ -976,6 +984,15 @@ func findChartDirectory(topLevelDir string) (string, error) {
 }
 
 func (st *HelmState) appendTillerFlags(flags []string, release *ReleaseSpec) []string {
+	adds := st.tillerFlags(release)
+	for _, a := range adds {
+		flags = append(flags, a)
+	}
+	return flags
+}
+
+func (st *HelmState) tillerFlags(release *ReleaseSpec) []string {
+	flags := []string{}
 	if release.TillerNamespace != "" {
 		flags = append(flags, "--tiller-namespace", release.TillerNamespace)
 	} else if st.HelmDefaults.TillerNamespace != "" {
