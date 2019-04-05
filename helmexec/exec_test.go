@@ -119,7 +119,7 @@ func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.SyncRelease(HelmContext{Tillerless: false}, "release", "chart", "--timeout 10", "--wait")
+	helm.SyncRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait")
 	expected := `Upgrading chart
 exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev
 `
@@ -128,7 +128,7 @@ exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --
 	}
 
 	buffer.Reset()
-	helm.SyncRelease(HelmContext{Tillerless: false}, "release", "chart")
+	helm.SyncRelease(HelmContext{}, "release", "chart")
 	expected = `Upgrading chart
 exec: helm upgrade --install --reset-values release chart --kube-context dev
 `
@@ -201,7 +201,7 @@ func Test_DecryptSecret(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DecryptSecret(HelmContext{Tillerless: false}, "secretName")
+	helm.DecryptSecret(HelmContext{}, "secretName")
 	expected := `Decrypting secret secretName
 exec: helm secrets dec secretName --kube-context dev
 `
@@ -214,7 +214,7 @@ func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DiffRelease(HelmContext{Tillerless: false}, "release", "chart", "--timeout 10", "--wait")
+	helm.DiffRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait")
 	expected := `Comparing release chart
 exec: helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --kube-context dev
 `
@@ -223,7 +223,7 @@ exec: helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --k
 	}
 
 	buffer.Reset()
-	helm.DiffRelease(HelmContext{Tillerless: false}, "release", "chart")
+	helm.DiffRelease(HelmContext{}, "release", "chart")
 	expected = `Comparing release chart
 exec: helm diff upgrade --allow-unreleased release chart --kube-context dev
 `
@@ -249,7 +249,7 @@ func Test_DeleteRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DeleteRelease(HelmContext{Tillerless: false}, "release")
+	helm.DeleteRelease(HelmContext{}, "release")
 	expected := `Deleting release
 exec: helm delete release --kube-context dev
 `
@@ -261,7 +261,7 @@ func Test_DeleteRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DeleteRelease(HelmContext{Tillerless: false}, "release", "--purge")
+	helm.DeleteRelease(HelmContext{}, "release", "--purge")
 	expected := `Deleting release
 exec: helm delete release --purge --kube-context dev
 `
@@ -274,7 +274,7 @@ func Test_TestRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.TestRelease(HelmContext{Tillerless: false}, "release")
+	helm.TestRelease(HelmContext{}, "release")
 	expected := `Testing release
 exec: helm test release --kube-context dev
 `
@@ -286,7 +286,7 @@ func Test_TestRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.TestRelease(HelmContext{Tillerless: false}, "release", "--cleanup", "--timeout", "60")
+	helm.TestRelease(HelmContext{}, "release", "--cleanup", "--timeout", "60")
 	expected := `Testing release
 exec: helm test release --cleanup --timeout 60 --kube-context dev
 `
@@ -299,7 +299,7 @@ func Test_ReleaseStatus(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.ReleaseStatus(HelmContext{Tillerless: false}, "myRelease")
+	helm.ReleaseStatus(HelmContext{}, "myRelease")
 	expected := `Getting status myRelease
 exec: helm status myRelease --kube-context dev
 `
@@ -407,7 +407,7 @@ func Test_LogLevels(t *testing.T) {
 }
 
 func Test_getTillerlessEnv(t *testing.T) {
-	context := HelmContext{Tillerless: true, TillerNamespace: "foo", Worker: 1}
+	context := HelmContext{Tillerless: true, TillerNamespace: "foo", WorkerIndex: 1}
 
 	os.Unsetenv("KUBECONFIG")
 	actual := context.getTillerlessEnv()
