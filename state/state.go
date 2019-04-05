@@ -57,6 +57,7 @@ type HelmState struct {
 type HelmSpec struct {
 	KubeContext     string   `yaml:"kubeContext"`
 	TillerNamespace string   `yaml:"tillerNamespace"`
+	Tillerless      bool     `yaml:"tillerless"`
 	Args            []string `yaml:"args"`
 	Verify          bool     `yaml:"verify"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
@@ -130,6 +131,7 @@ type ReleaseSpec struct {
 	ValuesPathPrefix string `yaml:"valuesPathPrefix"`
 
 	TillerNamespace string `yaml:"tillerNamespace"`
+	Tillerless      *bool  `yaml:"tillerless"`
 
 	TLS       *bool  `yaml:"tls"`
 	TLSCACert string `yaml:"tlsCACert"`
@@ -226,11 +228,11 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 			}
 			close(jobs)
 		},
-		func(_ int) {
+		func(workerIndex int) {
 			for release := range jobs {
 				st.applyDefaultsTo(release)
 
-				flags, flagsErr := st.flagsForUpgrade(helm, release)
+				flags, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
 				if flagsErr != nil {
 					results <- syncPrepareResult{errors: []*ReleaseError{&ReleaseError{release, flagsErr}}}
 					continue
@@ -277,8 +279,8 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 	return res, errs
 }
 
-func (st *HelmState) isReleaseInstalled(helm helmexec.Interface, release ReleaseSpec) (bool, error) {
-	out, err := helm.List("^"+release.Name+"$", st.tillerFlags(&release)...)
+func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
+	out, err := helm.List(context, "^"+release.Name+"$", st.tillerFlags(&release)...)
 	if err != nil {
 		return false, err
 	} else if out != "" {
@@ -289,10 +291,9 @@ func (st *HelmState) isReleaseInstalled(helm helmexec.Interface, release Release
 
 func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*ReleaseSpec, error) {
 	detected := []*ReleaseSpec{}
-	for i, _ := range st.Releases {
-		release := st.Releases[i]
+	for _, release := range st.Releases {
 		if !release.Desired() {
-			installed, err := st.isReleaseInstalled(helm, release)
+			installed, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
 			if err != nil {
 				return nil, err
 			} else if installed {
@@ -323,22 +324,23 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 			}
 			close(jobQueue)
 		},
-		func(_ int) {
+		func(workerIndex int) {
 			for prep := range jobQueue {
 				release := prep.release
 				flags := prep.flags
 				chart := normalizeChart(st.basePath, release.Chart)
 				var relErr *ReleaseError
+				context := st.createHelmContext(release, workerIndex)
 				if !release.Desired() {
-					installed, err := st.isReleaseInstalled(helm, *release)
+					installed, err := st.isReleaseInstalled(context, helm, *release)
 					if err != nil {
 						relErr = &ReleaseError{release, err}
 					} else if installed {
-						if err := helm.DeleteRelease(release.Name, "--purge"); err != nil {
+						if err := helm.DeleteRelease(context, release.Name, "--purge"); err != nil {
 							relErr = &ReleaseError{release, err}
 						}
 					}
-				} else if err := helm.SyncRelease(release.Name, chart, flags...); err != nil {
+				} else if err := helm.SyncRelease(context, release.Name, chart, flags...); err != nil {
 					relErr = &ReleaseError{release, err}
 				}
 
@@ -468,7 +470,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues 
 			continue
 		}
 
-		flags, err := st.flagsForTemplate(helm, &release)
+		flags, err := st.flagsForTemplate(helm, &release, 0)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -528,7 +530,7 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 			continue
 		}
 
-		flags, err := st.flagsForLint(helm, &release)
+		flags, err := st.flagsForLint(helm, &release, 0)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -607,13 +609,13 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 			}
 			close(jobs)
 		},
-		func(_ int) {
+		func(workerIndex int) {
 			for release := range jobs {
 				errs := []error{}
 
 				st.applyDefaultsTo(release)
 
-				flags, err := st.flagsForDiff(helm, release)
+				flags, err := st.flagsForDiff(helm, release, workerIndex)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -666,6 +668,23 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	return rs, errs
 }
 
+func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helmexec.HelmContext {
+	namespace := st.HelmDefaults.TillerNamespace
+	if spec.TillerNamespace != "" {
+		namespace = spec.TillerNamespace
+	}
+	tillerless := st.HelmDefaults.Tillerless
+	if spec.Tillerless != nil {
+		tillerless = *spec.Tillerless
+	}
+
+	return helmexec.HelmContext{
+		Tillerless:      tillerless,
+		TillerNamespace: namespace,
+		WorkerIndex:     workerIndex,
+	}
+}
+
 // DiffReleases wrapper for executing helm diff on the releases
 // It returns releases that had any changes
 func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, triggerCleanupEvents bool) ([]*ReleaseSpec, []error) {
@@ -689,11 +708,11 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 			}
 			close(jobQueue)
 		},
-		func(_ int) {
+		func(workerIndex int) {
 			for prep := range jobQueue {
 				flags := prep.flags
 				release := prep.release
-				if err := helm.DiffRelease(release.Name, normalizeChart(st.basePath, release.Chart), flags...); err != nil {
+				if err := helm.DiffRelease(st.createHelmContext(release, workerIndex), release.Name, normalizeChart(st.basePath, release.Chart), flags...); err != nil {
 					switch e := err.(type) {
 					case *exec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
@@ -731,7 +750,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 }
 
 func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
-	return st.scatterGatherReleases(helm, workerLimit, func(release ReleaseSpec) error {
+	return st.scatterGatherReleases(helm, workerLimit, func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -739,13 +758,13 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		flags := []string{}
 		flags = st.appendTillerFlags(flags, &release)
 
-		return helm.ReleaseStatus(release.Name, flags...)
+		return helm.ReleaseStatus(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error {
-	return st.scatterGatherReleases(helm, len(st.Releases), func(release ReleaseSpec) error {
+	return st.scatterGatherReleases(helm, len(st.Releases), func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -755,13 +774,14 @@ func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error
 			flags = append(flags, "--purge")
 		}
 		flags = st.appendTillerFlags(flags, &release)
+		context := st.createHelmContext(&release, workerIndex)
 
-		installed, err := st.isReleaseInstalled(helm, release)
+		installed, err := st.isReleaseInstalled(context, helm, release)
 		if err != nil {
 			return err
 		}
 		if installed {
-			return helm.DeleteRelease(release.Name, flags...)
+			return helm.DeleteRelease(context, release.Name, flags...)
 		}
 		return nil
 	})
@@ -769,7 +789,7 @@ func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error
 
 // TestReleases wrapper for executing helm test on the releases
 func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int) []error {
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec) error {
+	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -781,7 +801,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		flags = append(flags, "--timeout", strconv.Itoa(timeout))
 		flags = st.appendTillerFlags(flags, &release)
 
-		return helm.TestRelease(release.Name, flags...)
+		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
 }
 
@@ -993,38 +1013,44 @@ func (st *HelmState) appendTillerFlags(flags []string, release *ReleaseSpec) []s
 
 func (st *HelmState) tillerFlags(release *ReleaseSpec) []string {
 	flags := []string{}
-	if release.TillerNamespace != "" {
-		flags = append(flags, "--tiller-namespace", release.TillerNamespace)
-	} else if st.HelmDefaults.TillerNamespace != "" {
-		flags = append(flags, "--tiller-namespace", st.HelmDefaults.TillerNamespace)
+	tillerless := st.HelmDefaults.Tillerless
+	if release.Tillerless != nil {
+		tillerless = *release.Tillerless
 	}
+	if !tillerless {
+		if release.TillerNamespace != "" {
+			flags = append(flags, "--tiller-namespace", release.TillerNamespace)
+		} else if st.HelmDefaults.TillerNamespace != "" {
+			flags = append(flags, "--tiller-namespace", st.HelmDefaults.TillerNamespace)
+		}
 
-	if release.TLS != nil && *release.TLS || release.TLS == nil && st.HelmDefaults.TLS {
-		flags = append(flags, "--tls")
-	}
+		if release.TLS != nil && *release.TLS || release.TLS == nil && st.HelmDefaults.TLS {
+			flags = append(flags, "--tls")
+		}
 
-	if release.TLSKey != "" {
-		flags = append(flags, "--tls-key", release.TLSKey)
-	} else if st.HelmDefaults.TLSKey != "" {
-		flags = append(flags, "--tls-key", st.HelmDefaults.TLSKey)
-	}
+		if release.TLSKey != "" {
+			flags = append(flags, "--tls-key", release.TLSKey)
+		} else if st.HelmDefaults.TLSKey != "" {
+			flags = append(flags, "--tls-key", st.HelmDefaults.TLSKey)
+		}
 
-	if release.TLSCert != "" {
-		flags = append(flags, "--tls-cert", release.TLSCert)
-	} else if st.HelmDefaults.TLSCert != "" {
-		flags = append(flags, "--tls-cert", st.HelmDefaults.TLSCert)
-	}
+		if release.TLSCert != "" {
+			flags = append(flags, "--tls-cert", release.TLSCert)
+		} else if st.HelmDefaults.TLSCert != "" {
+			flags = append(flags, "--tls-cert", st.HelmDefaults.TLSCert)
+		}
 
-	if release.TLSCACert != "" {
-		flags = append(flags, "--tls-ca-cert", release.TLSCACert)
-	} else if st.HelmDefaults.TLSCACert != "" {
-		flags = append(flags, "--tls-ca-cert", st.HelmDefaults.TLSCACert)
+		if release.TLSCACert != "" {
+			flags = append(flags, "--tls-ca-cert", release.TLSCACert)
+		} else if st.HelmDefaults.TLSCACert != "" {
+			flags = append(flags, "--tls-ca-cert", st.HelmDefaults.TLSCACert)
+		}
 	}
 
 	return flags
 }
 
-func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
@@ -1064,25 +1090,25 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendTillerFlags(flags, release)
 
-	common, err := st.namespaceAndValuesFlags(helm, release)
+	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
 }
 
-func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
 	flags := []string{
 		"--name", release.Name,
 	}
-	common, err := st.namespaceAndValuesFlags(helm, release)
+	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
 }
 
-func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
@@ -1094,7 +1120,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec)
 
 	flags = st.appendTillerFlags(flags, release)
 
-	common, err := st.namespaceAndValuesFlags(helm, release)
+	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -1110,8 +1136,8 @@ func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {
 	return result
 }
 
-func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
-	return st.namespaceAndValuesFlags(helm, release)
+func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+	return st.namespaceAndValuesFlags(helm, release, workerIndex)
 }
 
 func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
@@ -1181,7 +1207,7 @@ func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingF
 	return generatedFiles, nil
 }
 
-func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec) ([]string, error) {
+func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
 	flags := []string{}
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
@@ -1230,7 +1256,8 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 			}
 		}
 
-		valfile, err := helm.DecryptSecret(path)
+		decryptFlags := st.appendTillerFlags([]string{}, release)
+		valfile, err := helm.DecryptSecret(st.createHelmContext(release, workerIndex), path, decryptFlags...)
 		if err != nil {
 			return nil, err
 		}

@@ -42,6 +42,7 @@ clean:
 .PHONY: clean
 
 pristine: generate fmt
+	git diff | cat
 	git ls-files --exclude-standard --modified --deleted --others | diff /dev/null -
 .PHONY: pristine
 

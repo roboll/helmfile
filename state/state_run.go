@@ -40,7 +40,8 @@ func (st *HelmState) scatterGather(concurrency int, items int, produceInputs fun
 	waitGroup.Wait()
 }
 
-func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int, do func(ReleaseSpec) error) []error {
+func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int,
+	do func(ReleaseSpec, int) error) []error {
 	var errs []error
 
 	inputs := st.Releases
@@ -60,7 +61,7 @@ func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency 
 		},
 		func(id int) {
 			for release := range releases {
-				err := do(release)
+				err := do(release, id)
 				st.logger.Debugf("sending result for release: %s\n", release.Name)
 				results <- result{release: release, err: err}
 				st.logger.Debugf("sent result for release: %s\n", release.Name)

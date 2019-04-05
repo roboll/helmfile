@@ -43,6 +43,7 @@ repositories:
 #default values to set for args along with dedicated keys that can be set by contributers, cli args take precedence over these
 helmDefaults:
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
+  tillerless: false                  #dedicated default key for tillerless
   kubeContext: kube-context          #dedicated default key for kube-context (--kube-context)
   # additional and global args passed to helm
   args:
@@ -110,6 +111,10 @@ releases:
     installed: true
     # restores previous state in case of failed release
     atomic: true
+    # name of the tiller namespace
+    tillerNamespace: vault
+    # if true, will use the helm-tiller plugin
+    tillerless: false
     # enable TLS for request to Tiller
     tls: true
     # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
@@ -556,6 +561,16 @@ Then the environment secret `foo.bar` can be referenced by the below template ex
 ```yaml
 {{ .Environment.Values.foo.bar }}
 ```
+
+## Tillerless
+
+With the [helm-tiller](https://github.com/rimusz/helm-tiller) plugin installed, you can work without tiller installed.
+
+To enable this mode, you need to define `tillerless: true` and set the `tillerNamespace` in the `helmDefaults` section
+or in the `releases` entries.
+
+Since every commands is run with `helm tiller run ...`, you have to disable concurrency. Otherwise you'll get
+mysterious errors about the tiller daemon.
 
 ## Separating helmfile.yaml into multiple independent files
 

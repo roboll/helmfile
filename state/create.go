@@ -158,8 +158,9 @@ func (st *HelmState) loadEnv(name string, readFile func(string) ([]byte, error))
 				if _, err := os.Stat(path); os.IsNotExist(err) {
 					return nil, err
 				}
-
-				decFile, err := helm.DecryptSecret(path)
+				release := &st.Releases[0]
+				flags := st.appendTillerFlags([]string{}, release)
+				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), path, flags...)
 				if err != nil {
 					return nil, err
 				}

@@ -3,6 +3,7 @@ package helmexec
 import (
 	"bytes"
 	"os"
+	"path"
 	"reflect"
 	"testing"
 
@@ -16,7 +17,7 @@ type mockRunner struct {
 	err    error
 }
 
-func (mock *mockRunner) Execute(cmd string, args []string) ([]byte, error) {
+func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
 	return []byte{}, nil
 }
 
@@ -118,7 +119,7 @@ func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.SyncRelease("release", "chart", "--timeout 10", "--wait")
+	helm.SyncRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait")
 	expected := `Upgrading chart
 exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev
 `
@@ -127,9 +128,23 @@ exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --
 	}
 
 	buffer.Reset()
-	helm.SyncRelease("release", "chart")
+	helm.SyncRelease(HelmContext{}, "release", "chart")
 	expected = `Upgrading chart
 exec: helm upgrade --install --reset-values release chart --kube-context dev
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_SyncReleaseTillerless(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := MockExecer(logger, "dev")
+	helm.SyncRelease(HelmContext{Tillerless: true, TillerNamespace: "foo"}, "release", "chart",
+		"--timeout 10", "--wait")
+	expected := `Upgrading chart
+exec: helm tiller run foo -- helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -186,7 +201,7 @@ func Test_DecryptSecret(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DecryptSecret("secretName")
+	helm.DecryptSecret(HelmContext{}, "secretName")
 	expected := `Decrypting secret secretName
 exec: helm secrets dec secretName --kube-context dev
 `
@@ -199,7 +214,7 @@ func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DiffRelease("release", "chart", "--timeout 10", "--wait")
+	helm.DiffRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait")
 	expected := `Comparing release chart
 exec: helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --kube-context dev
 `
@@ -208,9 +223,22 @@ exec: helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --k
 	}
 
 	buffer.Reset()
-	helm.DiffRelease("release", "chart")
+	helm.DiffRelease(HelmContext{}, "release", "chart")
 	expected = `Comparing release chart
 exec: helm diff upgrade --allow-unreleased release chart --kube-context dev
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_DiffReleaseTillerless(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := MockExecer(logger, "dev")
+	helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", "--timeout 10", "--wait")
+	expected := `Comparing release chart
+exec: helm tiller run -- helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --kube-context dev
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -221,7 +249,7 @@ func Test_DeleteRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DeleteRelease("release")
+	helm.DeleteRelease(HelmContext{}, "release")
 	expected := `Deleting release
 exec: helm delete release --kube-context dev
 `
@@ -233,7 +261,7 @@ func Test_DeleteRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DeleteRelease("release", "--purge")
+	helm.DeleteRelease(HelmContext{}, "release", "--purge")
 	expected := `Deleting release
 exec: helm delete release --purge --kube-context dev
 `
@@ -246,7 +274,7 @@ func Test_TestRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.TestRelease("release")
+	helm.TestRelease(HelmContext{}, "release")
 	expected := `Testing release
 exec: helm test release --kube-context dev
 `
@@ -258,7 +286,7 @@ func Test_TestRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.TestRelease("release", "--cleanup", "--timeout", "60")
+	helm.TestRelease(HelmContext{}, "release", "--cleanup", "--timeout", "60")
 	expected := `Testing release
 exec: helm test release --cleanup --timeout 60 --kube-context dev
 `
@@ -271,7 +299,7 @@ func Test_ReleaseStatus(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.ReleaseStatus("myRelease")
+	helm.ReleaseStatus(HelmContext{}, "myRelease")
 	expected := `Getting status myRelease
 exec: helm status myRelease --kube-context dev
 `
@@ -284,28 +312,29 @@ func Test_exec(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "")
-	helm.exec("version")
+	env := map[string]string{}
+	helm.exec([]string{"version"}, env)
 	expected := "exec: helm version\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
 	helm = MockExecer(logger, "dev")
-	ret, _ := helm.exec("diff")
+	ret, _ := helm.exec([]string{"diff"}, env)
 	if len(ret) != 0 {
 		t.Error("helmexec.exec() - expected empty return value")
 	}
 
 	buffer.Reset()
 	helm = MockExecer(logger, "dev")
-	helm.exec("diff", "release", "chart", "--timeout 10", "--wait")
+	helm.exec([]string{"diff", "release", "chart", "--timeout 10", "--wait"}, env)
 	expected = "exec: helm diff release chart --timeout 10 --wait --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
 	buffer.Reset()
-	helm.exec("version")
+	helm.exec([]string{"version"}, env)
 	expected = "exec: helm version --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -313,7 +342,7 @@ func Test_exec(t *testing.T) {
 
 	buffer.Reset()
 	helm.SetExtraArgs("foo")
-	helm.exec("version")
+	helm.exec([]string{"version"}, env)
 	expected = "exec: helm version foo --kube-context dev\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -322,7 +351,7 @@ func Test_exec(t *testing.T) {
 	buffer.Reset()
 	helm = MockExecer(logger, "")
 	helm.SetHelmBinary("overwritten")
-	helm.exec("version")
+	helm.exec([]string{"version"}, env)
 	expected = "exec: overwritten version\n"
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -374,5 +403,39 @@ func Test_LogLevels(t *testing.T) {
 		if buffer.String() != expected {
 			t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 		}
+	}
+}
+
+func Test_getTillerlessEnv(t *testing.T) {
+	context := HelmContext{Tillerless: true, TillerNamespace: "foo", WorkerIndex: 1}
+
+	os.Unsetenv("KUBECONFIG")
+	actual := context.getTillerlessEnv()
+	if val, found := actual["HELM_TILLER_SILENT"]; !found || val != "true" {
+		t.Errorf("getTillerlessEnv() HELM_TILLER_SILENT\nactual = %s\nexpect = true", val)
+	}
+	// This feature is disabled until it is fixed in helm
+	/*if val, found := actual["HELM_TILLER_PORT"]; !found || val != "44135" {
+		t.Errorf("getTillerlessEnv() HELM_TILLER_PORT\nactual = %s\nexpect = 44135", val)
+	}*/
+	if val, found := actual["KUBECONFIG"]; found {
+		t.Errorf("getTillerlessEnv() KUBECONFIG\nactual = %s\nexpect = nil", val)
+	}
+
+	os.Setenv("KUBECONFIG", "toto")
+	actual = context.getTillerlessEnv()
+	cwd, _ := os.Getwd()
+	expected := path.Join(cwd, "toto")
+	if val, found := actual["KUBECONFIG"]; !found || val != expected {
+		t.Errorf("getTillerlessEnv() KUBECONFIG\nactual = %s\nexpect = %s", val, expected)
+	}
+	os.Unsetenv("KUBECONFIG")
+}
+
+func Test_mergeEnv(t *testing.T) {
+	actual := env2map(mergeEnv([]string{"A=1", "B=c=d", "E=2"}, map[string]string{"B": "3", "F": "4"}))
+	expected := map[string]string{"A": "1", "B": "3", "E": "2", "F": "4"}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("mergeEnv()\nactual = %v\nexpect = %v", actual, expected)
 	}
 }
