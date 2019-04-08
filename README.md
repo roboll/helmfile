@@ -776,7 +776,7 @@ Use the [Helmfile Best Practices Guide](/docs/writing-helmfile.md) to write adva
 
 We also have dedicated documentation on the following topics which might interest you:
 
-- [Shared Configurations Across Teams](/docs/shared-configurations-across-teams.md)
+- [Shared Configurations Across Teams](/docs/shared-configuration-across-teams.md)
 
 Or join our friendly slack community in the [`#helmfile`](https://slack.sweetops.com) channel to ask questions and get help. Check out our [slack archive](https://archive.sweetops.com/helmfile/) for good examples of how others are using it.
 
