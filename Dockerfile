@@ -1,4 +1,4 @@
-FROM golang:1.12.1-alpine3.8 as builder
+FROM golang:1.12.4-alpine3.9 as builder
 
 RUN apk add --no-cache make git
 WORKDIR /go/src/github.com/roboll/helmfile/
