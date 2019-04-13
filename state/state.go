@@ -206,9 +206,6 @@ type syncPrepareResult struct {
 func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int) ([]syncPrepareResult, []error) {
 	releases := []*ReleaseSpec{}
 	for i, _ := range st.Releases {
-		if !st.Releases[i].Desired() {
-			continue
-		}
 		releases = append(releases, &st.Releases[i])
 	}
 
@@ -297,7 +294,9 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*Rele
 			if err != nil {
 				return nil, err
 			} else if installed {
-				detected = append(detected, &release)
+				// Otherwise `release` messed up(https://github.com/roboll/helmfile/issues/554)
+				r := release
+				detected = append(detected, &r)
 			}
 		}
 	}
