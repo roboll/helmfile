@@ -8,6 +8,7 @@ jobs:
     working_directory: /go/src/github.com/roboll/helmfile
     steps:
       - checkout
+      - run: make dep
       - run: make build
       - persist_to_workspace:
           root: /go/src/github.com/roboll/helmfile
@@ -20,6 +21,7 @@ jobs:
     working_directory: /go/src/github.com/roboll/helmfile
     steps:
       - checkout
+      - run: make dep
       - run: make check
       - run: make pristine
       - run: make test
