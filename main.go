@@ -135,9 +135,12 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
-					return executeSyncCommand(c, state, helm)
+				affectedReleases := state.AffectedReleases{}
+				errs := findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
+					return executeSyncCommand(c, &affectedReleases, st, helm)
 				})
+				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
+				return errs
 			},
 		},
 		{
@@ -288,20 +291,23 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
+				affectedReleases := state.AffectedReleases{}
+				errs := findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
 					if !c.Bool("skip-deps") {
-						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+						if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
-						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
+						if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 							return errs
 						}
 					}
-					if errs := state.PrepareRelease(helm, "sync"); errs != nil && len(errs) > 0 {
+					if errs := st.PrepareRelease(helm, "sync"); errs != nil && len(errs) > 0 {
 						return errs
 					}
-					return executeSyncCommand(c, state, helm)
+					return executeSyncCommand(c, &affectedReleases, st, helm)
 				})
+				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
+				return errs
 			},
 		},
 		{
@@ -332,7 +338,8 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
+				affectedReleases := state.AffectedReleases{}
+				errs := findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
 					if !c.Bool("skip-deps") {
 						if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
 							return errs
@@ -396,13 +403,15 @@ Do you really want to apply?
 								}
 
 								st.Releases = rs
-								return executeSyncCommand(c, st, helm)
+								return executeSyncCommand(c, &affectedReleases, st, helm)
 							}
 						}
 					}
 
 					return errs
 				})
+				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
+				return errs
 			},
 		},
 		{
@@ -448,7 +457,8 @@ Do you really want to apply?
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
+				affectedReleases := state.AffectedReleases{}
+				errs := cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
 					purge := c.Bool("purge")
 
 					args := args.GetArgs(c.String("args"), state)
@@ -470,10 +480,12 @@ Do you really want to delete?
 `, strings.Join(names, "\n"))
 					interactive := c.GlobalBool("interactive")
 					if !interactive || interactive && askForConfirmation(msg) {
-						return state.DeleteReleases(helm, purge)
+						return state.DeleteReleases(&affectedReleases, helm, purge)
 					}
 					return nil
 				})
+				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
+				return errs
 			},
 		},
 		{
@@ -487,7 +499,8 @@ Do you really want to delete?
 				},
 			},
 			Action: func(c *cli.Context) error {
-				return cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
+				affectedReleases := state.AffectedReleases{}
+				errs := cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
 					args := args.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
@@ -507,10 +520,12 @@ Do you really want to delete?
 `, strings.Join(names, "\n"))
 					interactive := c.GlobalBool("interactive")
 					if !interactive || interactive && askForConfirmation(msg) {
-						return state.DeleteReleases(helm, true)
+						return state.DeleteReleases(&affectedReleases, helm, true)
 					}
 					return nil
 				})
+				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
+				return errs
 			},
 		},
 		{
@@ -561,7 +576,7 @@ Do you really want to delete?
 	}
 }
 
-func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {
+func executeSyncCommand(c *cli.Context, affectedReleases *state.AffectedReleases, state *state.HelmState, helm helmexec.Interface) []error {
 	args := args.GetArgs(c.String("args"), state)
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
@@ -570,7 +585,7 @@ func executeSyncCommand(c *cli.Context, state *state.HelmState, helm helmexec.In
 	values := c.StringSlice("values")
 	workers := c.Int("concurrency")
 
-	return state.SyncReleases(helm, values, workers)
+	return state.SyncReleases(affectedReleases, helm, values, workers)
 }
 
 func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {

@@ -3,16 +3,17 @@ package state
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/tmpl"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 )
 
 type StateLoadError struct {
