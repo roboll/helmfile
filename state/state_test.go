@@ -653,7 +653,7 @@ type mockRelease struct {
 type mockAffected struct {
 	upgraded []*mockRelease
 	deleted  []*mockRelease
-	error    []*mockRelease
+	failed   []*mockRelease
 }
 
 func (helm *mockHelmExec) UpdateDeps(chart string) error {
@@ -1007,8 +1007,8 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 
 			affectedReleases := AffectedReleases{}
 			if err := state.SyncReleases(&affectedReleases, helm, []string{}, 1); err != nil {
-				if !testEq(affectedReleases.Error, tt.wantAffected.error) {
-					t.Errorf("HelmState.SynchAffectedRelease() error failed for [%s] = %v, want %v", tt.name, affectedReleases.Error, tt.wantAffected.error)
+				if !testEq(affectedReleases.Failed, tt.wantAffected.failed) {
+					t.Errorf("HelmState.SynchAffectedRelease() error failed for [%s] = %v, want %v", tt.name, affectedReleases.Failed, tt.wantAffected.failed)
 				} //else expected error
 			}
 			if !testEq(affectedReleases.Upgraded, tt.wantAffected.upgraded) {
@@ -1776,7 +1776,7 @@ func TestHelmState_Delete(t *testing.T) {
 			affectedReleases := AffectedReleases{}
 			errs := state.DeleteReleases(&affectedReleases, helm, tt.purge)
 			if errs != nil {
-				if !tt.wantErr || len(affectedReleases.Error) != 1 || affectedReleases.Error[0].Name != release.Name {
+				if !tt.wantErr || len(affectedReleases.Failed) != 1 || affectedReleases.Failed[0].Name != release.Name {
 					t.Errorf("DeleteReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 					return
 				}
