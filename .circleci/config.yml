@@ -5,9 +5,11 @@ jobs:
   build:
     docker:
       - image: circleci/golang:1.12.4
-    working_directory: /go/src/github.com/roboll/helmfile
+    environment:
+      GOPATH: /go
     steps:
       - checkout
+      - go env
       - restore_cache:
           keys:
           - go-mod-cache-v1-{{ checksum "./go.sum" }}
@@ -23,9 +25,10 @@ jobs:
             - .
 
   test:
+    environment:
+      GOPATH: /go
     docker:
       - image: circleci/golang:1.12.4
-    working_directory: /go/src/github.com/roboll/helmfile
     steps:
       - checkout
       - restore_cache:
