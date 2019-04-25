@@ -650,6 +650,12 @@ type mockRelease struct {
 	flags []string
 }
 
+type mockAffected struct {
+	upgraded []*mockRelease
+	deleted  []*mockRelease
+	error    []*mockRelease
+}
+
 func (helm *mockHelmExec) UpdateDeps(chart string) error {
 	if strings.Contains(chart, "error") {
 		return errors.New("error")
@@ -699,6 +705,9 @@ func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release st
 	return nil
 }
 func (helm *mockHelmExec) DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
 	helm.deleted = append(helm.deleted, mockRelease{name: name, flags: flags})
 	return nil
 }
@@ -899,8 +908,194 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				Releases: tt.releases,
 				logger:   logger,
 			}
-			if _ = state.SyncReleases(tt.helm, []string{}, 1); !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
+			if _ = state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
 				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
+			}
+		})
+	}
+}
+
+func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
+	no := false
+	tests := []struct {
+		name         string
+		releases     []ReleaseSpec
+		installed    []bool
+		wantAffected mockAffected
+	}{
+		{
+			name: "2 release",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseNameFoo",
+					Chart: "foo",
+				},
+				{
+					Name:  "releaseNameBar",
+					Chart: "bar",
+				},
+			},
+			wantAffected: mockAffected{[]*mockRelease{{"releaseNameFoo", []string{}}, {"releaseNameBar", []string{}}}, nil, nil},
+		},
+		{
+			name: "2 removed",
+			releases: []ReleaseSpec{
+				{
+					Name:      "releaseNameFoo",
+					Chart:     "foo",
+					Installed: &no,
+				},
+				{
+					Name:      "releaseNameBar",
+					Chart:     "foo",
+					Installed: &no,
+				},
+			},
+			installed:    []bool{true, true},
+			wantAffected: mockAffected{nil, []*mockRelease{{"releaseNameFoo", []string{}}, {"releaseNameBar", []string{}}}, nil},
+		},
+		{
+			name: "2 errors",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseNameFoo-error",
+					Chart: "foo",
+				},
+				{
+					Name:  "releaseNameBar-error",
+					Chart: "foo",
+				},
+			},
+			wantAffected: mockAffected{nil, nil, []*mockRelease{{"releaseNameFoo-error", []string{}}, {"releaseNameBar-error", []string{}}}},
+		},
+		{
+			name: "1 removed, 1 new, 1 error",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseNameFoo",
+					Chart: "foo",
+				},
+				{
+					Name:      "releaseNameBar",
+					Chart:     "foo",
+					Installed: &no,
+				},
+				{
+					Name:  "releaseNameFoo-error",
+					Chart: "foo",
+				},
+			},
+			installed:    []bool{true, true, true},
+			wantAffected: mockAffected{[]*mockRelease{{"releaseNameFoo", []string{}}}, []*mockRelease{{"releaseNameBar", []string{}}}, []*mockRelease{{"releaseNameFoo-error", []string{}}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				Releases: tt.releases,
+				logger:   logger,
+			}
+			helm := &mockHelmExec{
+				lists: map[listKey]string{},
+			}
+			//simulate the release is already installed
+			for i, release := range tt.releases {
+				if tt.installed != nil && tt.installed[i] {
+					helm.lists[listKey{filter: "^" + release.Name + "$"}] = release.Name
+				}
+			}
+
+			affectedReleases := AffectedReleases{}
+			if err := state.SyncReleases(&affectedReleases, helm, []string{}, 1); err != nil {
+				if !testEq(affectedReleases.Error, tt.wantAffected.error) {
+					t.Errorf("HelmState.SynchAffectedRelease() error failed for [%s] = %v, want %v", tt.name, affectedReleases.Error, tt.wantAffected.error)
+				} //else expected error
+			}
+			if !testEq(affectedReleases.Upgraded, tt.wantAffected.upgraded) {
+				t.Errorf("HelmState.SynchAffectedRelease() upgrade failed for [%s] = %v, want %v", tt.name, affectedReleases.Upgraded, tt.wantAffected.upgraded)
+			}
+			if !testEq(affectedReleases.Deleted, tt.wantAffected.deleted) {
+				t.Errorf("HelmState.SynchAffectedRelease() deleted failed for [%s] = %v, want %v", tt.name, affectedReleases.Deleted, tt.wantAffected.deleted)
+			}
+		})
+	}
+}
+
+func testEq(a []*ReleaseSpec, b []*mockRelease) bool {
+
+	// If one is nil, the other must also be nil.
+	if (a == nil) != (b == nil) {
+		return false
+	}
+
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].Name != b[i].name {
+			return false
+		}
+	}
+
+	return true
+}
+
+func TestGetDeployedVersion(t *testing.T) {
+	tests := []struct {
+		name             string
+		release          ReleaseSpec
+		listResult       string
+		installedVersion string
+	}{
+		{
+			name: "chart version",
+			release: ReleaseSpec{
+				Name:  "foo",
+				Chart: "../../foo-bar",
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			installedVersion: "2.0.4",
+		},
+		{
+			name: "chart version with a dash",
+			release: ReleaseSpec{
+				Name:  "foo-bar",
+				Chart: "registry/foo-bar",
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-1.0.0-alpha.1	0.1.0      	default`,
+			installedVersion: "1.0.0-alpha.1",
+		},
+		{
+			name: "chart version with dash and plus",
+			release: ReleaseSpec{
+				Name:  "foo-bar",
+				Chart: "registry/foo-bar",
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-1.0.0-alpha+001	0.1.0      	default`,
+			installedVersion: "1.0.0-alpha+001",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				Releases: []ReleaseSpec{tt.release},
+				logger:   logger,
+			}
+			helm := &mockHelmExec{
+				lists: map[listKey]string{},
+			}
+			//simulate the helm.list call result
+			helm.lists[listKey{filter: "^" + tt.release.Name + "$"}] = tt.listResult
+
+			affectedReleases := AffectedReleases{}
+			state.SyncReleases(&affectedReleases, helm, []string{}, 1)
+
+			if state.Releases[0].installedVersion != tt.installedVersion {
+				t.Errorf("HelmState.TestGetDeployedVersion() failed for [%s] = %v, want %v", tt.name, state.Releases[0].installedVersion, tt.installedVersion)
 			}
 		})
 	}
@@ -1094,7 +1289,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 					return true, nil
 				},
 			}
-			if errs := state.SyncReleases(tt.helm, []string{}, 1); errs != nil && len(errs) > 0 {
+			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); errs != nil && len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
 
@@ -1479,6 +1674,14 @@ func TestHelmState_Delete(t *testing.T) {
 			deleted:   []mockRelease{{"releaseA", []string{}}},
 		},
 		{
+			name:      "desired(default) and installed (purge=false) but error",
+			wantErr:   true,
+			desired:   nil,
+			installed: true,
+			purge:     false,
+			deleted:   []mockRelease{{"releaseA", []string{}}},
+		},
+		{
 			name:      "desired and installed (purge=true)",
 			wantErr:   false,
 			desired:   boolValue(true),
@@ -1547,8 +1750,12 @@ func TestHelmState_Delete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		i := func(t *testing.T) {
+			name := "releaseA"
+			if tt.wantErr {
+				name = "releaseA-error"
+			}
 			release := ReleaseSpec{
-				Name:            "releaseA",
+				Name:            name,
 				Installed:       tt.desired,
 				TillerNamespace: tt.tillerNamespace,
 			}
@@ -1564,15 +1771,17 @@ func TestHelmState_Delete(t *testing.T) {
 				deleted: []mockRelease{},
 			}
 			if tt.installed {
-				helm.lists[listKey{filter: "^releaseA$", flags: tt.flags}] = "releaseA"
+				helm.lists[listKey{filter: "^" + name + "$", flags: tt.flags}] = name
 			}
-			errs := state.DeleteReleases(helm, tt.purge)
-			if (errs != nil) != tt.wantErr {
-				t.Errorf("DeleteReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(tt.deleted, helm.deleted) {
-				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, helm.deleted)
+			affectedReleases := AffectedReleases{}
+			errs := state.DeleteReleases(&affectedReleases, helm, tt.purge)
+			if errs != nil {
+				if !tt.wantErr || len(affectedReleases.Error) != 1 || affectedReleases.Error[0].Name != release.Name {
+					t.Errorf("DeleteReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
+					return
+				}
+			} else if !(reflect.DeepEqual(tt.deleted, helm.deleted) && (len(affectedReleases.Deleted) == len(tt.deleted))) {
+				t.Errorf("unexpected deletions happened: expected %v, got %v", &affectedReleases.Deleted, tt.deleted)
 			}
 		}
 		t.Run(tt.name, i)

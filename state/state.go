@@ -21,6 +21,7 @@ import (
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/event"
 	"github.com/roboll/helmfile/tmpl"
+	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"net/url"
@@ -140,6 +141,8 @@ type ReleaseSpec struct {
 
 	// generatedValues are values that need cleaned up on exit
 	generatedValues []string
+	//version of the chart that has really been installed cause desired version may be fuzzy (~2.0.0)
+	installedVersion string
 }
 
 // SetValue are the key values to set on a helm release
@@ -148,6 +151,13 @@ type SetValue struct {
 	Value  string   `yaml:"value"`
 	File   string   `yaml:"file"`
 	Values []string `yaml:"values"`
+}
+
+// AffectedReleases hold the list of released that where updated, deleted, or in error
+type AffectedReleases struct {
+	Upgraded []*ReleaseSpec
+	Deleted  []*ReleaseSpec
+	Error    []*ReleaseSpec
 }
 
 const DefaultEnv = "default"
@@ -304,7 +314,7 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*Rele
 }
 
 // SyncReleases wrapper for executing helm upgrade on the releases
-func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
+func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
 	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit)
 	if len(prepErrs) > 0 {
 		return prepErrs
@@ -336,11 +346,21 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 						relErr = &ReleaseError{release, err}
 					} else if installed {
 						if err := helm.DeleteRelease(context, release.Name, "--purge"); err != nil {
+							affectedReleases.Error = append(affectedReleases.Error, release)
 							relErr = &ReleaseError{release, err}
+						} else {
+							affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 						}
 					}
 				} else if err := helm.SyncRelease(context, release.Name, chart, flags...); err != nil {
+					affectedReleases.Error = append(affectedReleases.Error, release)
 					relErr = &ReleaseError{release, err}
+				} else {
+					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
+					installedVersion, err := st.getDeployedVersion(context, helm, release)
+					//err is not really impacting so just ignors it
+					st.logger.Debugf("getting deployed release version failed:%v", err)
+					release.installedVersion = installedVersion
 				}
 
 				if relErr == nil {
@@ -368,12 +388,27 @@ func (st *HelmState) SyncReleases(helm helmexec.Interface, additionalValues []st
 			}
 		},
 	)
-
 	if len(errs) > 0 {
 		return errs
 	}
-
 	return nil
+}
+
+func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
+	//retrieve the version
+	if out, err := helm.List(context, "^"+release.Name+"$", st.tillerFlags(release)...); err == nil {
+		chartName := filepath.Base(release.Chart)
+		pat := regexp.MustCompile(chartName + "-(.*?)\\s")
+		versions := pat.FindStringSubmatch(out)
+		if len(versions) > 0 {
+			return versions[1], nil
+		} else {
+			//fails to find the version
+			return "failed to get version", errors.New("Failed to get the version for:" + chartName)
+		}
+	} else {
+		return "failed to get version", err
+	}
 }
 
 // downloadCharts will download and untar charts for Lint and Template
@@ -762,7 +797,7 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
-func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error {
+func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, purge bool) []error {
 	return st.scatterGatherReleases(helm, len(st.Releases), func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
@@ -780,7 +815,13 @@ func (st *HelmState) DeleteReleases(helm helmexec.Interface, purge bool) []error
 			return err
 		}
 		if installed {
-			return helm.DeleteRelease(context, release.Name, flags...)
+			if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
+				affectedReleases.Error = append(affectedReleases.Error, &release)
+				return err
+			} else {
+				affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
+				return nil
+			}
 		}
 		return nil
 	})
@@ -1309,6 +1350,36 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	 **************/
 
 	return flags, nil
+}
+
+// DisplayAffectedReleases logs the upgraded, deleted and in error releases
+func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
+	if ar.Upgraded != nil {
+		logger.Info("\nList of updated releases :")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "RELEASE"},
+			prettytable.Column{Header: "CHART", MinWidth: 6},
+			prettytable.Column{Header: "VERSION", AlignRight: true},
+		)
+		tbl.Separator = "   "
+		for _, release := range ar.Upgraded {
+			tbl.AddRow(release.Name, release.Chart, release.installedVersion)
+		}
+		tbl.Print()
+	}
+	if ar.Deleted != nil {
+		logger.Info("\nList of deleted releases :")
+		logger.Info("RELEASE")
+		for _, release := range ar.Deleted {
+			logger.Info(release.Name)
+		}
+	}
+	if ar.Error != nil {
+		logger.Info("\nList of releases in error :")
+		logger.Info("RELEASE")
+		for _, release := range ar.Error {
+			logger.Info(release.Name)
+		}
+	}
 }
 
 func escape(value string) string {

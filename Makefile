@@ -1,8 +1,12 @@
 ORG     ?= $(shell basename $(realpath ..))
 PKGS    := $(shell go list ./... | grep -v /vendor/)
 
-build:
-	go build ${TARGETS}
+dep: ## Get build dependencies
+	go get -v -u github.com/golang/dep/cmd/dep
+.PHONY: dep		
+
+build: ## Build the app after getting all dependencies (make sure to call make dep before)
+	dep ensure && go build ${TARGETS}
 .PHONY: build
 
 generate:
@@ -14,7 +18,7 @@ fmt:
 .PHONY: fmt
 
 check:
-	go vet ${PKGS}
+	dep ensure && go vet ${PKGS}
 .PHONY: check
 
 test:
@@ -43,7 +47,7 @@ clean:
 
 pristine: generate fmt
 	git diff | cat
-	git ls-files --exclude-standard --modified --deleted --others | diff /dev/null -
+	git ls-files --exclude-standard --modified --deleted --others -x vendor | diff /dev/null -
 .PHONY: pristine
 
 release: pristine cross

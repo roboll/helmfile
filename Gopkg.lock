@@ -50,6 +50,22 @@
   version = "v0.3.6"
 
 [[projects]]
+  digest = "1:0356f3312c9bd1cbeda81505b7fd437501d8e778ab66998ef69f00d7f9b3a0d7"
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "3ee7d812e62a0804a7d0a324e0249ca2db3476d3"
+  version = "v0.0.4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:2b5df738fc5f371a46af628aea7aa7e4a62cff303087a5d7058dfc5f84a4a62c"
+  name = "github.com/tatsushid/go-prettytable"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ed2d14c2993972f5ff95f34f17e6ce81b962779a"
+
+[[projects]]
   digest = "1:55d0f7127962b0657acfd69650634057b3a08958226feee1b64a379666bb915e"
   name = "github.com/urfave/cli"
   packages = ["."]
@@ -112,6 +128,7 @@
   input-imports = [
     "github.com/Masterminds/sprig",
     "github.com/imdario/mergo",
+    "github.com/tatsushid/go-prettytable",
     "github.com/urfave/cli",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
