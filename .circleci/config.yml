@@ -9,9 +9,9 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-        keys:
-        - go-mod-cache-v1-{{ checksum "./go.sum" }}
-        - go-mod-cache-v1-
+          keys:
+          - go-mod-cache-v1-{{ checksum "./go.sum" }}
+          - go-mod-cache-v1-
       - run: make build
       - save_cache:
           key: go-mod-cache-v1-{{ checksum "./go.sum" }}
@@ -29,9 +29,9 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-        keys:
-        - go-mod-cache-v1-{{ checksum "./go.sum" }}
-        - go-mod-cache-v1-
+          keys:
+          - go-mod-cache-v1-{{ checksum "./go.sum" }}
+          - go-mod-cache-v1-
       - run: make check
       - run: make pristine
       - run: make test
