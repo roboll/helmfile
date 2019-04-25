@@ -4,12 +4,19 @@ jobs:
 
   build:
     docker:
-      - image: circleci/golang:1.12.1
+      - image: circleci/golang:1.12.4
     working_directory: /go/src/github.com/roboll/helmfile
     steps:
       - checkout
-      - run: make dep
+      - restore_cache:
+        keys:
+        - go-mod-cache-v1-{{ checksum "./go.sum" }}
+        - go-mod-cache-v1-
       - run: make build
+      - save_cache:
+          key: go-mod-cache-v1-{{ checksum "./go.sum" }}
+          paths:
+          - /go/pkg/mod
       - persist_to_workspace:
           root: /go/src/github.com/roboll/helmfile
           paths:
@@ -17,11 +24,14 @@ jobs:
 
   test:
     docker:
-      - image: circleci/golang:1.12.1
+      - image: circleci/golang:1.12.4
     working_directory: /go/src/github.com/roboll/helmfile
     steps:
       - checkout
-      - run: make dep
+      - restore_cache:
+        keys:
+        - go-mod-cache-v1-{{ checksum "./go.sum" }}
+        - go-mod-cache-v1-
       - run: make check
       - run: make pristine
       - run: make test
