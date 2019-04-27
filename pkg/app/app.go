@@ -108,7 +108,7 @@ func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
 	return nil
 }
 
-func (a *App) VisitDesiredStates(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	noMatchInHelmfiles := true
 
 	err := a.visitStateFiles(fileOrDir, func(f string) error {
@@ -153,16 +153,21 @@ func (a *App) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 				return err
 			}
 		}
+		st.Selectors = selector
 
 		if len(st.Helmfiles) > 0 {
 			noMatchInSubHelmfiles := true
 			for _, m := range st.Helmfiles {
-				if err := a.VisitDesiredStates(m, converge); err != nil {
+				//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
+				if m.Selectors == nil && os.Getenv(ExperimentalEnvVar) != "true" {
+					m.Selectors = selector
+				}
+				if err := a.VisitDesiredStates(m.Path, m.Selectors, converge); err != nil {
 					switch err.(type) {
 					case *NoMatchingHelmfileError:
 
 					default:
-						return fmt.Errorf("failed processing %s: %v", m, err)
+						return fmt.Errorf("failed processing %s: %v", m.Path, err)
 					}
 				} else {
 					noMatchInSubHelmfiles = false
@@ -192,11 +197,10 @@ func (a *App) VisitDesiredStates(fileOrDir string, converge func(*state.HelmStat
 }
 
 func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
-	selectors := a.Selectors
 
-	err := a.VisitDesiredStates(fileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
-		if len(selectors) > 0 {
-			err := st.FilterReleases(selectors)
+	err := a.VisitDesiredStates(fileOrDir, a.Selectors, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+		if len(st.Selectors) > 0 {
+			err := st.FilterReleases()
 			if err != nil {
 				return false, []error{err}
 			}
@@ -311,8 +315,9 @@ func (a *App) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 		return nil, err
 	}
 
-	helmfiles := []string{}
-	for _, globPattern := range st.Helmfiles {
+	helmfiles := []state.SubHelmfileSpec{}
+	for _, hf := range st.Helmfiles {
+		globPattern := hf.Path
 		var absPathPattern string
 		if filepath.IsAbs(globPattern) {
 			absPathPattern = globPattern
@@ -324,8 +329,12 @@ func (a *App) loadDesiredStateFromYaml(yaml []byte, file string, namespace strin
 			return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
 		}
 		sort.Strings(matches)
+		for _, match := range matches {
+			newHelmfile := hf
+			newHelmfile.Path = match
+			helmfiles = append(helmfiles, newHelmfile)
+		}
 
-		helmfiles = append(helmfiles, matches...)
 	}
 	st.Helmfiles = helmfiles
 

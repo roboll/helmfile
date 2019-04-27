@@ -32,13 +32,14 @@ type HelmState struct {
 	basePath           string
 	Environments       map[string]EnvironmentSpec
 	FilePath           string
-	HelmDefaults       HelmSpec         `yaml:"helmDefaults"`
-	Helmfiles          []string         `yaml:"helmfiles"`
-	DeprecatedContext  string           `yaml:"context"`
-	DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
-	Namespace          string           `yaml:"namespace"`
-	Repositories       []RepositorySpec `yaml:"repositories"`
-	Releases           []ReleaseSpec    `yaml:"releases"`
+	HelmDefaults       HelmSpec          `yaml:"helmDefaults"`
+	Helmfiles          []SubHelmfileSpec `yaml:"helmfiles"`
+	DeprecatedContext  string            `yaml:"context"`
+	DeprecatedReleases []ReleaseSpec     `yaml:"charts"`
+	Namespace          string            `yaml:"namespace"`
+	Repositories       []RepositorySpec  `yaml:"repositories"`
+	Releases           []ReleaseSpec     `yaml:"releases"`
+	Selectors          []string
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
@@ -52,6 +53,12 @@ type HelmState struct {
 	fileExists func(string) (bool, error)
 
 	runner helmexec.Runner
+}
+
+// SubHelmfileSpec defines the subhelmfile path and options
+type SubHelmfileSpec struct {
+	Path      string
+	Selectors []string
 }
 
 // HelmSpec to defines helmDefault values
@@ -866,11 +873,11 @@ func (st *HelmState) Clean() []error {
 }
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
-func (st *HelmState) FilterReleases(labels []string) error {
+func (st *HelmState) FilterReleases() error {
 	var filteredReleases []ReleaseSpec
 	releaseSet := map[string][]ReleaseSpec{}
 	filters := []ReleaseFilter{}
-	for _, label := range labels {
+	for _, label := range st.Selectors {
 		f, err := ParseLabels(label)
 		if err != nil {
 			return err
@@ -902,7 +909,7 @@ func (st *HelmState) FilterReleases(labels []string) error {
 	}
 	st.Releases = filteredReleases
 	numFound := len(filteredReleases)
-	st.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(labels, ","), st.FilePath)
+	st.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(st.Selectors, ","), st.FilePath)
 	return nil
 }
 
@@ -1386,4 +1393,69 @@ func escape(value string) string {
 	intermediate := strings.Replace(value, "{", "\\{", -1)
 	intermediate = strings.Replace(intermediate, "}", "\\}", -1)
 	return strings.Replace(intermediate, ",", "\\,", -1)
+}
+
+//UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
+//this is required to keep allowing string scalar for defining helmfile (maybe)
+func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
+
+	var tmp interface{}
+	if err := unmarshal(&tmp); err != nil {
+		return err
+	}
+
+	switch i := tmp.(type) {
+	case string: // single path definition without sub items
+		hf.Path = i
+	case map[interface{}]interface{}: // helmfile path with sub section
+		for k, v := range i {
+			switch key := k.(type) {
+			case string:
+				//get the path
+				hf.Path = key
+				//get the selectors
+				if err := extractSelector(hf, v); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("Expecting a \"string\" scalar for the helmfile collection but got: %v", key)
+			}
+		}
+	}
+
+	return nil
+}
+
+//extractSelector this will extract the selectors: from the helmfile section
+//this has been developed to only expect selectors: under the helmfiles for now.
+func extractSelector(hf *SubHelmfileSpec, value interface{}) error {
+	switch value := value.(type) {
+	case map[interface{}]interface{}:
+		for k, v := range value {
+			switch key := k.(type) {
+			case string:
+				if key == "selectors" {
+					switch selectors := v.(type) {
+					case []interface{}:
+						for _, sel := range selectors {
+							hf.Selectors = append(hf.Selectors, sel.(string))
+						}
+					case map[interface{}]interface{}:
+						if len(selectors) == 0 {
+							hf.Selectors = make([]string, 0) //allocate and non nil empty array
+						} else { //unexpected unempty map so error
+							return fmt.Errorf("unexpected unempty map in selector [-%v] but got: %v", hf.Path, selectors)
+						}
+					default:
+						return fmt.Errorf("Expecting a \"selectors\" mapping string [-%v] but got: %v", hf.Path, selectors)
+					}
+				} //else ignores other elements
+			default: //we where expecting a selector but go something else
+				return fmt.Errorf("Expecting a \"selectors\" mapping for string [-%v] but got: %v", hf.Path, key)
+			}
+		}
+	default:
+		return fmt.Errorf("Expecting a \"selectors\" mapping for string [-%v] but got: %v", hf.Path, value)
+	}
+	return nil
 }

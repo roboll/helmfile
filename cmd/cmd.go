@@ -27,7 +27,7 @@ func VisitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helme
 		return converge(st, helm, ctx)
 	}
 
-	err = a.VisitDesiredStates(fileOrDir, convergeWithHelmBinary)
+	err = a.VisitDesiredStates(fileOrDir, a.Selectors, convergeWithHelmBinary)
 
 	return toCliError(err)
 }
