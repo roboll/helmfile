@@ -159,7 +159,7 @@ func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge f
 			noMatchInSubHelmfiles := true
 			for _, m := range st.Helmfiles {
 				//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
-				if m.Selectors == nil && os.Getenv(ExperimentalEnvVar) != "true" {
+				if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.Inherits {
 					m.Selectors = selector
 				}
 				if err := a.VisitDesiredStates(m.Path, m.Selectors, converge); err != nil {
