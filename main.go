@@ -2,16 +2,18 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/roboll/helmfile/args"
 	"github.com/roboll/helmfile/cmd"
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/pkg/app"
+	"github.com/roboll/helmfile/ssm"
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os"
-	"strings"
 )
 
 var Version string
@@ -569,6 +571,7 @@ Do you really want to delete?
 		},
 	}
 
+	ssm.Run()
 	err := cliApp.Run(os.Args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
