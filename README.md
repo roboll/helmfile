@@ -660,7 +660,7 @@ helmfiles:
 * When a selector is specified, only this selector applies and the parents or CLI selectors are ignored.
 * When not selector is specified there are 2 modes for the selector inheritance because we would like to change the current inheritance behavior (see [issue #344](https://github.com/roboll/helmfile/issues/344)  ).
   * Legacy mode, sub-helmfiles without selectors inherit selectors from their parent helmfile. The initial helmfiles inherit from the command line selectors. 
-  * explicit mode, sub-helmfile without selectors do not inherit from their parent or the CLI selector. If you want them to inherit from their parent selector then use `selectors: inherits`. To enable this explicit mode you need to set the following environment variable `EXPERIMENTAL=explicit-selector-inheritance`.
+  * explicit mode, sub-helmfile without selectors do not inherit from their parent or the CLI selector. If you want them to inherit from their parent selector then use `selectors: inherits`. To enable this explicit mode you need to set the following environment variable `HELMFILE_EXPERIMENTAL=explicit-selector-inheritance` (see [experimental](#experimental-features)).
 * Using `selector: {}` will for all releases to be used regardless of the parent selector or cli for the initial helmfile
 * using `selector: inherits` make the sub-helmfile selects release with the parent selector or the cli for the initial helmfile
 
@@ -828,10 +828,10 @@ See #155 for more information on this topic.
 
 ## Experimental features
 Some experimental features may be available for testing in perspective of being (or not) included in a future release.
-Those features are set using the environment variable `EXPERIMENTAL`. Here is the current experimental feature :
+Those features are set using the environment variable `HELMFILE_EXPERIMENTAL`. Here is the current experimental feature :
 * `explicit-selector-inheritance` : remove today implicit cli selectors inheritance for composed helmfiles, see [composition selector](#selectors)
 
-If you want to enable all experimental features set the env var to `EXPERIMENTAL=true`
+If you want to enable all experimental features set the env var to `HELMFILE_EXPERIMENTAL=true`
 
 ## Examples
 
