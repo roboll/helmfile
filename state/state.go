@@ -157,7 +157,7 @@ type SetValue struct {
 type AffectedReleases struct {
 	Upgraded []*ReleaseSpec
 	Deleted  []*ReleaseSpec
-	Error    []*ReleaseSpec
+	Failed   []*ReleaseSpec
 }
 
 const DefaultEnv = "default"
@@ -346,14 +346,14 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						relErr = &ReleaseError{release, err}
 					} else if installed {
 						if err := helm.DeleteRelease(context, release.Name, "--purge"); err != nil {
-							affectedReleases.Error = append(affectedReleases.Error, release)
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = &ReleaseError{release, err}
 						} else {
 							affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 						}
 					}
 				} else if err := helm.SyncRelease(context, release.Name, chart, flags...); err != nil {
-					affectedReleases.Error = append(affectedReleases.Error, release)
+					affectedReleases.Failed = append(affectedReleases.Failed, release)
 					relErr = &ReleaseError{release, err}
 				} else {
 					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
@@ -816,7 +816,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		}
 		if installed {
 			if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
-				affectedReleases.Error = append(affectedReleases.Error, &release)
+				affectedReleases.Failed = append(affectedReleases.Failed, &release)
 				return err
 			} else {
 				affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
@@ -1373,10 +1373,10 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 			logger.Info(release.Name)
 		}
 	}
-	if ar.Error != nil {
+	if ar.Failed != nil {
 		logger.Info("\nList of releases in error :")
 		logger.Info("RELEASE")
-		for _, release := range ar.Error {
+		for _, release := range ar.Failed {
 			logger.Info(release.Name)
 		}
 	}
