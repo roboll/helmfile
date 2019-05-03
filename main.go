@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/roboll/helmfile/args"
 	"github.com/roboll/helmfile/cmd"
 	"github.com/roboll/helmfile/helmexec"
@@ -10,8 +13,6 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os"
-	"strings"
 )
 
 var Version string
