@@ -68,7 +68,6 @@ func SSMGet(key string) (val string, err error) {
 	}
 
 	// Check if SSM Specs were parsed from file already
-	fmt.Println(ssmHelmfile)
 	if ssmHelmfile.SSMSpecs == nil {
 		if err = ssmGetSpecs(); err != nil {
 			return
