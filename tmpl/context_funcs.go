@@ -211,11 +211,5 @@ func RequiredEnv(name string) (string, error) {
 }
 
 func SSM(key string) (val string, err error) {
-	key = os.ExpandEnv(key)
-
-	// TODO: Figure out proper logging (debug level)
-	fmt.Printf("SSM: key=%s\n", key)
-
-	val, err = datasource.SSMGet("us-east-1", key)
-	return
+	return datasource.SSMGet(key)
 }

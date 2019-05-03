@@ -2,9 +2,6 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/state"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"log"
 	"os"
@@ -12,6 +9,10 @@ import (
 	"path/filepath"
 	"sort"
 	"syscall"
+
+	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/state"
+	"go.uber.org/zap"
 )
 
 type App struct {

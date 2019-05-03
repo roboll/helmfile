@@ -2,14 +2,17 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/pkg/app"
-	"github.com/roboll/helmfile/state"
-	"github.com/urfave/cli"
-	"go.uber.org/zap"
 	"os/exec"
 	"strings"
 	"syscall"
+
+	"github.com/roboll/helmfile/datasource"
+	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/pkg/app"
+	"github.com/roboll/helmfile/state"
+
+	"github.com/urfave/cli"
+	"go.uber.org/zap"
 )
 
 func VisitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, app.Context) (bool, []error)) error {
@@ -33,6 +36,8 @@ func VisitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helme
 }
 
 func InitAppEntry(c *cli.Context, reverse bool) (*app.App, string, error) {
+	datasource.PrepareAll(c)
+
 	if c.NArg() > 0 {
 		cli.ShowAppHelp(c)
 		return nil, "", fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))

@@ -4,25 +4,23 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/roboll/helmfile/helmexec"
-
-	"regexp"
-
-	"os/exec"
 	"syscall"
 
-	"net/url"
-
+	"github.com/roboll/helmfile/datasource"
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/event"
+	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/tmpl"
+
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -40,7 +38,8 @@ type HelmState struct {
 	Namespace          string           `yaml:"namespace"`
 	Repositories       []RepositorySpec `yaml:"repositories"`
 	Releases           []ReleaseSpec    `yaml:"releases"`
-	SSM                []SSMSpec        `yaml:"ssm"`
+
+	SSM []datasource.SSMSpec `yaml:"ssm"`
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
@@ -54,13 +53,6 @@ type HelmState struct {
 	fileExists func(string) (bool, error)
 
 	runner helmexec.Runner
-}
-
-// SSMSpec defines the AWS SSM Paramter store global configuration
-type SSMSpec struct {
-	Region string `yaml:"region"`
-	Prefix string `yaml:"prefix"`
-	Name   string `yaml:"name"`
 }
 
 // HelmSpec to defines helmDefault values
