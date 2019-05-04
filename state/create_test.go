@@ -2,10 +2,11 @@ package state
 
 import (
 	"fmt"
-	. "gotest.tools/assert"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	. "gotest.tools/assert"
 )
 
 func TestReadFromYaml(t *testing.T) {
@@ -323,8 +324,8 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 			path: "failing4/selector",
 			content: []byte(`helmfiles:
 - failing4/helmfile.yaml: 
-		selectors:
-		  - colon: not-authorized
+    selectors:
+      - colon: not-authorized
 `),
 			wantErr: true,
 		},
@@ -332,7 +333,15 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 			path: "failing5/selector",
 			content: []byte(`helmfiles:
 - selectors:
-	- colon: not-authorized
+    - colon: not-authorized
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing6/selector",
+			content: []byte(`helmfiles:
+- selectors:
+    - whatever
 `),
 			wantErr: true,
 		},

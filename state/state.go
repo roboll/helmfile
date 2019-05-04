@@ -18,13 +18,14 @@ import (
 	"os/exec"
 	"syscall"
 
+	"net/url"
+
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/event"
 	"github.com/roboll/helmfile/tmpl"
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"net/url"
 )
 
 // HelmState structure for the helmfile
@@ -1418,9 +1419,6 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 				if key == "path" {
 					hf.Path = v.(string)
 				} else if key == "selectors" {
-					if hf.Path == "" {
-						return fmt.Errorf("Can't use a 'selector' without an associated path'")
-					} //else get selector content
 					if err := extractSelectorContent(hf, v); err != nil {
 						return err
 					}
@@ -1437,6 +1435,11 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 				return fmt.Errorf("Expecting a \"string\" scalar for the helmfile collection but got: %v", key)
 			}
 		}
+	}
+	//since we cannot make sur the "console" string can be red after the "path" we must check we don't have
+	//a SubHelmfileSpec with only selector and no path
+	if hf.Selectors != nil && hf.Path == "" {
+		return fmt.Errorf("found 'selectors' definition without path: %v", hf.Selectors)
 	}
 
 	return nil
