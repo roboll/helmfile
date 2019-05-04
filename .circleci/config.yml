@@ -7,6 +7,7 @@ jobs:
       - image: circleci/golang:1.12.4
     environment:
       GOPATH: /go
+    working_directory: /home/circleci/workspace/helmfile
     steps:
       - checkout
       - restore_cache:
@@ -29,6 +30,7 @@ jobs:
       GOPATH: /go
     docker:
       - image: circleci/golang:1.12.4
+    working_directory: /home/circleci/workspace/helmfile
     steps:
       - checkout
       - restore_cache:
@@ -89,16 +91,21 @@ jobs:
 
   release:
     docker:
-      - image: circleci/golang:1.12.1
-    working_directory: /go/src/github.com/roboll/helmfile
+      - image: circleci/golang:1.12.4
+    working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
+    - restore_cache:
+        keys:
+        - go-mod-cache-v1-{{ checksum "./go.sum" }}
+        - go-mod-cache-v1-
     - setup_remote_docker
     - run:
         command: |
           docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
           make tools
-          BUILD_URL="$CIRCLE_BUILD_URL" make push release
+          go mod vendor
+          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make push release
 
 workflows:
   version: 2
