@@ -269,13 +269,23 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
     selectors: {}
 - inherits/selector.yaml:
     selectors: inherits
+- path: path/prefix/selector.yaml
+  selectors:
+    - name=zorba
+- path: path/prefix/empty/selector.yaml
+  selectors: {}
+- path: path/prefix/inherits/selector.yaml
+  selectors: inherits
 `),
 			wantErr: false,
 			helmfiles: []SubHelmfileSpec{{Path: "simple/helmfile.yaml"},
-				{Path: "simple/helmfile/with/semicolon.yaml"},
-				{Path: "two/selectors.yaml", Selectors: []string{"name=foo", "name=bar"}},
-				{Path: "empty/selector.yaml", Selectors: []string{}},
-				{Path: "inherits/selector.yaml", Inherits: true},
+				{Path: "simple/helmfile/with/semicolon.yaml", Selectors: nil, Inherits: false},
+				{Path: "two/selectors.yaml", Selectors: []string{"name=foo", "name=bar"}, Inherits: false},
+				{Path: "empty/selector.yaml", Selectors: []string{}, Inherits: false},
+				{Path: "inherits/selector.yaml", Selectors: nil, Inherits: true},
+				{Path: "path/prefix/selector.yaml", Selectors: []string{"name=zorba"}, Inherits: false},
+				{Path: "path/prefix/empty/selector.yaml", Selectors: []string{}, Inherits: false},
+				{Path: "path/prefix/inherits/selector.yaml", Selectors: nil, Inherits: true},
 			},
 		},
 		{
@@ -297,7 +307,7 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 			path: "failing3/selector",
 			content: []byte(`helmfiles:
 - failing3/helmfile.yaml: 
-    selector: foo
+    selectors: foo
 `),
 			wantErr: true,
 		},
@@ -305,7 +315,7 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 			path: "failing4/selector",
 			content: []byte(`helmfiles:
 - failing4/helmfile.yaml: 
-    selector:
+    selectors:
 `),
 			wantErr: true,
 		},
@@ -313,8 +323,16 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 			path: "failing4/selector",
 			content: []byte(`helmfiles:
 - failing4/helmfile.yaml: 
-		selector:
+		selectors:
 		  - colon: not-authorized
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing5/selector",
+			content: []byte(`helmfiles:
+- selectors:
+	- colon: not-authorized
 `),
 			wantErr: true,
 		},

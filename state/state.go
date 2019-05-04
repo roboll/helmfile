@@ -1415,13 +1415,24 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 			switch key := k.(type) {
 			case string:
 				//get the path
-				hf.Path = key
-				//get the selectors if something is specified
-				if v != nil {
-					if err := extractSelector(hf, v); err != nil {
+				if key == "path" {
+					hf.Path = v.(string)
+				} else if key == "selectors" {
+					if hf.Path == "" {
+						return fmt.Errorf("Can't use a 'selector' without an associated path'")
+					} //else get selector content
+					if err := extractSelectorContent(hf, v); err != nil {
 						return err
 					}
-				} //else it is a path with ending semi-colon without anything else below and it is fine
+				} else {
+					hf.Path = key
+					//get the selectors if something is specified
+					if v != nil { //we have a path, now compute the selector
+						if err := extractSelector(hf, v); err != nil {
+							return err
+						}
+					} //else it is a path with ending semi-colon without anything else below and it is fine
+				}
 			default:
 				return fmt.Errorf("Expecting a \"string\" scalar for the helmfile collection but got: %v", key)
 			}
@@ -1440,31 +1451,7 @@ func extractSelector(hf *SubHelmfileSpec, value interface{}) error {
 			switch key := k.(type) {
 			case string:
 				if key == "selectors" {
-					switch selectors := v.(type) {
-					case string: //check the string is `inherits` else error
-						if selectors == InheritsYamlValue {
-							hf.Inherits = true
-						} else {
-							return fmt.Errorf("Expecting a list of string, an empty {} or '%v' but got: %v", InheritsYamlValue, selectors)
-						}
-					case []interface{}: //expect an array if strings
-						for _, sel := range selectors {
-							switch selValue := sel.(type) {
-							case string:
-								hf.Selectors = append(hf.Selectors, selValue)
-							default:
-								return fmt.Errorf("Expecting a string, but got: %v", selValue)
-							}
-						}
-					case map[interface{}]interface{}:
-						if len(selectors) == 0 {
-							hf.Selectors = make([]string, 0) //allocate and non nil empty array
-						} else { //unexpected unempty map so error
-							return fmt.Errorf("unexpected unempty map in selector [-%v] but got: %v", hf.Path, selectors)
-						}
-					default:
-						return fmt.Errorf("Expecting list of strings or and empty {} mapping [-%v] but got: [%v] of type [%T] ", hf.Path, selectors, selectors)
-					}
+					return extractSelectorContent(hf, v)
 				} else { //not 'selectors' so error
 					return fmt.Errorf("Expecting a \"selectors\" mapping but got: %v", key)
 				}
@@ -1474,6 +1461,35 @@ func extractSelector(hf *SubHelmfileSpec, value interface{}) error {
 		}
 	default:
 		return fmt.Errorf("Expecting a \"selectors\" mapping for string [-%v] but got: %v of type %T", hf.Path, value, value)
+	}
+	return nil
+}
+
+func extractSelectorContent(hf *SubHelmfileSpec, value interface{}) error {
+	switch selectors := value.(type) {
+	case string: //check the string is `inherits` else error
+		if selectors == InheritsYamlValue {
+			hf.Inherits = true
+		} else {
+			return fmt.Errorf("Expecting a list of string, an empty {} or '%v' but got: %v", InheritsYamlValue, selectors)
+		}
+	case []interface{}: //expect an array if strings
+		for _, sel := range selectors {
+			switch selValue := sel.(type) {
+			case string:
+				hf.Selectors = append(hf.Selectors, selValue)
+			default:
+				return fmt.Errorf("Expecting a string, but got: %v", selValue)
+			}
+		}
+	case map[interface{}]interface{}:
+		if len(selectors) == 0 {
+			hf.Selectors = make([]string, 0) //allocate and non nil empty array
+		} else { //unexpected unempty map so error
+			return fmt.Errorf("unexpected unempty map in selector [-%v] but got: %v", hf.Path, selectors)
+		}
+	default:
+		return fmt.Errorf("Expecting list of strings or and empty {} mapping [-%v] but got: [%v] of type [%T] ", hf.Path, selectors, selectors)
 	}
 	return nil
 }
