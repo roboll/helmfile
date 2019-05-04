@@ -43,7 +43,7 @@ clean:
 
 pristine: generate fmt
 	git diff | cat
-	git ls-files --exclude-standard --modified --deleted --others -x vendor | diff /dev/null -
+	git ls-files --exclude-standard --modified --deleted --others -x vendor  | grep -v '^go.' | diff /dev/null -
 .PHONY: pristine
 
 release: pristine cross
