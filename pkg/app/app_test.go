@@ -2,15 +2,16 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/state"
-	"gotest.tools/env"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/state"
+	"gotest.tools/env"
 )
 
 type testFs struct {

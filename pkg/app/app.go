@@ -2,9 +2,6 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/state"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"log"
 	"os"
@@ -12,6 +9,10 @@ import (
 	"path/filepath"
 	"sort"
 	"syscall"
+
+	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/state"
+	"go.uber.org/zap"
 )
 
 type App struct {
@@ -284,11 +285,11 @@ func (a *App) findDesiredStateFiles(specifiedPath string) ([]string, error) {
 		} else if defaultFile != "" {
 			return []string{defaultFile}, nil
 		} else {
-			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.yaml, %s, or %s, or otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DeprecatedHelmfile)
+			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml}, %s, or %s, or otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DeprecatedHelmfile)
 		}
 	}
 
-	files, err := a.glob(filepath.Join(helmfileDir, "*.yaml"))
+	files, err := a.glob(filepath.Join(helmfileDir, "*.{yaml,yml}"))
 	if err != nil {
 		return []string{}, err
 	}
