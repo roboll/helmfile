@@ -1422,14 +1422,6 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 					if err := extractSelectorContent(hf, v); err != nil {
 						return err
 					}
-				} else {
-					hf.Path = key
-					//get the selectors if something is specified
-					if v != nil { //we have a path, now compute the selector
-						if err := extractSelector(hf, v); err != nil {
-							return err
-						}
-					} //else it is a path with ending semi-colon without anything else below and it is fine
 				}
 			default:
 				return fmt.Errorf("Expecting a \"string\" scalar for the helmfile collection but got: %v", key)

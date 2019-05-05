@@ -2,15 +2,16 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/state"
-	"gotest.tools/env"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/state"
+	"gotest.tools/env"
 )
 
 type testFs struct {
@@ -329,13 +330,13 @@ func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedSelectors(t *testing.T) 
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 helmfiles:
-- helmfile.d/a*.yaml:
-    selectors:
-    - name=prometheus      
-    - name=zipkin      
+- path: helmfile.d/a*.yaml
+  selectors:
+  - name=prometheus      
+  - name=zipkin      
 - helmfile.d/b*.yaml
-- helmfile.d/c*.yaml:
-    selectors: {}
+- path: helmfile.d/c*.yaml
+  selectors: {}
 `,
 		"/path/to/helmfile.d/a1.yaml": `
 releases:
@@ -462,17 +463,17 @@ func TestVisitDesiredStatesWithReleasesFiltered_InheritedSelectors_inherits(t *t
 		"/path/to/helmfile.yaml": `
 helmfiles:
 - helmfile.d/a*.yaml
-- helmfile.d/a*.yaml:
-    selectors:
-    - select=foo
+- path: helmfile.d/a*.yaml
+  selectors:
+  - select=foo
 releases:
 - name: mongodb
   chart: stable/mongodb
 `,
 		"/path/to/helmfile.d/a.yaml": `
 helmfiles:
-- b*.yaml:
-    selectors: inherits
+- path: b*.yaml
+  selectors: inherits
 releases:
 - name: zipkin
   chart: stable/zipkin
