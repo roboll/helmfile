@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
+	"gotest.tools/env"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -322,6 +323,242 @@ releases:
 			t.Errorf("unexpected release count for selector %s: expected=%d, actual=%d", testcase.label, testcase.expectedCount, len(actual))
 		}
 	}
+}
+
+func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedSelectors(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+helmfiles:
+- helmfile.d/a*.yaml:
+    selectors:
+    - name=prometheus      
+    - name=zipkin      
+- helmfile.d/b*.yaml
+- helmfile.d/c*.yaml:
+    selectors: {}
+`,
+		"/path/to/helmfile.d/a1.yaml": `
+releases:
+- name: zipkin
+  chart: stable/zipkin
+`,
+		"/path/to/helmfile.d/a2.yaml": `
+releases:
+- name: prometheus
+  chart: stable/prometheus
+`,
+		"/path/to/helmfile.d/a3.yaml": `
+releases:
+- name: mongodb
+  chart: stable/mongodb
+`,
+		"/path/to/helmfile.d/b.yaml": `
+releases:
+- name: grafana
+  chart: stable/grafana
+- name: bar
+  chart: charts/foo
+  tillerNamespace:  bar1
+  labels:
+    duplicatedOK: yes
+- name: bar
+  chart: charts/foo
+  tillerNamespace: bar2
+  labels:
+    duplicatedOK: yes
+`,
+		"/path/to/helmfile.d/c.yaml": `
+releases:
+- name: grafana
+  chart: stable/grafana
+- name: postgresql
+  chart: charts/postgresql
+  labels:
+    whatever: yes
+`,
+	}
+	//Check with legacy behavior, that is when no explicit selector then sub-helmfiles inherits from command line selector
+	legacyTestcases := []struct {
+		label            string
+		expectedReleases []string
+		expectErr        bool
+		errMsg           string
+	}{
+		{label: "duplicatedOK=yes", expectedReleases: []string{"zipkin", "prometheus", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=zipkin", expectedReleases: []string{"zipkin", "prometheus", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=grafana", expectedReleases: []string{"zipkin", "prometheus", "grafana", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=doesnotexists", expectedReleases: []string{"zipkin", "prometheus", "grafana", "postgresql"}, expectErr: false},
+	}
+	runFilterSubHelmFilesTests(legacyTestcases, files, t, "1st EmbeddedSelectors")
+
+	//Check with experimental behavior, that is when no explicit selector then sub-helmfiles do no inherit from any selector
+	desiredTestcases := []struct {
+		label            string
+		expectedReleases []string
+		expectErr        bool
+		errMsg           string
+	}{
+		{label: "duplicatedOK=yes", expectedReleases: []string{"zipkin", "prometheus", "grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=doesnotexists", expectedReleases: []string{"zipkin", "prometheus", "grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
+	}
+
+	defer env.Patch(t, ExperimentalEnvVar, ExperimentalSelectorExplicit)()
+
+	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd EmbeddedSelectors")
+
+}
+
+func TestVisitDesiredStatesWithReleasesFiltered_InheritedSelectors_3leveldeep(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+helmfiles:
+- helmfile.d/a*.yaml
+releases:
+- name: mongodb
+  chart: stable/mongodb
+`,
+		"/path/to/helmfile.d/a.yaml": `
+helmfiles:
+- b*.yaml
+releases:
+- name: zipkin
+  chart: stable/zipkin
+`,
+		"/path/to/helmfile.d/b.yaml": `
+releases:
+- name: grafana
+  chart: stable/grafana
+`,
+	}
+	//Check with legacy behavior, that is when no explicit selector then sub-helmfiles inherits from command line selector
+	legacyTestcases := []struct {
+		label            string
+		expectedReleases []string
+		expectErr        bool
+		errMsg           string
+	}{
+		{label: "name!=grafana", expectedReleases: []string{"zipkin", "mongodb"}, expectErr: false},
+	}
+	runFilterSubHelmFilesTests(legacyTestcases, files, t, "1st 3leveldeep")
+
+	//Check with experimental behavior, that is when no explicit selector then sub-helmfiles do no inherit from any selector
+	desiredTestcases := []struct {
+		label            string
+		expectedReleases []string
+		expectErr        bool
+		errMsg           string
+	}{
+		{label: "name!=grafana", expectedReleases: []string{"grafana", "zipkin", "mongodb"}, expectErr: false},
+	}
+
+	defer env.Patch(t, ExperimentalEnvVar, ExperimentalSelectorExplicit)()
+
+	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd 3leveldeep")
+
+}
+
+func TestVisitDesiredStatesWithReleasesFiltered_InheritedSelectors_inherits(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+helmfiles:
+- helmfile.d/a*.yaml
+- helmfile.d/a*.yaml:
+    selectors:
+    - select=foo
+releases:
+- name: mongodb
+  chart: stable/mongodb
+`,
+		"/path/to/helmfile.d/a.yaml": `
+helmfiles:
+- b*.yaml:
+    selectors: inherits
+releases:
+- name: zipkin
+  chart: stable/zipkin
+  labels:
+    select: foo
+`,
+		"/path/to/helmfile.d/b.yaml": `
+releases:
+- name: grafana
+  chart: stable/grafana
+- name: prometheus
+  chart: stable/prometheus
+  labels:
+    select: foo
+`,
+	}
+	//Check with legacy behavior, that is when no explicit selector then sub-helmfiles inherits from command line selector
+	legacyTestcases := []struct {
+		label            string
+		expectedReleases []string
+		expectErr        bool
+		errMsg           string
+	}{
+		{label: "name=grafana", expectedReleases: []string{"grafana", "prometheus", "zipkin"}, expectErr: false},
+		{label: "select!=foo", expectedReleases: []string{"grafana", "prometheus", "zipkin", "mongodb"}, expectErr: false},
+	}
+	runFilterSubHelmFilesTests(legacyTestcases, files, t, "1st inherits")
+
+	//Check with experimental behavior, that is when no explicit selector then sub-helmfiles do no inherit from any selector
+	desiredTestcases := []struct {
+		label            string
+		expectedReleases []string
+		expectErr        bool
+		errMsg           string
+	}{
+		{label: "name=grafana", expectedReleases: []string{"grafana", "prometheus", "zipkin", "prometheus", "zipkin"}, expectErr: false},
+		{label: "select!=foo", expectedReleases: []string{"grafana", "prometheus", "zipkin", "prometheus", "zipkin", "mongodb"}, expectErr: false},
+	}
+
+	defer env.Patch(t, ExperimentalEnvVar, ExperimentalSelectorExplicit)()
+
+	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd inherits")
+
+}
+
+func runFilterSubHelmFilesTests(testcases []struct {
+	label            string
+	expectedReleases []string
+	expectErr        bool
+	errMsg           string
+}, files map[string]string, t *testing.T, testName string) {
+	for _, testcase := range testcases {
+		actual := []string{}
+
+		collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+			for _, r := range st.Releases {
+				actual = append(actual, r.Name)
+			}
+			return []error{}
+		}
+
+		app := appWithFs(&App{
+			KubeContext: "default",
+			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			Namespace:   "",
+			Selectors:   []string{testcase.label},
+			Env:         "default",
+		}, files)
+
+		err := app.VisitDesiredStatesWithReleasesFiltered(
+			"helmfile.yaml", collectReleases,
+		)
+		if testcase.expectErr {
+			if err == nil {
+				t.Errorf("[%s]error expected but not happened for selector %s", testName, testcase.label)
+			} else if err.Error() != testcase.errMsg {
+				t.Errorf("[%s]unexpected error message: expected=\"%s\", actual=\"%s\"", testName, testcase.errMsg, err.Error())
+			}
+		} else if !testcase.expectErr && err != nil {
+			t.Errorf("[%s]unexpected error for selector %s: %v", testName, testcase.label, err)
+		}
+		if !reflect.DeepEqual(actual, testcase.expectedReleases) {
+			t.Errorf("[%s]unexpected releases for selector %s: expected=%v, actual=%v", testName, testcase.label, testcase.expectedReleases, actual)
+		}
+	}
+
 }
 
 // See https://github.com/roboll/helmfile/issues/312

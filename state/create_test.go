@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	. "gotest.tools/assert"
 )
 
 func TestReadFromYaml(t *testing.T) {
@@ -245,5 +247,114 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 				t.Errorf("[case: %d][outcome: %d] Unexpected outcome wanted %t, got %t", idx, idx2, expected, f)
 			}
 		}
+	}
+}
+
+func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
+	tests := []struct {
+		path      string
+		content   []byte
+		wantErr   bool
+		helmfiles []SubHelmfileSpec
+	}{
+		{
+			path: "working/selector",
+			content: []byte(`helmfiles:
+- simple/helmfile.yaml
+- simple/helmfile/with/semicolon.yaml:
+- two/selectors.yaml:
+    selectors:
+      - name=foo
+      - name=bar
+- empty/selector.yaml:
+    selectors: {}
+- inherits/selector.yaml:
+    selectors: inherits
+- path: path/prefix/selector.yaml
+  selectors:
+    - name=zorba
+- path: path/prefix/empty/selector.yaml
+  selectors: {}
+- path: path/prefix/inherits/selector.yaml
+  selectors: inherits
+`),
+			wantErr: false,
+			helmfiles: []SubHelmfileSpec{{Path: "simple/helmfile.yaml"},
+				{Path: "simple/helmfile/with/semicolon.yaml", Selectors: nil, Inherits: false},
+				{Path: "two/selectors.yaml", Selectors: []string{"name=foo", "name=bar"}, Inherits: false},
+				{Path: "empty/selector.yaml", Selectors: []string{}, Inherits: false},
+				{Path: "inherits/selector.yaml", Selectors: nil, Inherits: true},
+				{Path: "path/prefix/selector.yaml", Selectors: []string{"name=zorba"}, Inherits: false},
+				{Path: "path/prefix/empty/selector.yaml", Selectors: []string{}, Inherits: false},
+				{Path: "path/prefix/inherits/selector.yaml", Selectors: nil, Inherits: true},
+			},
+		},
+		{
+			path: "failing1/selector",
+			content: []byte(`helmfiles:
+- failing1/helmfile.yaml: foo
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing2/selector",
+			content: []byte(`helmfiles:
+- failing2/helmfile.yaml: 
+    wrongkey:
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing3/selector",
+			content: []byte(`helmfiles:
+- failing3/helmfile.yaml: 
+    selectors: foo
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing4/selector",
+			content: []byte(`helmfiles:
+- failing4/helmfile.yaml: 
+    selectors:
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing4/selector",
+			content: []byte(`helmfiles:
+- failing4/helmfile.yaml: 
+    selectors:
+      - colon: not-authorized
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing5/selector",
+			content: []byte(`helmfiles:
+- selectors:
+    - colon: not-authorized
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing6/selector",
+			content: []byte(`helmfiles:
+- selectors:
+    - whatever
+`),
+			wantErr: true,
+		},
+	}
+	for _, test := range tests {
+		st, err := createFromYaml(test.content, test.path, DefaultEnv, logger)
+		if err != nil {
+			if test.wantErr {
+				continue
+			} else {
+				t.Error("unexpected error:", err)
+			}
+		}
+		DeepEqual(t, st.Helmfiles, test.helmfiles)
 	}
 }

@@ -18,13 +18,14 @@ import (
 	"os/exec"
 	"syscall"
 
+	"net/url"
+
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/event"
 	"github.com/roboll/helmfile/tmpl"
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"net/url"
 )
 
 // HelmState structure for the helmfile
@@ -32,13 +33,14 @@ type HelmState struct {
 	basePath           string
 	Environments       map[string]EnvironmentSpec
 	FilePath           string
-	HelmDefaults       HelmSpec         `yaml:"helmDefaults"`
-	Helmfiles          []string         `yaml:"helmfiles"`
-	DeprecatedContext  string           `yaml:"context"`
-	DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
-	Namespace          string           `yaml:"namespace"`
-	Repositories       []RepositorySpec `yaml:"repositories"`
-	Releases           []ReleaseSpec    `yaml:"releases"`
+	HelmDefaults       HelmSpec          `yaml:"helmDefaults"`
+	Helmfiles          []SubHelmfileSpec `yaml:"helmfiles"`
+	DeprecatedContext  string            `yaml:"context"`
+	DeprecatedReleases []ReleaseSpec     `yaml:"charts"`
+	Namespace          string            `yaml:"namespace"`
+	Repositories       []RepositorySpec  `yaml:"repositories"`
+	Releases           []ReleaseSpec     `yaml:"releases"`
+	Selectors          []string
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
@@ -53,6 +55,15 @@ type HelmState struct {
 
 	runner helmexec.Runner
 }
+
+// SubHelmfileSpec defines the subhelmfile path and options
+type SubHelmfileSpec struct {
+	Path      string   //path or glob pattern for the sub helmfiles
+	Selectors []string //chosen selectors for the sub helmfiles
+	Inherits  bool     //do the sub helmfiles inherits from parent selectors
+}
+
+const InheritsYamlValue = "inherits"
 
 // HelmSpec to defines helmDefault values
 type HelmSpec struct {
@@ -866,11 +877,11 @@ func (st *HelmState) Clean() []error {
 }
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
-func (st *HelmState) FilterReleases(labels []string) error {
+func (st *HelmState) FilterReleases() error {
 	var filteredReleases []ReleaseSpec
 	releaseSet := map[string][]ReleaseSpec{}
 	filters := []ReleaseFilter{}
-	for _, label := range labels {
+	for _, label := range st.Selectors {
 		f, err := ParseLabels(label)
 		if err != nil {
 			return err
@@ -902,7 +913,7 @@ func (st *HelmState) FilterReleases(labels []string) error {
 	}
 	st.Releases = filteredReleases
 	numFound := len(filteredReleases)
-	st.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(labels, ","), st.FilePath)
+	st.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(st.Selectors, ","), st.FilePath)
 	return nil
 }
 
@@ -1386,4 +1397,102 @@ func escape(value string) string {
 	intermediate := strings.Replace(value, "{", "\\{", -1)
 	intermediate = strings.Replace(intermediate, "}", "\\}", -1)
 	return strings.Replace(intermediate, ",", "\\,", -1)
+}
+
+//UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
+//this is required to keep allowing string scalar for defining helmfile (maybe)
+func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
+
+	var tmp interface{}
+	if err := unmarshal(&tmp); err != nil {
+		return err
+	}
+
+	switch i := tmp.(type) {
+	case string: // single path definition without sub items
+		hf.Path = i
+	case map[interface{}]interface{}: // helmfile path with sub section
+		for k, v := range i {
+			switch key := k.(type) {
+			case string:
+				//get the path
+				if key == "path" {
+					hf.Path = v.(string)
+				} else if key == "selectors" {
+					if err := extractSelectorContent(hf, v); err != nil {
+						return err
+					}
+				} else {
+					hf.Path = key
+					//get the selectors if something is specified
+					if v != nil { //we have a path, now compute the selector
+						if err := extractSelector(hf, v); err != nil {
+							return err
+						}
+					} //else it is a path with ending semi-colon without anything else below and it is fine
+				}
+			default:
+				return fmt.Errorf("Expecting a \"string\" scalar for the helmfile collection but got: %v", key)
+			}
+		}
+	}
+	//since we cannot make sur the "console" string can be red after the "path" we must check we don't have
+	//a SubHelmfileSpec with only selector and no path
+	if hf.Selectors != nil && hf.Path == "" {
+		return fmt.Errorf("found 'selectors' definition without path: %v", hf.Selectors)
+	}
+
+	return nil
+}
+
+//extractSelector this will extract the selectors: from the helmfile section
+//this has been developed to only expect selectors: under the helmfiles for now.
+func extractSelector(hf *SubHelmfileSpec, value interface{}) error {
+	switch value := value.(type) {
+	case map[interface{}]interface{}:
+		for k, v := range value {
+			switch key := k.(type) {
+			case string:
+				if key == "selectors" {
+					return extractSelectorContent(hf, v)
+				} else { //not 'selectors' so error
+					return fmt.Errorf("Expecting a \"selectors\" mapping but got: %v", key)
+				}
+			default: //we where expecting a selector but go something else
+				return fmt.Errorf("Expecting a \"selectors\" mapping for string [-%v] but got: %v of type %T", hf.Path, key, key)
+			}
+		}
+	default:
+		return fmt.Errorf("Expecting a \"selectors\" mapping for string [-%v] but got: %v of type %T", hf.Path, value, value)
+	}
+	return nil
+}
+
+func extractSelectorContent(hf *SubHelmfileSpec, value interface{}) error {
+	switch selectors := value.(type) {
+	case string: //check the string is `inherits` else error
+		if selectors == InheritsYamlValue {
+			hf.Inherits = true
+		} else {
+			return fmt.Errorf("Expecting a list of string, an empty {} or '%v' but got: %v", InheritsYamlValue, selectors)
+		}
+	case []interface{}: //expect an array if strings
+		for _, sel := range selectors {
+			switch selValue := sel.(type) {
+			case string:
+				hf.Selectors = append(hf.Selectors, selValue)
+			default:
+				return fmt.Errorf("Expecting a string, but got: %v", selValue)
+			}
+		}
+	case map[interface{}]interface{}:
+		if len(selectors) == 0 {
+			hf.Selectors = make([]string, 0) //allocate and non nil empty array
+		} else { //unexpected unempty map so error
+			return fmt.Errorf("unexpected unempty map in selector [-%v] but got: %v", hf.Path, selectors)
+		}
+	default:
+		return fmt.Errorf("Expecting list of strings or and empty {} mapping [-%v] but got: [%v] of type [%T] ", hf.Path, selectors, selectors)
+	}
+	return nil
 }

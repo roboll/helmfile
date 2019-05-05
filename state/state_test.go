@@ -1636,7 +1636,8 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 				Releases: releases,
 				logger:   logger,
 			}
-			errs := state.FilterReleases([]string{tt.labels})
+			state.Selectors = []string{tt.labels}
+			errs := state.FilterReleases()
 			if (errs != nil) != tt.wantErr {
 				t.Errorf("ReleaseStatuses() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 				return
