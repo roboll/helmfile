@@ -267,15 +267,15 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
     - name=zorba
     - foo=bar
 - path: path/prefix/empty/selector.yaml
-  selectors: {}
+  selectors: []
 - path: path/prefix/inherits/selector.yaml
-  selectors: inherits
+  selectorsInherited: true
 `),
 			wantErr: false,
-			helmfiles: []SubHelmfileSpec{{Path: "simple/helmfile.yaml", Selectors: nil, Inherits: false},
-				{Path: "path/prefix/selector.yaml", Selectors: []string{"name=zorba", "foo=bar"}, Inherits: false},
-				{Path: "path/prefix/empty/selector.yaml", Selectors: []string{}, Inherits: false},
-				{Path: "path/prefix/inherits/selector.yaml", Selectors: nil, Inherits: true},
+			helmfiles: []SubHelmfileSpec{{Path: "simple/helmfile.yaml", Selectors: nil, SelectorsInherited: false},
+				{Path: "path/prefix/selector.yaml", Selectors: []string{"name=zorba", "foo=bar"}, SelectorsInherited: false},
+				{Path: "path/prefix/empty/selector.yaml", Selectors: []string{}, SelectorsInherited: false},
+				{Path: "path/prefix/inherits/selector.yaml", Selectors: nil, SelectorsInherited: true},
 			},
 		},
 		{
@@ -316,6 +316,16 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 			content: []byte(`helmfiles:
 - selectors:
     - whatever
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing7/selector",
+			content: []byte(`helmfiles:
+- path: foo/bar
+  selectors:
+  - foo=bar
+  selectorsInherited: true
 `),
 			wantErr: true,
 		},

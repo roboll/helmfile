@@ -336,7 +336,7 @@ helmfiles:
   - name=zipkin      
 - helmfile.d/b*.yaml
 - path: helmfile.d/c*.yaml
-  selectors: {}
+  selectors: []
 `,
 		"/path/to/helmfile.d/a1.yaml": `
 releases:
@@ -473,7 +473,7 @@ releases:
 		"/path/to/helmfile.d/a.yaml": `
 helmfiles:
 - path: b*.yaml
-  selectors: inherits
+  selectorsInherited: true
 releases:
 - name: zipkin
   chart: stable/zipkin
