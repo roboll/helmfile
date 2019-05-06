@@ -289,7 +289,7 @@ func (a *App) findDesiredStateFiles(specifiedPath string) ([]string, error) {
 		}
 	}
 
-	files, err := a.glob(filepath.Join(helmfileDir, "*.{yaml,yml}"))
+	files, err := a.glob(filepath.Join(helmfileDir, "*.y*ml"))
 	if err != nil {
 		return []string{}, err
 	}
