@@ -367,9 +367,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				} else {
 					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
 					installedVersion, err := st.getDeployedVersion(context, helm, release)
-					//err is not really impacting so just ignors it
-					st.logger.Debugf("getting deployed release version failed:%v", err)
-					release.installedVersion = installedVersion
+					if err != nil { //err is not really impacting so just log it
+						st.logger.Debugf("getting deployed release version failed:%v", err)
+					} else {
+						release.installedVersion = installedVersion
+					}
 				}
 
 				if relErr == nil {
