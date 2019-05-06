@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	. "gotest.tools/assert"
+	"gotest.tools/assert/cmp"
 )
 
 func TestReadFromYaml(t *testing.T) {
@@ -245,5 +248,97 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 				t.Errorf("[case: %d][outcome: %d] Unexpected outcome wanted %t, got %t", idx, idx2, expected, f)
 			}
 		}
+	}
+}
+
+func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
+	tests := []struct {
+		path      string
+		content   []byte
+		wantErr   bool
+		helmfiles []SubHelmfileSpec
+	}{
+		{
+			path: "working/selector",
+			content: []byte(`helmfiles:
+- simple/helmfile.yaml
+- path: path/prefix/selector.yaml
+  selectors:
+    - name=zorba
+    - foo=bar
+- path: path/prefix/empty/selector.yaml
+  selectors: []
+- path: path/prefix/inherits/selector.yaml
+  selectorsInherited: true
+`),
+			wantErr: false,
+			helmfiles: []SubHelmfileSpec{{Path: "simple/helmfile.yaml", Selectors: nil, SelectorsInherited: false},
+				{Path: "path/prefix/selector.yaml", Selectors: []string{"name=zorba", "foo=bar"}, SelectorsInherited: false},
+				{Path: "path/prefix/empty/selector.yaml", Selectors: []string{}, SelectorsInherited: false},
+				{Path: "path/prefix/inherits/selector.yaml", Selectors: nil, SelectorsInherited: true},
+			},
+		},
+		{
+			path: "failing2/selector",
+			content: []byte(`helmfiles:
+- path: failing2/helmfile.yaml
+    wrongkey:
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing3/selector",
+			content: []byte(`helmfiles:
+- path: failing3/helmfile.yaml
+    selectors: foo
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing4/selector",
+			content: []byte(`helmfiles:
+- path: failing4/helmfile.yaml
+    selectors:
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing4/selector",
+			content: []byte(`helmfiles:
+- path: failing4/helmfile.yaml
+    selectors:
+      - colon: not-authorized
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing6/selector",
+			content: []byte(`helmfiles:
+- selectors:
+    - whatever
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing7/selector",
+			content: []byte(`helmfiles:
+- path: foo/bar
+  selectors:
+  - foo=bar
+  selectorsInherited: true
+`),
+			wantErr: true,
+		},
+	}
+	for _, test := range tests {
+		st, err := createFromYaml(test.content, test.path, DefaultEnv, logger)
+		if err != nil {
+			if test.wantErr {
+				continue
+			} else {
+				t.Error("unexpected error:", err)
+			}
+		}
+		Assert(t, cmp.DeepEqual(st.Helmfiles, test.helmfiles), "for path %v", test.path)
 	}
 }

@@ -31,13 +31,14 @@ type HelmState struct {
 	basePath           string
 	Environments       map[string]EnvironmentSpec
 	FilePath           string
-	HelmDefaults       HelmSpec         `yaml:"helmDefaults"`
-	Helmfiles          []string         `yaml:"helmfiles"`
-	DeprecatedContext  string           `yaml:"context"`
-	DeprecatedReleases []ReleaseSpec    `yaml:"charts"`
-	Namespace          string           `yaml:"namespace"`
-	Repositories       []RepositorySpec `yaml:"repositories"`
-	Releases           []ReleaseSpec    `yaml:"releases"`
+	HelmDefaults       HelmSpec          `yaml:"helmDefaults"`
+	Helmfiles          []SubHelmfileSpec `yaml:"helmfiles"`
+	DeprecatedContext  string            `yaml:"context"`
+	DeprecatedReleases []ReleaseSpec     `yaml:"charts"`
+	Namespace          string            `yaml:"namespace"`
+	Repositories       []RepositorySpec  `yaml:"repositories"`
+	Releases           []ReleaseSpec     `yaml:"releases"`
+	Selectors          []string
 
 	SSM []datasource.SSMSpec `yaml:"ssm"`
 
@@ -53,6 +54,13 @@ type HelmState struct {
 	fileExists func(string) (bool, error)
 
 	runner helmexec.Runner
+}
+
+// SubHelmfileSpec defines the subhelmfile path and options
+type SubHelmfileSpec struct {
+	Path               string   //path or glob pattern for the sub helmfiles
+	Selectors          []string //chosen selectors for the sub helmfiles
+	SelectorsInherited bool     //do the sub helmfiles inherits from parent selectors
 }
 
 // HelmSpec to defines helmDefault values
@@ -867,11 +875,11 @@ func (st *HelmState) Clean() []error {
 }
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
-func (st *HelmState) FilterReleases(labels []string) error {
+func (st *HelmState) FilterReleases() error {
 	var filteredReleases []ReleaseSpec
 	releaseSet := map[string][]ReleaseSpec{}
 	filters := []ReleaseFilter{}
-	for _, label := range labels {
+	for _, label := range st.Selectors {
 		f, err := ParseLabels(label)
 		if err != nil {
 			return err
@@ -903,7 +911,7 @@ func (st *HelmState) FilterReleases(labels []string) error {
 	}
 	st.Releases = filteredReleases
 	numFound := len(filteredReleases)
-	st.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(labels, ","), st.FilePath)
+	st.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(st.Selectors, ","), st.FilePath)
 	return nil
 }
 
@@ -1387,4 +1395,41 @@ func escape(value string) string {
 	intermediate := strings.Replace(value, "{", "\\{", -1)
 	intermediate = strings.Replace(intermediate, "}", "\\}", -1)
 	return strings.Replace(intermediate, ",", "\\,", -1)
+}
+
+//UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
+//this is required to keep allowing string scalar for defining helmfile
+func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
+
+	var tmp interface{}
+	if err := unmarshal(&tmp); err != nil {
+		return err
+	}
+
+	switch i := tmp.(type) {
+	case string: // single path definition without sub items, legacy sub helmfile definition
+		hf.Path = i
+	case map[interface{}]interface{}: // helmfile path with sub section
+		var subHelmfileSpecTmp struct {
+			Path               string   `yaml:"path"`
+			Selectors          []string `yaml:"selectors"`
+			SelectorsInherited bool     `yaml:"selectorsInherited"`
+		}
+		if err := unmarshal(&subHelmfileSpecTmp); err != nil {
+			return err
+		}
+		hf.Path = subHelmfileSpecTmp.Path
+		hf.Selectors = subHelmfileSpecTmp.Selectors
+		hf.SelectorsInherited = subHelmfileSpecTmp.SelectorsInherited
+	}
+	//since we cannot make sur the "console" string can be red after the "path" we must check we don't have
+	//a SubHelmfileSpec with only selector and no path
+	if hf.Selectors != nil && hf.Path == "" {
+		return fmt.Errorf("found 'selectors' definition without path: %v", hf.Selectors)
+	}
+	//also exclude SelectorsInherited to true and explicit selectors
+	if hf.SelectorsInherited && len(hf.Selectors) > 0 {
+		return fmt.Errorf("You cannot use 'SelectorsInherited: true' along with and explicit selector for path: %v", hf.Path)
+	}
+	return nil
 }

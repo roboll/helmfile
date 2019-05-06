@@ -1,8 +1,8 @@
 FROM golang:1.12.4-alpine3.9 as builder
 
 RUN apk add --no-cache make git
-WORKDIR /go/src/github.com/roboll/helmfile/
-COPY . /go/src/github.com/roboll/helmfile/
+WORKDIR /workspace/helmfile
+COPY . /workspace/helmfile
 RUN make static-linux
 
 # -----------------------------------------------------------------------------
@@ -24,6 +24,6 @@ RUN mkdir -p "$(helm home)/plugins"
 RUN helm plugin install https://github.com/databus23/helm-diff && \
     helm plugin install https://github.com/futuresimple/helm-secrets
 
-COPY --from=builder /go/src/github.com/roboll/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
+COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 
 CMD ["/usr/local/bin/helmfile"]

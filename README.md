@@ -332,7 +332,7 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 
 `--selector tier=frontend --selector tier=backend` will select all the charts
 
-In addition to user supplied labels the name, namespace, and chart are available to be used as selectors.  The chart will just be the chart name excluding the repository (Example `stable/filebeat` would be selected using `--selector chart=filebeat`).
+In addition to user supplied labels, the name, the namespace, and the chart are available to be used as selectors.  The chart will just be the chart name excluding the repository (Example `stable/filebeat` would be selected using `--selector chart=filebeat`).
 
 ## Templates
 
@@ -643,6 +643,27 @@ Just run `helmfile sync` inside `myteam/`, and you are done.
 
 All the files are sorted alphabetically per group = array item inside `helmfiles:`, so that you have granular control over ordering, too.
 
+#### selectors
+When composing helmfiles you can use selectors from the command line as well as explicit selectors inside the parent helmfile to filter the releases to be used.
+```yaml
+helmfiles:
+- apps/*/helmfile.yaml
+- path: apps/a-helmfile.yaml
+    selectors:          # list of selectors
+    - name=prometheus      
+    - tier=frontend    
+- path: apps/b-helmfile.yaml # no selector, so all releases are used
+    selectors: []
+- path: apps/c-helmfile.yaml # parent selector to be used or cli selector for the initial helmfile
+    selectorsInherited: true
+```
+* When a selector is specified, only this selector applies and the parents or CLI selectors are ignored.
+* When not selector is specified there are 2 modes for the selector inheritance because we would like to change the current inheritance behavior (see [issue #344](https://github.com/roboll/helmfile/issues/344)  ).
+  * Legacy mode, sub-helmfiles without selectors inherit selectors from their parent helmfile. The initial helmfiles inherit from the command line selectors. 
+  * explicit mode, sub-helmfile without selectors do not inherit from their parent or the CLI selector. If you want them to inherit from their parent selector then use `selectorsInherited: true`. To enable this explicit mode you need to set the following environment variable `HELMFILE_EXPERIMENTAL=explicit-selector-inheritance` (see [experimental](#experimental-features)).
+* Using `selector: []` will select all releases regardless of the parent selector or cli for the initial helmfile
+* using `selectorsInherited: true` make the sub-helmfile selects releases with the parent selector or the cli for the initial helmfile. You cannot specify an explicit selector while using `selectorsInherited: true`
+
 ## Importing values from any source
 
 The `exec` template function that is available in `values.yaml.gotmpl` is useful for importing values from any source
@@ -805,6 +826,12 @@ Once you download all required charts into your machine, you can run `helmfile c
 It basically run only `helm upgrade --install` with your already-downloaded charts, hence no Internet connection is required.
 See #155 for more information on this topic.
 
+## Experimental features
+Some experimental features may be available for testing in perspective of being (or not) included in a future release.
+Those features are set using the environment variable `HELMFILE_EXPERIMENTAL`. Here is the current experimental feature :
+* `explicit-selector-inheritance` : remove today implicit cli selectors inheritance for composed helmfiles, see [composition selector](#selectors)
+
+If you want to enable all experimental features set the env var to `HELMFILE_EXPERIMENTAL=true`
 
 ## Examples
 
