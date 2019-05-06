@@ -2,13 +2,15 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/state"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
+
+	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/state"
+	"go.uber.org/zap"
+
 	"path/filepath"
 	"sort"
 	"syscall"
@@ -159,7 +161,7 @@ func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge f
 			noMatchInSubHelmfiles := true
 			for _, m := range st.Helmfiles {
 				//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
-				if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.Inherits {
+				if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
 					m.Selectors = selector
 				}
 				if err := a.VisitDesiredStates(m.Path, m.Selectors, converge); err != nil {

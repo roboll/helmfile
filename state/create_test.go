@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	. "gotest.tools/assert"
+	"gotest.tools/assert/cmp"
 )
 
 func TestReadFromYaml(t *testing.T) {
@@ -261,45 +262,26 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 			path: "working/selector",
 			content: []byte(`helmfiles:
 - simple/helmfile.yaml
-- simple/helmfile/with/semicolon.yaml:
-- two/selectors.yaml:
-    selectors:
-      - name=foo
-      - name=bar
-- empty/selector.yaml:
-    selectors: {}
-- inherits/selector.yaml:
-    selectors: inherits
 - path: path/prefix/selector.yaml
   selectors:
     - name=zorba
+    - foo=bar
 - path: path/prefix/empty/selector.yaml
-  selectors: {}
+  selectors: []
 - path: path/prefix/inherits/selector.yaml
-  selectors: inherits
+  selectorsInherited: true
 `),
 			wantErr: false,
-			helmfiles: []SubHelmfileSpec{{Path: "simple/helmfile.yaml"},
-				{Path: "simple/helmfile/with/semicolon.yaml", Selectors: nil, Inherits: false},
-				{Path: "two/selectors.yaml", Selectors: []string{"name=foo", "name=bar"}, Inherits: false},
-				{Path: "empty/selector.yaml", Selectors: []string{}, Inherits: false},
-				{Path: "inherits/selector.yaml", Selectors: nil, Inherits: true},
-				{Path: "path/prefix/selector.yaml", Selectors: []string{"name=zorba"}, Inherits: false},
-				{Path: "path/prefix/empty/selector.yaml", Selectors: []string{}, Inherits: false},
-				{Path: "path/prefix/inherits/selector.yaml", Selectors: nil, Inherits: true},
+			helmfiles: []SubHelmfileSpec{{Path: "simple/helmfile.yaml", Selectors: nil, SelectorsInherited: false},
+				{Path: "path/prefix/selector.yaml", Selectors: []string{"name=zorba", "foo=bar"}, SelectorsInherited: false},
+				{Path: "path/prefix/empty/selector.yaml", Selectors: []string{}, SelectorsInherited: false},
+				{Path: "path/prefix/inherits/selector.yaml", Selectors: nil, SelectorsInherited: true},
 			},
-		},
-		{
-			path: "failing1/selector",
-			content: []byte(`helmfiles:
-- failing1/helmfile.yaml: foo
-`),
-			wantErr: true,
 		},
 		{
 			path: "failing2/selector",
 			content: []byte(`helmfiles:
-- failing2/helmfile.yaml: 
+- path: failing2/helmfile.yaml
     wrongkey:
 `),
 			wantErr: true,
@@ -307,7 +289,7 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 		{
 			path: "failing3/selector",
 			content: []byte(`helmfiles:
-- failing3/helmfile.yaml: 
+- path: failing3/helmfile.yaml
     selectors: foo
 `),
 			wantErr: true,
@@ -315,7 +297,7 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 		{
 			path: "failing4/selector",
 			content: []byte(`helmfiles:
-- failing4/helmfile.yaml: 
+- path: failing4/helmfile.yaml
     selectors:
 `),
 			wantErr: true,
@@ -323,17 +305,9 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 		{
 			path: "failing4/selector",
 			content: []byte(`helmfiles:
-- failing4/helmfile.yaml: 
+- path: failing4/helmfile.yaml
     selectors:
       - colon: not-authorized
-`),
-			wantErr: true,
-		},
-		{
-			path: "failing5/selector",
-			content: []byte(`helmfiles:
-- selectors:
-    - colon: not-authorized
 `),
 			wantErr: true,
 		},
@@ -342,6 +316,16 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 			content: []byte(`helmfiles:
 - selectors:
     - whatever
+`),
+			wantErr: true,
+		},
+		{
+			path: "failing7/selector",
+			content: []byte(`helmfiles:
+- path: foo/bar
+  selectors:
+  - foo=bar
+  selectorsInherited: true
 `),
 			wantErr: true,
 		},
@@ -355,6 +339,6 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 				t.Error("unexpected error:", err)
 			}
 		}
-		DeepEqual(t, st.Helmfiles, test.helmfiles)
+		Assert(t, cmp.DeepEqual(st.Helmfiles, test.helmfiles), "for path %v", test.path)
 	}
 }
