@@ -650,8 +650,8 @@ helmfiles:
 - apps/*/helmfile.yaml
 - path: apps/a-helmfile.yaml
     selectors:          # list of selectors
-    - name=prometheus      
-    - tier=frontend    
+    - name=prometheus
+    - tier=frontend
 - path: apps/b-helmfile.yaml # no selector, so all releases are used
     selectors: []
 - path: apps/c-helmfile.yaml # parent selector to be used or cli selector for the initial helmfile
@@ -659,7 +659,7 @@ helmfiles:
 ```
 * When a selector is specified, only this selector applies and the parents or CLI selectors are ignored.
 * When not selector is specified there are 2 modes for the selector inheritance because we would like to change the current inheritance behavior (see [issue #344](https://github.com/roboll/helmfile/issues/344)  ).
-  * Legacy mode, sub-helmfiles without selectors inherit selectors from their parent helmfile. The initial helmfiles inherit from the command line selectors. 
+  * Legacy mode, sub-helmfiles without selectors inherit selectors from their parent helmfile. The initial helmfiles inherit from the command line selectors.
   * explicit mode, sub-helmfile without selectors do not inherit from their parent or the CLI selector. If you want them to inherit from their parent selector then use `selectorsInherited: true`. To enable this explicit mode you need to set the following environment variable `HELMFILE_EXPERIMENTAL=explicit-selector-inheritance` (see [experimental](#experimental-features)).
 * Using `selector: []` will select all releases regardless of the parent selector or cli for the initial helmfile
 * using `selectorsInherited: true` make the sub-helmfile selects releases with the parent selector or the cli for the initial helmfile. You cannot specify an explicit selector while using `selectorsInherited: true`
@@ -700,10 +700,13 @@ Currently supported `events` are:
 
 - `prepare`
 - `cleanup`
+- `presync`
 
 Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before execution.
 
 Hooks associated to `cleanup` events are triggered after each release is processed.
+
+Hooks associated to `presync` events are triggered before each release is applied to the remote cluster. This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
 The following is an example hook that just prints the contextual information provided to hook:
 
