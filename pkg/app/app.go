@@ -14,10 +14,6 @@ import (
 	"path/filepath"
 	"sort"
 	"syscall"
-
-	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/state"
-	"go.uber.org/zap"
 )
 
 type App struct {
