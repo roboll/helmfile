@@ -151,7 +151,7 @@ Environment variables can be used in most places for templating the helmfile. Cu
 Examples:
 
 ```yaml
-respositories:
+repositories:
 - name: your-private-git-repo-hosted-charts
   url: https://{{ requiredEnv "GITHUB_TOKEN"}}@raw.githubusercontent.com/kmzfs/helm-repo-in-github/master/
 ```
