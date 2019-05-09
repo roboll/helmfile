@@ -396,9 +396,9 @@ func clean(st *state.HelmState, errs []error) error {
 		for _, err := range errs {
 			switch e := err.(type) {
 			case *state.ReleaseError:
-				fmt.Printf("err: release \"%s\" in \"%s\" failed: %v\n", e.Name, st.FilePath, e)
+				fmt.Fprintf(os.Stderr, "err: release \"%s\" in \"%s\" failed: %v\n", e.Name, st.FilePath, e)
 			default:
-				fmt.Printf("err: %v\n", e)
+				fmt.Fprintf(os.Stderr, "err: %v\n", e)
 			}
 		}
 		return errs[0]

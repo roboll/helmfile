@@ -1,6 +1,7 @@
 package helmexec
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -48,7 +49,9 @@ func New(logger *zap.SugaredLogger, kubeContext string) *execer {
 		helmBinary:  command,
 		logger:      logger,
 		kubeContext: kubeContext,
-		runner:      &ShellRunner{},
+		runner: &ShellRunner{
+			logger: logger,
+		},
 	}
 }
 
@@ -71,21 +74,21 @@ func (helm *execer) AddRepo(name, repository, certfile, keyfile, username, passw
 	}
 	helm.logger.Infof("Adding repo %v %v", name, repository)
 	out, err := helm.exec(args, map[string]string{})
-	helm.write(out)
+	helm.info(out)
 	return err
 }
 
 func (helm *execer) UpdateRepo() error {
 	helm.logger.Info("Updating repo")
 	out, err := helm.exec([]string{"repo", "update"}, map[string]string{})
-	helm.write(out)
+	helm.info(out)
 	return err
 }
 
 func (helm *execer) UpdateDeps(chart string) error {
 	helm.logger.Infof("Updating dependency %v", chart)
 	out, err := helm.exec([]string{"dependency", "update", chart}, map[string]string{})
-	helm.write(out)
+	helm.info(out)
 	return err
 }
 
@@ -194,7 +197,7 @@ func (helm *execer) Lint(chart string, flags ...string) error {
 func (helm *execer) Fetch(chart string, flags ...string) error {
 	helm.logger.Infof("Fetching %v", chart)
 	out, err := helm.exec(append([]string{"fetch", chart}, flags...), map[string]string{})
-	helm.write(out)
+	helm.info(out)
 	return err
 }
 
@@ -228,8 +231,14 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 	return helm.runner.Execute(helm.helmBinary, cmdargs, env)
 }
 
-func (helm *execer) write(out []byte) {
+func (helm *execer) info(out []byte) {
 	if len(out) > 0 {
 		helm.logger.Infof("%s", out)
+	}
+}
+
+func (helm *execer) write(out []byte) {
+	if len(out) > 0 {
+		fmt.Printf("%s\n", out)
 	}
 }
