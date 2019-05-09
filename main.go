@@ -30,7 +30,7 @@ func configureLogging(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	logger = helmexec.NewLogger(os.Stdout, logLevel)
+	logger = helmexec.NewLogger(os.Stderr, logLevel)
 	if c.App.Metadata == nil {
 		// Auto-initialised in 1.19.0
 		// https://github.com/urfave/cli/blob/master/CHANGELOG.md#1190---2016-11-19
