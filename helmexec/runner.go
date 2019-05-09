@@ -7,7 +7,9 @@ import (
 	"go.uber.org/zap"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 const (
@@ -51,20 +53,48 @@ func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
 	o := stdout.Bytes()
 	e := stderr.Bytes()
 
-	if len(e) > 0 {
-		logger.Debugf("%s\n", e)
-	}
-
 	if err != nil {
 		// TrimSpace is necessary, because otherwise helmfile prints the redundant new-lines after each error like:
 		//
 		//   err: release "envoy2" in "helmfile.yaml" failed: exit status 1: Error: could not find a ready tiller pod
 		//   <redundant new line!>
 		//   err: release "envoy" in "helmfile.yaml" failed: exit status 1: Error: could not find a ready tiller pod
-		err = fmt.Errorf("%v: %s", err, strings.TrimSpace(string(e)))
+		switch ee := err.(type) {
+		case *exec.ExitError:
+			// Propagate any non-zero exit status from the external command, rather than throwing it away,
+			// so that helmfile could return its own exit code accordingly
+			status := ee.Sys().(syscall.WaitStatus)
+			err = ExitError{
+				msg:    fmt.Sprintf("%s exited with status %d:\n%s", filepath.Base(c.Path), status.ExitStatus(), indent(strings.TrimSpace(string(e)))),
+				status: status,
+			}
+		default:
+			panic(fmt.Sprintf("unexpected error: %v", err))
+		}
 	}
 
 	return o, err
+}
+
+func indent(text string) string {
+	lines := strings.Split(text, "\n")
+	for i := range lines {
+		lines[i] = "  " + lines[i]
+	}
+	return strings.Join(lines, "\n")
+}
+
+type ExitError struct {
+	msg    string
+	status syscall.WaitStatus
+}
+
+func (e ExitError) Error() string {
+	return e.msg
+}
+
+func (e ExitError) Code() int {
+	return e.status.ExitStatus()
 }
 
 func mergeEnv(orig []string, new map[string]string) []string {

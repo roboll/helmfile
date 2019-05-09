@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-
 	"sync"
 
 	"go.uber.org/zap"
@@ -183,7 +182,26 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags .
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env)
-	helm.write(out)
+	// Do our best to write STDOUT only when diff existed
+	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
+	detailedExitcodeEnabled := false
+	for _, f := range flags {
+		if strings.Contains(f, "detailed-exitcode") {
+			detailedExitcodeEnabled = true
+			break
+		}
+	}
+	if detailedExitcodeEnabled {
+		switch e := err.(type) {
+		case ExitError:
+			if e.Code() == 2 {
+				helm.write(out)
+				return err
+			}
+		}
+	} else {
+		helm.write(out)
+	}
 	return err
 }
 
@@ -227,8 +245,11 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 	if helm.kubeContext != "" {
 		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
 	}
-	helm.logger.Debugf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
-	return helm.runner.Execute(helm.helmBinary, cmdargs, env)
+	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
+	helm.logger.Debug(cmd)
+	bytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env)
+	helm.logger.Debugf("%s: %s", cmd, bytes)
+	return bytes, err
 }
 
 func (helm *execer) info(out []byte) {
