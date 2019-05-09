@@ -349,7 +349,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				chart := normalizeChart(st.basePath, release.Chart)
 				var relErr *ReleaseError
 				context := st.createHelmContext(release, workerIndex)
-				if !release.Desired() {
+
+				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+					relErr = &ReleaseError{release, err}
+				} else if !release.Desired() {
 					installed, err := st.isReleaseInstalled(context, helm, *release)
 					if err != nil {
 						relErr = &ReleaseError{release, err}
@@ -938,6 +941,10 @@ func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string)
 
 func (st *HelmState) triggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
 	return st.triggerReleaseEvent("cleanup", r, helmfileCommand)
+}
+
+func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+	return st.triggerReleaseEvent("presync", r, helmfileCommand)
 }
 
 func (st *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd string) (bool, error) {
