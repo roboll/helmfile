@@ -194,7 +194,7 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags .
 	if detailedExitcodeEnabled {
 		switch e := err.(type) {
 		case ExitError:
-			if e.Code() == 2 {
+			if e.ExitStatus() == 2 {
 				helm.write(out)
 				return err
 			}

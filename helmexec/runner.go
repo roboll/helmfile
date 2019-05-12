@@ -63,10 +63,11 @@ func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
 		case *exec.ExitError:
 			// Propagate any non-zero exit status from the external command, rather than throwing it away,
 			// so that helmfile could return its own exit code accordingly
-			status := ee.Sys().(syscall.WaitStatus)
+			waitStatus := ee.Sys().(syscall.WaitStatus)
+			exitStatus := waitStatus.ExitStatus()
 			err = ExitError{
-				msg:    fmt.Sprintf("%s exited with status %d:\n%s", filepath.Base(c.Path), status.ExitStatus(), indent(strings.TrimSpace(string(e)))),
-				status: status,
+				msg:        fmt.Sprintf("%s exited with status %d:\n%s", filepath.Base(c.Path), exitStatus, indent(strings.TrimSpace(string(e)))),
+				exitStatus: exitStatus,
 			}
 		default:
 			panic(fmt.Sprintf("unexpected error: %v", err))
@@ -84,17 +85,18 @@ func indent(text string) string {
 	return strings.Join(lines, "\n")
 }
 
+// ExitError is created whenever your shell command exits with a non-zero exit status
 type ExitError struct {
 	msg    string
-	status syscall.WaitStatus
+	exitStatus int
 }
 
 func (e ExitError) Error() string {
 	return e.msg
 }
 
-func (e ExitError) Code() int {
-	return e.status.ExitStatus()
+func (e ExitError) ExitStatus() int {
+	return e.exitStatus
 }
 
 func mergeEnv(orig []string, new map[string]string) []string {

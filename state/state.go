@@ -742,7 +742,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-						results <- diffResult{&ReleaseError{release, err, e.Code()}}
+						results <- diffResult{&ReleaseError{release, err, e.ExitStatus()}}
 					default:
 						results <- diffResult{&ReleaseError{release, err, 0}}
 					}
