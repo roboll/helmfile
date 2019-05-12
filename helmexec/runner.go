@@ -87,7 +87,7 @@ func indent(text string) string {
 
 // ExitError is created whenever your shell command exits with a non-zero exit status
 type ExitError struct {
-	msg    string
+	msg        string
 	exitStatus int
 }
 
