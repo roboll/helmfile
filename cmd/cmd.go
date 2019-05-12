@@ -7,7 +7,6 @@ import (
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
-	"os/exec"
 	"strings"
 )
 
@@ -85,18 +84,10 @@ func toCliError(err error) error {
 		switch e := err.(type) {
 		case *app.NoMatchingHelmfileError:
 			return cli.NewExitError(e.Error(), 2)
-		case *exec.ExitError:
-			panic(fmt.Sprintf("BUG: there should be no unhandled *exec.ExitError!: %v", e))
-			//// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-			//status := e.Sys().(syscall.WaitStatus)
-			//return cli.NewExitError(e.Error(), status.ExitStatus())
-		case *state.ReleaseError:
-			panic(fmt.Sprintf("BUG: there should be no unhandled *state.ReleaseError!: %v", e))
 		case *app.Error:
 			return cli.NewExitError(e.Error(), e.Code())
 		default:
-			panic(fmt.Errorf("unexpected error: %T: %v", e, e))
-			//return cli.NewExitError(e.Error(), 1)
+			panic(fmt.Errorf("BUG: please file an github issue for this unhandled error: %T: %v", e, e))
 		}
 	}
 	return err
