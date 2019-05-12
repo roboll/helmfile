@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 )
 
 const (
@@ -51,17 +52,22 @@ func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
 	o := stdout.Bytes()
 	e := stderr.Bytes()
 
-	if len(e) > 0 {
-		logger.Debugf("%s\n", e)
-	}
-
 	if err != nil {
 		// TrimSpace is necessary, because otherwise helmfile prints the redundant new-lines after each error like:
 		//
 		//   err: release "envoy2" in "helmfile.yaml" failed: exit status 1: Error: could not find a ready tiller pod
 		//   <redundant new line!>
 		//   err: release "envoy" in "helmfile.yaml" failed: exit status 1: Error: could not find a ready tiller pod
-		err = fmt.Errorf("%v: %s", err, strings.TrimSpace(string(e)))
+		switch ee := err.(type) {
+		case *exec.ExitError:
+			// Propagate any non-zero exit status from the external command, rather than throwing it away,
+			// so that helmfile could return its own exit code accordingly
+			waitStatus := ee.Sys().(syscall.WaitStatus)
+			exitStatus := waitStatus.ExitStatus()
+			err = newExitError(c.Path, exitStatus, string(e))
+		default:
+			panic(fmt.Sprintf("unexpected error: %v", err))
+		}
 	}
 
 	return o, err

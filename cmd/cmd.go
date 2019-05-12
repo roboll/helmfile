@@ -7,9 +7,7 @@ import (
 	"github.com/roboll/helmfile/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
-	"os/exec"
 	"strings"
-	"syscall"
 )
 
 func VisitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, app.Context) (bool, []error)) error {
@@ -86,14 +84,10 @@ func toCliError(err error) error {
 		switch e := err.(type) {
 		case *app.NoMatchingHelmfileError:
 			return cli.NewExitError(e.Error(), 2)
-		case *exec.ExitError:
-			// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-			status := e.Sys().(syscall.WaitStatus)
-			return cli.NewExitError(e.Error(), status.ExitStatus())
-		case *state.DiffError:
-			return cli.NewExitError(e.Error(), e.Code)
+		case *app.Error:
+			return cli.NewExitError(e.Error(), e.Code())
 		default:
-			return cli.NewExitError(e.Error(), 1)
+			panic(fmt.Errorf("BUG: please file an github issue for this unhandled error: %T: %v", e, e))
 		}
 	}
 	return err

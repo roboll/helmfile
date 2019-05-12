@@ -282,11 +282,11 @@ releases:
 		errMsg        string
 	}{
 		{label: "name=prometheus", expectedCount: 1, expectErr: false},
-		{label: "name=", expectedCount: 0, expectErr: true, errMsg: "failed processing /path/to/helmfile.d/a1.yaml: Malformed label: name=. Expected label in form k=v or k!=v"},
-		{label: "name!=", expectedCount: 0, expectErr: true, errMsg: "failed processing /path/to/helmfile.d/a1.yaml: Malformed label: name!=. Expected label in form k=v or k!=v"},
-		{label: "name", expectedCount: 0, expectErr: true, errMsg: "failed processing /path/to/helmfile.d/a1.yaml: Malformed label: name. Expected label in form k=v or k!=v"},
+		{label: "name=", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: Malformed label: name=. Expected label in form k=v or k!=v"},
+		{label: "name!=", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: Malformed label: name!=. Expected label in form k=v or k!=v"},
+		{label: "name", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: Malformed label: name. Expected label in form k=v or k!=v"},
 		// See https://github.com/roboll/helmfile/issues/193
-		{label: "duplicated=yes", expectedCount: 0, expectErr: true, errMsg: "failed processing /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in \"zoo\": there were 2 releases named \"foo\" matching specified selector"},
+		{label: "duplicated=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in \"zoo\": there were 2 releases named \"foo\" matching specified selector"},
 		{label: "duplicatedOK=yes", expectedCount: 2, expectErr: false},
 	}
 

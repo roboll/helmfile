@@ -15,9 +15,6 @@ import (
 
 	"regexp"
 
-	"os/exec"
-	"syscall"
-
 	"net/url"
 
 	"github.com/roboll/helmfile/environment"
@@ -202,15 +199,6 @@ func (st *HelmState) SyncRepos(helm RepoUpdater) []error {
 	return nil
 }
 
-type ReleaseError struct {
-	*ReleaseSpec
-	underlying error
-}
-
-func (e *ReleaseError) Error() string {
-	return e.underlying.Error()
-}
-
 type syncResult struct {
 	errors []*ReleaseError
 }
@@ -250,7 +238,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 
 				flags, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
 				if flagsErr != nil {
-					results <- syncPrepareResult{errors: []*ReleaseError{&ReleaseError{release, flagsErr}}}
+					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseError(release, flagsErr)}}
 					continue
 				}
 
@@ -258,14 +246,14 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 				for _, value := range additionalValues {
 					valfile, err := filepath.Abs(value)
 					if err != nil {
-						errs = append(errs, &ReleaseError{release, err})
+						errs = append(errs, newReleaseError(release, err))
 					}
 
 					ok, err := st.fileExists(valfile)
 					if err != nil {
-						errs = append(errs, &ReleaseError{release, err})
+						errs = append(errs, newReleaseError(release, err))
 					} else if !ok {
-						errs = append(errs, &ReleaseError{release, fmt.Errorf("file does not exist: %s", valfile)})
+						errs = append(errs, newReleaseError(release, fmt.Errorf("file does not exist: %s", valfile)))
 					}
 					flags = append(flags, "--values", valfile)
 				}
@@ -351,22 +339,22 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				context := st.createHelmContext(release, workerIndex)
 
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
-					relErr = &ReleaseError{release, err}
+					relErr = newReleaseError(release, err)
 				} else if !release.Desired() {
 					installed, err := st.isReleaseInstalled(context, helm, *release)
 					if err != nil {
-						relErr = &ReleaseError{release, err}
+						relErr = newReleaseError(release, err)
 					} else if installed {
 						if err := helm.DeleteRelease(context, release.Name, "--purge"); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
-							relErr = &ReleaseError{release, err}
+							relErr = newReleaseError(release, err)
 						} else {
 							affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 						}
 					}
 				} else if err := helm.SyncRelease(context, release.Name, chart, flags...); err != nil {
 					affectedReleases.Failed = append(affectedReleases.Failed, release)
-					relErr = &ReleaseError{release, err}
+					relErr = newReleaseError(release, err)
 				} else {
 					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
 					installedVersion, err := st.getDeployedVersion(context, helm, release)
@@ -612,18 +600,8 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 	return nil
 }
 
-type DiffError struct {
-	*ReleaseSpec
-	err  error
-	Code int
-}
-
-func (e *DiffError) Error() string {
-	return e.err.Error()
-}
-
 type diffResult struct {
-	err *DiffError
+	err *ReleaseError
 }
 
 type diffPrepareResult struct {
@@ -691,7 +669,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				if len(errs) > 0 {
 					rsErrs := make([]*ReleaseError, len(errs))
 					for i, e := range errs {
-						rsErrs[i] = &ReleaseError{release, e}
+						rsErrs[i] = newReleaseError(release, e)
 					}
 					results <- diffPrepareResult{errors: rsErrs}
 				} else {
@@ -762,12 +740,11 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				release := prep.release
 				if err := helm.DiffRelease(st.createHelmContext(release, workerIndex), release.Name, normalizeChart(st.basePath, release.Chart), flags...); err != nil {
 					switch e := err.(type) {
-					case *exec.ExitError:
+					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-						status := e.Sys().(syscall.WaitStatus)
-						results <- diffResult{&DiffError{release, err, status.ExitStatus()}}
+						results <- diffResult{&ReleaseError{release, err, e.ExitStatus()}}
 					default:
-						results <- diffResult{&DiffError{release, err, 0}}
+						results <- diffResult{&ReleaseError{release, err, 0}}
 					}
 				} else {
 					// diff succeeded, found no changes
@@ -925,7 +902,7 @@ func (st *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand str
 
 	for _, release := range st.Releases {
 		if _, err := st.triggerPrepareEvent(&release, helmfileCommand); err != nil {
-			errs = append(errs, &ReleaseError{&release, err})
+			errs = append(errs, newReleaseError(&release, err))
 			continue
 		}
 	}

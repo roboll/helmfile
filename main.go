@@ -359,13 +359,19 @@ func main() {
 						errs = append(errs, err)
 					}
 
+					fatalErrs := []error{}
+
 					noError := true
 					for _, e := range errs {
 						switch err := e.(type) {
-						case *state.DiffError:
-							noError = noError && err.Code == 2
+						case *state.ReleaseError:
+							if err.Code != 2 {
+								noError = false
+								fatalErrs = append(fatalErrs, e)
+							}
 						default:
 							noError = false
+							fatalErrs = append(fatalErrs, e)
 						}
 					}
 
@@ -408,7 +414,7 @@ Do you really want to apply?
 						}
 					}
 
-					return errs
+					return fatalErrs
 				})
 				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
 				return errs
