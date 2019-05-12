@@ -7,7 +7,6 @@ import (
 	"go.uber.org/zap"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 )
@@ -65,38 +64,13 @@ func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
 			// so that helmfile could return its own exit code accordingly
 			waitStatus := ee.Sys().(syscall.WaitStatus)
 			exitStatus := waitStatus.ExitStatus()
-			err = ExitError{
-				msg:        fmt.Sprintf("%s exited with status %d:\n%s", filepath.Base(c.Path), exitStatus, indent(strings.TrimSpace(string(e)))),
-				exitStatus: exitStatus,
-			}
+			err = newExitError(c.Path, exitStatus, string(e))
 		default:
 			panic(fmt.Sprintf("unexpected error: %v", err))
 		}
 	}
 
 	return o, err
-}
-
-func indent(text string) string {
-	lines := strings.Split(text, "\n")
-	for i := range lines {
-		lines[i] = "  " + lines[i]
-	}
-	return strings.Join(lines, "\n")
-}
-
-// ExitError is created whenever your shell command exits with a non-zero exit status
-type ExitError struct {
-	msg        string
-	exitStatus int
-}
-
-func (e ExitError) Error() string {
-	return e.msg
-}
-
-func (e ExitError) ExitStatus() int {
-	return e.exitStatus
 }
 
 func mergeEnv(orig []string, new map[string]string) []string {
