@@ -100,10 +100,10 @@ Use Layering to extract the common parts into a dedicated *library helmfile*s, s
 Let's assume that your `helmfile.yaml` looks like:
 
 ```
-{ readFile "commons.yaml" }}
----
-{{ readFile "environments.yaml" }}
----
+bases:
+- commons.yaml
+- environments.yaml
+
 releases:
 - name: myapp
   chart: mychart

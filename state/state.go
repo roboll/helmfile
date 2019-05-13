@@ -27,9 +27,11 @@ import (
 
 // HelmState structure for the helmfile
 type HelmState struct {
-	basePath           string
-	Environments       map[string]EnvironmentSpec
-	FilePath           string
+	basePath     string
+	Environments map[string]EnvironmentSpec
+	FilePath     string
+
+	Bases              []string          `yaml:"bases"`
 	HelmDefaults       HelmSpec          `yaml:"helmDefaults"`
 	Helmfiles          []SubHelmfileSpec `yaml:"helmfiles"`
 	DeprecatedContext  string            `yaml:"context"`
