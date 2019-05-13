@@ -702,8 +702,8 @@ releases:
 helmDefaults:
   tillerNamespace: {{ .Environment.Values.tillerNs }}
 `),
-"/path/to/yaml/environments/default/2.yaml": []byte(`tillerNs: TILLER_NS`),
-"/path/to/yaml/templates.yaml": []byte(`templates:
+		"/path/to/yaml/environments/default/2.yaml": []byte(`tillerNs: TILLER_NS`),
+		"/path/to/yaml/templates.yaml": []byte(`templates:
   default: &default
     missingFileHandler: Warn
     values: ["` + "{{`" + `{{.Release.Name}}` + "`}}" + `/values.yaml"]
@@ -739,5 +739,106 @@ helmDefaults:
 
 	if st.Releases[1].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
 		t.Errorf("unexpected releases[0].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
+	}
+}
+
+func TestLoadDesiredStateFromYaml_MultiPartTemplate(t *testing.T) {
+	yamlFile := "/path/to/yaml/file"
+	yamlContent := []byte(`bases:
+- ../base.yaml
+---
+bases:
+- ../base.gotmpl
+---
+helmDefaults:
+  kubeContext: {{ .Environment.Values.foo }}
+---
+releases:
+- name: myrelease0
+  chart: mychart0
+---
+
+{{ readFile "templates.yaml" }}
+
+releases:
+- name: myrelease1
+  chart: mychart1
+  labels:
+    stage: pre
+    foo: bar
+- name: myrelease1
+  chart: mychart2
+  labels:
+    stage: post
+  <<: *default
+`)
+	files := map[string][]byte{
+		yamlFile: yamlContent,
+		"/path/to/base.yaml": []byte(`environments:
+  default:
+    values:
+    - environments/default/1.yaml
+`),
+		"/path/to/yaml/environments/default/1.yaml": []byte(`foo: FOO`),
+		"/path/to/base.gotmpl": []byte(`environments:
+  default:
+    values:
+    - environments/default/2.yaml
+
+helmDefaults:
+  tillerNamespace: {{ .Environment.Values.tillerNs }}
+`),
+		"/path/to/yaml/environments/default/2.yaml": []byte(`tillerNs: TILLER_NS`),
+		"/path/to/yaml/templates.yaml": []byte(`templates:
+  default: &default
+    missingFileHandler: Warn
+    values: ["` + "{{`" + `{{.Release.Name}}` + "`}}" + `/values.yaml"]
+`),
+	}
+	readFile := func(filename string) ([]byte, error) {
+		content, ok := files[filename]
+		if !ok {
+			return nil, fmt.Errorf("unexpected filename: %s", filename)
+		}
+		return content, nil
+	}
+	app := &App{
+		readFile: readFile,
+		glob:     filepath.Glob,
+		abs:      filepath.Abs,
+		Env:      "default",
+		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
+	}
+	st, err := app.loadDesiredStateFromYaml(yamlFile)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
+		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
+	}
+
+	if st.Releases[0].Name != "myrelease0" {
+		t.Errorf("unexpected releases[0].name: expected=myrelease0, got=%s", st.Releases[0].Name)
+	}
+	if st.Releases[1].Name != "myrelease1" {
+		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", st.Releases[1].Name)
+	}
+	if st.Releases[2].Name != "myrelease1" {
+		t.Errorf("unexpected releases[2].name: expected=myrelease1, got=%s", st.Releases[2].Name)
+	}
+	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
+	}
+	if *st.Releases[2].MissingFileHandler != "Warn" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected=Warn, got=%s", *st.Releases[1].MissingFileHandler)
+	}
+
+	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
+	}
+
+	if st.HelmDefaults.KubeContext != "FOO" {
+		t.Errorf("unexpected helmDefaults.kubeContext: expected=FOO, got=%s", st.HelmDefaults.KubeContext)
 	}
 }

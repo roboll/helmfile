@@ -51,7 +51,7 @@ releases:
 	}
 
 	r := makeLoader(fileReader, "staging")
-	yamlBuf, err := r.renderTemplateToYaml("", "", yamlContent)
+	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -103,7 +103,7 @@ releases:
 
 	r := makeLoader(fileReader, "staging")
 	// test the double rendering
-	yamlBuf, err := r.renderTemplateToYaml("", "", yamlContent)
+	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -152,7 +152,7 @@ releases:
 
 	r := makeLoader(fileReader, "staging")
 	// test the double rendering
-	_, err := r.renderTemplateToYaml("", "", yamlContent)
+	_, err := r.renderTemplatesToYaml("", "", yamlContent)
 
 	if !strings.Contains(err.Error(), "stringTemplate:8") {
 		t.Fatalf("error should contain a stringTemplate error (reference to unknow key) %v", err)
@@ -190,7 +190,7 @@ releases:
 	}
 
 	r := makeLoader(fileReader, "staging")
-	rendered, _ := r.renderTemplateToYaml("", "", yamlContent)
+	rendered, _ := r.renderTemplatesToYaml("", "", yamlContent)
 
 	var state state.HelmState
 	yaml.Unmarshal(rendered.Bytes(), &state)
@@ -217,7 +217,7 @@ func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 	}
 
 	r := makeLoader(fileReader, "staging")
-	yamlBuf, err := r.renderTemplateToYaml("", "", yamlContent)
+	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -248,7 +248,7 @@ releases:
 	}
 
 	r := makeLoader(fileReader, "staging")
-	_, err := r.renderTemplateToYaml("", "", yamlContent)
+	_, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err == nil {
 		t.Fatalf("wanted error, none returned")
 	}

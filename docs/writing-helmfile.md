@@ -125,23 +125,26 @@ environments:
   production:
 ```
 
-At run time, template expressions in your `helmfile.yaml` are executed:
+At run time, `bases` in your `helmfile.yaml` are evaluated to produce:
 
 ```yaml
+# commons.yaml
 releases:
 - name: metricbaet
   chart: stable/metricbeat
 ---
+# environments.yaml
 environments:
   development:
   production:
 ---
+# helmfile.yaml
 releases:
 - name: myapp
   chart: mychart
 ```
 
-Resulting YAML documents are merged in the order of occurrence,
+Finally the resulting YAML documents are merged in the order of occurrence,
 so that your `helmfile.yaml` becomes:
 
 ```yaml
@@ -159,3 +162,5 @@ releases:
 Great!
 
 Now, repeat the above steps for each your `helmfile.yaml`, so that all your helmfiles becomes DRY.
+
+Please also see [the discussion in the issue 388](https://github.com/roboll/helmfile/issues/388#issuecomment-491710348) for more advanced layering examples.
