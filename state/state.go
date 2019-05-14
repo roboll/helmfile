@@ -1021,7 +1021,10 @@ func chartNameWithoutRepository(chart string) string {
 // find "Chart.yaml"
 func findChartDirectory(topLevelDir string) (string, error) {
 	var files []string
-	filepath.Walk(topLevelDir, func(path string, f os.FileInfo, _ error) error {
+	filepath.Walk(topLevelDir, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("error walking through %s: %v", path, err)
+		}
 		if !f.IsDir() {
 			r, err := regexp.MatchString("Chart.yaml", f.Name())
 			if err == nil && r {
