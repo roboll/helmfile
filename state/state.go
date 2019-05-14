@@ -450,6 +450,10 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 						chartPath = path.Join(dir, release.Name, "latest", release.Chart)
 					}
 
+					if st.isDevelopment(release) {
+						fetchFlags = append(fetchFlags, "--devel")
+					}
+
 					// only fetch chart if it is not already fetched
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
 						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
@@ -463,7 +467,6 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 						chartPath = filepath.Dir(fullChartPath)
 					}
 				}
-
 				results <- &downloadResults{release.Name, chartPath}
 			}
 		},

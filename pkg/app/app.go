@@ -340,6 +340,9 @@ func (e *Error) Error() string {
 	} else {
 		msgs := []string{}
 		for i, err := range e.Errors {
+			if err == nil {
+				continue
+			}
 			msgs = append(msgs, fmt.Sprintf("err %d: %v", i, err.Error()))
 		}
 		cause = fmt.Sprintf("%d errors:\n%s", len(e.Errors), strings.Join(msgs, "\n"))
