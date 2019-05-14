@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -33,16 +32,6 @@ func (e *UndefinedEnvError) Error() string {
 	return e.msg
 }
 
-func createFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {
-	c := &creator{
-		logger,
-		ioutil.ReadFile,
-		filepath.Abs,
-		true,
-	}
-	return c.CreateFromYaml(content, file, env)
-}
-
 type creator struct {
 	logger   *zap.SugaredLogger
 	readFile func(string) ([]byte, error)
@@ -60,15 +49,12 @@ func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error)
 	}
 }
 
-func (c *creator) CreateFromYaml(content []byte, file string, env string) (*HelmState, error) {
+// Parses YAML into HelmState, while loading environment values files relative to the `cwd`
+func (c *creator) ParseAndLoadEnv(content []byte, baseDir, file string, env string) (*HelmState, error) {
 	var state HelmState
 
-	basePath, err := c.abs(filepath.Dir(file))
-	if err != nil {
-		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
-	}
 	state.FilePath = file
-	state.basePath = basePath
+	state.basePath = baseDir
 
 	decoder := yaml.NewDecoder(bytes.NewReader(content))
 	if !c.Strict {

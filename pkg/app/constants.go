@@ -13,6 +13,10 @@ const (
 	ExperimentalSelectorExplicit = "explicit-selector-inheritance" // value to remove default selector inheritance to sub-helmfiles and use the explicit one
 )
 
+func experimentalModeEnabled() bool {
+	return os.Getenv(ExperimentalEnvVar) == "true"
+}
+
 func isExplicitSelectorInheritanceEnabled() bool {
-	return os.Getenv(ExperimentalEnvVar) == "true" || strings.Contains(os.Getenv(ExperimentalEnvVar), ExperimentalSelectorExplicit)
+	return experimentalModeEnabled() || strings.Contains(os.Getenv(ExperimentalEnvVar), ExperimentalSelectorExplicit)
 }

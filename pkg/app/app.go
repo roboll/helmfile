@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/state"
@@ -14,7 +15,6 @@ import (
 
 	"path/filepath"
 	"sort"
-	"syscall"
 )
 
 type App struct {
@@ -111,34 +111,42 @@ func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
 	return nil
 }
 
+func (a *App) loadDesiredStateFromYaml(file string) (*state.HelmState, error) {
+	ld := &desiredStateLoader{
+		readFile:  a.readFile,
+		env:       a.Env,
+		namespace: a.Namespace,
+		logger:    a.Logger,
+		abs:       a.abs,
+
+		Reverse:     a.Reverse,
+		KubeContext: a.KubeContext,
+		glob:        a.glob,
+	}
+	return ld.Load(file)
+}
+
 func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	noMatchInHelmfiles := true
 
 	err := a.visitStateFiles(fileOrDir, func(f string) error {
-		content, err := a.readFile(f)
-		if err != nil {
-			return err
-		}
-		// render template, in two runs
-		r := &twoPassRenderer{
-			reader:    a.readFile,
-			env:       a.Env,
-			namespace: a.Namespace,
-			filename:  f,
-			logger:    a.Logger,
-			abs:       a.abs,
-		}
-		yamlBuf, err := r.renderTemplate(content)
-		if err != nil {
-			return fmt.Errorf("error during %s parsing: %v", f, err)
-		}
+		st, err := a.loadDesiredStateFromYaml(f)
 
-		st, err := a.loadDesiredStateFromYaml(
-			yamlBuf.Bytes(),
-			f,
-			a.Namespace,
-			a.Env,
-		)
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			sig := <-sigs
+
+			errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
+			_ = context{a, st}.clean(errs)
+			// See http://tldp.org/LDP/abs/html/exitcodes.html
+			switch sig {
+			case syscall.SIGINT:
+				os.Exit(130)
+			case syscall.SIGTERM:
+				os.Exit(143)
+			}
+		}()
 
 		ctx := context{a, st}
 
@@ -311,78 +319,6 @@ func fileExistsAt(path string) bool {
 func directoryExistsAt(path string) bool {
 	fileInfo, err := os.Stat(path)
 	return err == nil && fileInfo.Mode().IsDir()
-}
-
-func (a *App) loadDesiredStateFromYaml(yaml []byte, file string, namespace string, env string) (*state.HelmState, error) {
-	c := state.NewCreator(a.Logger, a.readFile, a.abs)
-	st, err := c.CreateFromYaml(yaml, file, env)
-	if err != nil {
-		return nil, err
-	}
-
-	helmfiles := []state.SubHelmfileSpec{}
-	for _, hf := range st.Helmfiles {
-		globPattern := hf.Path
-		var absPathPattern string
-		if filepath.IsAbs(globPattern) {
-			absPathPattern = globPattern
-		} else {
-			absPathPattern = st.JoinBase(globPattern)
-		}
-		matches, err := a.glob(absPathPattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
-		}
-		sort.Strings(matches)
-		for _, match := range matches {
-			newHelmfile := hf
-			newHelmfile.Path = match
-			helmfiles = append(helmfiles, newHelmfile)
-		}
-
-	}
-	st.Helmfiles = helmfiles
-
-	if a.Reverse {
-		rev := func(i, j int) bool {
-			return j < i
-		}
-		sort.Slice(st.Releases, rev)
-		sort.Slice(st.Helmfiles, rev)
-	}
-
-	if a.KubeContext != "" {
-		if st.HelmDefaults.KubeContext != "" {
-			log.Printf("err: Cannot use option --kube-context and set attribute helmDefaults.kubeContext.")
-			os.Exit(1)
-		}
-		st.HelmDefaults.KubeContext = a.KubeContext
-	}
-	if namespace != "" {
-		if st.Namespace != "" {
-			log.Printf("err: Cannot use option --namespace and set attribute namespace.")
-			os.Exit(1)
-		}
-		st.Namespace = namespace
-	}
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigs
-
-		errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
-		_ = context{a, st}.clean(errs)
-		// See http://tldp.org/LDP/abs/html/exitcodes.html
-		switch sig {
-		case syscall.SIGINT:
-			os.Exit(130)
-		case syscall.SIGTERM:
-			os.Exit(143)
-		}
-	}()
-
-	return st, nil
 }
 
 type Error struct {

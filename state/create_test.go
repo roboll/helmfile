@@ -2,6 +2,8 @@ package state
 
 import (
 	"fmt"
+	"go.uber.org/zap"
+	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -9,6 +11,16 @@ import (
 	. "gotest.tools/assert"
 	"gotest.tools/assert/cmp"
 )
+
+func createFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {
+	c := &creator{
+		logger,
+		ioutil.ReadFile,
+		filepath.Abs,
+		true,
+	}
+	return c.ParseAndLoadEnv(content, filepath.Dir(file), file, env)
+}
 
 func TestReadFromYaml(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
@@ -101,7 +113,7 @@ bar: {{ readFile "bar.txt" }}
 		return nil, fmt.Errorf("unexpected filename: %s", filename)
 	}
 
-	state, err := NewCreator(logger, readFile, filepath.Abs).CreateFromYaml(yamlContent, yamlFile, "production")
+	state, err := NewCreator(logger, readFile, filepath.Abs).ParseAndLoadEnv(yamlContent, filepath.Dir(yamlFile), yamlFile, "production")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
