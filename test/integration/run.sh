@@ -76,6 +76,16 @@ ${helmfile} -f ${dir}/happypath.yaml apply
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
 
+info "Locking dependencies"
+${helmfile} -f ${dir}/happypath.yaml deps
+code=$?
+[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile deps: ${code}"
+
+info "Applying ${dir}/happypath.yaml with locked dependencies"
+${helmfile} -f ${dir}/happypath.yaml apply
+code=$?
+[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
+
 info "Deleting release"
 ${helmfile} -f ${dir}/happypath.yaml delete
 ${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a delete"

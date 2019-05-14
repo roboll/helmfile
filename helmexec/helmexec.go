@@ -20,3 +20,7 @@ type Interface interface {
 	List(context HelmContext, filter string, flags ...string) (string, error)
 	DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
 }
+
+type DependencyUpdater interface {
+	UpdateDeps(chart string) error
+}

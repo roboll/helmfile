@@ -1,7 +1,9 @@
 package state
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -551,7 +553,7 @@ func Test_isLocalChart(t *testing.T) {
 			args: args{
 				chart: "",
 			},
-			want: false,
+			want: true,
 		},
 		{
 			name: "parent local path",
@@ -567,11 +569,25 @@ func Test_isLocalChart(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "absolute path",
+			args: args{
+				chart: "/foo/bar/baz",
+			},
+			want: true,
+		},
+		{
+			name: "local chart in 3-level deep dir",
+			args: args{
+				chart: "foo/bar/baz",
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isLocalChart(tt.args.chart); got != tt.want {
-				t.Errorf("pathExists() = %v, want %v", got, tt.want)
+				t.Errorf("%s(\"%s\") isLocalChart(): got %v, want %v", tt.name, tt.args.chart, got, tt.want)
 			}
 		})
 	}
@@ -643,6 +659,8 @@ type mockHelmExec struct {
 	deleted  []mockRelease
 	lists    map[listKey]string
 	diffed   []mockRelease
+
+	updateDepsCallbacks map[string]func(string) error
 }
 
 type mockRelease struct {
@@ -658,9 +676,18 @@ type mockAffected struct {
 
 func (helm *mockHelmExec) UpdateDeps(chart string) error {
 	if strings.Contains(chart, "error") {
-		return errors.New("error")
+		return fmt.Errorf("simulated UpdateDeps failure for chart: %s", chart)
 	}
 	helm.charts = append(helm.charts, chart)
+
+	if helm.updateDepsCallbacks != nil {
+		callback, exists := helm.updateDepsCallbacks[chart]
+		if exists {
+			if err := callback(chart); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -1394,8 +1421,36 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 }
 
 func TestHelmState_UpdateDeps(t *testing.T) {
+	helm := &mockHelmExec{
+		updateDepsCallbacks: map[string]func(string) error{},
+	}
+
+	var generatedDir string
+	tempDir := func(dir, prefix string) (string, error) {
+		var err error
+		generatedDir, err = ioutil.TempDir(dir, prefix)
+		if err != nil {
+			return "", err
+		}
+		helm.updateDepsCallbacks[generatedDir] = func(chart string) error {
+			content := []byte(`dependencies:
+- name: envoy
+  repository: https://kubernetes-charts.storage.googleapis.com
+  version: 1.5.0
+digest: sha256:e43b05c8528ea8ef1560f4980a519719ad2a634658abde0a98daefdb83a104e9
+generated: 2019-05-14T11:29:35.144399+09:00
+`)
+			filename := filepath.Join(generatedDir, "requirements.lock")
+			logger.Debugf("test: writing %s: %s", filename, content)
+			return ioutil.WriteFile(filename, content, 0644)
+		}
+		return generatedDir, nil
+	}
+
+	logger := helmexec.NewLogger(os.Stderr, "debug")
 	state := &HelmState{
 		basePath: "/src",
+		FilePath: "/src/helmfile.yaml",
 		Releases: []ReleaseSpec{
 			{
 				Chart: "./..",
@@ -1413,19 +1468,35 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 				Chart: "published/deeper",
 			},
 			{
-				Chart: ".error",
+				Chart: "stable/envoy",
 			},
 		},
+		Repositories: []RepositorySpec{
+			{
+				Name: "stable",
+				URL:  "https://kubernetes-charts.storage.googleapis.com",
+			},
+		},
+		tempDir: tempDir,
+		logger:  logger,
 	}
 
-	want := []string{"/", "/examples", "/helmfile"}
-	helm := &mockHelmExec{}
 	errs := state.UpdateDeps(helm)
+	want := []string{"/", "/examples", "/helmfile", "/src/published", generatedDir}
 	if !reflect.DeepEqual(helm.charts, want) {
 		t.Errorf("HelmState.UpdateDeps() = %v, want %v", helm.charts, want)
 	}
 	if len(errs) != 0 {
-		t.Errorf("HelmState.UpdateDeps() - no errors, but got: %v", len(errs))
+		t.Errorf("HelmState.UpdateDeps() - no errors, but got %d: %v", len(errs), errs)
+	}
+
+	resolved, err := state.ResolveDeps()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if resolved.Releases[5].Version != "1.5.0" {
+		t.Errorf("unexpected version number: expected=1.5.0, got=%s", resolved.Releases[5].Version)
 	}
 }
 
