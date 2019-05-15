@@ -24,12 +24,4 @@ releases:
     chart: incubator/raw
     values:
       - mysecret: {{ .Environment.Values.mysecret }}
-        resources: []
-        templates:
-          - |
-            apiVersion: v1
-            kind: Secret
-            metadata:
-              name: common-secret
-            stringData:
-              mykey: {{ .Values.mysecret }}
+      - values.yaml
