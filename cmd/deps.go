@@ -8,7 +8,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func Deps(a *app.App) cli.Command {
+func Deps() cli.Command {
 	return cli.Command{
 		Name:  "deps",
 		Usage: "update charts based on the contents of requirements.yaml",

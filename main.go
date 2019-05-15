@@ -90,6 +90,7 @@ func main() {
 
 	cliApp.Before = configureLogging
 	cliApp.Commands = []cli.Command{
+		cmd.Deps(),
 		{
 			Name:  "repos",
 			Usage: "sync repositories from state file (helm repo add && helm repo update)",
@@ -184,7 +185,7 @@ func main() {
 							return errs
 						}
 					}
-					if errs := state.PrepareRelease(helm, "diff"); errs != nil && len(errs) > 0 {
+					if errs := state.PrepareReleases(helm, "diff"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 
@@ -226,7 +227,7 @@ func main() {
 							return errs
 						}
 					}
-					if errs := state.PrepareRelease(helm, "template"); errs != nil && len(errs) > 0 {
+					if errs := state.PrepareReleases(helm, "template"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					return executeTemplateCommand(c, state, helm)
@@ -260,7 +261,7 @@ func main() {
 					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
 						return errs
 					}
-					if errs := state.PrepareRelease(helm, "lint"); errs != nil && len(errs) > 0 {
+					if errs := state.PrepareReleases(helm, "lint"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					return state.LintReleases(helm, values, args, workers)
@@ -301,7 +302,7 @@ func main() {
 							return errs
 						}
 					}
-					if errs := st.PrepareRelease(helm, "sync"); errs != nil && len(errs) > 0 {
+					if errs := st.PrepareReleases(helm, "sync"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					return executeSyncCommand(c, &affectedReleases, st, helm)
@@ -348,7 +349,7 @@ func main() {
 							return errs
 						}
 					}
-					if errs := st.PrepareRelease(helm, "apply"); errs != nil && len(errs) > 0 {
+					if errs := st.PrepareReleases(helm, "apply"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 

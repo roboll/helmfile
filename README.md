@@ -261,6 +261,20 @@ dependencies of any referenced local charts.
 
 For Helm 2.9+ you can use a username and password to authenticate to a remote repository.
 
+### deps
+
+The `helmfile deps` sub-command locks your helmfile state and local charts dependencies.
+
+It basically runs `helm dependency update` on your helmfile state file and all the referenced local charts, so that you get a "lock" file per each helmfile state or local chart.
+
+All the other `helmfile` sub-commands like `sync` use chart versions recorded in the lock files, so that e.g. untested chart versions won't suddenly get deployed to the production environment.
+
+For example, the lock file for a helmfile state file named `helmfile.1.yaml` will be `helmfile.1.lock`. The lock file for a local chart would be `requirements.lock`, which is the same as `helm`.
+
+It is recommended to version-control all the lock files, so that they can be used in the production deployment pipeline for extra reproducibility.
+
+To bring in chart updates systematically, it would also be a good idea to run `helmfile deps` regularly, test it, and then update the lock files in the version-control system.
+
 ### diff
 
 The `helmfile diff` sub-command executes the [helm-diff](https://github.com/databus23/helm-diff) plugin across all of
@@ -291,6 +305,7 @@ The `helmfile delete` sub-command deletes all the releases defined in the manife
 `helmfile --interactive delete` instructs Helmfile to request your confirmation before actually deleting releases.
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
+
 
 ### secrets
 

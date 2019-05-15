@@ -51,6 +51,7 @@ type HelmState struct {
 
 	removeFile func(string) error
 	fileExists func(string) (bool, error)
+	tempDir    func(string, string) (string, error)
 
 	runner helmexec.Runner
 }
@@ -902,7 +903,7 @@ func (st *HelmState) FilterReleases() error {
 	return nil
 }
 
-func (st *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand string) []error {
+func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand string) []error {
 	errs := []error{}
 
 	for _, release := range st.Releases {
@@ -914,6 +915,14 @@ func (st *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand str
 	if len(errs) != 0 {
 		return errs
 	}
+
+	updated, err := st.ResolveDeps()
+	if err != nil {
+		return []error{err}
+	}
+
+	*st = *updated
+
 	return nil
 }
 
@@ -946,6 +955,11 @@ func (st *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd
 	return bus.Trigger(evt, data)
 }
 
+// ResolveDeps returns a copy of this helmfile state with the concrete chart version numbers filled in for remote chart dependencies
+func (st *HelmState) ResolveDeps() (*HelmState, error) {
+	return st.mergeLockedDependencies()
+}
+
 // UpdateDeps wrapper for updating dependencies on the releases
 func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 	errs := []error{}
@@ -957,6 +971,18 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 			}
 		}
 	}
+
+	if len(errs) == 0 {
+		tempDir := st.tempDir
+		if tempDir == nil {
+			tempDir = ioutil.TempDir
+		}
+		_, err := st.updateDependenciesInTempDir(helm, tempDir)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("unable to update deps: %v", err))
+		}
+	}
+
 	if len(errs) != 0 {
 		return errs
 	}
@@ -1008,7 +1034,12 @@ func normalizeChart(basePath, chart string) string {
 
 func isLocalChart(chart string) bool {
 	regex, _ := regexp.Compile("^[.]?./")
-	return regex.MatchString(chart)
+	matched := regex.MatchString(chart)
+	if matched {
+		return true
+	}
+
+	return chart == "" || chart[0] == '/' || len(strings.Split(chart, "/")) != 2
 }
 
 func pathExists(chart string) bool {
