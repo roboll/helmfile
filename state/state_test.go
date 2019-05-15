@@ -1500,6 +1500,52 @@ generated: 2019-05-14T11:29:35.144399+09:00
 	}
 }
 
+func TestHelmState_ResolveDeps(t *testing.T) {
+	logger := helmexec.NewLogger(os.Stderr, "debug")
+	state := &HelmState{
+		basePath: "/src",
+		FilePath: "/src/helmfile.yaml",
+		Releases: []ReleaseSpec{
+			{
+				Chart: "./..",
+			},
+			{
+				Chart: "../examples",
+			},
+			{
+				Chart: "../../helmfile",
+			},
+			{
+				Chart: "published",
+			},
+			{
+				Chart: "published/deeper",
+			},
+			{
+				Chart: "stable/envoy",
+			},
+		},
+		Repositories: []RepositorySpec{
+			{
+				Name: "stable",
+				URL:  "https://kubernetes-charts.storage.googleapis.com",
+			},
+		},
+		logger: logger,
+		readFile: func(f string) ([]byte, error) {
+			if f != "helmfile.lock" {
+				return nil, fmt.Errorf("stub: unexpected file: %s", f)
+			}
+			return nil, os.ErrNotExist
+		},
+	}
+
+	_, err := state.ResolveDeps()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestHelmState_ReleaseStatuses(t *testing.T) {
 	tests := []struct {
 		name     string
