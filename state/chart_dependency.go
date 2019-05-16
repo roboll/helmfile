@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"github.com/Masterminds/semver"
 	"github.com/roboll/helmfile/helmexec"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -38,19 +39,8 @@ type ResolvedChartDependency struct {
 	Version string `yaml:"version"`
 }
 
-// StatePackage is for packaging your helmfile state file along with its dependencies.
-// The only type of dependency currently supported is `chart`.
-// It is transient and generated on demand while resolving dependencies, and automatically removed afterwards.
-type StatePackage struct {
-	// name is the name of the package.
-	// Usually this is the "basename" of the helmfile state file, e.g. `helmfile.2` when the state file is named `helmfile.2.yaml`, `helmfille.2.gotmpl`, or `helmfile.2.yaml.gotmpl`.
-	name string
-
-	chartDependencies map[string]unresolvedChartDependency
-}
-
 type UnresolvedDependencies struct {
-	deps map[string]unresolvedChartDependency
+	deps map[string][]unresolvedChartDependency
 }
 
 type ChartRequirements struct {
@@ -71,46 +61,68 @@ func (d *UnresolvedDependencies) Add(chart, url, versionConstraint string) error
 }
 
 func (d *UnresolvedDependencies) add(dep unresolvedChartDependency) error {
-	existing, exists := d.deps[dep.ChartName]
-	if exists && (existing.Repository != dep.Repository || existing.VersionConstraint != dep.VersionConstraint) {
-		return fmt.Errorf("duplicate chart dependency \"%s\". you can't have two or more charts with the same name but with different urls or versions: existing=%v, new=%v", dep.ChartName, existing, dep)
+	deps := d.deps[dep.ChartName]
+	if deps == nil {
+		deps = []unresolvedChartDependency{dep}
+	} else {
+		deps = append(deps, dep)
 	}
-	d.deps[dep.ChartName] = dep
+	d.deps[dep.ChartName] = deps
 	return nil
 }
 
 func (d *UnresolvedDependencies) ToChartRequirements() *ChartRequirements {
 	deps := []unresolvedChartDependency{}
 
-	for _, d := range d.deps {
-		if d.VersionConstraint == "" {
-			d.VersionConstraint = "*"
+	for _, ds := range d.deps {
+		for _, d := range ds {
+			if d.VersionConstraint == "" {
+				d.VersionConstraint = "*"
+			}
+			deps = append(deps, d)
 		}
-		deps = append(deps, d)
 	}
 
 	return &ChartRequirements{UnresolvedDependencies: deps}
 }
 
 type ResolvedDependencies struct {
-	deps map[string]ResolvedChartDependency
+	deps map[string][]ResolvedChartDependency
 }
 
 func (d *ResolvedDependencies) add(dep ResolvedChartDependency) error {
-	_, exists := d.deps[dep.ChartName]
-	if exists {
-		return fmt.Errorf("duplicate chart dependency \"%s\"", dep.ChartName)
+	deps := d.deps[dep.ChartName]
+	if deps == nil {
+		deps = []ResolvedChartDependency{dep}
+	} else {
+		deps = append(deps, dep)
 	}
-	d.deps[dep.ChartName] = dep
+	d.deps[dep.ChartName] = deps
 	return nil
 }
 
-func (d *ResolvedDependencies) Get(chart string) (string, error) {
-	dep, exists := d.deps[chart]
-	if !exists {
-		return "", fmt.Errorf("no resolved dependency found for \"%s\"", chart)
+func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, error) {
+	if versionConstraint == "" {
+		versionConstraint = "*"
 	}
-	return dep.Version, nil
+
+	deps, exists := d.deps[chart]
+	if exists {
+		for _, dep := range deps {
+			constraint, err := semver.NewConstraint(versionConstraint)
+			if err != nil {
+				return "", err
+			}
+			version, err := semver.NewVersion(dep.Version)
+			if err != nil {
+				return "", err
+			}
+			if constraint.Check(version) {
+				return dep.Version, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no resolved dependency found for \"%s\"", chart)
 }
 
 func resolveRemoteChart(repoAndChart string) (string, string, bool) {
@@ -176,7 +188,7 @@ func resolveDependencies(st *HelmState, depMan *chartDependencyManager, unresolv
 			continue
 		}
 
-		ver, err := resolved.Get(chart)
+		ver, err := resolved.Get(chart, r.Version)
 		if err != nil {
 			return nil, err
 		}
@@ -213,7 +225,7 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 		repoToURL[r.Name] = r.URL
 	}
 
-	unresolved := &UnresolvedDependencies{deps: map[string]unresolvedChartDependency{}}
+	unresolved := &UnresolvedDependencies{deps: map[string][]unresolvedChartDependency{}}
 	//if err := unresolved.Add("stable/envoy", "https://kubernetes-charts.storage.googleapis.com", ""); err != nil {
 	//	panic(err)
 	//}
@@ -340,7 +352,7 @@ func (m *chartDependencyManager) Resolve(unresolved *UnresolvedDependencies) (*R
 		return nil, false, err
 	}
 
-	resolved := &ResolvedDependencies{deps: map[string]ResolvedChartDependency{}}
+	resolved := &ResolvedDependencies{deps: map[string][]ResolvedChartDependency{}}
 	for _, d := range lockedReqs.ResolvedDependencies {
 		if err := resolved.add(d); err != nil {
 			return nil, false, err
