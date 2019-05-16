@@ -374,7 +374,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					results <- syncResult{errors: []*ReleaseError{relErr}}
 				}
 
-				if _, err := st.triggerCleanupEvent(prep.release, "sync"); err != nil {
+				if _, err := st.triggerPostsyncEvent(release, "sync"); err != nil {
+					st.logger.Warnf("warn: %v\n", err)
+				}
+
+				if _, err := st.triggerCleanupEvent(release, "sync"); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 			}
@@ -936,6 +940,10 @@ func (st *HelmState) triggerCleanupEvent(r *ReleaseSpec, helmfileCommand string)
 
 func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
 	return st.triggerReleaseEvent("presync", r, helmfileCommand)
+}
+
+func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+	return st.triggerReleaseEvent("postsync", r, helmfileCommand)
 }
 
 func (st *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd string) (bool, error) {
