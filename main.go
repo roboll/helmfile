@@ -252,14 +252,23 @@ func main() {
 					Value: 0,
 					Usage: "maximum number of concurrent downloads of release charts",
 				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
 					values := c.StringSlice("values")
 					args := args.GetArgs(c.String("args"), state)
 					workers := c.Int("concurrency")
-					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
-						return errs
+					if !c.Bool("skip-deps") {
+						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
 					}
 					if errs := state.PrepareReleases(helm, "lint"); errs != nil && len(errs) > 0 {
 						return errs
