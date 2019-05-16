@@ -1437,8 +1437,11 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 - name: envoy
   repository: https://kubernetes-charts.storage.googleapis.com
   version: 1.5.0
-digest: sha256:e43b05c8528ea8ef1560f4980a519719ad2a634658abde0a98daefdb83a104e9
-generated: 2019-05-14T11:29:35.144399+09:00
+- name: envoy
+  repository: https://kubernetes-charts.storage.googleapis.com
+  version: 1.4.0
+digest: sha256:8194b597c85bb3d1fee8476d4a486e952681d5c65f185ad5809f2118bc4079b5
+generated: 2019-05-16T15:42:45.50486+09:00
 `)
 			filename := filepath.Join(generatedDir, "requirements.lock")
 			logger.Debugf("test: writing %s: %s", filename, content)
@@ -1468,7 +1471,12 @@ generated: 2019-05-14T11:29:35.144399+09:00
 				Chart: "published/deeper",
 			},
 			{
-				Chart: "stable/envoy",
+				Chart:   "stable/envoy",
+				Version: "1.5.0",
+			},
+			{
+				Chart:   "stable/envoy",
+				Version: "1.4.0",
 			},
 		},
 		Repositories: []RepositorySpec{
@@ -1498,9 +1506,12 @@ generated: 2019-05-14T11:29:35.144399+09:00
 	if resolved.Releases[5].Version != "1.5.0" {
 		t.Errorf("unexpected version number: expected=1.5.0, got=%s", resolved.Releases[5].Version)
 	}
+	if resolved.Releases[6].Version != "1.4.0" {
+		t.Errorf("unexpected version number: expected=1.4.0, got=%s", resolved.Releases[6].Version)
+	}
 }
 
-func TestHelmState_ResolveDeps(t *testing.T) {
+func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 	logger := helmexec.NewLogger(os.Stderr, "debug")
 	state := &HelmState{
 		basePath: "/src",
