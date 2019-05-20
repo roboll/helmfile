@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strings"
 	"syscall"
 
 	"github.com/roboll/helmfile/helmexec"
@@ -82,7 +83,7 @@ func (a *App) within(dir string, do func() error) error {
 func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
 	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir)
 	if err != nil {
-		return err
+		return appError("", err)
 	}
 
 	for _, relPath := range desiredStateFiles {
@@ -102,41 +103,51 @@ func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
 			return do(file)
 		})
 		if err != nil {
-			return err
+			return appError(fmt.Sprintf("in %s/%s", dir, file), err)
 		}
 	}
 
 	return nil
 }
 
+func (a *App) loadDesiredStateFromYaml(file string) (*state.HelmState, error) {
+	ld := &desiredStateLoader{
+		readFile:  a.readFile,
+		env:       a.Env,
+		namespace: a.Namespace,
+		logger:    a.Logger,
+		abs:       a.abs,
+
+		Reverse:     a.Reverse,
+		KubeContext: a.KubeContext,
+		glob:        a.glob,
+	}
+	return ld.Load(file)
+}
+
 func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	noMatchInHelmfiles := true
 
 	err := a.visitStateFiles(fileOrDir, func(f string) error {
-		content, err := a.readFile(f)
-		if err != nil {
-			return err
-		}
-		// render template, in two runs
-		r := &twoPassRenderer{
-			reader:    a.readFile,
-			env:       a.Env,
-			namespace: a.Namespace,
-			filename:  f,
-			logger:    a.Logger,
-			abs:       a.abs,
-		}
-		yamlBuf, err := r.renderTemplate(content)
-		if err != nil {
-			return fmt.Errorf("error during %s parsing: %v", f, err)
-		}
+		st, err := a.loadDesiredStateFromYaml(f)
 
-		st, err := a.loadDesiredStateFromYaml(
-			yamlBuf.Bytes(),
-			f,
-			a.Namespace,
-			a.Env,
-		)
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			sig := <-sigs
+
+			errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
+			_ = context{a, st}.clean(errs)
+			// See http://tldp.org/LDP/abs/html/exitcodes.html
+			switch sig {
+			case syscall.SIGINT:
+				os.Exit(130)
+			case syscall.SIGTERM:
+				os.Exit(143)
+			}
+		}()
+
+		ctx := context{a, st}
 
 		helm := helmexec.New(a.Logger, a.KubeContext)
 
@@ -148,17 +159,17 @@ func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge f
 				case *state.UndefinedEnvError:
 					return nil
 				default:
-					return err
+					return ctx.wrapErrs(err)
 				}
 			default:
-				return err
+				return ctx.wrapErrs(err)
 			}
 		}
 		st.Selectors = selector
 
 		if len(st.Helmfiles) > 0 {
 			noMatchInSubHelmfiles := true
-			for _, m := range st.Helmfiles {
+			for i, m := range st.Helmfiles {
 				//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
 				if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
 					m.Selectors = selector
@@ -168,7 +179,7 @@ func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge f
 					case *NoMatchingHelmfileError:
 
 					default:
-						return fmt.Errorf("failed processing %s: %v", m.Path, err)
+						return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
 					}
 				} else {
 					noMatchInSubHelmfiles = false
@@ -179,11 +190,11 @@ func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge f
 
 		templated, tmplErr := st.ExecuteTemplates()
 		if tmplErr != nil {
-			return fmt.Errorf("failed executing release templates in \"%s\": %v", f, tmplErr)
+			return appError(fmt.Sprintf("failed executing release templates in \"%s\"", f), tmplErr)
 		}
 		processed, errs := converge(templated, helm)
 		noMatchInHelmfiles = noMatchInHelmfiles && !processed
-		return clean(templated, errs)
+		return context{a, templated}.clean(errs)
 	})
 
 	if err != nil {
@@ -285,11 +296,11 @@ func (a *App) findDesiredStateFiles(specifiedPath string) ([]string, error) {
 		} else if defaultFile != "" {
 			return []string{defaultFile}, nil
 		} else {
-			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.yaml, %s, or %s, or otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DeprecatedHelmfile)
+			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml}, %s, or %s, or otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DeprecatedHelmfile)
 		}
 	}
 
-	files, err := a.glob(filepath.Join(helmfileDir, "*.yaml"))
+	files, err := a.glob(filepath.Join(helmfileDir, "*.y*ml"))
 	if err != nil {
 		return []string{}, err
 	}
@@ -309,98 +320,104 @@ func directoryExistsAt(path string) bool {
 	return err == nil && fileInfo.Mode().IsDir()
 }
 
-func (a *App) loadDesiredStateFromYaml(yaml []byte, file string, namespace string, env string) (*state.HelmState, error) {
-	c := state.NewCreator(a.Logger, a.readFile, a.abs)
-	st, err := c.CreateFromYaml(yaml, file, env)
-	if err != nil {
-		return nil, err
-	}
+type Error struct {
+	msg string
 
-	helmfiles := []state.SubHelmfileSpec{}
-	for _, hf := range st.Helmfiles {
-		globPattern := hf.Path
-		var absPathPattern string
-		if filepath.IsAbs(globPattern) {
-			absPathPattern = globPattern
-		} else {
-			absPathPattern = st.JoinBase(globPattern)
-		}
-		matches, err := a.glob(absPathPattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
-		}
-		sort.Strings(matches)
-		for _, match := range matches {
-			newHelmfile := hf
-			newHelmfile.Path = match
-			helmfiles = append(helmfiles, newHelmfile)
-		}
-
-	}
-	st.Helmfiles = helmfiles
-
-	if a.Reverse {
-		rev := func(i, j int) bool {
-			return j < i
-		}
-		sort.Slice(st.Releases, rev)
-		sort.Slice(st.Helmfiles, rev)
-	}
-
-	if a.KubeContext != "" {
-		if st.HelmDefaults.KubeContext != "" {
-			log.Printf("err: Cannot use option --kube-context and set attribute helmDefaults.kubeContext.")
-			os.Exit(1)
-		}
-		st.HelmDefaults.KubeContext = a.KubeContext
-	}
-	if namespace != "" {
-		if st.Namespace != "" {
-			log.Printf("err: Cannot use option --namespace and set attribute namespace.")
-			os.Exit(1)
-		}
-		st.Namespace = namespace
-	}
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigs
-
-		errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
-		_ = clean(st, errs)
-		// See http://tldp.org/LDP/abs/html/exitcodes.html
-		switch sig {
-		case syscall.SIGINT:
-			os.Exit(130)
-		case syscall.SIGTERM:
-			os.Exit(143)
-		}
-	}()
-
-	return st, nil
+	Errors []error
 }
 
-func clean(st *state.HelmState, errs []error) error {
+func (e *Error) Error() string {
+	var cause string
+	if e.Errors == nil {
+		return e.msg
+	}
+	if len(e.Errors) == 1 {
+		if e.Errors[0] == nil {
+			panic(fmt.Sprintf("[bug] assertion error: unexpected state: e.Errors: %v", e.Errors))
+		}
+		cause = e.Errors[0].Error()
+	} else {
+		msgs := []string{}
+		for i, err := range e.Errors {
+			if err == nil {
+				continue
+			}
+			msgs = append(msgs, fmt.Sprintf("err %d: %v", i, err.Error()))
+		}
+		cause = fmt.Sprintf("%d errors:\n%s", len(e.Errors), strings.Join(msgs, "\n"))
+	}
+	msg := ""
+	if e.msg != "" {
+		msg = fmt.Sprintf("%s: %s", e.msg, cause)
+	} else {
+		msg = cause
+	}
+	return msg
+}
+
+func (e *Error) Code() int {
+	allDiff := false
+	anyNonZero := false
+	for _, err := range e.Errors {
+		switch ee := err.(type) {
+		case *state.ReleaseError:
+			if anyNonZero {
+				allDiff = allDiff && ee.Code == 2
+			} else {
+				allDiff = ee.Code == 2
+			}
+		case *Error:
+			if anyNonZero {
+				allDiff = allDiff && ee.Code() == 2
+			} else {
+				allDiff = ee.Code() == 2
+			}
+		}
+		anyNonZero = true
+	}
+
+	if anyNonZero {
+		if allDiff {
+			return 2
+		}
+		return 1
+	}
+	panic(fmt.Sprintf("[bug] assertion error: unexpected state: unable to handle errors: %v", e.Errors))
+}
+
+func appError(msg string, err error) error {
+	return &Error{msg, []error{err}}
+}
+
+func (c context) clean(errs []error) error {
 	if errs == nil {
 		errs = []error{}
 	}
 
-	cleanErrs := st.Clean()
+	cleanErrs := c.st.Clean()
 	if cleanErrs != nil {
 		errs = append(errs, cleanErrs...)
 	}
 
+	return c.wrapErrs(errs...)
+}
+
+type context struct {
+	app *App
+	st  *state.HelmState
+}
+
+func (c context) wrapErrs(errs ...error) error {
 	if errs != nil && len(errs) > 0 {
 		for _, err := range errs {
 			switch e := err.(type) {
 			case *state.ReleaseError:
-				fmt.Printf("err: release \"%s\" in \"%s\" failed: %v\n", e.Name, st.FilePath, e)
+				c.app.Logger.Debugf("err: release \"%s\" in \"%s\" failed: %v", e.Name, c.st.FilePath, e)
 			default:
-				fmt.Printf("err: %v\n", e)
+				c.app.Logger.Debugf("err: %v", e)
 			}
 		}
-		return errs[0]
+		return &Error{Errors: errs}
 	}
 	return nil
 }

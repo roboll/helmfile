@@ -1,11 +1,11 @@
 package helmexec
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
-
 	"sync"
 
 	"go.uber.org/zap"
@@ -48,7 +48,9 @@ func New(logger *zap.SugaredLogger, kubeContext string) *execer {
 		helmBinary:  command,
 		logger:      logger,
 		kubeContext: kubeContext,
-		runner:      &ShellRunner{},
+		runner: &ShellRunner{
+			logger: logger,
+		},
 	}
 }
 
@@ -71,21 +73,21 @@ func (helm *execer) AddRepo(name, repository, certfile, keyfile, username, passw
 	}
 	helm.logger.Infof("Adding repo %v %v", name, repository)
 	out, err := helm.exec(args, map[string]string{})
-	helm.write(out)
+	helm.info(out)
 	return err
 }
 
 func (helm *execer) UpdateRepo() error {
 	helm.logger.Info("Updating repo")
 	out, err := helm.exec([]string{"repo", "update"}, map[string]string{})
-	helm.write(out)
+	helm.info(out)
 	return err
 }
 
 func (helm *execer) UpdateDeps(chart string) error {
 	helm.logger.Infof("Updating dependency %v", chart)
 	out, err := helm.exec([]string{"dependency", "update", chart}, map[string]string{})
-	helm.write(out)
+	helm.info(out)
 	return err
 }
 
@@ -180,7 +182,26 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags .
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env)
-	helm.write(out)
+	// Do our best to write STDOUT only when diff existed
+	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
+	detailedExitcodeEnabled := false
+	for _, f := range flags {
+		if strings.Contains(f, "detailed-exitcode") {
+			detailedExitcodeEnabled = true
+			break
+		}
+	}
+	if detailedExitcodeEnabled {
+		switch e := err.(type) {
+		case ExitError:
+			if e.ExitStatus() == 2 {
+				helm.write(out)
+				return err
+			}
+		}
+	} else {
+		helm.write(out)
+	}
 	return err
 }
 
@@ -194,7 +215,7 @@ func (helm *execer) Lint(chart string, flags ...string) error {
 func (helm *execer) Fetch(chart string, flags ...string) error {
 	helm.logger.Infof("Fetching %v", chart)
 	out, err := helm.exec(append([]string{"fetch", chart}, flags...), map[string]string{})
-	helm.write(out)
+	helm.info(out)
 	return err
 }
 
@@ -224,12 +245,21 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 	if helm.kubeContext != "" {
 		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
 	}
-	helm.logger.Debugf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
-	return helm.runner.Execute(helm.helmBinary, cmdargs, env)
+	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
+	helm.logger.Debug(cmd)
+	bytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env)
+	helm.logger.Debugf("%s: %s", cmd, bytes)
+	return bytes, err
+}
+
+func (helm *execer) info(out []byte) {
+	if len(out) > 0 {
+		helm.logger.Infof("%s", out)
+	}
 }
 
 func (helm *execer) write(out []byte) {
 	if len(out) > 0 {
-		helm.logger.Infof("%s", out)
+		fmt.Printf("%s\n", out)
 	}
 }

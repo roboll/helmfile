@@ -173,6 +173,7 @@ func ssmGetSpecs() (err error) {
 	if err != nil {
 		return
 	}
+	defer file.Close()
 
 	var tmpSSMHelmfile SSMHelmfile
 	if err = yaml.NewDecoder(file).Decode(&tmpSSMHelmfile); err != nil {

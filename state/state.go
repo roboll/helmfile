@@ -6,14 +6,12 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/roboll/helmfile/datasource"
 	"github.com/roboll/helmfile/environment"
@@ -28,9 +26,11 @@ import (
 
 // HelmState structure for the helmfile
 type HelmState struct {
-	basePath           string
-	Environments       map[string]EnvironmentSpec
-	FilePath           string
+	basePath     string
+	Environments map[string]EnvironmentSpec
+	FilePath     string
+
+	Bases              []string          `yaml:"bases"`
 	HelmDefaults       HelmSpec          `yaml:"helmDefaults"`
 	Helmfiles          []SubHelmfileSpec `yaml:"helmfiles"`
 	DeprecatedContext  string            `yaml:"context"`
@@ -52,6 +52,7 @@ type HelmState struct {
 
 	removeFile func(string) error
 	fileExists func(string) (bool, error)
+	tempDir    func(string, string) (string, error)
 
 	runner helmexec.Runner
 }
@@ -202,15 +203,6 @@ func (st *HelmState) SyncRepos(helm RepoUpdater) []error {
 	return nil
 }
 
-type ReleaseError struct {
-	*ReleaseSpec
-	underlying error
-}
-
-func (e *ReleaseError) Error() string {
-	return e.underlying.Error()
-}
-
 type syncResult struct {
 	errors []*ReleaseError
 }
@@ -250,7 +242,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 
 				flags, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
 				if flagsErr != nil {
-					results <- syncPrepareResult{errors: []*ReleaseError{&ReleaseError{release, flagsErr}}}
+					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseError(release, flagsErr)}}
 					continue
 				}
 
@@ -258,14 +250,14 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 				for _, value := range additionalValues {
 					valfile, err := filepath.Abs(value)
 					if err != nil {
-						errs = append(errs, &ReleaseError{release, err})
+						errs = append(errs, newReleaseError(release, err))
 					}
 
 					ok, err := st.fileExists(valfile)
 					if err != nil {
-						errs = append(errs, &ReleaseError{release, err})
+						errs = append(errs, newReleaseError(release, err))
 					} else if !ok {
-						errs = append(errs, &ReleaseError{release, fmt.Errorf("file does not exist: %s", valfile)})
+						errs = append(errs, newReleaseError(release, fmt.Errorf("file does not exist: %s", valfile)))
 					}
 					flags = append(flags, "--values", valfile)
 				}
@@ -349,27 +341,32 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				chart := normalizeChart(st.basePath, release.Chart)
 				var relErr *ReleaseError
 				context := st.createHelmContext(release, workerIndex)
-				if !release.Desired() {
+
+				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+					relErr = newReleaseError(release, err)
+				} else if !release.Desired() {
 					installed, err := st.isReleaseInstalled(context, helm, *release)
 					if err != nil {
-						relErr = &ReleaseError{release, err}
+						relErr = newReleaseError(release, err)
 					} else if installed {
 						if err := helm.DeleteRelease(context, release.Name, "--purge"); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
-							relErr = &ReleaseError{release, err}
+							relErr = newReleaseError(release, err)
 						} else {
 							affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 						}
 					}
 				} else if err := helm.SyncRelease(context, release.Name, chart, flags...); err != nil {
 					affectedReleases.Failed = append(affectedReleases.Failed, release)
-					relErr = &ReleaseError{release, err}
+					relErr = newReleaseError(release, err)
 				} else {
 					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
 					installedVersion, err := st.getDeployedVersion(context, helm, release)
-					//err is not really impacting so just ignors it
-					st.logger.Debugf("getting deployed release version failed:%v", err)
-					release.installedVersion = installedVersion
+					if err != nil { //err is not really impacting so just log it
+						st.logger.Debugf("getting deployed release version failed:%v", err)
+					} else {
+						release.installedVersion = installedVersion
+					}
 				}
 
 				if relErr == nil {
@@ -378,7 +375,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					results <- syncResult{errors: []*ReleaseError{relErr}}
 				}
 
-				if _, err := st.triggerCleanupEvent(prep.release, "sync"); err != nil {
+				if _, err := st.triggerPostsyncEvent(release, "sync"); err != nil {
+					st.logger.Warnf("warn: %v\n", err)
+				}
+
+				if _, err := st.triggerCleanupEvent(release, "sync"); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 			}
@@ -455,6 +456,10 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 						chartPath = path.Join(dir, release.Name, "latest", release.Chart)
 					}
 
+					if st.isDevelopment(release) {
+						fetchFlags = append(fetchFlags, "--devel")
+					}
+
 					// only fetch chart if it is not already fetched
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
 						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
@@ -468,7 +473,6 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 						chartPath = filepath.Dir(fullChartPath)
 					}
 				}
-
 				results <- &downloadResults{release.Name, chartPath}
 			}
 		},
@@ -607,18 +611,8 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 	return nil
 }
 
-type DiffError struct {
-	*ReleaseSpec
-	err  error
-	Code int
-}
-
-func (e *DiffError) Error() string {
-	return e.err.Error()
-}
-
 type diffResult struct {
-	err *DiffError
+	err *ReleaseError
 }
 
 type diffPrepareResult struct {
@@ -686,7 +680,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				if len(errs) > 0 {
 					rsErrs := make([]*ReleaseError, len(errs))
 					for i, e := range errs {
-						rsErrs[i] = &ReleaseError{release, e}
+						rsErrs[i] = newReleaseError(release, e)
 					}
 					results <- diffPrepareResult{errors: rsErrs}
 				} else {
@@ -757,12 +751,11 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				release := prep.release
 				if err := helm.DiffRelease(st.createHelmContext(release, workerIndex), release.Name, normalizeChart(st.basePath, release.Chart), flags...); err != nil {
 					switch e := err.(type) {
-					case *exec.ExitError:
+					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-						status := e.Sys().(syscall.WaitStatus)
-						results <- diffResult{&DiffError{release, err, status.ExitStatus()}}
+						results <- diffResult{&ReleaseError{release, err, e.ExitStatus()}}
 					default:
-						results <- diffResult{&DiffError{release, err, 0}}
+						results <- diffResult{&ReleaseError{release, err, 0}}
 					}
 				} else {
 					// diff succeeded, found no changes
@@ -915,18 +908,26 @@ func (st *HelmState) FilterReleases() error {
 	return nil
 }
 
-func (st *HelmState) PrepareRelease(helm helmexec.Interface, helmfileCommand string) []error {
+func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand string) []error {
 	errs := []error{}
 
 	for _, release := range st.Releases {
 		if _, err := st.triggerPrepareEvent(&release, helmfileCommand); err != nil {
-			errs = append(errs, &ReleaseError{&release, err})
+			errs = append(errs, newReleaseError(&release, err))
 			continue
 		}
 	}
 	if len(errs) != 0 {
 		return errs
 	}
+
+	updated, err := st.ResolveDeps()
+	if err != nil {
+		return []error{err}
+	}
+
+	*st = *updated
+
 	return nil
 }
 
@@ -936,6 +937,14 @@ func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string)
 
 func (st *HelmState) triggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
 	return st.triggerReleaseEvent("cleanup", r, helmfileCommand)
+}
+
+func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+	return st.triggerReleaseEvent("presync", r, helmfileCommand)
+}
+
+func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+	return st.triggerReleaseEvent("postsync", r, helmfileCommand)
 }
 
 func (st *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd string) (bool, error) {
@@ -955,6 +964,11 @@ func (st *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd
 	return bus.Trigger(evt, data)
 }
 
+// ResolveDeps returns a copy of this helmfile state with the concrete chart version numbers filled in for remote chart dependencies
+func (st *HelmState) ResolveDeps() (*HelmState, error) {
+	return st.mergeLockedDependencies()
+}
+
 // UpdateDeps wrapper for updating dependencies on the releases
 func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 	errs := []error{}
@@ -966,6 +980,18 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 			}
 		}
 	}
+
+	if len(errs) == 0 {
+		tempDir := st.tempDir
+		if tempDir == nil {
+			tempDir = ioutil.TempDir
+		}
+		_, err := st.updateDependenciesInTempDir(helm, tempDir)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("unable to update deps: %v", err))
+		}
+	}
+
 	if len(errs) != 0 {
 		return errs
 	}
@@ -1017,7 +1043,12 @@ func normalizeChart(basePath, chart string) string {
 
 func isLocalChart(chart string) bool {
 	regex, _ := regexp.Compile("^[.]?./")
-	return regex.MatchString(chart)
+	matched := regex.MatchString(chart)
+	if matched {
+		return true
+	}
+
+	return chart == "" || chart[0] == '/' || len(strings.Split(chart, "/")) != 2
 }
 
 func pathExists(chart string) bool {
@@ -1033,7 +1064,10 @@ func chartNameWithoutRepository(chart string) string {
 // find "Chart.yaml"
 func findChartDirectory(topLevelDir string) (string, error) {
 	var files []string
-	filepath.Walk(topLevelDir, func(path string, f os.FileInfo, _ error) error {
+	filepath.Walk(topLevelDir, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("error walking through %s: %v", path, err)
+		}
 		if !f.IsDir() {
 			r, err := regexp.MatchString("Chart.yaml", f.Name())
 			if err == nil && r {

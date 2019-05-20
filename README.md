@@ -151,7 +151,7 @@ Environment variables can be used in most places for templating the helmfile. Cu
 Examples:
 
 ```yaml
-respositories:
+repositories:
 - name: your-private-git-repo-hosted-charts
   url: https://{{ requiredEnv "GITHUB_TOKEN"}}@raw.githubusercontent.com/kmzfs/helm-repo-in-github/master/
 ```
@@ -261,6 +261,20 @@ dependencies of any referenced local charts.
 
 For Helm 2.9+ you can use a username and password to authenticate to a remote repository.
 
+### deps
+
+The `helmfile deps` sub-command locks your helmfile state and local charts dependencies.
+
+It basically runs `helm dependency update` on your helmfile state file and all the referenced local charts, so that you get a "lock" file per each helmfile state or local chart.
+
+All the other `helmfile` sub-commands like `sync` use chart versions recorded in the lock files, so that e.g. untested chart versions won't suddenly get deployed to the production environment.
+
+For example, the lock file for a helmfile state file named `helmfile.1.yaml` will be `helmfile.1.lock`. The lock file for a local chart would be `requirements.lock`, which is the same as `helm`.
+
+It is recommended to version-control all the lock files, so that they can be used in the production deployment pipeline for extra reproducibility.
+
+To bring in chart updates systematically, it would also be a good idea to run `helmfile deps` regularly, test it, and then update the lock files in the version-control system.
+
 ### diff
 
 The `helmfile diff` sub-command executes the [helm-diff](https://github.com/databus23/helm-diff) plugin across all of
@@ -291,6 +305,7 @@ The `helmfile delete` sub-command deletes all the releases defined in the manife
 `helmfile --interactive delete` instructs Helmfile to request your confirmation before actually deleting releases.
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
+
 
 ### secrets
 
@@ -650,8 +665,8 @@ helmfiles:
 - apps/*/helmfile.yaml
 - path: apps/a-helmfile.yaml
     selectors:          # list of selectors
-    - name=prometheus      
-    - tier=frontend    
+    - name=prometheus
+    - tier=frontend
 - path: apps/b-helmfile.yaml # no selector, so all releases are used
     selectors: []
 - path: apps/c-helmfile.yaml # parent selector to be used or cli selector for the initial helmfile
@@ -659,7 +674,7 @@ helmfiles:
 ```
 * When a selector is specified, only this selector applies and the parents or CLI selectors are ignored.
 * When not selector is specified there are 2 modes for the selector inheritance because we would like to change the current inheritance behavior (see [issue #344](https://github.com/roboll/helmfile/issues/344)  ).
-  * Legacy mode, sub-helmfiles without selectors inherit selectors from their parent helmfile. The initial helmfiles inherit from the command line selectors. 
+  * Legacy mode, sub-helmfiles without selectors inherit selectors from their parent helmfile. The initial helmfiles inherit from the command line selectors.
   * explicit mode, sub-helmfile without selectors do not inherit from their parent or the CLI selector. If you want them to inherit from their parent selector then use `selectorsInherited: true`. To enable this explicit mode you need to set the following environment variable `HELMFILE_EXPERIMENTAL=explicit-selector-inheritance` (see [experimental](#experimental-features)).
 * Using `selector: []` will select all releases regardless of the parent selector or cli for the initial helmfile
 * using `selectorsInherited: true` make the sub-helmfile selects releases with the parent selector or the cli for the initial helmfile. You cannot specify an explicit selector while using `selectorsInherited: true`
@@ -699,11 +714,17 @@ Once `events` are triggered, associated `hooks` are executed, by running the `co
 Currently supported `events` are:
 
 - `prepare`
+- `presync`
+- `postsync`
 - `cleanup`
 
 Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before execution.
 
 Hooks associated to `cleanup` events are triggered after each release is processed.
+
+Hooks associated to `presync` events are triggered before each release is applied to the remote cluster. This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+
+Hooks associated to `postsync` events are triggered after each release is applied to the remote cluster. This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
 The following is an example hook that just prints the contextual information provided to hook:
 

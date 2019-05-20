@@ -31,7 +31,7 @@ func configureLogging(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	logger = helmexec.NewLogger(os.Stdout, logLevel)
+	logger = helmexec.NewLogger(os.Stderr, logLevel)
 	if c.App.Metadata == nil {
 		// Auto-initialised in 1.19.0
 		// https://github.com/urfave/cli/blob/master/CHANGELOG.md#1190---2016-11-19
@@ -91,6 +91,7 @@ func main() {
 
 	cliApp.Before = configureLogging
 	cliApp.Commands = []cli.Command{
+		cmd.Deps(),
 		{
 			Name:  "repos",
 			Usage: "sync repositories from state file (helm repo add && helm repo update)",
@@ -185,7 +186,7 @@ func main() {
 							return errs
 						}
 					}
-					if errs := state.PrepareRelease(helm, "diff"); errs != nil && len(errs) > 0 {
+					if errs := state.PrepareReleases(helm, "diff"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 
@@ -227,7 +228,7 @@ func main() {
 							return errs
 						}
 					}
-					if errs := state.PrepareRelease(helm, "template"); errs != nil && len(errs) > 0 {
+					if errs := state.PrepareReleases(helm, "template"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					return executeTemplateCommand(c, state, helm)
@@ -252,16 +253,25 @@ func main() {
 					Value: 0,
 					Usage: "maximum number of concurrent downloads of release charts",
 				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: "skip running `helm repo update` and `helm dependency build`",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
 					values := c.StringSlice("values")
 					args := args.GetArgs(c.String("args"), state)
 					workers := c.Int("concurrency")
-					if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
-						return errs
+					if !c.Bool("skip-deps") {
+						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
+						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
+							return errs
+						}
 					}
-					if errs := state.PrepareRelease(helm, "lint"); errs != nil && len(errs) > 0 {
+					if errs := state.PrepareReleases(helm, "lint"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					return state.LintReleases(helm, values, args, workers)
@@ -302,7 +312,7 @@ func main() {
 							return errs
 						}
 					}
-					if errs := st.PrepareRelease(helm, "sync"); errs != nil && len(errs) > 0 {
+					if errs := st.PrepareReleases(helm, "sync"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 					return executeSyncCommand(c, &affectedReleases, st, helm)
@@ -349,7 +359,7 @@ func main() {
 							return errs
 						}
 					}
-					if errs := st.PrepareRelease(helm, "apply"); errs != nil && len(errs) > 0 {
+					if errs := st.PrepareReleases(helm, "apply"); errs != nil && len(errs) > 0 {
 						return errs
 					}
 
@@ -360,13 +370,19 @@ func main() {
 						errs = append(errs, err)
 					}
 
+					fatalErrs := []error{}
+
 					noError := true
 					for _, e := range errs {
 						switch err := e.(type) {
-						case *state.DiffError:
-							noError = noError && err.Code == 2
+						case *state.ReleaseError:
+							if err.Code != 2 {
+								noError = false
+								fatalErrs = append(fatalErrs, e)
+							}
 						default:
 							noError = false
+							fatalErrs = append(fatalErrs, e)
 						}
 					}
 
@@ -409,7 +425,7 @@ Do you really want to apply?
 						}
 					}
 
-					return errs
+					return fatalErrs
 				})
 				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
 				return errs

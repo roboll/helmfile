@@ -12,12 +12,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func makeRenderer(readFile func(string) ([]byte, error), env string) *twoPassRenderer {
-	return &twoPassRenderer{
-		reader:    readFile,
+func makeLoader(readFile func(string) ([]byte, error), env string) *desiredStateLoader {
+	return &desiredStateLoader{
+		readFile:  readFile,
 		env:       env,
 		namespace: "namespace",
-		filename:  "",
 		logger:    helmexec.NewLogger(os.Stdout, "debug"),
 		abs:       filepath.Abs,
 	}
@@ -51,8 +50,8 @@ releases:
 		return []byte(""), nil
 	}
 
-	r := makeRenderer(fileReader, "staging")
-	yamlBuf, err := r.renderTemplate(yamlContent)
+	r := makeLoader(fileReader, "staging")
+	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -102,9 +101,9 @@ releases:
 		return defaultValuesYaml, nil
 	}
 
-	r := makeRenderer(fileReader, "staging")
+	r := makeLoader(fileReader, "staging")
 	// test the double rendering
-	yamlBuf, err := r.renderTemplate(yamlContent)
+	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -151,9 +150,9 @@ releases:
 		return defaultValuesYaml, nil
 	}
 
-	r := makeRenderer(fileReader, "staging")
+	r := makeLoader(fileReader, "staging")
 	// test the double rendering
-	_, err := r.renderTemplate(yamlContent)
+	_, err := r.renderTemplatesToYaml("", "", yamlContent)
 
 	if !strings.Contains(err.Error(), "stringTemplate:8") {
 		t.Fatalf("error should contain a stringTemplate error (reference to unknow key) %v", err)
@@ -190,8 +189,8 @@ releases:
 		return defaultValuesYamlGotmpl, nil
 	}
 
-	r := makeRenderer(fileReader, "staging")
-	rendered, _ := r.renderTemplate(yamlContent)
+	r := makeLoader(fileReader, "staging")
+	rendered, _ := r.renderTemplatesToYaml("", "", yamlContent)
 
 	var state state.HelmState
 	yaml.Unmarshal(rendered.Bytes(), &state)
@@ -217,8 +216,8 @@ func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 		return defaultValuesYaml, nil
 	}
 
-	r := makeRenderer(fileReader, "staging")
-	yamlBuf, err := r.renderTemplate(yamlContent)
+	r := makeLoader(fileReader, "staging")
+	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -231,7 +230,7 @@ func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 	}
 }
 
-func TestReadFromYaml_HelfileShouldBeResilentToTemplateErrors(t *testing.T) {
+func TestReadFromYaml_HelmfileShouldBeResilentToTemplateErrors(t *testing.T) {
 	yamlContent := []byte(`environments:
   staging:
 	production:
@@ -248,8 +247,8 @@ releases:
 		return yamlContent, nil
 	}
 
-	r := makeRenderer(fileReader, "staging")
-	_, err := r.renderTemplate(yamlContent)
+	r := makeLoader(fileReader, "staging")
+	_, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err == nil {
 		t.Fatalf("wanted error, none returned")
 	}
