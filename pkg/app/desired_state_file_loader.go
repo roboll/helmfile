@@ -8,8 +8,6 @@ import (
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/state"
 	"go.uber.org/zap"
-	"log"
-	"os"
 	"path/filepath"
 	"sort"
 )
@@ -29,7 +27,34 @@ type desiredStateLoader struct {
 }
 
 func (ld *desiredStateLoader) Load(f string) (*state.HelmState, error) {
-	return ld.loadFile(filepath.Dir(f), filepath.Base(f), true)
+	st, err := ld.loadFile(filepath.Dir(f), filepath.Base(f), true)
+	if err != nil {
+		return nil, err
+	}
+
+	if ld.Reverse {
+		rev := func(i, j int) bool {
+			return j < i
+		}
+		sort.Slice(st.Releases, rev)
+		sort.Slice(st.Helmfiles, rev)
+	}
+
+	if ld.KubeContext != "" {
+		if st.HelmDefaults.KubeContext != "" {
+			return nil, errors.New("err: Cannot use option --kube-context and set attribute helmDefaults.kubeContext.")
+		}
+		st.HelmDefaults.KubeContext = ld.KubeContext
+	}
+
+	if ld.namespace != "" {
+		if st.Namespace != "" {
+			return nil, errors.New("err: Cannot use option --namespace and set attribute namespace.")
+		}
+		st.Namespace = ld.namespace
+	}
+
+	return st, nil
 }
 
 func (ld *desiredStateLoader) loadFile(baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
@@ -62,15 +87,21 @@ func (ld *desiredStateLoader) loadFile(baseDir, file string, evaluateBases bool)
 			baseDir,
 			file,
 			evaluateBases,
+			nil,
 		)
 	}
 
 	return self, err
 }
 
-func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
+func (a *desiredStateLoader) underlying() *state.StateCreator {
 	c := state.NewCreator(a.logger, a.readFile, a.abs)
-	st, err := c.ParseAndLoadEnv(yaml, baseDir, file, a.env)
+	c.LoadFile = a.loadFile
+	return c
+}
+
+func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBases bool, env *environment.Environment) (*state.HelmState, error) {
+	st, err := a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, env)
 	if err != nil {
 		return nil, err
 	}
@@ -94,62 +125,10 @@ func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBas
 			newHelmfile.Path = match
 			helmfiles = append(helmfiles, newHelmfile)
 		}
-
 	}
 	st.Helmfiles = helmfiles
 
-	if a.Reverse {
-		rev := func(i, j int) bool {
-			return j < i
-		}
-		sort.Slice(st.Releases, rev)
-		sort.Slice(st.Helmfiles, rev)
-	}
-
-	if a.KubeContext != "" {
-		if st.HelmDefaults.KubeContext != "" {
-			log.Printf("err: Cannot use option --kube-context and set attribute helmDefaults.kubeContext.")
-			os.Exit(1)
-		}
-		st.HelmDefaults.KubeContext = a.KubeContext
-	}
-	if a.namespace != "" {
-		if st.Namespace != "" {
-			log.Printf("err: Cannot use option --namespace and set attribute namespace.")
-			os.Exit(1)
-		}
-		st.Namespace = a.namespace
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if !evaluateBases {
-		if len(st.Bases) > 0 {
-			return nil, errors.New("nested `base` helmfile is unsupported. please submit a feature request if you need this!")
-		}
-
-		return st, nil
-	}
-
-	layers := []*state.HelmState{}
-	for _, b := range st.Bases {
-		base, err := a.loadFile(baseDir, b, false)
-		if err != nil {
-			return nil, err
-		}
-		layers = append(layers, base)
-	}
-	layers = append(layers, st)
-
-	for i := 1; i < len(layers); i++ {
-		if err := mergo.Merge(layers[0], layers[i], mergo.WithAppendSlice); err != nil {
-			return nil, err
-		}
-	}
-
-	return layers[0], nil
+	return st, nil
 }
 
 func (ld *desiredStateLoader) renderAndLoad(baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
@@ -181,6 +160,7 @@ func (ld *desiredStateLoader) renderAndLoad(baseDir, filename string, content []
 			baseDir,
 			filename,
 			evaluateBases,
+			env,
 		)
 		if err != nil {
 			return nil, err

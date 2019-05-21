@@ -2,6 +2,7 @@ package state
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -32,16 +33,18 @@ func (e *UndefinedEnvError) Error() string {
 	return e.msg
 }
 
-type creator struct {
+type StateCreator struct {
 	logger   *zap.SugaredLogger
 	readFile func(string) ([]byte, error)
 	abs      func(string) (string, error)
 
 	Strict bool
+
+	LoadFile func(baseDir, file string, evaluateBases bool) (*HelmState, error)
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), abs func(string) (string, error)) *creator {
-	return &creator{
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), abs func(string) (string, error)) *StateCreator {
+	return &StateCreator{
 		logger:   logger,
 		readFile: readFile,
 		abs:      abs,
@@ -49,8 +52,8 @@ func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error)
 	}
 }
 
-// Parses YAML into HelmState, while loading environment values files relative to the `cwd`
-func (c *creator) ParseAndLoadEnv(content []byte, baseDir, file string, env string) (*HelmState, error) {
+// Parse parses YAML into HelmState
+func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, error) {
 	var state HelmState
 
 	state.FilePath = file
@@ -94,12 +97,6 @@ func (c *creator) ParseAndLoadEnv(content []byte, baseDir, file string, env stri
 
 	state.logger = c.logger
 
-	e, err := state.loadEnv(env, c.readFile)
-	if err != nil {
-		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", file), err}
-	}
-	state.Env = *e
-
 	state.readFile = c.readFile
 	state.removeFile = os.Remove
 	state.fileExists = func(path string) (bool, error) {
@@ -117,7 +114,61 @@ func (c *creator) ParseAndLoadEnv(content []byte, baseDir, file string, env stri
 	return &state, nil
 }
 
-func (st *HelmState) loadEnv(name string, readFile func(string) ([]byte, error)) (*environment.Environment, error) {
+// LoadEnvValues loads environment values files relative to the `baseDir`
+func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *environment.Environment) (*HelmState, error) {
+	state := *target
+
+	e, err := state.loadEnvValues(env, ctxEnv, c.readFile)
+	if err != nil {
+		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
+	}
+	state.Env = *e
+
+	return &state, nil
+}
+
+// Parses YAML into HelmState, while loading environment values files relative to the `baseDir`
+func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envName string, evaluateBases bool, envValues *environment.Environment) (*HelmState, error) {
+	state, err := c.Parse(content, baseDir, file)
+	if err != nil {
+		return nil, err
+	}
+
+	if !evaluateBases {
+		if len(state.Bases) > 0 {
+			return nil, errors.New("nested `base` helmfile is unsupported. please submit a feature request if you need this!")
+		}
+	}
+
+	state, err = c.loadBases(state, baseDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.LoadEnvValues(state, envName, envValues)
+}
+
+func (c *StateCreator) loadBases(st *HelmState, baseDir string) (*HelmState, error) {
+	layers := []*HelmState{}
+	for _, b := range st.Bases {
+		base, err := c.LoadFile(baseDir, b, false)
+		if err != nil {
+			return nil, err
+		}
+		layers = append(layers, base)
+	}
+	layers = append(layers, st)
+
+	for i := 1; i < len(layers); i++ {
+		if err := mergo.Merge(layers[0], layers[i], mergo.WithAppendSlice); err != nil {
+			return nil, err
+		}
+	}
+
+	return layers[0], nil
+}
+
+func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment, readFile func(string) ([]byte, error)) (*environment.Environment, error) {
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
 	if ok {
@@ -172,9 +223,21 @@ func (st *HelmState) loadEnv(name string, readFile func(string) ([]byte, error))
 				}
 			}
 		}
-	} else if name != DefaultEnv {
+	} else if ctxEnv == nil && name != DefaultEnv {
 		return nil, &UndefinedEnvError{msg: fmt.Sprintf("environment \"%s\" is not defined", name)}
 	}
 
-	return &environment.Environment{Name: name, Values: envVals}, nil
+	newEnv := &environment.Environment{Name: name, Values: envVals}
+
+	if ctxEnv != nil {
+		intEnv := *ctxEnv
+
+		if err := mergo.Merge(&intEnv, newEnv, mergo.WithAppendSlice); err != nil {
+			return nil, fmt.Errorf("error while merging environment values for \"%s\": %v", name, err)
+		}
+
+		newEnv = &intEnv
+	}
+
+	return newEnv, nil
 }

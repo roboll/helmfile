@@ -13,13 +13,13 @@ import (
 )
 
 func createFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {
-	c := &creator{
-		logger,
-		ioutil.ReadFile,
-		filepath.Abs,
-		true,
+	c := &StateCreator{
+		logger:   logger,
+		readFile: ioutil.ReadFile,
+		abs:      filepath.Abs,
+		Strict:   true,
 	}
-	return c.ParseAndLoadEnv(content, filepath.Dir(file), file, env)
+	return c.ParseAndLoad(content, filepath.Dir(file), file, env, false, nil)
 }
 
 func TestReadFromYaml(t *testing.T) {
@@ -113,7 +113,7 @@ bar: {{ readFile "bar.txt" }}
 		return nil, fmt.Errorf("unexpected filename: %s", filename)
 	}
 
-	state, err := NewCreator(logger, readFile, filepath.Abs).ParseAndLoadEnv(yamlContent, filepath.Dir(yamlFile), yamlFile, "production")
+	state, err := NewCreator(logger, readFile, filepath.Abs).ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", false, nil)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

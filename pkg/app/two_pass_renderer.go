@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/state"
 	"github.com/roboll/helmfile/tmpl"
@@ -32,10 +31,10 @@ func (r *desiredStateLoader) renderEnvironment(firstPassEnv environment.Environm
 			return firstPassEnv
 		}
 	}
-	c := state.NewCreator(r.logger, r.readFile, r.abs)
+	c := r.underlying()
 	c.Strict = false
 	// create preliminary state, as we may have an environment. Tolerate errors.
-	prestate, err := c.ParseAndLoadEnv(yamlBuf.Bytes(), baseDir, filename, r.env)
+	prestate, err := c.ParseAndLoad(yamlBuf.Bytes(), baseDir, filename, r.env, false, &firstPassEnv)
 	if err != nil && r.logger != nil {
 		switch err.(type) {
 		case *state.StateLoadError:
@@ -45,16 +44,7 @@ func (r *desiredStateLoader) renderEnvironment(firstPassEnv environment.Environm
 	}
 
 	if prestate != nil {
-		intEnv := environment.Environment{Name: firstPassEnv.Name}
-		if err := mergo.Merge(&intEnv, &firstPassEnv, mergo.WithAppendSlice); err != nil {
-			r.logger.Debugf("error in first-pass rendering: result of \"%s\": %v", filename, err)
-			return firstPassEnv
-		}
-		if err := mergo.Merge(&intEnv, &prestate.Env, mergo.WithAppendSlice); err != nil {
-			r.logger.Debugf("error in first-pass rendering: result of \"%s\": %v", filename, err)
-			return firstPassEnv
-		}
-		firstPassEnv = intEnv
+		firstPassEnv = prestate.Env
 	}
 	return firstPassEnv
 }
