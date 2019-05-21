@@ -47,8 +47,7 @@ releases:
 
 	flagSet := flag.NewFlagSet("test", 0)
 	flagSet.String("file", tmpfile.Name(), "A Helmfile for testing")
-	c := cli.NewContext(nil, flagSet, nil)
-	PrepareAll(c)
+	PrepareAll(cli.NewContext(nil, flagSet, nil))
 
 	if err = ssmGetSpecs(); err != nil {
 		return
