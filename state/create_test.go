@@ -1,7 +1,6 @@
 package state
 
 import (
-	"fmt"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"path/filepath"
@@ -99,23 +98,17 @@ bar: {{ readFile "bar.txt" }}
 
 	expectedValues := `env: production`
 
-	readFile := func(filename string) ([]byte, error) {
-		switch filename {
-		case fooYamlFile:
-			return fooYamlContent, nil
-		case barYamlFile:
-			return barYamlContent, nil
-		case barTextFile:
-			return barTextContent, nil
-		case valuesFile:
-			return valuesContent, nil
-		}
-		return nil, fmt.Errorf("unexpected filename: %s", filename)
-	}
+	testFs := NewTestFs(map[string]string{
+		fooYamlFile: string(fooYamlContent),
+		barYamlFile: string(barYamlContent),
+		barTextFile: string(barTextContent),
+		valuesFile:  string(valuesContent),
+	})
+	testFs.Cwd = "/example/path/to"
 
-	state, err := NewCreator(logger, readFile, filepath.Abs).ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", false, nil)
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.Abs, testFs.Glob).ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", false, nil)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	actual := state.Env.Values

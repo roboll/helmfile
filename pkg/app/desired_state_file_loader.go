@@ -95,7 +95,7 @@ func (ld *desiredStateLoader) loadFile(baseDir, file string, evaluateBases bool)
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.readFile, a.abs)
+	c := state.NewCreator(a.logger, a.readFile, a.abs, a.glob)
 	c.LoadFile = a.loadFile
 	return c
 }
@@ -108,18 +108,10 @@ func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBas
 
 	helmfiles := []state.SubHelmfileSpec{}
 	for _, hf := range st.Helmfiles {
-		globPattern := hf.Path
-		var absPathPattern string
-		if filepath.IsAbs(globPattern) {
-			absPathPattern = globPattern
-		} else {
-			absPathPattern = st.JoinBase(globPattern)
-		}
-		matches, err := a.glob(absPathPattern)
+		matches, err := st.ExpandPaths([]string{hf.Path}, a.glob)
 		if err != nil {
-			return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
+			return nil, err
 		}
-		sort.Strings(matches)
 		for _, match := range matches {
 			newHelmfile := hf
 			newHelmfile.Path = match

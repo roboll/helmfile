@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/environment"
@@ -37,17 +38,19 @@ type StateCreator struct {
 	logger   *zap.SugaredLogger
 	readFile func(string) ([]byte, error)
 	abs      func(string) (string, error)
+	glob     func(string) ([]string, error)
 
 	Strict bool
 
 	LoadFile func(baseDir, file string, evaluateBases bool) (*HelmState, error)
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), abs func(string) (string, error)) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), abs func(string) (string, error), glob func(string) ([]string, error)) *StateCreator {
 	return &StateCreator{
 		logger:   logger,
 		readFile: readFile,
 		abs:      abs,
+		glob:     glob,
 		Strict:   true,
 	}
 }
@@ -118,7 +121,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *environment.Environment) (*HelmState, error) {
 	state := *target
 
-	e, err := state.loadEnvValues(env, ctxEnv, c.readFile)
+	e, err := state.loadEnvValues(env, ctxEnv, c.readFile, c.glob)
 	if err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
@@ -168,31 +171,64 @@ func (c *StateCreator) loadBases(st *HelmState, baseDir string) (*HelmState, err
 	return layers[0], nil
 }
 
-func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment, readFile func(string) ([]byte, error)) (*environment.Environment, error) {
+func (st *HelmState) ExpandPaths(patterns []string, glob func(string) ([]string, error)) ([]string, error) {
+	result := []string{}
+	for _, globPattern := range patterns {
+		var absPathPattern string
+		if filepath.IsAbs(globPattern) {
+			absPathPattern = globPattern
+		} else {
+			absPathPattern = st.JoinBase(globPattern)
+		}
+		matches, err := glob(absPathPattern)
+		if err != nil {
+			return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
+		}
+
+		if len(matches) == 0 {
+			return nil, fmt.Errorf("no file matching %s found", globPattern)
+		}
+
+		sort.Strings(matches)
+
+		result = append(result, matches...)
+	}
+	return result, nil
+}
+
+func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment, readFile func(string) ([]byte, error), glob func(string) ([]string, error)) (*environment.Environment, error) {
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
 	if ok {
-		for _, envvalFile := range envSpec.Values {
-			envvalFullPath := filepath.Join(st.basePath, envvalFile)
+		valuesFiles, err := st.ExpandPaths(envSpec.Values, glob)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, envvalFullPath := range valuesFiles {
 			tmplData := EnvironmentTemplateData{Environment: environment.EmptyEnvironment, Namespace: ""}
 			r := tmpl.NewFileRenderer(readFile, filepath.Dir(envvalFullPath), tmplData)
 			bytes, err := r.RenderToBytes(envvalFullPath)
 			if err != nil {
-				return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", envvalFile, err)
+				return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", envvalFullPath, err)
 			}
 			m := map[string]interface{}{}
 			if err := yaml.Unmarshal(bytes, &m); err != nil {
-				return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", envvalFile, err)
+				return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", envvalFullPath, err)
 			}
 			if err := mergo.Merge(&envVals, &m, mergo.WithOverride); err != nil {
-				return nil, fmt.Errorf("failed to load \"%s\": %v", envvalFile, err)
+				return nil, fmt.Errorf("failed to load \"%s\": %v", envvalFullPath, err)
 			}
 		}
 
 		if len(envSpec.Secrets) > 0 {
+			secretsFiles, err := st.ExpandPaths(envSpec.Secrets, glob)
+			if err != nil {
+				return nil, err
+			}
+
 			helm := helmexec.New(st.logger, "")
-			for _, secFile := range envSpec.Secrets {
-				path := filepath.Join(st.basePath, secFile)
+			for _, path := range secretsFiles {
 				if _, err := os.Stat(path); os.IsNotExist(err) {
 					return nil, err
 				}
@@ -212,14 +248,14 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 				}
 				bytes, err := readFile(decFile)
 				if err != nil {
-					return nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secFile, err)
+					return nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err)
 				}
 				m := map[string]interface{}{}
 				if err := yaml.Unmarshal(bytes, &m); err != nil {
-					return nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secFile, err)
+					return nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err)
 				}
 				if err := mergo.Merge(&envVals, &m, mergo.WithOverride); err != nil {
-					return nil, fmt.Errorf("failed to load \"%s\": %v", secFile, err)
+					return nil, fmt.Errorf("failed to load \"%s\": %v", path, err)
 				}
 			}
 		}
