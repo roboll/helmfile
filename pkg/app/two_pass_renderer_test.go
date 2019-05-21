@@ -1,9 +1,7 @@
 package app
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,14 +10,16 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func makeLoader(readFile func(string) ([]byte, error), env string) *desiredStateLoader {
+func makeLoader(files map[string]string, env string) (*desiredStateLoader, *state.TestFs) {
+	testfs := state.NewTestFs(files)
 	return &desiredStateLoader{
-		readFile:  readFile,
 		env:       env,
 		namespace: "namespace",
 		logger:    helmexec.NewLogger(os.Stdout, "debug"),
-		abs:       filepath.Abs,
-	}
+		readFile:  testfs.ReadFile,
+		abs:       testfs.Abs,
+		glob:      testfs.Glob,
+	}, testfs
 }
 
 func TestReadFromYaml_MakeEnvironmentHasNoSideEffects(t *testing.T) {
@@ -36,30 +36,21 @@ releases:
   chart: mychart1
 `)
 
-	fileReaderCalls := 0
-	// make a reader that returns a simulated context
-	fileReader := func(filename string) ([]byte, error) {
-		expectedFilename := filepath.Clean("default/values.yaml")
-		if !strings.HasSuffix(filename, expectedFilename) {
-			return nil, fmt.Errorf("unexpected filename: expected=%s, actual=%s", expectedFilename, filename)
-		}
-		fileReaderCalls++
-		if fileReaderCalls == 2 {
-			return []byte("SecondPass"), nil
-		}
-		return []byte(""), nil
+	files := map[string]string{
+		"/path/to/default/values.yaml":       ``,
+		"/path/to/other/default/values.yaml": `SecondPass`,
 	}
 
-	r := makeLoader(fileReader, "staging")
+	r, testfs := makeLoader(files, "staging")
 	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	var state state.HelmState
 	err = yaml.Unmarshal(yamlBuf.Bytes(), &state)
 
-	if fileReaderCalls > 2 {
+	if testfs.FileReaderCalls() > 2 {
 		t.Error("reader should be called only twice")
 	}
 
@@ -70,10 +61,10 @@ releases:
 
 func TestReadFromYaml_RenderTemplate(t *testing.T) {
 
-	defaultValuesYaml := []byte(`
+	defaultValuesYaml := `
 releaseName: "hello"
 conditionalReleaseTag: "yes"
-`)
+`
 
 	yamlContent := []byte(`
 environments:
@@ -92,16 +83,11 @@ releases:
 
 `)
 
-	// make a reader that returns a simulated context
-	fileReader := func(filename string) ([]byte, error) {
-		expectedFilename := filepath.Clean("default/values.yaml")
-		if !strings.HasSuffix(filename, expectedFilename) {
-			return nil, fmt.Errorf("unexpected filename: expected=%s, actual=%s", expectedFilename, filename)
-		}
-		return defaultValuesYaml, nil
+	files := map[string]string{
+		"/path/to/default/values.yaml": defaultValuesYaml,
 	}
 
-	r := makeLoader(fileReader, "staging")
+	r, _ := makeLoader(files, "staging")
 	// test the double rendering
 	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
@@ -129,7 +115,7 @@ releases:
 }
 
 func TestReadFromYaml_RenderTemplateWithValuesReferenceError(t *testing.T) {
-	defaultValuesYaml := []byte("")
+	defaultValuesYaml := ``
 
 	yamlContent := []byte(`
 environments:
@@ -145,12 +131,11 @@ releases:
 {{ end }}
 `)
 
-	// make a reader that returns a simulated context
-	fileReader := func(filename string) ([]byte, error) {
-		return defaultValuesYaml, nil
+	files := map[string]string{
+		"/path/to/default/values.yaml": defaultValuesYaml,
 	}
 
-	r := makeLoader(fileReader, "staging")
+	r, _ := makeLoader(files, "staging")
 	// test the double rendering
 	_, err := r.renderTemplatesToYaml("", "", yamlContent)
 
@@ -164,9 +149,9 @@ releases:
 // This does not apply to .gotmpl files, which is a nice side-effect.
 func TestReadFromYaml_RenderTemplateWithGotmpl(t *testing.T) {
 
-	defaultValuesYamlGotmpl := []byte(`
+	defaultValuesYamlGotmpl := `
 releaseName: {{ readFile "nonIgnoredFile" }}
-`)
+`
 
 	yamlContent := []byte(`
 environments:
@@ -182,14 +167,12 @@ releases:
 {{ end }}
 `)
 
-	fileReader := func(filename string) ([]byte, error) {
-		if strings.HasSuffix(filename, "nonIgnoredFile") {
-			return []byte("release-a"), nil
-		}
-		return defaultValuesYamlGotmpl, nil
+	files := map[string]string{
+		"/path/to/nonIgnoredFile":     `release-a`,
+		"/path/to/values.yaml.gotmpl": defaultValuesYamlGotmpl,
 	}
 
-	r := makeLoader(fileReader, "staging")
+	r, _ := makeLoader(files, "staging")
 	rendered, _ := r.renderTemplatesToYaml("", "", yamlContent)
 
 	var state state.HelmState
@@ -205,18 +188,14 @@ releases:
 }
 
 func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
-	defaultValuesYaml := []byte(``)
 	yamlContent := []byte(`releases:
 - name: {{ .Namespace }}-myrelease
   chart: mychart
 `)
 
-	// make a reader that returns a simulated context
-	fileReader := func(filename string) ([]byte, error) {
-		return defaultValuesYaml, nil
-	}
+	files := map[string]string{}
 
-	r := makeLoader(fileReader, "staging")
+	r, _ := makeLoader(files, "staging")
 	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -243,11 +222,8 @@ releases:
 {{ end }}
   chart: mychart
 `)
-	fileReader := func(filename string) ([]byte, error) {
-		return yamlContent, nil
-	}
 
-	r := makeLoader(fileReader, "staging")
+	r, _ := makeLoader(map[string]string{}, "staging")
 	_, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err == nil {
 		t.Fatalf("wanted error, none returned")

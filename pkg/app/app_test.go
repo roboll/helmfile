@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/roboll/helmfile/helmexec"
@@ -13,119 +12,153 @@ import (
 	"gotest.tools/env"
 )
 
-type testFs struct {
-	wd    string
-	dirs  map[string]bool
-	files map[string]string
-}
-
 func appWithFs(app *App, files map[string]string) *App {
-	fs := newTestFs(files)
+	fs := state.NewTestFs(files)
 	return injectFs(app, fs)
 }
 
-func injectFs(app *App, fs *testFs) *App {
-	app.readFile = fs.readFile
-	app.glob = fs.glob
-	app.abs = fs.abs
-	app.getwd = fs.getwd
-	app.chdir = fs.chdir
-	app.fileExistsAt = fs.fileExistsAt
-	app.directoryExistsAt = fs.directoryExistsAt
+func injectFs(app *App, fs *state.TestFs) *App {
+	app.readFile = fs.ReadFile
+	app.glob = fs.Glob
+	app.abs = fs.Abs
+	app.getwd = fs.Getwd
+	app.chdir = fs.Chdir
+	app.fileExistsAt = fs.FileExistsAt
+	app.directoryExistsAt = fs.DirectoryExistsAt
 	return app
 }
 
-func newTestFs(files map[string]string) *testFs {
-	dirs := map[string]bool{}
-	for abs, _ := range files {
-		d := filepath.Dir(abs)
-		dirs[d] = true
+func TestVisitDesiredStatesWithReleasesFiltered_ReleaseOrder(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+helmfiles:
+- helmfile.d/a*.yaml
+- helmfile.d/b*.yaml
+`,
+		"/path/to/helmfile.d/a1.yaml": `
+releases:
+- name: zipkin
+  chart: stable/zipkin
+`,
+		"/path/to/helmfile.d/a2.yaml": `
+releases:
+- name: prometheus
+  chart: stable/prometheus
+`,
+		"/path/to/helmfile.d/b.yaml": `
+releases:
+- name: grafana
+  chart: stable/grafana
+`,
 	}
-	return &testFs{
-		wd:    "/path/to",
-		dirs:  dirs,
-		files: files,
+	fs := state.NewTestFs(files)
+	fs.GlobFixtures["/path/to/helmfile.d/a*.yaml"] = []string{"/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/a1.yaml"}
+	app := &App{
+		KubeContext: "default",
+		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:   "",
+		Env:         "default",
+	}
+	app = injectFs(app, fs)
+	actualOrder := []string{}
+	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+		actualOrder = append(actualOrder, st.FilePath)
+		return []error{}
+	}
+
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", noop,
+	)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	expectedOrder := []string{"a1.yaml", "a2.yaml", "b.yaml", "helmfile.yaml"}
+	if !reflect.DeepEqual(actualOrder, expectedOrder) {
+		t.Errorf("unexpected order of processed state files: expected=%v, actual=%v", expectedOrder, actualOrder)
 	}
 }
 
-func (f *testFs) fileExistsAt(path string) bool {
-	var ok bool
-	if strings.Contains(path, "/") {
-		_, ok = f.files[path]
-	} else {
-		_, ok = f.files[filepath.Join(f.wd, path)]
+func TestVisitDesiredStatesWithReleasesFiltered_EnvValuesFileOrder(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+environments:
+  default:
+    values:
+    - env.*.yaml
+releases:
+- name: zipkin
+  chart: stable/zipkin
+`,
+		"/path/to/env.1.yaml": `FOO: 1
+BAR: 2
+`,
+		"/path/to/env.2.yaml": `BAR: 3
+BAZ: 4
+`,
 	}
-	return ok
+	fs := state.NewTestFs(files)
+	fs.GlobFixtures["/path/to/env.*.yaml"] = []string{"/path/to/env.2.yaml", "/path/to/env.1.yaml"}
+	app := &App{
+		KubeContext: "default",
+		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:   "",
+		Env:         "default",
+	}
+	app = injectFs(app, fs)
+	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+		return []error{}
+	}
+
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", noop,
+	)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	expectedOrder := []string{"helmfile.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml"}
+	actualOrder := fs.SuccessfulReads()
+	if !reflect.DeepEqual(actualOrder, expectedOrder) {
+		t.Errorf("unexpected order of processed state files: expected=%v, actual=%v", expectedOrder, actualOrder)
+	}
 }
 
-func (f *testFs) directoryExistsAt(path string) bool {
-	var ok bool
-	if strings.Contains(path, "/") {
-		_, ok = f.dirs[path]
-	} else {
-		_, ok = f.dirs[filepath.Join(f.wd, path)]
+func TestVisitDesiredStatesWithReleasesFiltered_MissingEnvValuesFile(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+environments:
+  default:
+    values:
+    - env.*.yaml
+releases:
+- name: zipkin
+  chart: stable/zipkin
+`,
 	}
-	return ok
-}
-
-func (f *testFs) readFile(filename string) ([]byte, error) {
-	var str string
-	var ok bool
-	if strings.Contains(filename, "/") {
-		str, ok = f.files[filename]
-	} else {
-		str, ok = f.files[filepath.Join(f.wd, filename)]
+	fs := state.NewTestFs(files)
+	app := &App{
+		KubeContext: "default",
+		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:   "",
+		Env:         "default",
 	}
-	if !ok {
-		return []byte(nil), fmt.Errorf("no file found: %s", filename)
-	}
-	return []byte(str), nil
-}
-
-func (f *testFs) glob(relPattern string) ([]string, error) {
-	var pattern string
-	if relPattern[0] == '/' {
-		pattern = relPattern
-	} else {
-		pattern = filepath.Join(f.wd, relPattern)
+	app = injectFs(app, fs)
+	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+		return []error{}
 	}
 
-	matches := []string{}
-	for name, _ := range f.files {
-		matched, err := filepath.Match(pattern, name)
-		if err != nil {
-			return nil, err
-		}
-		if matched {
-			matches = append(matches, name)
-		}
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", noop,
+	)
+	if err == nil {
+		t.Fatal("expected error did not occur")
 	}
-	if len(matches) == 0 {
-		return []string(nil), fmt.Errorf("no file matched %s for files: %v", pattern, f.files)
-	}
-	return matches, nil
-}
 
-func (f *testFs) abs(path string) (string, error) {
-	var p string
-	if path[0] == '/' {
-		p = path
-	} else {
-		p = filepath.Join(f.wd, path)
+	expected := "in ./helmfile.yaml: failed to read helmfile.yaml: no file matching env.*.yaml found"
+	if err.Error() != expected {
+		t.Errorf("unexpected error: expected=%s, got=%v", expected, err)
 	}
-	return filepath.Clean(p), nil
-}
-
-func (f *testFs) getwd() (string, error) {
-	return f.wd, nil
-}
-
-func (f *testFs) chdir(dir string) error {
-	if dir == "/path/to" || dir == "/path/to/helmfile.d" {
-		f.wd = dir
-		return nil
-	}
-	return fmt.Errorf("unexpected chdir \"%s\"", dir)
 }
 
 // See https://github.com/roboll/helmfile/issues/193
@@ -152,10 +185,6 @@ releases:
   chart: stable/grafana
 `,
 	}
-	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
-		return []error{}
-	}
-
 	testcases := []struct {
 		name      string
 		expectErr bool
@@ -167,13 +196,20 @@ releases:
 	}
 
 	for _, testcase := range testcases {
-		app := appWithFs(&App{
+		fs := state.NewTestFs(files)
+		fs.GlobFixtures["/path/to/helmfile.d/a*.yaml"] = []string{"/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/a1.yaml"}
+		app := &App{
 			KubeContext: "default",
 			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
 			Selectors:   []string{fmt.Sprintf("name=%s", testcase.name)},
 			Namespace:   "",
 			Env:         "default",
-		}, files)
+		}
+		app = injectFs(app, fs)
+		noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+			return []error{}
+		}
+
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", noop,
 		)
@@ -668,7 +704,7 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 
 func TestLoadDesiredStateFromYaml_Bases(t *testing.T) {
 	yamlFile := "/path/to/yaml/file"
-	yamlContent := []byte(`bases:
+	yamlContent := `bases:
 - ../base.yaml
 - ../base.gotmpl
 
@@ -685,41 +721,34 @@ releases:
   labels:
     stage: post
   <<: *default
-`)
-	files := map[string][]byte{
+`
+	testFs := state.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
-		"/path/to/base.yaml": []byte(`environments:
+		"/path/to/base.yaml": `environments:
   default:
     values:
     - environments/default/1.yaml
-`),
-		"/path/to/yaml/environments/default/1.yaml": []byte(`foo: FOO`),
-		"/path/to/base.gotmpl": []byte(`environments:
+`,
+		"/path/to/yaml/environments/default/1.yaml": `foo: FOO`,
+		"/path/to/base.gotmpl": `environments:
   default:
     values:
     - environments/default/2.yaml
 
 helmDefaults:
   tillerNamespace: {{ .Environment.Values.tillerNs }}
-`),
-		"/path/to/yaml/environments/default/2.yaml": []byte(`tillerNs: TILLER_NS`),
-		"/path/to/yaml/templates.yaml": []byte(`templates:
+`,
+		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
+		"/path/to/yaml/templates.yaml": `templates:
   default: &default
     missingFileHandler: Warn
     values: ["` + "{{`" + `{{.Release.Name}}` + "`}}" + `/values.yaml"]
-`),
-	}
-	readFile := func(filename string) ([]byte, error) {
-		content, ok := files[filename]
-		if !ok {
-			return nil, fmt.Errorf("unexpected filename: %s", filename)
-		}
-		return content, nil
-	}
+`,
+	})
 	app := &App{
-		readFile:    readFile,
-		glob:        filepath.Glob,
-		abs:         filepath.Abs,
+		readFile:    testFs.ReadFile,
+		glob:        testFs.Glob,
+		abs:         testFs.Abs,
 		KubeContext: "default",
 		Env:         "default",
 		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
@@ -744,7 +773,7 @@ helmDefaults:
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate(t *testing.T) {
 	yamlFile := "/path/to/yaml/file"
-	yamlContent := []byte(`bases:
+	yamlContent := `bases:
 - ../base.yaml
 ---
 bases:
@@ -771,41 +800,34 @@ releases:
   labels:
     stage: post
   <<: *default
-`)
-	files := map[string][]byte{
+`
+	testFs := state.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
-		"/path/to/base.yaml": []byte(`environments:
+		"/path/to/base.yaml": `environments:
   default:
     values:
     - environments/default/1.yaml
-`),
-		"/path/to/yaml/environments/default/1.yaml": []byte(`foo: FOO`),
-		"/path/to/base.gotmpl": []byte(`environments:
+`,
+		"/path/to/yaml/environments/default/1.yaml": `foo: FOO`,
+		"/path/to/base.gotmpl": `environments:
   default:
     values:
     - environments/default/2.yaml
 
 helmDefaults:
   tillerNamespace: {{ .Environment.Values.tillerNs }}
-`),
-		"/path/to/yaml/environments/default/2.yaml": []byte(`tillerNs: TILLER_NS`),
-		"/path/to/yaml/templates.yaml": []byte(`templates:
+`,
+		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
+		"/path/to/yaml/templates.yaml": `templates:
   default: &default
     missingFileHandler: Warn
     values: ["` + "{{`" + `{{.Release.Name}}` + "`}}" + `/values.yaml"]
-`),
-	}
-	readFile := func(filename string) ([]byte, error) {
-		content, ok := files[filename]
-		if !ok {
-			return nil, fmt.Errorf("unexpected filename: %s", filename)
-		}
-		return content, nil
-	}
+`,
+	})
 	app := &App{
-		readFile: readFile,
-		glob:     filepath.Glob,
-		abs:      filepath.Abs,
+		readFile: testFs.ReadFile,
+		glob:     testFs.Glob,
+		abs:      testFs.Abs,
 		Env:      "default",
 		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
 	}
@@ -845,7 +867,7 @@ helmDefaults:
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_WithNonDefaultEnv(t *testing.T) {
 	yamlFile := "/path/to/yaml/file"
-	yamlContent := []byte(`bases:
+	yamlContent := `bases:
 - ../base.yaml
 ---
 bases:
@@ -872,41 +894,34 @@ releases:
   labels:
     stage: post
   <<: *default
-`)
-	files := map[string][]byte{
+`
+	testFs := state.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
-		"/path/to/base.yaml": []byte(`environments:
+		"/path/to/base.yaml": `environments:
   test:
     values:
     - environments/default/1.yaml
-`),
-		"/path/to/yaml/environments/default/1.yaml": []byte(`foo: FOO`),
-		"/path/to/base.gotmpl": []byte(`environments:
+`,
+		"/path/to/yaml/environments/default/1.yaml": `foo: FOO`,
+		"/path/to/base.gotmpl": `environments:
   test:
     values:
     - environments/default/2.yaml
 
 helmDefaults:
   tillerNamespace: {{ .Environment.Values.tillerNs }}
-`),
-		"/path/to/yaml/environments/default/2.yaml": []byte(`tillerNs: TILLER_NS`),
-		"/path/to/yaml/templates.yaml": []byte(`templates:
+`,
+		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
+		"/path/to/yaml/templates.yaml": `templates:
   default: &default
     missingFileHandler: Warn
     values: ["` + "{{`" + `{{.Release.Name}}` + "`}}" + `/values.yaml"]
-`),
-	}
-	readFile := func(filename string) ([]byte, error) {
-		content, ok := files[filename]
-		if !ok {
-			return nil, fmt.Errorf("unexpected filename: %s", filename)
-		}
-		return content, nil
-	}
+`,
+	})
 	app := &App{
-		readFile: readFile,
-		glob:     filepath.Glob,
-		abs:      filepath.Abs,
+		readFile: testFs.ReadFile,
+		glob:     testFs.Glob,
+		abs:      testFs.Abs,
 		Env:      "test",
 		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
 	}
@@ -946,7 +961,7 @@ helmDefaults:
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_WithReverse(t *testing.T) {
 	yamlFile := "/path/to/yaml/file"
-	yamlContent := []byte(`
+	yamlContent := `
 {{ readFile "templates.yaml" }}
 
 releases:
@@ -965,26 +980,19 @@ releases:
 - name: myrelease3
   chart: mychart3
   <<: *default
-`)
-	files := map[string][]byte{
+`
+	testFs := state.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
-		"/path/to/yaml/templates.yaml": []byte(`templates:
+		"/path/to/yaml/templates.yaml": `templates:
   default: &default
     missingFileHandler: Warn
     values: ["` + "{{`" + `{{.Release.Name}}` + "`}}" + `/values.yaml"]
-`),
-	}
-	readFile := func(filename string) ([]byte, error) {
-		content, ok := files[filename]
-		if !ok {
-			return nil, fmt.Errorf("unexpected filename: %s", filename)
-		}
-		return content, nil
-	}
+`,
+	})
 	app := &App{
-		readFile: readFile,
-		glob:     filepath.Glob,
-		abs:      filepath.Abs,
+		readFile: testFs.ReadFile,
+		glob:     testFs.Glob,
+		abs:      testFs.Abs,
 		Env:      "default",
 		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
 		Reverse:  true,
