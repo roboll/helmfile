@@ -298,7 +298,9 @@ func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helme
 
 func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*ReleaseSpec, error) {
 	detected := []*ReleaseSpec{}
-	for _, release := range st.Releases {
+	for i := range st.Releases {
+		release := st.Releases[i]
+
 		if !release.Desired() {
 			installed, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
 			if err != nil {
@@ -511,7 +513,9 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues 
 		helm.SetExtraArgs(args...)
 	}
 
-	for _, release := range st.Releases {
+	for i := range st.Releases {
+		release := st.Releases[i]
+
 		if !release.Desired() {
 			continue
 		}
@@ -571,7 +575,9 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 		helm.SetExtraArgs(args...)
 	}
 
-	for _, release := range st.Releases {
+	for i := range st.Releases {
+		release := st.Releases[i]
+
 		if !release.Desired() {
 			continue
 		}
@@ -910,7 +916,9 @@ func (st *HelmState) FilterReleases() error {
 func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand string) []error {
 	errs := []error{}
 
-	for _, release := range st.Releases {
+	for i := range st.Releases {
+		release := st.Releases[i]
+
 		if _, err := st.triggerPrepareEvent(&release, helmfileCommand); err != nil {
 			errs = append(errs, newReleaseError(&release, err))
 			continue
