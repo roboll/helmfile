@@ -42,7 +42,7 @@ type StateCreator struct {
 
 	Strict bool
 
-	LoadFile func(baseDir, file string, evaluateBases bool) (*HelmState, error)
+	LoadFile func(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
 }
 
 func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), abs func(string) (string, error), glob func(string) ([]string, error)) *StateCreator {
@@ -143,7 +143,7 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 		}
 	}
 
-	state, err = c.loadBases(state, baseDir)
+	state, err = c.loadBases(envValues, state, baseDir)
 	if err != nil {
 		return nil, err
 	}
@@ -151,10 +151,10 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 	return c.LoadEnvValues(state, envName, envValues)
 }
 
-func (c *StateCreator) loadBases(st *HelmState, baseDir string) (*HelmState, error) {
+func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmState, baseDir string) (*HelmState, error) {
 	layers := []*HelmState{}
 	for _, b := range st.Bases {
-		base, err := c.LoadFile(baseDir, b, false)
+		base, err := c.LoadFile(envValues, baseDir, b, false)
 		if err != nil {
 			return nil, err
 		}

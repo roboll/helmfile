@@ -27,7 +27,7 @@ type desiredStateLoader struct {
 }
 
 func (ld *desiredStateLoader) Load(f string) (*state.HelmState, error) {
-	st, err := ld.loadFile(filepath.Dir(f), filepath.Base(f), true)
+	st, err := ld.loadFile(nil, filepath.Dir(f), filepath.Base(f), true)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (ld *desiredStateLoader) Load(f string) (*state.HelmState, error) {
 	return st, nil
 }
 
-func (ld *desiredStateLoader) loadFile(baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
+func (ld *desiredStateLoader) loadFile(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
 	var f string
 	if filepath.IsAbs(file) {
 		f = file
@@ -76,6 +76,7 @@ func (ld *desiredStateLoader) loadFile(baseDir, file string, evaluateBases bool)
 
 	if !experimentalModeEnabled() || ext == ".gotmpl" {
 		self, err = ld.renderAndLoad(
+			inheritedEnv,
 			baseDir,
 			f,
 			fileBytes,
@@ -87,7 +88,7 @@ func (ld *desiredStateLoader) loadFile(baseDir, file string, evaluateBases bool)
 			baseDir,
 			file,
 			evaluateBases,
-			nil,
+			inheritedEnv,
 		)
 	}
 
@@ -123,11 +124,10 @@ func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBas
 	return st, nil
 }
 
-func (ld *desiredStateLoader) renderAndLoad(baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
+func (ld *desiredStateLoader) renderAndLoad(env *environment.Environment, baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
 	parts := bytes.Split(content, []byte("\n---\n"))
 
 	var finalState *state.HelmState
-	var env *environment.Environment
 
 	for i, part := range parts {
 		var yamlBuf *bytes.Buffer
