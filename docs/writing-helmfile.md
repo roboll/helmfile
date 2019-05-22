@@ -91,7 +91,9 @@ releases:
 
 See the [issue 428](https://github.com/roboll/helmfile/issues/428) for more context on how this is supposed to work.
 
-## Layering
+## Layering State Files
+
+> See **Layering State Template Files** if you're layering templates.
 
 You may occasionally end up with many helmfiles that shares common parts like which repositories to use, and whichi release to be bundled by default.
 
@@ -164,3 +166,117 @@ Great!
 Now, repeat the above steps for each your `helmfile.yaml`, so that all your helmfiles becomes DRY.
 
 Please also see [the discussion in the issue 388](https://github.com/roboll/helmfile/issues/388#issuecomment-491710348) for more advanced layering examples.
+
+## Layering State Template Files
+
+Do you need to make your state file even more DRY?
+
+Turned out layering state files wasn't enough for you?
+
+Helmfile supports an advanced feature that allows you to compose state "template" files to generate the final state to be processed.
+
+In the following example `helmfile.yaml.gotmpl`, each `---` separated part of the file is a go template.
+
+`helmfile.yaml.gotmpl`:
+
+```yaml
+# Part 1: Reused Enviroment Values
+bases:
+  - myenv.yaml
+---
+# Part 2: Reused Defaults
+bases:
+  - mydefaults.yaml
+---
+# Part 3: Dynamic Releases
+releases:
+  - name: test1
+    chart: mychart-{{ .Environment.Values.myname }}
+    values:
+      replicaCount: 1
+      image:
+        repository: "nginx"
+        tag: "latest"
+```
+
+Suppose the `myenv.yaml` and `test.env.yaml` loaded in the first part looks like:
+
+`myenv.yaml`:
+
+```yaml
+environments:
+  test:
+    values:
+      - test.env.yaml
+```
+
+`test.env.yaml`:
+
+```yaml
+kubeContext: test
+wait: false
+cvOnly: false
+myname: "dog"
+```
+
+Where the gotmpl file loaded in the second part looks like:
+
+`mydefaults.yaml.gotmpl`:
+
+```yaml
+helmDefaults:
+  tillerNamespace: kube-system
+  kubeContext: {{ .Environment.Values.kubeContext }}
+  verify: false
+  {{ if .Environment.Values.wait }}
+  wait: true
+  {{ else }}
+  wait: false
+  {{ end }}
+  timeout: 600
+  recreatePods: false
+  force: true
+```
+
+Each go template is rendered in the context where `.Environment.Values` is inherited from the previous part. 
+
+So in `mydefaults.yaml.gotmpl`, both `.Environment.Values.kubeContext` and `.Environment.Values.wait` are valid as they do exist in the environment values inherited from the previous part(=the first part) of your `helmfile.yaml.gotmpl`, and therefore the template is rendered to:
+
+```yaml
+helmDefaults:
+  tillerNamespace: kube-system
+  kubeContext: test
+  verify: false
+  wait: false
+  timeout: 600
+  recreatePods: false
+  force: true
+```
+
+Similarly, the third part of the top-level `helmfile.yaml.gotmpl`, `.Environment.Values.myname` is valid as it is included in the environment values inherited from the previous parts:
+
+```yaml
+# Part 3: Dynamic Releases
+releases:
+  - name: test1
+    chart: mychart-{{ .Environment.Values.myname }}
+    values:
+      replicaCount: 1
+      image:
+        repository: "nginx"
+        tag: "latest"
+````
+
+hence rendered to:
+
+```yaml
+# Part 3: Dynamic Releases
+releases:
+  - name: test1
+    chart: mychart-dog
+    values:
+      replicaCount: 1
+      image:
+        repository: "nginx"
+        tag: "latest"
+```
