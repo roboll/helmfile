@@ -115,7 +115,8 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 			want: specWithNamespaceFromFields,
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				basePath:           tt.fields.BaseChartPath,
@@ -505,7 +506,8 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				basePath:          "./",
@@ -584,7 +586,8 @@ func Test_isLocalChart(t *testing.T) {
 			want: true,
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isLocalChart(tt.args.chart); got != tt.want {
 				t.Errorf("%s(\"%s\") isLocalChart(): got %v, want %v", tt.name, tt.args.chart, got, tt.want)
@@ -636,7 +639,8 @@ func Test_normalizeChart(t *testing.T) {
 			want: "/app",
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if got := normalizeChart(tt.args.basePath, tt.args.chart); got != tt.want {
 				t.Errorf("normalizeChart() = %v, want %v", got, tt.want)
@@ -814,7 +818,8 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			want: []string{"name", "http://example.com/", "", "", "example_user", "example_password"},
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			for k, v := range tt.envs {
 				err := os.Setenv(k, v)
@@ -929,7 +934,8 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo.bar[0]={A,B}"}}},
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
@@ -1016,7 +1022,8 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 			wantAffected: mockAffected{[]*mockRelease{{"releaseNameFoo", []string{}}}, []*mockRelease{{"releaseNameBar", []string{}}}, []*mockRelease{{"releaseNameFoo-error", []string{}}}},
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
@@ -1106,7 +1113,8 @@ func TestGetDeployedVersion(t *testing.T) {
 			installedVersion: "1.0.0-alpha+001",
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				Releases: []ReleaseSpec{tt.release},
@@ -1225,7 +1233,8 @@ func TestHelmState_DiffReleases(t *testing.T) {
 			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo.bar[0]={A,B}"}}},
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
@@ -1294,7 +1303,8 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 			expectedNumRemovedFiles: 2,
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			numRemovedFiles := 0
 			state := &HelmState{
@@ -1383,7 +1393,8 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 			expectedNumRemovedFiles: 2,
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			numRemovedFiles := 0
 			state := &HelmState{
@@ -1624,8 +1635,9 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 			want: []mockRelease{{"releaseA", []string{"--tiller-namespace", "tillerns"}}},
 		},
 	}
-	for _, tt := range tests {
-		i := func(t *testing.T) {
+	for i := range tests {
+		tt := tests[i]
+		f := func(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
 				logger:   logger,
@@ -1651,7 +1663,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 				t.Errorf("HelmState.ReleaseStatuses() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.want)
 			}
 		}
-		t.Run(tt.name, i)
+		t.Run(tt.name, f)
 	}
 }
 
@@ -1708,8 +1720,9 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 			want: []mockRelease{{"releaseA", []string{"--timeout", "1", "--tiller-namespace", "tillerns"}}},
 		},
 	}
-	for _, tt := range tests {
-		i := func(t *testing.T) {
+	for i := range tests {
+		tt := tests[i]
+		f := func(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
 				logger:   logger,
@@ -1723,7 +1736,7 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 				t.Errorf("HelmState.TestReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.want)
 			}
 		}
-		t.Run(tt.name, i)
+		t.Run(tt.name, f)
 	}
 }
 
@@ -1758,8 +1771,9 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	for _, tt := range tests {
-		i := func(t *testing.T) {
+	for i := range tests {
+		tt := tests[i]
+		f := func(t *testing.T) {
 			state := &HelmState{
 				Releases: releases,
 				logger:   logger,
@@ -1771,7 +1785,7 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 				return
 			}
 		}
-		t.Run(tt.name, i)
+		t.Run(tt.name, f)
 	}
 }
 
@@ -1877,8 +1891,9 @@ func TestHelmState_Delete(t *testing.T) {
 			deleted:         []mockRelease{{"releaseA", []string{"--purge", "--tiller-namespace", "tillerns"}}},
 		},
 	}
-	for _, tt := range tests {
-		i := func(t *testing.T) {
+	for i := range tests {
+		tt := tests[i]
+		f := func(t *testing.T) {
 			name := "releaseA"
 			if tt.wantErr {
 				name = "releaseA-error"
@@ -1913,6 +1928,6 @@ func TestHelmState_Delete(t *testing.T) {
 				t.Errorf("unexpected deletions happened: expected %v, got %v", &affectedReleases.Deleted, tt.deleted)
 			}
 		}
-		t.Run(tt.name, i)
+		t.Run(tt.name, f)
 	}
 }

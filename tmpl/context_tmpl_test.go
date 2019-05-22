@@ -230,7 +230,8 @@ func Test_renderTemplateToString(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			for k, v := range tt.args.envs {
 				err := os.Setenv(k, v)
