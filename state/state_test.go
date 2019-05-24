@@ -16,6 +16,12 @@ import (
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
 
+func injectFs(st *HelmState, fs *TestFs) *HelmState {
+	st.readFile = fs.ReadFile
+	st.fileExists = fs.FileExists
+	return st
+}
+
 func TestLabelParsing(t *testing.T) {
 	cases := []struct {
 		labelString    string
@@ -944,6 +950,117 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			if _ = state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
 				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
 			}
+		})
+	}
+}
+
+func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.T) {
+	no := false
+	tests := []struct {
+		name          string
+		release       ReleaseSpec
+		listResult    string
+		expectedError string
+	}{
+		{
+			name: "should install",
+			release: ReleaseSpec{
+				Name:  "foo",
+				Chart: "../../foo-bar",
+			},
+			listResult:    ``,
+			expectedError: ``,
+		},
+		{
+			name: "should upgrade",
+			release: ReleaseSpec{
+				Name:  "foo",
+				Chart: "../../foo-bar",
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			expectedError: ``,
+		},
+		{
+			name: "should uninstall",
+			release: ReleaseSpec{
+				Name:      "foo",
+				Chart:     "../../foo-bar",
+				Installed: &no,
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			expectedError: ``,
+		},
+		{
+			name: "should fail installing due to missing values file",
+			release: ReleaseSpec{
+				Name:   "foo",
+				Chart:  "../../foo-bar",
+				Values: []interface{}{"noexistent.values.yaml"},
+			},
+			listResult:    ``,
+			expectedError: `failed processing release foo: file does not exist: noexistent.values.yaml`,
+		},
+		{
+			name: "should fail upgrading due to missing values file",
+			release: ReleaseSpec{
+				Name:   "foo",
+				Chart:  "../../foo-bar",
+				Values: []interface{}{"noexistent.values.yaml"},
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			expectedError: `failed processing release foo: file does not exist: noexistent.values.yaml`,
+		},
+		{
+			name: "should uninstall even when there is a missing values file",
+			release: ReleaseSpec{
+				Name:      "foo",
+				Chart:     "../../foo-bar",
+				Values:    []interface{}{"noexistent.values.yaml"},
+				Installed: &no,
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			expectedError: ``,
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				Releases: []ReleaseSpec{tt.release},
+				logger:   logger,
+			}
+			fs := NewTestFs(map[string]string{})
+			state = injectFs(state, fs)
+			helm := &mockHelmExec{
+				lists: map[listKey]string{},
+			}
+			//simulate the helm.list call result
+			helm.lists[listKey{filter: "^" + tt.release.Name + "$"}] = tt.listResult
+
+			affectedReleases := AffectedReleases{}
+			errs := state.SyncReleases(&affectedReleases, helm, []string{}, 1)
+
+			if tt.expectedError != "" {
+				if len(errs) == 0 {
+					t.Fatalf("expected error not occurred: expected=%s, got none", tt.expectedError)
+				}
+				if len(errs) != 1 {
+					t.Fatalf("too many errors: expected %d, got %d: %v", 1, len(errs), errs)
+				}
+				err := errs[0]
+				if err.Error() != tt.expectedError {
+					t.Fatalf("unexpected error: expected=%s, got=%v", tt.expectedError, err)
+				}
+			} else {
+				if len(errs) > 0 {
+					t.Fatalf("unexpected error(s): expected=0, got=%d: %v", len(errs), errs)
+				}
+			}
+
 		})
 	}
 }

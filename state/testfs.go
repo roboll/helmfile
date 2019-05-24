@@ -44,6 +44,10 @@ func (f *TestFs) FileExistsAt(path string) bool {
 	return ok
 }
 
+func (f *TestFs) FileExists(path string) (bool, error) {
+	return f.FileExistsAt(path), nil
+}
+
 func (f *TestFs) DirectoryExistsAt(path string) bool {
 	var ok bool
 	if strings.Contains(path, "/") {
