@@ -83,7 +83,7 @@ func main() {
 	The name of a release can be used as a label. --selector name=myrelease`,
 		},
 		cli.BoolFlag{
-			Name: "allow-no-matching-release",
+			Name:  "allow-no-matching-release",
 			Usage: `Do not exit with an error code if the provided selector has no matching releases.`,
 		},
 		cli.BoolFlag{
