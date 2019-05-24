@@ -239,6 +239,17 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 			for release := range jobs {
 				st.applyDefaultsTo(release)
 
+				// If `installed: false`, the only potential operation on this release would be uninstalling.
+				// We skip generating values files in that case, because for an uninstall with `helm delete`, we don't need to those.
+				// The values files are for `helm upgrade -f values.yaml` calls that happens when the release has `installed: true`.
+				// This logic addresses:
+				// - https://github.com/roboll/helmfile/issues/519
+				// - https://github.com/roboll/helmfile/issues/616
+				if !release.Desired() {
+					results <- syncPrepareResult{release: release, flags: []string{}, errors: []*ReleaseError{}}
+					continue
+				}
+
 				flags, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
 				if flagsErr != nil {
 					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseError(release, flagsErr)}}
