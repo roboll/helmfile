@@ -27,7 +27,7 @@ func VisitAllDesiredStates(c *cli.Context, converge func(*state.HelmState, helme
 
 	err = a.VisitDesiredStates(fileOrDir, a.Selectors, convergeWithHelmBinary)
 
-	return toCliError(err)
+	return toCliError(c, err)
 }
 
 func InitAppEntry(c *cli.Context, reverse bool) (*app.App, string, error) {
@@ -76,14 +76,18 @@ func FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c *cli.Context, revers
 
 	err = a.VisitDesiredStatesWithReleasesFiltered(fileOrDir, convergeWithHelmBinary)
 
-	return toCliError(err)
+	return toCliError(c, err)
 }
 
-func toCliError(err error) error {
+func toCliError(c *cli.Context, err error) error {
 	if err != nil {
 		switch e := err.(type) {
 		case *app.NoMatchingHelmfileError:
-			return cli.NewExitError(e.Error(), 2)
+			noMatchingExitCode := 3
+			if c.GlobalBool("allow-no-matching-release") {
+				noMatchingExitCode = 0
+			}
+			return cli.NewExitError(e.Error(), noMatchingExitCode)
 		case *app.Error:
 			return cli.NewExitError(e.Error(), e.Code())
 		default:
