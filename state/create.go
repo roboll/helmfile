@@ -35,23 +35,25 @@ func (e *UndefinedEnvError) Error() string {
 }
 
 type StateCreator struct {
-	logger   *zap.SugaredLogger
-	readFile func(string) ([]byte, error)
-	abs      func(string) (string, error)
-	glob     func(string) ([]string, error)
+	logger     *zap.SugaredLogger
+	readFile   func(string) ([]byte, error)
+	fileExists func(string) (bool, error)
+	abs        func(string) (string, error)
+	glob       func(string) ([]string, error)
 
 	Strict bool
 
 	LoadFile func(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), abs func(string) (string, error), glob func(string) ([]string, error)) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error)) *StateCreator {
 	return &StateCreator{
-		logger:   logger,
-		readFile: readFile,
-		abs:      abs,
-		glob:     glob,
-		Strict:   true,
+		logger:     logger,
+		readFile:   readFile,
+		fileExists: fileExists,
+		abs:        abs,
+		glob:       glob,
+		Strict:     true,
 	}
 }
 
@@ -102,17 +104,8 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	state.readFile = c.readFile
 	state.removeFile = os.Remove
-	state.fileExists = func(path string) (bool, error) {
-		_, err := os.Stat(path)
-
-		if err != nil {
-			if os.IsNotExist(err) {
-				return false, nil
-			}
-			return false, err
-		}
-		return true, nil
-	}
+	state.fileExists = c.fileExists
+	state.glob = c.glob
 
 	return &state, nil
 }
@@ -171,28 +164,17 @@ func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmSta
 	return layers[0], nil
 }
 
-func (st *HelmState) ExpandPaths(patterns []string, glob func(string) ([]string, error)) ([]string, error) {
+func (st *HelmState) ExpandPaths(globPattern string) ([]string, error) {
 	result := []string{}
-	for _, globPattern := range patterns {
-		var absPathPattern string
-		if filepath.IsAbs(globPattern) {
-			absPathPattern = globPattern
-		} else {
-			absPathPattern = st.JoinBase(globPattern)
-		}
-		matches, err := glob(absPathPattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
-		}
-
-		if len(matches) == 0 {
-			return nil, fmt.Errorf("no file matching %s found", globPattern)
-		}
-
-		sort.Strings(matches)
-
-		result = append(result, matches...)
+	absPathPattern := st.normalizePath(globPattern)
+	matches, err := st.glob(absPathPattern)
+	if err != nil {
+		return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
 	}
+
+	sort.Strings(matches)
+
+	result = append(result, matches...)
 	return result, nil
 }
 
@@ -200,12 +182,20 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
 	if ok {
-		valuesFiles, err := st.ExpandPaths(envSpec.Values, glob)
-		if err != nil {
-			return nil, err
+		var envValuesFiles []string
+		for _, urlOrPath := range envSpec.Values {
+			resolved, skipped, err := st.resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath)
+			if err != nil {
+				return nil, err
+			}
+			if skipped {
+				continue
+			}
+
+			envValuesFiles = append(envValuesFiles, resolved...)
 		}
 
-		for _, envvalFullPath := range valuesFiles {
+		for _, envvalFullPath := range envValuesFiles {
 			tmplData := EnvironmentTemplateData{Environment: environment.EmptyEnvironment, Namespace: ""}
 			r := tmpl.NewFileRenderer(readFile, filepath.Dir(envvalFullPath), tmplData)
 			bytes, err := r.RenderToBytes(envvalFullPath)
@@ -222,16 +212,22 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 		}
 
 		if len(envSpec.Secrets) > 0 {
-			secretsFiles, err := st.ExpandPaths(envSpec.Secrets, glob)
-			if err != nil {
-				return nil, err
-			}
-
 			helm := helmexec.New(st.logger, "")
-			for _, path := range secretsFiles {
-				if _, err := os.Stat(path); os.IsNotExist(err) {
+
+			var envSecretFiles []string
+			for _, urlOrPath := range envSpec.Secrets {
+				resolved, skipped, err := st.resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath)
+				if err != nil {
 					return nil, err
 				}
+				if skipped {
+					continue
+				}
+
+				envSecretFiles = append(envSecretFiles, resolved...)
+			}
+
+			for _, path := range envSecretFiles {
 				// Work-around to allow decrypting environment secrets
 				//
 				// We don't have releases loaded yet and therefore unable to decide whether

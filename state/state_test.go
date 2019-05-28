@@ -17,6 +17,7 @@ import (
 var logger = helmexec.NewLogger(os.Stdout, "warn")
 
 func injectFs(st *HelmState, fs *TestFs) *HelmState {
+	st.glob = fs.Glob
 	st.readFile = fs.ReadFile
 	st.fileExists = fs.FileExists
 	return st
@@ -1000,7 +1001,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				Values: []interface{}{"noexistent.values.yaml"},
 			},
 			listResult:    ``,
-			expectedError: `failed processing release foo: file does not exist: noexistent.values.yaml`,
+			expectedError: `failed processing release foo: values file matching "noexistent.values.yaml" does not exist`,
 		},
 		{
 			name: "should fail upgrading due to missing values file",
@@ -1011,7 +1012,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			},
 			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
 										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
-			expectedError: `failed processing release foo: file does not exist: noexistent.values.yaml`,
+			expectedError: `failed processing release foo: values file matching "noexistent.values.yaml" does not exist`,
 		},
 		{
 			name: "should uninstall even when there is a missing values file",
@@ -1427,22 +1428,15 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
 				logger:   logger,
-				readFile: func(f string) ([]byte, error) {
-					if f != "someFile" {
-						return nil, fmt.Errorf("unexpected file to read: %s", f)
-					}
-					someFileContent := []byte(`foo: bar
-`)
-					return someFileContent, nil
-				},
 				removeFile: func(f string) error {
 					numRemovedFiles += 1
 					return nil
 				},
-				fileExists: func(f string) (bool, error) {
-					return true, nil
-				},
 			}
+			testfs := NewTestFs(map[string]string{
+				"/path/to/someFile": `foo: FOO`,
+			})
+			state = injectFs(state, testfs)
 			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); errs != nil && len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
@@ -1517,22 +1511,16 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 			state := &HelmState{
 				Releases: tt.releases,
 				logger:   logger,
-				readFile: func(f string) ([]byte, error) {
-					if f != "someFile" {
-						return nil, fmt.Errorf("unexpected file to read: %s", f)
-					}
-					someFileContent := []byte(`foo: bar
-`)
-					return someFileContent, nil
-				},
 				removeFile: func(f string) error {
 					numRemovedFiles += 1
 					return nil
 				},
-				fileExists: func(f string) (bool, error) {
-					return true, nil
-				},
 			}
+			testfs := NewTestFs(map[string]string{
+				"/path/to/someFile": `foo: bar
+`,
+			})
+			state = injectFs(state, testfs)
 			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false); errs != nil && len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}

@@ -30,6 +30,10 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 The default helmfile is `helmfile.yaml`:
 
 ```yaml
+# Chart repositories used from within this state file
+#
+# Use `helm-s3` and `helm-git` and whatever Helm Downloader plugins
+# to use repositories other than the official repository or one backend by chartmuseum.
 repositories:
   - name: roboll
     url: http://roboll.io/charts
@@ -63,6 +67,9 @@ helmDefaults:
   # path to TLS key file (default "$HELM_HOME/key.pem")
   tlsKey: "path/to/key.pem"
 
+# The desired states of Helm releases.
+#
+# Helmfile runs various helm commands to converge the current state in the live cluster to the desired state defined here.
 releases:
   # Published chart example
   - name: vault                            # name of this release
@@ -71,7 +78,7 @@ releases:
       foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
-    missingFileHandler: warn # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
+    missingFileHandler: Warn # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
     values:
       # value files passed via --values
       - vault.yaml
@@ -134,6 +141,43 @@ releases:
     - ./values/{{ requiredEnv "PLATFORM_ENV" }}/config.yaml # Values file taken from path with environment variable. $PLATFORM_ENV must be set in the calling environment.
     wait: true
 
+#
+# Advanced Configuration: Helmfile Environments
+#
+
+# The list of environments managed by helmfile.
+#
+# The default is `environments: {"default": {}}` which implies:
+#
+# - `{{ .Environment.Name }}` evaluates to "default"
+# - `{{ .Environment.Values }}` being empty
+environments:
+  # The "default" environment is available and used when `helmfile` is run without `--environment NAME`.
+  default:
+    # Everything from the values.yaml is available via `{{ .Environment.Values.KEY }}`.
+    # Suppose `{"foo": {"bar": 1}}` contained in the values.yaml below,
+    # `{{ .Environment.Values.foo.bar }}` is evaluated to `1`.
+    values:
+    - environments/default/values.yaml
+  # Any environment other than `default` is used only when `helmfile` is run with `--environment NAME`.
+  # That is, the "production" env below is used when and only when it is run like `helmfile --environment production sync`.
+  production:
+    values:
+    - environment/production/values.yaml
+    ## `secrets.yaml` is decrypted by `helm-secrets` and available via `{{ .Environment.Secrets.KEY }}`
+    secrets:
+    - environment/production/secrets.yaml
+    # Overrides the `environmentDefaults.missingFileHandler` for this environment 
+    missingFileHandler: Error
+
+environmentDefaults:
+  # Instructs helmfile to fail when unable to find a environment values file listed under `environments.NAME.values`.
+  #
+  # Possible values are  "Error", "Warn", "Info", "Debug". The default is "Error".
+  #
+  # Use "Warn", "Info", or "Debug" if you want helmfile to not fail when a values file is missing, while just leaving
+  # a message about the missing file at the log-level.
+  missingFileHandler: Error
 ```
 
 ## Templating

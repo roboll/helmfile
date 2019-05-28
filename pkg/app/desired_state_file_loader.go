@@ -19,9 +19,10 @@ type desiredStateLoader struct {
 	env       string
 	namespace string
 
-	readFile func(string) ([]byte, error)
-	abs      func(string) (string, error)
-	glob     func(string) ([]string, error)
+	readFile   func(string) ([]byte, error)
+	fileExists func(string) (bool, error)
+	abs        func(string) (string, error)
+	glob       func(string) ([]string, error)
 
 	logger *zap.SugaredLogger
 }
@@ -96,7 +97,7 @@ func (ld *desiredStateLoader) loadFile(inheritedEnv *environment.Environment, ba
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.readFile, a.abs, a.glob)
+	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob)
 	c.LoadFile = a.loadFile
 	return c
 }
@@ -109,9 +110,12 @@ func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBas
 
 	helmfiles := []state.SubHelmfileSpec{}
 	for _, hf := range st.Helmfiles {
-		matches, err := st.ExpandPaths([]string{hf.Path}, a.glob)
+		matches, err := st.ExpandPaths(hf.Path)
 		if err != nil {
 			return nil, err
+		}
+		if len(matches) == 0 {
+			return nil, fmt.Errorf("no file matching %s found", hf.Path)
 		}
 		for _, match := range matches {
 			newHelmfile := hf

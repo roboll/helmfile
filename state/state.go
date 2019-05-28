@@ -27,9 +27,10 @@ import (
 
 // HelmState structure for the helmfile
 type HelmState struct {
-	basePath     string
-	Environments map[string]EnvironmentSpec
-	FilePath     string
+	basePath string
+	FilePath string
+
+	Environments map[string]EnvironmentSpec `yaml:"environments"`
 
 	Bases              []string          `yaml:"bases"`
 	HelmDefaults       HelmSpec          `yaml:"helmDefaults"`
@@ -51,6 +52,7 @@ type HelmState struct {
 
 	removeFile func(string) error
 	fileExists func(string) (bool, error)
+	glob       func(string) ([]string, error)
 	tempDir    func(string, string) (string, error)
 
 	runner helmexec.Runner
@@ -170,6 +172,11 @@ type AffectedReleases struct {
 }
 
 const DefaultEnv = "default"
+
+const MissingFileHandlerError = "Error"
+const MissingFileHandlerInfo = "Info"
+const MissingFileHandlerWarn = "Warn"
+const MissingFileHandlerDebug = "Debug"
 
 func (st *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
 	if st.Namespace != "" {
@@ -1252,26 +1259,18 @@ func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingF
 	for _, value := range values {
 		switch typedValue := value.(type) {
 		case string:
-			path := st.normalizePath(typedValue)
-
-			ok, err := st.fileExists(path)
+			paths, skip, err := st.resolveFile(missingFileHandler, "values", typedValue)
 			if err != nil {
 				return nil, err
 			}
-			if !ok {
-				if missingFileHandler == nil || *missingFileHandler == "Error" {
-					return nil, fmt.Errorf("file does not exist: %s", path)
-				} else if *missingFileHandler == "Warn" {
-					st.logger.Warnf("skipping missing values file \"%s\"", path)
-					continue
-				} else if *missingFileHandler == "Info" {
-					st.logger.Infof("skipping missing values file \"%s\"", path)
-					continue
-				} else {
-					st.logger.Debugf("skipping missing values file \"%s\"", path)
-					continue
-				}
+			if skip {
+				continue
 			}
+
+			if len(paths) > 1 {
+				return nil, fmt.Errorf("glob patterns in release values and secrets is not supported yet. please submit a feature request if necessary")
+			}
+			path := paths[0]
 
 			yamlBytes, err := st.RenderValuesFileToBytes(path)
 			if err != nil {
@@ -1337,25 +1336,18 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	release.generatedValues = append(release.generatedValues, generatedFiles...)
 
 	for _, value := range release.Secrets {
-		path := st.normalizePath(release.ValuesPathPrefix + value)
-		ok, err := st.fileExists(path)
+		paths, skip, err := st.resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value)
 		if err != nil {
 			return nil, err
 		}
-		if !ok {
-			if release.MissingFileHandler == nil || *release.MissingFileHandler == "Error" {
-				return nil, err
-			} else if *release.MissingFileHandler == "Warn" {
-				st.logger.Warnf("skipping missing secrets file \"%s\"", path)
-				continue
-			} else if *release.MissingFileHandler == "Info" {
-				st.logger.Infof("skipping missing secrets file \"%s\"", path)
-				continue
-			} else {
-				st.logger.Debugf("skipping missing secrets file \"%s\"", path)
-				continue
-			}
+		if skip {
+			continue
 		}
+
+		if len(paths) > 1 {
+			return nil, fmt.Errorf("glob patterns in release secret file is not supported yet. please submit a feature request if necessary")
+		}
+		path := paths[0]
 
 		decryptFlags := st.appendTillerFlags([]string{}, release)
 		valfile, err := helm.DecryptSecret(st.createHelmContext(release, workerIndex), path, decryptFlags...)
@@ -1411,6 +1403,49 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	 **************/
 
 	return flags, nil
+}
+
+func (st *HelmState) resolveFile(missingFileHandler *string, tpe, path string) ([]string, bool, error) {
+	title := fmt.Sprintf("%s file", tpe)
+
+	files, err := st.ExpandPaths(path)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var handlerId string
+
+	if missingFileHandler != nil {
+		handlerId = *missingFileHandler
+	} else {
+		handlerId = MissingFileHandlerError
+	}
+
+	if len(files) == 0 {
+		switch handlerId {
+		case MissingFileHandlerError:
+			return nil, false, fmt.Errorf("%s matching \"%s\" does not exist", title, path)
+		case MissingFileHandlerWarn:
+			st.logger.Warnf("skipping missing %s matching \"%s\"", title, path)
+			return nil, true, nil
+		case MissingFileHandlerInfo:
+			st.logger.Infof("skipping missing %s matching \"%s\"", title, path)
+			return nil, true, nil
+		case MissingFileHandlerDebug:
+			st.logger.Debugf("skipping missing %s matching \"%s\"", title, path)
+			return nil, true, nil
+		default:
+			available := []string{
+				MissingFileHandlerError,
+				MissingFileHandlerWarn,
+				MissingFileHandlerInfo,
+				MissingFileHandlerDebug,
+			}
+			return nil, false, fmt.Errorf("invalid missing file handler \"%s\" while processing \"%s\" in \"%s\": it must be one of %s", handlerId, path, st.FilePath, available)
+		}
+	}
+
+	return files, false, nil
 }
 
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases
