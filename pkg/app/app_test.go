@@ -24,6 +24,7 @@ func injectFs(app *App, fs *state.TestFs) *App {
 	app.getwd = fs.Getwd
 	app.chdir = fs.Chdir
 	app.fileExistsAt = fs.FileExistsAt
+	app.fileExists = fs.FileExists
 	app.directoryExistsAt = fs.DirectoryExistsAt
 	return app
 }
@@ -155,9 +156,63 @@ releases:
 		t.Fatal("expected error did not occur")
 	}
 
-	expected := "in ./helmfile.yaml: failed to read helmfile.yaml: no file matching env.*.yaml found"
+	expected := "in ./helmfile.yaml: failed to read helmfile.yaml: environment values file matching \"env.*.yaml\" does not exist"
 	if err.Error() != expected {
 		t.Errorf("unexpected error: expected=%s, got=%v", expected, err)
+	}
+}
+
+func TestVisitDesiredStatesWithReleasesFiltered_MissingEnvValuesFileHandler(t *testing.T) {
+	testcases := []struct {
+		name        string
+		handler     string
+		filePattern string
+		expectErr   bool
+	}{
+		{name: "error handler with no files matching glob", handler: "Error", filePattern: "env.*.yaml", expectErr: true},
+		{name: "warn handler with no files matching glob", handler: "Warn", filePattern: "env.*.yaml", expectErr: false},
+		{name: "info handler with no files matching glob", handler: "Info", filePattern: "env.*.yaml", expectErr: false},
+		{name: "debug handler with no files matching glob", handler: "Debug", filePattern: "env.*.yaml", expectErr: false},
+	}
+
+	for i := range testcases {
+		testcase := testcases[i]
+		t.Run(testcase.name, func(t *testing.T) {
+			files := map[string]string{
+				"/path/to/helmfile.yaml": fmt.Sprintf(`
+environments:
+  default:
+    missingFileHandler: %s
+    values:
+    - %s
+releases:
+- name: zipkin
+  chart: stable/zipkin
+`, testcase.handler, testcase.filePattern),
+			}
+			fs := state.NewTestFs(files)
+			app := &App{
+				KubeContext: "default",
+				Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+				Namespace:   "",
+				Env:         "default",
+			}
+			app = injectFs(app, fs)
+			noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+				return []error{}
+			}
+
+			err := app.VisitDesiredStatesWithReleasesFiltered(
+				"helmfile.yaml", noop,
+			)
+			if testcase.expectErr && err == nil {
+				t.Fatal("expected error did not occur")
+			}
+
+			if !testcase.expectErr && err != nil {
+				t.Errorf("not error expected, but got: %v", err)
+			}
+		})
 	}
 }
 
@@ -746,16 +801,18 @@ helmDefaults:
 `,
 	})
 	app := &App{
-		readFile:    testFs.ReadFile,
-		glob:        testFs.Glob,
-		abs:         testFs.Abs,
-		KubeContext: "default",
-		Env:         "default",
-		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+		readFile:     testFs.ReadFile,
+		glob:         testFs.Glob,
+		abs:          testFs.Abs,
+		fileExistsAt: testFs.FileExistsAt,
+		fileExists:   testFs.FileExists,
+		KubeContext:  "default",
+		Env:          "default",
+		Logger:       helmexec.NewLogger(os.Stderr, "debug"),
 	}
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
@@ -825,11 +882,12 @@ helmDefaults:
 `,
 	})
 	app := &App{
-		readFile: testFs.ReadFile,
-		glob:     testFs.Glob,
-		abs:      testFs.Abs,
-		Env:      "default",
-		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
+		readFile:   testFs.ReadFile,
+		fileExists: testFs.FileExists,
+		glob:       testFs.Glob,
+		abs:        testFs.Abs,
+		Env:        "default",
+		Logger:     helmexec.NewLogger(os.Stderr, "debug"),
 	}
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
@@ -900,11 +958,12 @@ foo: FOO
 `,
 	})
 	app := &App{
-		readFile: testFs.ReadFile,
-		glob:     testFs.Glob,
-		abs:      testFs.Abs,
-		Env:      "default",
-		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
+		readFile:   testFs.ReadFile,
+		fileExists: testFs.FileExists,
+		glob:       testFs.Glob,
+		abs:        testFs.Abs,
+		Env:        "default",
+		Logger:     helmexec.NewLogger(os.Stderr, "debug"),
 	}
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
@@ -978,11 +1037,12 @@ helmDefaults:
 `,
 	})
 	app := &App{
-		readFile: testFs.ReadFile,
-		glob:     testFs.Glob,
-		abs:      testFs.Abs,
-		Env:      "test",
-		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
+		readFile:   testFs.ReadFile,
+		fileExists: testFs.FileExists,
+		glob:       testFs.Glob,
+		abs:        testFs.Abs,
+		Env:        "test",
+		Logger:     helmexec.NewLogger(os.Stderr, "debug"),
 	}
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {

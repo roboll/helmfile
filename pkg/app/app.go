@@ -26,6 +26,7 @@ type App struct {
 	Selectors   []string
 
 	readFile          func(string) ([]byte, error)
+	fileExists        func(string) (bool, error)
 	glob              func(string) ([]string, error)
 	abs               func(string) (string, error)
 	fileExistsAt      func(string) bool
@@ -42,6 +43,7 @@ func Init(app *App) *App {
 	app.getwd = os.Getwd
 	app.chdir = os.Chdir
 	app.fileExistsAt = fileExistsAt
+	app.fileExists = fileExists
 	app.directoryExistsAt = directoryExistsAt
 	return app
 }
@@ -113,11 +115,12 @@ func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
 
 func (a *App) loadDesiredStateFromYaml(file string) (*state.HelmState, error) {
 	ld := &desiredStateLoader{
-		readFile:  a.readFile,
-		env:       a.Env,
-		namespace: a.Namespace,
-		logger:    a.Logger,
-		abs:       a.abs,
+		readFile:   a.readFile,
+		fileExists: a.fileExists,
+		env:        a.Env,
+		namespace:  a.Namespace,
+		logger:     a.Logger,
+		abs:        a.abs,
 
 		Reverse:     a.Reverse,
 		KubeContext: a.KubeContext,
@@ -314,6 +317,18 @@ func (a *App) findDesiredStateFiles(specifiedPath string) ([]string, error) {
 func fileExistsAt(path string) bool {
 	fileInfo, err := os.Stat(path)
 	return err == nil && fileInfo.Mode().IsRegular()
+}
+
+func fileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func directoryExistsAt(path string) bool {

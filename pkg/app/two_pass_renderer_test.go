@@ -13,12 +13,13 @@ import (
 func makeLoader(files map[string]string, env string) (*desiredStateLoader, *state.TestFs) {
 	testfs := state.NewTestFs(files)
 	return &desiredStateLoader{
-		env:       env,
-		namespace: "namespace",
-		logger:    helmexec.NewLogger(os.Stdout, "debug"),
-		readFile:  testfs.ReadFile,
-		abs:       testfs.Abs,
-		glob:      testfs.Glob,
+		env:        env,
+		namespace:  "namespace",
+		logger:     helmexec.NewLogger(os.Stdout, "debug"),
+		readFile:   testfs.ReadFile,
+		fileExists: testfs.FileExists,
+		abs:        testfs.Abs,
+		glob:       testfs.Glob,
 	}, testfs
 }
 
