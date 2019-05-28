@@ -167,17 +167,13 @@ environments:
     ## `secrets.yaml` is decrypted by `helm-secrets` and available via `{{ .Environment.Secrets.KEY }}`
     secrets:
     - environment/production/secrets.yaml
-    # Overrides the `environmentDefaults.missingFileHandler` for this environment 
+    # Instructs helmfile to fail when unable to find a environment values file listed under `environments.NAME.values`.
+    #
+    # Possible values are  "Error", "Warn", "Info", "Debug". The default is "Error".
+    #
+    # Use "Warn", "Info", or "Debug" if you want helmfile to not fail when a values file is missing, while just leaving
+    # a message about the missing file at the log-level.
     missingFileHandler: Error
-
-environmentDefaults:
-  # Instructs helmfile to fail when unable to find a environment values file listed under `environments.NAME.values`.
-  #
-  # Possible values are  "Error", "Warn", "Info", "Debug". The default is "Error".
-  #
-  # Use "Warn", "Info", or "Debug" if you want helmfile to not fail when a values file is missing, while just leaving
-  # a message about the missing file at the log-level.
-  missingFileHandler: Error
 ```
 
 ## Templating
