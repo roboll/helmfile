@@ -1,8 +1,8 @@
 package state
 
 type EnvironmentSpec struct {
-	Values  []string `yaml:"values"`
-	Secrets []string `yaml:"secrets"`
+	Values  []interface{} `yaml:"values"`
+	Secrets []string      `yaml:"secrets"`
 
 	// MissingFileHandler instructs helmfile to fail when unable to find a environment values file listed
 	// under `environments.NAME.values`.

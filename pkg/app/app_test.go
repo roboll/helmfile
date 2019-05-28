@@ -983,6 +983,67 @@ foo: FOO
 	}
 }
 
+func TestLoadDesiredStateFromYaml_InlineEnvVals(t *testing.T) {
+	yamlFile := "/path/to/yaml/file"
+	yamlContent := `bases:
+- ../base.yaml
+---
+bases:
+# "envvals inheritance"
+# base.gotmpl should be able to reference environment values defined in the base.yaml and default/1.yaml
+- ../base.gotmpl
+---
+releases:
+- name: myrelease0
+  chart: mychart0
+`
+	testFs := state.NewTestFs(map[string]string{
+		yamlFile: yamlContent,
+		"/path/to/base.yaml": `environments:
+  default:
+    values:
+    - environments/default/1.yaml
+    - tillerNs: INLINE_TILLER_NS
+`,
+		"/path/to/base.gotmpl": `helmDefaults:
+  kubeContext: {{ .Environment.Values.foo }}
+  tillerNamespace: {{ .Environment.Values.tillerNs }}
+`,
+		"/path/to/yaml/environments/default/1.yaml": `tillerNs: TILLER_NS
+foo: FOO
+`,
+		"/path/to/yaml/templates.yaml": `templates:
+  default: &default
+    missingFileHandler: Warn
+    values: ["` + "{{`" + `{{.Release.Name}}` + "`}}" + `/values.yaml"]
+`,
+	})
+	app := &App{
+		readFile:   testFs.ReadFile,
+		fileExists: testFs.FileExists,
+		glob:       testFs.Glob,
+		abs:        testFs.Abs,
+		Env:        "default",
+		Logger:     helmexec.NewLogger(os.Stderr, "debug"),
+	}
+	st, err := app.loadDesiredStateFromYaml(yamlFile)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if st.HelmDefaults.TillerNamespace != "INLINE_TILLER_NS" {
+		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
+	}
+
+	if st.Releases[0].Name != "myrelease0" {
+		t.Errorf("unexpected releases[0].name: expected=myrelease0, got=%s", st.Releases[0].Name)
+	}
+
+	if st.HelmDefaults.KubeContext != "FOO" {
+		t.Errorf("unexpected helmDefaults.kubeContext: expected=FOO, got=%s", st.HelmDefaults.KubeContext)
+	}
+}
+
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_WithNonDefaultEnv(t *testing.T) {
 	yamlFile := "/path/to/yaml/file"
 	yamlContent := `bases:

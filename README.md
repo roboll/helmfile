@@ -159,11 +159,15 @@ environments:
     # `{{ .Environment.Values.foo.bar }}` is evaluated to `1`.
     values:
     - environments/default/values.yaml
+    # Each entry in values can be either a file path or inline values.
+    # The below is an example of inline values, which is merged to the `.Environment.Values`
+    - myChartVer: 1.0.0-dev
   # Any environment other than `default` is used only when `helmfile` is run with `--environment NAME`.
   # That is, the "production" env below is used when and only when it is run like `helmfile --environment production sync`.
   production:
     values:
     - environment/production/values.yaml
+    - myChartVer: 1.0.0
     ## `secrets.yaml` is decrypted by `helm-secrets` and available via `{{ .Environment.Secrets.KEY }}`
     secrets:
     - environment/production/secrets.yaml
