@@ -1013,25 +1013,23 @@ helmDefaults:
 	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
 		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
-
-	if st.Releases[0].Name != "myrelease0" {
-		t.Errorf("unexpected releases[0].name: expected=myrelease0, got=%s", st.Releases[0].Name)
+	firstRelease := st.Releases[0]
+	if firstRelease.Name != "myrelease1" {
+		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", firstRelease.Name)
 	}
-	if st.Releases[1].Name != "myrelease1" {
-		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", st.Releases[1].Name)
+	secondRelease := st.Releases[1]
+	if secondRelease.Name != "myrelease1" {
+		t.Errorf("unexpected releases[2].name: expected=myrelease1, got=%s", secondRelease.Name)
 	}
-	if st.Releases[2].Name != "myrelease1" {
-		t.Errorf("unexpected releases[2].name: expected=myrelease1, got=%s", st.Releases[2].Name)
+	if secondRelease.Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", firstRelease.Values[0])
 	}
-	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
-	}
-	if *st.Releases[2].MissingFileHandler != "Warn" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected=Warn, got=%s", *st.Releases[1].MissingFileHandler)
+	if *secondRelease.MissingFileHandler != "Warn" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected=Warn, got=%s", *firstRelease.MissingFileHandler)
 	}
 
-	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
+	if secondRelease.Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", firstRelease.Values[0])
 	}
 
 	if st.HelmDefaults.KubeContext != "FOO" {
@@ -1230,24 +1228,23 @@ helmDefaults:
 		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
-	if st.Releases[0].Name != "myrelease0" {
-		t.Errorf("unexpected releases[0].name: expected=myrelease0, got=%s", st.Releases[0].Name)
+	firstRelease := st.Releases[0]
+	if firstRelease.Name != "myrelease1" {
+		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", firstRelease.Name)
 	}
-	if st.Releases[1].Name != "myrelease1" {
-		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", st.Releases[1].Name)
+	secondRelease := st.Releases[1]
+	if secondRelease.Name != "myrelease1" {
+		t.Errorf("unexpected releases[2].name: expected=myrelease1, got=%s", secondRelease.Name)
 	}
-	if st.Releases[2].Name != "myrelease1" {
-		t.Errorf("unexpected releases[2].name: expected=myrelease1, got=%s", st.Releases[2].Name)
+	if secondRelease.Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", firstRelease.Values[0])
 	}
-	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
-	}
-	if *st.Releases[2].MissingFileHandler != "Warn" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected=Warn, got=%s", *st.Releases[1].MissingFileHandler)
+	if *secondRelease.MissingFileHandler != "Warn" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected=Warn, got=%s", *firstRelease.MissingFileHandler)
 	}
 
-	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
+	if secondRelease.Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", firstRelease.Values[0])
 	}
 
 	if st.HelmDefaults.KubeContext != "FOO" {
@@ -1304,10 +1301,58 @@ releases:
 	if st.Releases[1].Name != "myrelease2" {
 		t.Errorf("unexpected releases[0].name: expected=myrelease2, got=%s", st.Releases[1].Name)
 	}
-	if st.Releases[2].Name != "myrelease1" {
-		t.Errorf("unexpected releases[0].name: expected=myrelease1, got=%s", st.Releases[2].Name)
+
+	if len(st.Releases) != 2 {
+		t.Errorf("unexpected number of releases: expected=2, got=%d", len(st.Releases))
 	}
-	if st.Releases[3].Name != "myrelease0" {
-		t.Errorf("unexpected releases[0].name: expected=myrelease0, got=%s", st.Releases[3].Name)
+}
+
+// See https://github.com/roboll/helmfile/issues/615
+func TestLoadDesiredStateFromYaml_MultiPartTemplate_NoMergeArrayInEnvVal(t *testing.T) {
+	statePath := "/path/to/helmfile.yaml"
+	stateContent := `
+environments:
+  default:
+    values:
+    - foo: ["foo"]
+---
+environments:
+  default:
+    values:
+    - foo: ["FOO"]
+    - 1.yaml
+---
+environments:
+  default:
+    values:
+    - 2.yaml
+---
+releases:
+- name: {{ .Environment.Values.foo | quote }}
+  chart: {{ .Environment.Values.bar | quote }}
+`
+	testFs := state.NewTestFs(map[string]string{
+		statePath:         stateContent,
+		"/path/to/1.yaml": `bar: ["bar"]`,
+		"/path/to/2.yaml": `bar: ["BAR"]`,
+	})
+	app := &App{
+		readFile: testFs.ReadFile,
+		glob:     testFs.Glob,
+		abs:      testFs.Abs,
+		Env:      "default",
+		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
+		Reverse:  true,
+	}
+	st, err := app.loadDesiredStateFromYaml(statePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if st.Releases[0].Name != "[FOO]" {
+		t.Errorf("unexpected releases[0].name: expected=FOO, got=%s", st.Releases[0].Name)
+	}
+	if st.Releases[0].Chart != "[BAR]" {
+		t.Errorf("unexpected releases[0].chart: expected=BAR, got=%s", st.Releases[0].Chart)
 	}
 }

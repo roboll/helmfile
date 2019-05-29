@@ -182,7 +182,7 @@ func (ld *desiredStateLoader) renderAndLoad(env *environment.Environment, baseDi
 		if finalState == nil {
 			finalState = currentState
 		} else {
-			if err := mergo.Merge(finalState, currentState, mergo.WithAppendSlice); err != nil {
+			if err := mergo.Merge(finalState, currentState, mergo.WithOverride); err != nil {
 				return nil, err
 			}
 		}

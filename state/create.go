@@ -228,7 +228,7 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 	if ctxEnv != nil {
 		intEnv := *ctxEnv
 
-		if err := mergo.Merge(&intEnv, newEnv, mergo.WithAppendSlice); err != nil {
+		if err := mergo.Merge(&intEnv, newEnv, mergo.WithOverride); err != nil {
 			return nil, fmt.Errorf("error while merging environment values for \"%s\": %v", name, err)
 		}
 
