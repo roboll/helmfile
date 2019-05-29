@@ -1,6 +1,9 @@
 package environment
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"github.com/imdario/mergo"
+)
 
 type Environment struct {
 	Name   string
@@ -22,4 +25,21 @@ func (e Environment) DeepCopy() Environment {
 		Name:   e.Name,
 		Values: values,
 	}
+}
+
+func (e *Environment) Merge(other *Environment) (*Environment, error) {
+	if e == nil {
+		if other != nil {
+			copy := other.DeepCopy()
+			return &copy, nil
+		}
+		return nil, nil
+	}
+	copy := e.DeepCopy()
+	if other != nil {
+		if err := mergo.Merge(&copy, other, mergo.WithOverride); err != nil {
+			return nil, err
+		}
+	}
+	return &copy, nil
 }

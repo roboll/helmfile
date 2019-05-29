@@ -34,9 +34,9 @@ type LoadOpts struct {
 }
 
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
-	var inheritedEnv *environment.Environment
+	var overrodeEnv *environment.Environment
 
-	args := opts.Environment.AdditionalValues
+	args := opts.Environment.OverrideValues
 
 	if len(args) > 0 {
 		if opts.CalleePath == "" {
@@ -50,13 +50,13 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, err
 		}
 
-		inheritedEnv = &environment.Environment{
+		overrodeEnv = &environment.Environment{
 			Name:   ld.env,
 			Values: vals,
 		}
 	}
 
-	st, err := ld.loadFile(inheritedEnv, filepath.Dir(f), filepath.Base(f), true)
+	st, err := ld.loadFileWithOverrides(nil, overrodeEnv, filepath.Dir(f), filepath.Base(f), true)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +87,9 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 }
 
 func (ld *desiredStateLoader) loadFile(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
+	return ld.loadFileWithOverrides(inheritedEnv, nil, baseDir, file, evaluateBases)
+}
+func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
 	var f string
 	if filepath.IsAbs(file) {
 		f = file
@@ -106,6 +109,7 @@ func (ld *desiredStateLoader) loadFile(inheritedEnv *environment.Environment, ba
 	if !experimentalModeEnabled() || ext == ".gotmpl" {
 		self, err = ld.renderAndLoad(
 			inheritedEnv,
+			overrodeEnv,
 			baseDir,
 			f,
 			fileBytes,
@@ -118,6 +122,7 @@ func (ld *desiredStateLoader) loadFile(inheritedEnv *environment.Environment, ba
 			file,
 			evaluateBases,
 			inheritedEnv,
+			overrodeEnv,
 		)
 	}
 
@@ -130,8 +135,13 @@ func (a *desiredStateLoader) underlying() *state.StateCreator {
 	return c
 }
 
-func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBases bool, env *environment.Environment) (*state.HelmState, error) {
-	st, err := a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, env)
+func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
+	merged, err := env.Merge(overrodeEnv)
+	if err != nil {
+		return nil, err
+	}
+
+	st, err := a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, merged)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +155,7 @@ func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBas
 	return st, nil
 }
 
-func (ld *desiredStateLoader) renderAndLoad(env *environment.Environment, baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
+func (ld *desiredStateLoader) renderAndLoad(env, overrodeEnv *environment.Environment, baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
 	parts := bytes.Split(content, []byte("\n---\n"))
 
 	var finalState *state.HelmState
@@ -156,13 +166,13 @@ func (ld *desiredStateLoader) renderAndLoad(env *environment.Environment, baseDi
 
 		id := fmt.Sprintf("%s.part.%d", filename, i)
 
-		if env == nil {
+		if env == nil && overrodeEnv == nil {
 			yamlBuf, err = ld.renderTemplatesToYaml(baseDir, id, part)
 			if err != nil {
 				return nil, fmt.Errorf("error during %s parsing: %v", id, err)
 			}
 		} else {
-			yamlBuf, err = ld.renderTemplatesToYaml(baseDir, id, part, *env)
+			yamlBuf, err = ld.renderTemplatesToYamlWithEnv(baseDir, id, part, env, overrodeEnv)
 			if err != nil {
 				return nil, fmt.Errorf("error during %s parsing: %v", id, err)
 			}
@@ -174,6 +184,7 @@ func (ld *desiredStateLoader) renderAndLoad(env *environment.Environment, baseDi
 			filename,
 			evaluateBases,
 			env,
+			overrodeEnv,
 		)
 		if err != nil {
 			return nil, err

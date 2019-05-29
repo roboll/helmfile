@@ -66,7 +66,7 @@ type SubHelmfileSpec struct {
 }
 
 type SubhelmfileEnvironmentSpec struct {
-	AdditionalValues []interface{} `yaml:"values"`
+	OverrideValues []interface{} `yaml:"values"`
 }
 
 // HelmSpec to defines helmDefault values
