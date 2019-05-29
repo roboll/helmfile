@@ -1001,7 +1001,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				Values: []interface{}{"noexistent.values.yaml"},
 			},
 			listResult:    ``,
-			expectedError: `failed processing release foo: values file matching "noexistent.values.yaml" does not exist`,
+			expectedError: `failed processing release foo: values file matching "noexistent.values.yaml" does not exist in "."`,
 		},
 		{
 			name: "should fail upgrading due to missing values file",
@@ -1012,7 +1012,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			},
 			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
 										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
-			expectedError: `failed processing release foo: values file matching "noexistent.values.yaml" does not exist`,
+			expectedError: `failed processing release foo: values file matching "noexistent.values.yaml" does not exist in "."`,
 		},
 		{
 			name: "should uninstall even when there is a missing values file",
@@ -1031,6 +1031,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
+				basePath: ".",
 				Releases: []ReleaseSpec{tt.release},
 				logger:   logger,
 			}

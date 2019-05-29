@@ -15,8 +15,6 @@ import (
 
 	"regexp"
 
-	"net/url"
-
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/event"
 	"github.com/roboll/helmfile/tmpl"
@@ -63,6 +61,12 @@ type SubHelmfileSpec struct {
 	Path               string   //path or glob pattern for the sub helmfiles
 	Selectors          []string //chosen selectors for the sub helmfiles
 	SelectorsInherited bool     //do the sub helmfiles inherits from parent selectors
+
+	Environment SubhelmfileEnvironmentSpec
+}
+
+type SubhelmfileEnvironmentSpec struct {
+	AdditionalValues []interface{} `yaml:"values"`
 }
 
 // HelmSpec to defines helmDefault values
@@ -1040,21 +1044,6 @@ func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
 	return nil
 }
 
-// JoinBase returns an absolute path in the form basePath/relative
-func (st *HelmState) JoinBase(relPath string) string {
-	return filepath.Join(st.basePath, relPath)
-}
-
-// normalizes relative path to absolute one
-func (st *HelmState) normalizePath(path string) string {
-	u, _ := url.Parse(path)
-	if u.Scheme != "" || filepath.IsAbs(path) {
-		return path
-	} else {
-		return st.JoinBase(path)
-	}
-}
-
 // normalizeChart allows for the distinction between a file path reference and repository references.
 // - Any single (or double character) followed by a `/` will be considered a local file reference and
 // 	 be constructed relative to the `base path`.
@@ -1253,13 +1242,42 @@ func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
 	return r.RenderToBytes(path)
 }
 
+func (st *HelmState) storage() *Storage {
+	return &Storage{
+		FilePath: st.FilePath,
+		basePath: st.basePath,
+		glob:     st.glob,
+		logger:   st.logger,
+	}
+}
+
+func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
+	helmfiles := []SubHelmfileSpec{}
+	for _, hf := range st.Helmfiles {
+		matches, err := st.storage().ExpandPaths(hf.Path)
+		if err != nil {
+			return nil, err
+		}
+		if len(matches) == 0 {
+			return nil, fmt.Errorf("no file matching %s found", hf.Path)
+		}
+		for _, match := range matches {
+			newHelmfile := hf
+			newHelmfile.Path = match
+			helmfiles = append(helmfiles, newHelmfile)
+		}
+	}
+
+	return helmfiles, nil
+}
+
 func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingFileHandler *string) ([]string, error) {
 	generatedFiles := []string{}
 
 	for _, value := range values {
 		switch typedValue := value.(type) {
 		case string:
-			paths, skip, err := st.resolveFile(missingFileHandler, "values", typedValue)
+			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", typedValue)
 			if err != nil {
 				return nil, err
 			}
@@ -1317,7 +1335,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	for _, v := range release.Values {
 		switch typedValue := v.(type) {
 		case string:
-			path := st.normalizePath(release.ValuesPathPrefix + typedValue)
+			path := st.storage().normalizePath(release.ValuesPathPrefix + typedValue)
 			values = append(values, path)
 		default:
 			values = append(values, v)
@@ -1336,7 +1354,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	release.generatedValues = append(release.generatedValues, generatedFiles...)
 
 	for _, value := range release.Secrets {
-		paths, skip, err := st.resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value)
+		paths, skip, err := st.storage().resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value)
 		if err != nil {
 			return nil, err
 		}
@@ -1363,7 +1381,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 			if set.Value != "" {
 				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(set.Value)))
 			} else if set.File != "" {
-				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.normalizePath(set.File)))
+				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizePath(set.File)))
 			} else if len(set.Values) > 0 {
 				items := make([]string, len(set.Values))
 				for i, raw := range set.Values {
@@ -1403,49 +1421,6 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	 **************/
 
 	return flags, nil
-}
-
-func (st *HelmState) resolveFile(missingFileHandler *string, tpe, path string) ([]string, bool, error) {
-	title := fmt.Sprintf("%s file", tpe)
-
-	files, err := st.ExpandPaths(path)
-	if err != nil {
-		return nil, false, err
-	}
-
-	var handlerId string
-
-	if missingFileHandler != nil {
-		handlerId = *missingFileHandler
-	} else {
-		handlerId = MissingFileHandlerError
-	}
-
-	if len(files) == 0 {
-		switch handlerId {
-		case MissingFileHandlerError:
-			return nil, false, fmt.Errorf("%s matching \"%s\" does not exist", title, path)
-		case MissingFileHandlerWarn:
-			st.logger.Warnf("skipping missing %s matching \"%s\"", title, path)
-			return nil, true, nil
-		case MissingFileHandlerInfo:
-			st.logger.Infof("skipping missing %s matching \"%s\"", title, path)
-			return nil, true, nil
-		case MissingFileHandlerDebug:
-			st.logger.Debugf("skipping missing %s matching \"%s\"", title, path)
-			return nil, true, nil
-		default:
-			available := []string{
-				MissingFileHandlerError,
-				MissingFileHandlerWarn,
-				MissingFileHandlerInfo,
-				MissingFileHandlerDebug,
-			}
-			return nil, false, fmt.Errorf("invalid missing file handler \"%s\" while processing \"%s\" in \"%s\": it must be one of %s", handlerId, path, st.FilePath, available)
-		}
-	}
-
-	return files, false, nil
 }
 
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases
@@ -1501,6 +1476,8 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 			Path               string   `yaml:"path"`
 			Selectors          []string `yaml:"selectors"`
 			SelectorsInherited bool     `yaml:"selectorsInherited"`
+
+			Environment SubhelmfileEnvironmentSpec `yaml:"environment"`
 		}
 		if err := unmarshal(&subHelmfileSpecTmp); err != nil {
 			return err
@@ -1508,6 +1485,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 		hf.Path = subHelmfileSpecTmp.Path
 		hf.Selectors = subHelmfileSpecTmp.Selectors
 		hf.SelectorsInherited = subHelmfileSpecTmp.SelectorsInherited
+		hf.Environment = subHelmfileSpecTmp.Environment
 	}
 	//since we cannot make sur the "console" string can be red after the "path" we must check we don't have
 	//a SubHelmfileSpec with only selector and no path

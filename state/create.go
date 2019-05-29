@@ -4,17 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"sort"
-
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/environment"
 	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/tmpl"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"io"
+	"os"
 )
 
 type StateLoadError struct {
@@ -164,68 +160,19 @@ func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmSta
 	return layers[0], nil
 }
 
-func (st *HelmState) ExpandPaths(globPattern string) ([]string, error) {
-	result := []string{}
-	absPathPattern := st.normalizePath(globPattern)
-	matches, err := st.glob(absPathPattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
-	}
-
-	sort.Strings(matches)
-
-	result = append(result, matches...)
-	return result, nil
-}
-
 func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment, readFile func(string) ([]byte, error), glob func(string) ([]string, error)) (*environment.Environment, error) {
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
 	if ok {
-		for _, v := range envSpec.Values {
-			switch typedValue := v.(type) {
-			case string:
-				urlOrPath := typedValue
-				resolved, skipped, err := st.resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath)
-				if err != nil {
-					return nil, err
-				}
-				if skipped {
-					continue
-				}
-
-				for _, envvalFullPath := range resolved {
-					tmplData := EnvironmentTemplateData{Environment: environment.EmptyEnvironment, Namespace: ""}
-					r := tmpl.NewFileRenderer(readFile, filepath.Dir(envvalFullPath), tmplData)
-					bytes, err := r.RenderToBytes(envvalFullPath)
-					if err != nil {
-						return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", envvalFullPath, err)
-					}
-					m := map[string]interface{}{}
-					if err := yaml.Unmarshal(bytes, &m); err != nil {
-						return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", envvalFullPath, err)
-					}
-					if err := mergo.Merge(&envVals, &m, mergo.WithOverride); err != nil {
-						return nil, fmt.Errorf("failed to load \"%s\": %v", envvalFullPath, err)
-					}
-				}
-			case map[interface{}]interface{}:
-				m := map[string]interface{}{}
-				for k, v := range typedValue {
-					switch typedKey := k.(type) {
-					case string:
-						m[typedKey] = v
-					default:
-						return nil, fmt.Errorf("unexpected type of key in inline environment values %v: expected string, got %T", typedValue, typedKey)
-					}
-				}
-				if err := mergo.Merge(&envVals, &m, mergo.WithOverride); err != nil {
-					return nil, fmt.Errorf("failed to merge %v: %v", typedValue, err)
-				}
-				continue
-			default:
-				return nil, fmt.Errorf("unexpected type of values entry: %T", typedValue)
-			}
+		envValues := append([]interface{}{}, envSpec.Values...)
+		ld := &EnvironmentValuesLoader{
+			storage:  st.storage(),
+			readFile: st.readFile,
+		}
+		var err error
+		envVals, err = ld.LoadEnvironmentValues(envSpec.MissingFileHandler, envValues)
+		if err != nil {
+			return nil, err
 		}
 
 		if len(envSpec.Secrets) > 0 {
@@ -233,7 +180,7 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 
 			var envSecretFiles []string
 			for _, urlOrPath := range envSpec.Secrets {
-				resolved, skipped, err := st.resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath)
+				resolved, skipped, err := st.storage().resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath)
 				if err != nil {
 					return nil, err
 				}

@@ -27,8 +27,36 @@ type desiredStateLoader struct {
 	logger *zap.SugaredLogger
 }
 
-func (ld *desiredStateLoader) Load(f string) (*state.HelmState, error) {
-	st, err := ld.loadFile(nil, filepath.Dir(f), filepath.Base(f), true)
+type LoadOpts struct {
+	Selectors   []string
+	Environment state.SubhelmfileEnvironmentSpec
+	CalleePath  string
+}
+
+func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
+	var inheritedEnv *environment.Environment
+
+	args := opts.Environment.AdditionalValues
+
+	if len(args) > 0 {
+		if opts.CalleePath == "" {
+			return nil, fmt.Errorf("bug: opts.CalleePath was nil: f=%s, opts=%v", f, opts)
+		}
+		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.glob)
+		envld := state.NewEnvironmentValuesLoader(storage, ld.readFile)
+		handler := state.MissingFileHandlerError
+		vals, err := envld.LoadEnvironmentValues(&handler, args)
+		if err != nil {
+			return nil, err
+		}
+
+		inheritedEnv = &environment.Environment{
+			Name:   ld.env,
+			Values: vals,
+		}
+	}
+
+	st, err := ld.loadFile(inheritedEnv, filepath.Dir(f), filepath.Base(f), true)
 	if err != nil {
 		return nil, err
 	}
@@ -108,20 +136,9 @@ func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBas
 		return nil, err
 	}
 
-	helmfiles := []state.SubHelmfileSpec{}
-	for _, hf := range st.Helmfiles {
-		matches, err := st.ExpandPaths(hf.Path)
-		if err != nil {
-			return nil, err
-		}
-		if len(matches) == 0 {
-			return nil, fmt.Errorf("no file matching %s found", hf.Path)
-		}
-		for _, match := range matches {
-			newHelmfile := hf
-			newHelmfile.Path = match
-			helmfiles = append(helmfiles, newHelmfile)
-		}
+	helmfiles, err := st.ExpandedHelmfiles()
+	if err != nil {
+		return nil, err
 	}
 	st.Helmfiles = helmfiles
 

@@ -83,7 +83,7 @@ func (a *App) within(dir string, do func() error) error {
 	return appErr
 }
 
-func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
+func (a *App) visitStateFiles(fileOrDir string, do func(string, string) error) error {
 	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir)
 	if err != nil {
 		return appError("", err)
@@ -103,7 +103,12 @@ func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
 		a.Logger.Debugf("processing file \"%s\" in directory \"%s\"", file, dir)
 
 		err := a.within(dir, func() error {
-			return do(file)
+			absd, err := a.abs(dir)
+			if err != nil {
+				return err
+			}
+
+			return do(file, absd)
 		})
 		if err != nil {
 			return appError(fmt.Sprintf("in %s/%s", dir, file), err)
@@ -113,7 +118,7 @@ func (a *App) visitStateFiles(fileOrDir string, do func(string) error) error {
 	return nil
 }
 
-func (a *App) loadDesiredStateFromYaml(file string) (*state.HelmState, error) {
+func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.HelmState, error) {
 	ld := &desiredStateLoader{
 		readFile:   a.readFile,
 		fileExists: a.fileExists,
@@ -126,14 +131,20 @@ func (a *App) loadDesiredStateFromYaml(file string) (*state.HelmState, error) {
 		KubeContext: a.KubeContext,
 		glob:        a.glob,
 	}
-	return ld.Load(file)
+
+	var op LoadOpts
+	if len(opts) > 0 {
+		op = opts[0]
+	}
+
+	return ld.Load(file, op)
 }
 
-func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+func (a *App) VisitDesiredStates(fileOrDir string, opts LoadOpts, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	noMatchInHelmfiles := true
 
-	err := a.visitStateFiles(fileOrDir, func(f string) error {
-		st, err := a.loadDesiredStateFromYaml(f)
+	err := a.visitStateFiles(fileOrDir, func(f, d string) error {
+		st, err := a.loadDesiredStateFromYaml(f, opts)
 
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -169,16 +180,22 @@ func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge f
 				return ctx.wrapErrs(err)
 			}
 		}
-		st.Selectors = selector
+		st.Selectors = opts.Selectors
 
 		if len(st.Helmfiles) > 0 {
 			noMatchInSubHelmfiles := true
 			for i, m := range st.Helmfiles {
+				optsForNestedState := LoadOpts{
+					CalleePath:  filepath.Join(d, f),
+					Environment: m.Environment,
+				}
 				//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
 				if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
-					m.Selectors = selector
+					optsForNestedState.Selectors = opts.Selectors
+				} else {
+					optsForNestedState.Selectors = m.Selectors
 				}
-				if err := a.VisitDesiredStates(m.Path, m.Selectors, converge); err != nil {
+				if err := a.VisitDesiredStates(m.Path, optsForNestedState, converge); err != nil {
 					switch err.(type) {
 					case *NoMatchingHelmfileError:
 
@@ -213,8 +230,9 @@ func (a *App) VisitDesiredStates(fileOrDir string, selector []string, converge f
 }
 
 func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
+	opts := LoadOpts{Selectors: a.Selectors}
 
-	err := a.VisitDesiredStates(fileOrDir, a.Selectors, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+	err := a.VisitDesiredStates(fileOrDir, opts, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		if len(st.Selectors) > 0 {
 			err := st.FilterReleases()
 			if err != nil {

@@ -142,7 +142,28 @@ releases:
     wait: true
 
 #
-# Advanced Configuration: Helmfile Environments
+# Advanced Configuration: Nested States
+#
+helmfiles:
+- # Path to the helmfile state file being processed BEFORE releases in this state file
+  path: path/to/subhelmfile.yaml
+  # Label selector used for filtering releases in the nested state.
+  # For example, `name=prometheus` in this context is equivalent to processing the nested state like
+  #   helmfile -f path/to/subhelmfile.yaml -l name=prometheus sync
+  selectors:
+  - name=prometheus
+  environment:
+    values:
+    # Environment values files merged into the nested state
+    - additiona.values.yaml
+    # Inline environment values merged into the nested state
+    - key1: val1
+- # All the nested state files under `helmfiles:` is processed in the order of definition.
+  # So it can be used for preparation for your main `releases`. An example would be creating CRDs required by `reelases` in the parent state file. 
+  path: path/to/mycrd.helmfile.yaml
+
+#
+# Advanced Configuration: Environments
 #
 
 # The list of environments managed by helmfile.
@@ -703,19 +724,22 @@ Just run `helmfile sync` inside `myteam/`, and you are done.
 All the files are sorted alphabetically per group = array item inside `helmfiles:`, so that you have granular control over ordering, too.
 
 #### selectors
+
 When composing helmfiles you can use selectors from the command line as well as explicit selectors inside the parent helmfile to filter the releases to be used.
+
 ```yaml
 helmfiles:
 - apps/*/helmfile.yaml
 - path: apps/a-helmfile.yaml
-    selectors:          # list of selectors
-    - name=prometheus
-    - tier=frontend
+  selectors:          # list of selectors
+  - name=prometheus
+  - tier=frontend
 - path: apps/b-helmfile.yaml # no selector, so all releases are used
-    selectors: []
+selectors: []
 - path: apps/c-helmfile.yaml # parent selector to be used or cli selector for the initial helmfile
-    selectorsInherited: true
+  selectorsInherited: true
 ```
+
 * When a selector is specified, only this selector applies and the parents or CLI selectors are ignored.
 * When not selector is specified there are 2 modes for the selector inheritance because we would like to change the current inheritance behavior (see [issue #344](https://github.com/roboll/helmfile/issues/344)  ).
   * Legacy mode, sub-helmfiles without selectors inherit selectors from their parent helmfile. The initial helmfiles inherit from the command line selectors.
