@@ -18,8 +18,8 @@ func prependLineNumbers(text string) string {
 	return buf.String()
 }
 
-func (r *desiredStateLoader) renderEnvironment(firstPassEnv environment.Environment, baseDir, filename string, content []byte) environment.Environment {
-	tmplData := state.EnvironmentTemplateData{Environment: firstPassEnv, Namespace: r.namespace}
+func (r *desiredStateLoader) renderEnvironment(firstPassEnv *environment.Environment, baseDir, filename string, content []byte) *environment.Environment {
+	tmplData := state.EnvironmentTemplateData{Environment: *firstPassEnv, Namespace: r.namespace}
 	firstPassRenderer := tmpl.NewFirstPassRenderer(baseDir, tmplData)
 
 	// parse as much as we can, tolerate errors, this is a preparse
@@ -34,7 +34,7 @@ func (r *desiredStateLoader) renderEnvironment(firstPassEnv environment.Environm
 	c := r.underlying()
 	c.Strict = false
 	// create preliminary state, as we may have an environment. Tolerate errors.
-	prestate, err := c.ParseAndLoad(yamlBuf.Bytes(), baseDir, filename, r.env, false, &firstPassEnv)
+	prestate, err := c.ParseAndLoad(yamlBuf.Bytes(), baseDir, filename, r.env, false, firstPassEnv)
 	if err != nil && r.logger != nil {
 		switch err.(type) {
 		case *state.StateLoadError:
@@ -44,36 +44,55 @@ func (r *desiredStateLoader) renderEnvironment(firstPassEnv environment.Environm
 	}
 
 	if prestate != nil {
-		firstPassEnv = prestate.Env
+		firstPassEnv = &prestate.Env
 	}
 	return firstPassEnv
 }
 
-func (r *desiredStateLoader) renderTemplatesToYaml(baseDir, filename string, content []byte, context ...environment.Environment) (*bytes.Buffer, error) {
-	var env environment.Environment
-
-	if len(context) > 0 {
-		env = context[0]
-	} else {
-		env = environment.Environment{Name: r.env, Values: map[string]interface{}(nil)}
-	}
-
-	return r.twoPassRenderTemplateToYaml(env, baseDir, filename, content)
+type RenderOpts struct {
 }
 
-func (r *desiredStateLoader) twoPassRenderTemplateToYaml(initEnv environment.Environment, baseDir, filename string, content []byte) (*bytes.Buffer, error) {
+func (r *desiredStateLoader) renderTemplatesToYaml(baseDir, filename string, content []byte) (*bytes.Buffer, error) {
+	env := &environment.Environment{Name: r.env, Values: map[string]interface{}(nil)}
+
+	return r.renderTemplatesToYamlWithEnv(baseDir, filename, content, env, nil)
+}
+
+func (r *desiredStateLoader) renderTemplatesToYamlWithEnv(baseDir, filename string, content []byte, inherited, overrode *environment.Environment) (*bytes.Buffer, error) {
+	return r.twoPassRenderTemplateToYaml(inherited, overrode, baseDir, filename, content)
+}
+
+func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *environment.Environment, baseDir, filename string, content []byte) (*bytes.Buffer, error) {
 	// try a first pass render. This will always succeed, but can produce a limited env
 	if r.logger != nil {
-		r.logger.Debugf("first-pass rendering input of \"%s\": %v", filename, initEnv)
+		r.logger.Debugf("first-pass rendering starting for \"%s\": inherited=%v, overrode=%v", filename, inherited, overrode)
 	}
 
-	firstPassEnv := r.renderEnvironment(initEnv, baseDir, filename, content)
+	initEnv, err := inherited.Merge(overrode)
+	if err != nil {
+		return nil, err
+	}
 
 	if r.logger != nil {
-		r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, firstPassEnv)
+		r.logger.Debugf("first-pass uses: %v", initEnv)
 	}
 
-	tmplData := state.EnvironmentTemplateData{Environment: firstPassEnv, Namespace: r.namespace}
+	renderedEnv := r.renderEnvironment(initEnv, baseDir, filename, content)
+
+	if r.logger != nil {
+		r.logger.Debugf("first-pass produced: %v", initEnv)
+	}
+
+	finalEnv, err := renderedEnv.Merge(overrode)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.logger != nil {
+		r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, *finalEnv)
+	}
+
+	tmplData := state.EnvironmentTemplateData{Environment: *finalEnv, Namespace: r.namespace}
 	secondPassRenderer := tmpl.NewFileRenderer(r.readFile, baseDir, tmplData)
 	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
 	if err != nil {

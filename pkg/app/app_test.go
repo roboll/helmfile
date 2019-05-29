@@ -156,7 +156,7 @@ releases:
 		t.Fatal("expected error did not occur")
 	}
 
-	expected := "in ./helmfile.yaml: failed to read helmfile.yaml: environment values file matching \"env.*.yaml\" does not exist"
+	expected := "in ./helmfile.yaml: failed to read helmfile.yaml: environment values file matching \"env.*.yaml\" does not exist in \".\""
 	if err.Error() != expected {
 		t.Errorf("unexpected error: expected=%s, got=%v", expected, err)
 	}
@@ -659,6 +659,122 @@ func runFilterSubHelmFilesTests(testcases []struct {
 
 }
 
+func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedNestedStateAdditionalEnvValues(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+helmfiles:
+- path: helmfile.d/a*.yaml
+  environment:
+    values:
+     - env.values.yaml
+- helmfile.d/b*.yaml
+- path: helmfile.d/c*.yaml
+  environment:
+    values:
+     - env.values.yaml
+     - tillerNs: INLINE_TILLER_NS_3
+`,
+		"/path/to/helmfile.d/a1.yaml": `
+environments:
+  default:
+    values:
+    - tillerNs: INLINE_TILLER_NS
+      ns: INLINE_NS
+releases:
+- name: foo
+  chart: stable/zipkin
+  tillerNamespace: {{ .Environment.Values.tillerNs }}
+  namespace: {{ .Environment.Values.ns }}
+`,
+		"/path/to/helmfile.d/b.yaml": `
+environments:
+  default:
+    values:
+    - tillerNs: INLINE_TILLER_NS
+      ns: INLINE_NS
+releases:
+- name: bar
+  chart: stable/grafana
+  tillerNamespace:  {{ .Environment.Values.tillerNs }}
+  namespace: {{ .Environment.Values.ns }}
+`,
+		"/path/to/helmfile.d/c.yaml": `
+environments:
+  default:
+    values:
+    - tillerNs: INLINE_TILLER_NS
+      ns: INLINE_NS
+releases:
+- name: baz
+  chart: stable/envoy
+  tillerNamespace: {{ .Environment.Values.tillerNs }}
+  namespace: {{ .Environment.Values.ns }}
+`,
+		"/path/to/env.values.yaml": `
+tillerNs: INLINE_TILLER_NS_2
+`,
+	}
+
+	app := appWithFs(&App{
+		KubeContext: "default",
+		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:   "",
+		Selectors:   []string{},
+		Env:         "default",
+	}, files)
+
+	processed := []state.ReleaseSpec{}
+
+	collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+		for _, r := range st.Releases {
+			processed = append(processed, r)
+		}
+		return []error{}
+	}
+
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", collectReleases,
+	)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	type release struct {
+		chart    string
+		tillerNs string
+		ns       string
+	}
+
+	expectedReleases := map[string]release{
+		"foo": {"stable/zipkin", "INLINE_TILLER_NS_2", "INLINE_NS"},
+		"bar": {"stable/grafana", "INLINE_TILLER_NS", "INLINE_NS"},
+		"baz": {"stable/envoy", "INLINE_TILLER_NS_3", "INLINE_NS"},
+	}
+
+	for name := range processed {
+		actual := processed[name]
+		t.Run(actual.Name, func(t *testing.T) {
+			expected, ok := expectedReleases[actual.Name]
+			if !ok {
+				t.Fatalf("unexpected release processed: %v", actual)
+			}
+
+			if expected.chart != actual.Chart {
+				t.Errorf("unexpected chart: expected=%s, got=%s", expected.chart, actual.Chart)
+			}
+
+			if expected.tillerNs != actual.TillerNamespace {
+				t.Errorf("unexpected tiller namespace: expected=%s, got=%s", expected.tillerNs, actual.TillerNamespace)
+			}
+
+			if expected.ns != actual.Namespace {
+				t.Errorf("unexpected namespace: expected=%s, got=%s", expected.ns, actual.Namespace)
+			}
+		})
+	}
+}
+
 // See https://github.com/roboll/helmfile/issues/312
 func TestVisitDesiredStatesWithReleasesFiltered_ReverseOrder(t *testing.T) {
 	files := map[string]string{
@@ -897,25 +1013,23 @@ helmDefaults:
 	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
 		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
-
-	if st.Releases[0].Name != "myrelease0" {
-		t.Errorf("unexpected releases[0].name: expected=myrelease0, got=%s", st.Releases[0].Name)
+	firstRelease := st.Releases[0]
+	if firstRelease.Name != "myrelease1" {
+		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", firstRelease.Name)
 	}
-	if st.Releases[1].Name != "myrelease1" {
-		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", st.Releases[1].Name)
+	secondRelease := st.Releases[1]
+	if secondRelease.Name != "myrelease1" {
+		t.Errorf("unexpected releases[2].name: expected=myrelease1, got=%s", secondRelease.Name)
 	}
-	if st.Releases[2].Name != "myrelease1" {
-		t.Errorf("unexpected releases[2].name: expected=myrelease1, got=%s", st.Releases[2].Name)
+	if secondRelease.Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", firstRelease.Values[0])
 	}
-	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
-	}
-	if *st.Releases[2].MissingFileHandler != "Warn" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected=Warn, got=%s", *st.Releases[1].MissingFileHandler)
+	if *secondRelease.MissingFileHandler != "Warn" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected=Warn, got=%s", *firstRelease.MissingFileHandler)
 	}
 
-	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
+	if secondRelease.Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", firstRelease.Values[0])
 	}
 
 	if st.HelmDefaults.KubeContext != "FOO" {
@@ -1114,24 +1228,23 @@ helmDefaults:
 		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
-	if st.Releases[0].Name != "myrelease0" {
-		t.Errorf("unexpected releases[0].name: expected=myrelease0, got=%s", st.Releases[0].Name)
+	firstRelease := st.Releases[0]
+	if firstRelease.Name != "myrelease1" {
+		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", firstRelease.Name)
 	}
-	if st.Releases[1].Name != "myrelease1" {
-		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", st.Releases[1].Name)
+	secondRelease := st.Releases[1]
+	if secondRelease.Name != "myrelease1" {
+		t.Errorf("unexpected releases[2].name: expected=myrelease1, got=%s", secondRelease.Name)
 	}
-	if st.Releases[2].Name != "myrelease1" {
-		t.Errorf("unexpected releases[2].name: expected=myrelease1, got=%s", st.Releases[2].Name)
+	if secondRelease.Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", firstRelease.Values[0])
 	}
-	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
-	}
-	if *st.Releases[2].MissingFileHandler != "Warn" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected=Warn, got=%s", *st.Releases[1].MissingFileHandler)
+	if *secondRelease.MissingFileHandler != "Warn" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected=Warn, got=%s", *firstRelease.MissingFileHandler)
 	}
 
-	if st.Releases[2].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
-		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
+	if secondRelease.Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
+		t.Errorf("unexpected releases[2].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", firstRelease.Values[0])
 	}
 
 	if st.HelmDefaults.KubeContext != "FOO" {
@@ -1188,10 +1301,58 @@ releases:
 	if st.Releases[1].Name != "myrelease2" {
 		t.Errorf("unexpected releases[0].name: expected=myrelease2, got=%s", st.Releases[1].Name)
 	}
-	if st.Releases[2].Name != "myrelease1" {
-		t.Errorf("unexpected releases[0].name: expected=myrelease1, got=%s", st.Releases[2].Name)
+
+	if len(st.Releases) != 2 {
+		t.Errorf("unexpected number of releases: expected=2, got=%d", len(st.Releases))
 	}
-	if st.Releases[3].Name != "myrelease0" {
-		t.Errorf("unexpected releases[0].name: expected=myrelease0, got=%s", st.Releases[3].Name)
+}
+
+// See https://github.com/roboll/helmfile/issues/615
+func TestLoadDesiredStateFromYaml_MultiPartTemplate_NoMergeArrayInEnvVal(t *testing.T) {
+	statePath := "/path/to/helmfile.yaml"
+	stateContent := `
+environments:
+  default:
+    values:
+    - foo: ["foo"]
+---
+environments:
+  default:
+    values:
+    - foo: ["FOO"]
+    - 1.yaml
+---
+environments:
+  default:
+    values:
+    - 2.yaml
+---
+releases:
+- name: {{ .Environment.Values.foo | quote }}
+  chart: {{ .Environment.Values.bar | quote }}
+`
+	testFs := state.NewTestFs(map[string]string{
+		statePath:         stateContent,
+		"/path/to/1.yaml": `bar: ["bar"]`,
+		"/path/to/2.yaml": `bar: ["BAR"]`,
+	})
+	app := &App{
+		readFile: testFs.ReadFile,
+		glob:     testFs.Glob,
+		abs:      testFs.Abs,
+		Env:      "default",
+		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
+		Reverse:  true,
+	}
+	st, err := app.loadDesiredStateFromYaml(statePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if st.Releases[0].Name != "[FOO]" {
+		t.Errorf("unexpected releases[0].name: expected=FOO, got=%s", st.Releases[0].Name)
+	}
+	if st.Releases[0].Chart != "[BAR]" {
+		t.Errorf("unexpected releases[0].chart: expected=BAR, got=%s", st.Releases[0].Chart)
 	}
 }
