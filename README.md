@@ -199,6 +199,18 @@ environments:
     # Use "Warn", "Info", or "Debug" if you want helmfile to not fail when a values file is missing, while just leaving
     # a message about the missing file at the log-level.
     missingFileHandler: Error
+
+#
+# Advanced Configuration: Layering
+#
+# Helmfile merges all the "base" state files and this state file before processing.
+#
+# Assuming this state file is named `helmfile.yaml`, all the files are merged in the order of:
+#   environments.yaml <- defaults.yaml <- templates.yaml <- helmfile.yaml
+bases:
+- environments.yaml
+- defaults.yaml
+- templates.yaml
 ```
 
 ## Templating
