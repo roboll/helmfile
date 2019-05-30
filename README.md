@@ -35,12 +35,22 @@ The default helmfile is `helmfile.yaml`:
 # Use `helm-s3` and `helm-git` and whatever Helm Downloader plugins
 # to use repositories other than the official repository or one backend by chartmuseum.
 repositories:
-  - name: roboll
-    url: http://roboll.io/charts
-    certFile: optional_client_cert
-    keyFile: optional_client_key
-    username: optional_username
-    password: optional_password
+# To use official "stable" charts a.k.a https://github.com/helm/charts/tree/master/stable
+- name: stable
+  url: https://kubernetes-charts.storage.googleapis.com
+# To use official "incubator" charts a.k.a https://github.com/helm/charts/tree/master/incubator
+- name: incubator
+  url: https://kubernetes-charts-incubator.storage.googleapis.com
+# helm-git powered repository: You can treat any Git repository as a charts repository
+- name: polaris
+  url: git+https://github.com/reactiveops/polaris@deploy/helm?ref=master
+# Advanced configuration: You can setup basic or tls auth
+- name: roboll
+  url: http://roboll.io/charts
+  certFile: optional_client_cert
+  keyFile: optional_client_key
+  username: optional_username
+  password: optional_password
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
