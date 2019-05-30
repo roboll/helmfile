@@ -1356,3 +1356,64 @@ releases:
 		t.Errorf("unexpected releases[0].chart: expected=BAR, got=%s", st.Releases[0].Chart)
 	}
 }
+
+// See https://github.com/roboll/helmfile/issues/623
+func TestLoadDesiredStateFromYaml_MultiPartTemplate_MergeMapsVariousKeys(t *testing.T) {
+	type testcase struct {
+		overrideValues interface{}
+		expected       string
+	}
+	testcases := []testcase{
+		{map[interface{}]interface{}{"foo": "FOO"}, `FOO`},
+		{map[interface{}]interface{}{"foo": map[interface{}]interface{}{"foo": "FOO"}}, `map[foo:FOO]`},
+		{map[interface{}]interface{}{"foo": map[string]interface{}{"foo": "FOO"}}, `map[foo:FOO]`},
+		{map[interface{}]interface{}{"foo": []interface{}{"foo"}}, `[foo]`},
+		{map[interface{}]interface{}{"foo": "FOO"}, `FOO`},
+	}
+	for i := range testcases {
+		tc := testcases[i]
+		statePath := "/path/to/helmfile.yaml"
+		stateContent := `
+environments:
+  default:
+    values:
+    - 1.yaml
+    - 2.yaml
+---
+releases:
+- name: {{ .Environment.Values.foo | quote }}
+  chart: {{ .Environment.Values.bar | quote }}
+`
+		testFs := state.NewTestFs(map[string]string{
+			statePath:         stateContent,
+			"/path/to/1.yaml": `bar: ["bar"]`,
+			"/path/to/2.yaml": `bar: ["BAR"]`,
+		})
+		app := &App{
+			readFile: testFs.ReadFile,
+			glob:     testFs.Glob,
+			abs:      testFs.Abs,
+			Env:      "default",
+			Logger:   helmexec.NewLogger(os.Stderr, "debug"),
+			Reverse:  true,
+		}
+		opts := LoadOpts{
+			CalleePath: statePath,
+			Environment: state.SubhelmfileEnvironmentSpec{
+				OverrideValues: []interface{}{tc.overrideValues},
+			},
+		}
+		st, err := app.loadDesiredStateFromYaml(statePath, opts)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if st.Releases[0].Name != tc.expected {
+			t.Errorf("unexpected releases[0].name: expected=%s, got=%s", tc.expected, st.Releases[0].Name)
+		}
+		if st.Releases[0].Chart != "[BAR]" {
+			t.Errorf("unexpected releases[0].chart: expected=BAR, got=%s", st.Releases[0].Chart)
+		}
+	}
+}
