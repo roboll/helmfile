@@ -80,7 +80,7 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 	renderedEnv := r.renderEnvironment(initEnv, baseDir, filename, content)
 
 	if r.logger != nil {
-		r.logger.Debugf("first-pass produced: %v", initEnv)
+		r.logger.Debugf("first-pass produced: %v", renderedEnv)
 	}
 
 	finalEnv, err := renderedEnv.Merge(overrode)

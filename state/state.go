@@ -1319,7 +1319,7 @@ func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingF
 			}
 			generatedFiles = append(generatedFiles, valfile.Name())
 		default:
-			return nil, fmt.Errorf("unexpected type of values entry: %T", typedValue)
+			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
 		}
 	}
 	return generatedFiles, nil

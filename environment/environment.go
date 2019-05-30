@@ -1,8 +1,9 @@
 package environment
 
 import (
-	"encoding/json"
 	"github.com/imdario/mergo"
+	"github.com/roboll/helmfile/pkg/maputil"
+	"gopkg.in/yaml.v2"
 )
 
 type Environment struct {
@@ -13,12 +14,16 @@ type Environment struct {
 var EmptyEnvironment Environment
 
 func (e Environment) DeepCopy() Environment {
-	bytes, err := json.Marshal(e.Values)
+	bytes, err := yaml.Marshal(e.Values)
 	if err != nil {
 		panic(err)
 	}
 	var values map[string]interface{}
-	if err := json.Unmarshal(bytes, &values); err != nil {
+	if err := yaml.Unmarshal(bytes, &values); err != nil {
+		panic(err)
+	}
+	values, err = maputil.CastKeysToStrings(values)
+	if err != nil {
 		panic(err)
 	}
 	return Environment{

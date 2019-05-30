@@ -1356,3 +1356,138 @@ releases:
 		t.Errorf("unexpected releases[0].chart: expected=BAR, got=%s", st.Releases[0].Chart)
 	}
 }
+
+// See https://github.com/roboll/helmfile/issues/623
+func TestLoadDesiredStateFromYaml_MultiPartTemplate_MergeMapsVariousKeys(t *testing.T) {
+	type testcase struct {
+		overrideValues interface{}
+		expected       string
+	}
+	testcases := []testcase{
+		{map[interface{}]interface{}{"foo": "FOO"}, `FOO`},
+		{map[interface{}]interface{}{"foo": map[interface{}]interface{}{"foo": "FOO"}}, `map[foo:FOO]`},
+		{map[interface{}]interface{}{"foo": map[string]interface{}{"foo": "FOO"}}, `map[foo:FOO]`},
+		{map[interface{}]interface{}{"foo": []interface{}{"foo"}}, `[foo]`},
+		{map[interface{}]interface{}{"foo": "FOO"}, `FOO`},
+	}
+	for i := range testcases {
+		tc := testcases[i]
+		statePath := "/path/to/helmfile.yaml"
+		stateContent := `
+environments:
+  default:
+    values:
+    - 1.yaml
+    - 2.yaml
+---
+releases:
+- name: {{ .Environment.Values.foo | quote }}
+  chart: {{ .Environment.Values.bar | quote }}
+`
+		testFs := state.NewTestFs(map[string]string{
+			statePath:         stateContent,
+			"/path/to/1.yaml": `bar: ["bar"]`,
+			"/path/to/2.yaml": `bar: ["BAR"]`,
+		})
+		app := &App{
+			readFile: testFs.ReadFile,
+			glob:     testFs.Glob,
+			abs:      testFs.Abs,
+			Env:      "default",
+			Logger:   helmexec.NewLogger(os.Stderr, "debug"),
+			Reverse:  true,
+		}
+		opts := LoadOpts{
+			CalleePath: statePath,
+			Environment: state.SubhelmfileEnvironmentSpec{
+				OverrideValues: []interface{}{tc.overrideValues},
+			},
+		}
+		st, err := app.loadDesiredStateFromYaml(statePath, opts)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if st.Releases[0].Name != tc.expected {
+			t.Errorf("unexpected releases[0].name: expected=%s, got=%s", tc.expected, st.Releases[0].Name)
+		}
+		if st.Releases[0].Chart != "[BAR]" {
+			t.Errorf("unexpected releases[0].chart: expected=BAR, got=%s", st.Releases[0].Chart)
+		}
+	}
+}
+
+func TestLoadDesiredStateFromYaml_MultiPartTemplate_SprigDictFuncs(t *testing.T) {
+	type testcase struct {
+		state    string
+		expr     string
+		expected string
+	}
+	stateInline := `
+environments:
+  default:
+    values:
+    - foo: FOO
+      bar: { "baz": "BAZ" }
+---
+releases:
+- name: %s
+  chart: stable/nginx
+`
+	stateExternal := `
+environments:
+  default:
+    values:
+    - 1.yaml
+    - 2.yaml
+---
+releases:
+- name: %s
+  chart: stable/nginx
+`
+	testcases := []testcase{
+		{stateInline, `{{ getOrNil "foo" .Environment.Values }}`, `FOO`},
+		{stateInline, `{{ getOrNil "baz" (getOrNil "bar" .Environment.Values) }}`, `BAZ`},
+		{stateInline, `{{ if hasKey .Environment.Values "foo" }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
+		{stateInline, `{{ if hasKey .Environment.Values "bar" }}{{ .Environment.Values.bar.baz }}{{ end }}`, `BAZ`},
+		{stateInline, `{{ if (keys .Environment.Values | has "foo") }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
+		// See https://github.com/roboll/helmfile/issues/624
+		// This fails when .Environment.Values.bar is not map[string]interface{}. At the time of #624 it was map[interface{}]interface{}, which sprig's dict funcs don't support.
+		{stateInline, `{{ if (keys .Environment.Values | has "bar") }}{{ if (keys .Environment.Values.bar | has "baz") }}{{ .Environment.Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
+		{stateExternal, `{{ getOrNil "foo" .Environment.Values }}`, `FOO`},
+		{stateExternal, `{{ getOrNil "baz" (getOrNil "bar" .Environment.Values) }}`, `BAZ`},
+		{stateExternal, `{{ if hasKey .Environment.Values "foo" }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
+		{stateExternal, `{{ if hasKey .Environment.Values "bar" }}{{ .Environment.Values.bar.baz }}{{ end }}`, `BAZ`},
+		{stateExternal, `{{ if (keys .Environment.Values | has "foo") }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
+		// See https://github.com/roboll/helmfile/issues/624
+		{stateExternal, `{{ if (keys .Environment.Values | has "bar") }}{{ if (keys .Environment.Values.bar | has "baz") }}{{ .Environment.Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
+	}
+	for i := range testcases {
+		tc := testcases[i]
+		statePath := "/path/to/helmfile.yaml"
+		stateContent := fmt.Sprintf(tc.state, tc.expr)
+		testFs := state.NewTestFs(map[string]string{
+			statePath:         stateContent,
+			"/path/to/1.yaml": `foo: FOO`,
+			"/path/to/2.yaml": `bar: { "baz": "BAZ" }`,
+		})
+		app := &App{
+			readFile: testFs.ReadFile,
+			glob:     testFs.Glob,
+			abs:      testFs.Abs,
+			Env:      "default",
+			Logger:   helmexec.NewLogger(os.Stderr, "debug"),
+			Reverse:  true,
+		}
+		st, err := app.loadDesiredStateFromYaml(statePath)
+
+		if err != nil {
+			t.Fatalf("unexpected error at %d: %v", i, err)
+		}
+
+		if st.Releases[0].Name != tc.expected {
+			t.Errorf("unexpected releases[0].name at %d: expected=%s, got=%s", i, tc.expected, st.Releases[0].Name)
+		}
+	}
+}
