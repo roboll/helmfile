@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/environment"
+	"github.com/roboll/helmfile/pkg/maputil"
 	"github.com/roboll/helmfile/tmpl"
 	"gopkg.in/yaml.v2"
 	"path/filepath"
@@ -53,14 +54,9 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				}
 			}
 		case map[interface{}]interface{}:
-			m := map[string]interface{}{}
-			for k, v := range typedValue {
-				switch typedKey := k.(type) {
-				case string:
-					m[typedKey] = v
-				default:
-					return nil, fmt.Errorf("unexpected type of key in inline environment values %v: expected string, got %T", typedValue, typedKey)
-				}
+			m, err := maputil.CastKeysToStrings(typedValue)
+			if err != nil {
+				return nil, err
 			}
 			if err := mergo.Merge(&envVals, &m, mergo.WithOverride); err != nil {
 				return nil, fmt.Errorf("failed to merge %v: %v", typedValue, err)

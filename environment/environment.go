@@ -2,6 +2,7 @@ package environment
 
 import (
 	"github.com/imdario/mergo"
+	"github.com/roboll/helmfile/pkg/maputil"
 	"gopkg.in/yaml.v2"
 )
 
@@ -19,6 +20,10 @@ func (e Environment) DeepCopy() Environment {
 	}
 	var values map[string]interface{}
 	if err := yaml.Unmarshal(bytes, &values); err != nil {
+		panic(err)
+	}
+	values, err = maputil.CastKeysToStrings(values)
+	if err != nil {
 		panic(err)
 	}
 	return Environment{
