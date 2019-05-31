@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/Masterminds/semver v1.4.1
-	github.com/Masterminds/sprig v2.15.0+incompatible
+	github.com/Masterminds/sprig v2.16.0+incompatible
 	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c // indirect
