@@ -117,6 +117,8 @@ releases:
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
       - vault_secret.yaml
+    # verify the chart before upgrading (only works with packaged charts not directories)
+    verify: true
     # wait for k8s resources via --wait. Defaults to `false`
     wait: true
     # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
