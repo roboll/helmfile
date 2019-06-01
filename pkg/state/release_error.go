@@ -1,6 +1,8 @@
 package state
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const ReleaseErrorCodeFailure = 1
 

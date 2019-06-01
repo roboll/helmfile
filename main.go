@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/args"
 	"github.com/roboll/helmfile/cmd"
-	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/pkg/app"
-	"github.com/roboll/helmfile/state"
+	"github.com/roboll/helmfile/pkg/argparser"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -107,7 +107,7 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				return cmd.VisitAllDesiredStates(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) (bool, []error) {
-					args := args.GetArgs(c.String("args"), state)
+					args := argparser.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -264,7 +264,7 @@ func main() {
 			Action: func(c *cli.Context) error {
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
 					values := c.StringSlice("values")
-					args := args.GetArgs(c.String("args"), state)
+					args := argparser.GetArgs(c.String("args"), state)
 					workers := c.Int("concurrency")
 					if !c.Bool("skip-deps") {
 						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
@@ -453,7 +453,7 @@ Do you really want to apply?
 				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
 					workers := c.Int("concurrency")
 
-					args := args.GetArgs(c.String("args"), state)
+					args := argparser.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -481,7 +481,7 @@ Do you really want to apply?
 				errs := cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
 					purge := c.Bool("purge")
 
-					args := args.GetArgs(c.String("args"), state)
+					args := argparser.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -521,7 +521,7 @@ Do you really want to delete?
 			Action: func(c *cli.Context) error {
 				affectedReleases := state.AffectedReleases{}
 				errs := cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
-					args := args.GetArgs(c.String("args"), state)
+					args := argparser.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -578,7 +578,7 @@ Do you really want to delete?
 					timeout := c.Int("timeout")
 					concurrency := c.Int("concurrency")
 
-					args := args.GetArgs(c.String("args"), state)
+					args := argparser.GetArgs(c.String("args"), state)
 					if len(args) > 0 {
 						helm.SetExtraArgs(args...)
 					}
@@ -597,7 +597,7 @@ Do you really want to delete?
 }
 
 func executeSyncCommand(c *cli.Context, affectedReleases *state.AffectedReleases, state *state.HelmState, helm helmexec.Interface) []error {
-	args := args.GetArgs(c.String("args"), state)
+	args := argparser.GetArgs(c.String("args"), state)
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
 	}
@@ -609,7 +609,7 @@ func executeSyncCommand(c *cli.Context, affectedReleases *state.AffectedReleases
 }
 
 func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {
-	args := args.GetArgs(c.String("args"), state)
+	args := argparser.GetArgs(c.String("args"), state)
 	values := c.StringSlice("values")
 	workers := c.Int("concurrency")
 
@@ -617,7 +617,7 @@ func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexe
 }
 
 func executeDiffCommand(c *cli.Context, st *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) ([]*state.ReleaseSpec, []error) {
-	args := args.GetArgs(c.String("args"), st)
+	args := argparser.GetArgs(c.String("args"), st)
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
 	}

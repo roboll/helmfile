@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/pkg/app"
-	"github.com/roboll/helmfile/state"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"strings"

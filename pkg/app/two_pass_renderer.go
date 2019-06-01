@@ -3,9 +3,9 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"github.com/roboll/helmfile/environment"
-	"github.com/roboll/helmfile/state"
-	"github.com/roboll/helmfile/tmpl"
+	"github.com/roboll/helmfile/pkg/environment"
+	"github.com/roboll/helmfile/pkg/state"
+	"github.com/roboll/helmfile/pkg/tmpl"
 	"strings"
 )
 

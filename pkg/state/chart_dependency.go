@@ -3,7 +3,7 @@ package state
 import (
 	"fmt"
 	"github.com/Masterminds/semver"
-	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/pkg/helmexec"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"

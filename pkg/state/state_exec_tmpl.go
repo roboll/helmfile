@@ -2,7 +2,7 @@ package state
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/tmpl"
+	"github.com/roboll/helmfile/pkg/tmpl"
 )
 
 func (st *HelmState) envTemplateData() EnvironmentTemplateData {
