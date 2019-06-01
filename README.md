@@ -79,11 +79,20 @@ releases:
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
     missingFileHandler: Warn # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
+    # Values files used for rendering the chart
     values:
-      # value files passed via --values
+      # Value files passed via --values
       - vault.yaml
-      # inline values, passed via a temporary values file and --values
+      # Inline values, passed via a temporary values file and --values, so that it doesn't suffer from type issues like --set
       - address: https://vault.example.com
+      # Go template available in inline values and values files.
+      - image:
+          # The end result is more or less YAML. So do `quote` to prevent number-like strings from accidentally parsed into numbers!
+          # See https://github.com/roboll/helmfile/issues/608
+          tag: {{ requiredEnv "IMAGE_TAG" | quote }}
+          # Otherwise:
+          #   tag: "{{ requiredEnv "IMAGE_TAG" }}"
+          #   tag: !!string {{ requiredEnv "IMAGE_TAG" }}
         db:
           username: {{ requiredEnv "DB_USERNAME" }}
           # value taken from environment variable. Quotes are necessary. Will throw an error if the environment variable is not set. $DB_PASSWORD needs to be set in the calling environment ex: export DB_PASSWORD='password1'
@@ -92,6 +101,8 @@ releases:
           # Interpolate environment variable with a fixed string
           domain: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
           scheme: {{ env "SCHEME" | default "https" }}
+    # Use `values` whenever possible!
+    # `set` translates to helm's `--set key=val`, that is known to suffer from type issues like https://github.com/roboll/helmfile/issues/608
     set:
     # single value loaded from a local file, translates to --set-file foo.config=path/to/file
     - name: foo.config
