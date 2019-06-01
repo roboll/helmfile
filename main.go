@@ -193,7 +193,7 @@ func main() {
 						return errs
 					}
 
-					_, errs := executeDiffCommand(c, state, helm, c.Bool("detailed-exitcode"), c.Bool("suppress-secrets"))
+					_, errs := ExecuteDiffCommand(NewUrfaveCliConfigImpl(c), state, helm, c.Bool("detailed-exitcode"), c.Bool("suppress-secrets"))
 					return errs
 				})
 			},
@@ -366,7 +366,7 @@ func main() {
 						return errs
 					}
 
-					releases, errs := executeDiffCommand(c, st, helm, true, c.Bool("suppress-secrets"))
+					releases, errs := ExecuteDiffCommand(NewUrfaveCliConfigImpl(c), st, helm, true, c.Bool("suppress-secrets"))
 
 					releasesToBeDeleted, err := st.DetectReleasesToBeDeleted(helm)
 					if err != nil {
@@ -616,17 +616,48 @@ func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexe
 	return state.TemplateReleases(helm, values, args, workers)
 }
 
-func executeDiffCommand(c *cli.Context, st *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) ([]*state.ReleaseSpec, []error) {
-	args := argparser.GetArgs(c.String("args"), st)
+type Config interface {
+	HasCommandName(string) bool
+	Values() []string
+	Concurrency() int
+	Args() string
+}
+
+type configImpl struct {
+	c *cli.Context
+}
+
+func NewUrfaveCliConfigImpl(c *cli.Context) configImpl {
+	return configImpl{
+		c: c,
+	}
+}
+
+func (c configImpl) Values() []string {
+	return c.c.StringSlice("values")
+}
+
+func (c configImpl) Args() string {
+	return c.c.String("args")
+}
+
+func (c configImpl) Concurrency() int {
+	return c.c.Int("concurrency")
+}
+
+func (c configImpl) HasCommandName(name string) bool {
+	return c.c.Command.HasName(name)
+}
+
+func ExecuteDiffCommand(c Config, st *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) ([]*state.ReleaseSpec, []error) {
+	args := argparser.GetArgs(c.Args(), st)
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
 	}
 
-	values := c.StringSlice("values")
-	workers := c.Int("concurrency")
-	triggerCleanupEvents := c.Command.HasName("diff")
+	triggerCleanupEvents := c.HasCommandName("diff")
 
-	return st.DiffReleases(helm, values, workers, detailedExitCode, suppressSecrets, triggerCleanupEvents)
+	return st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, suppressSecrets, triggerCleanupEvents)
 }
 
 func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, app.Context) []error) error {
