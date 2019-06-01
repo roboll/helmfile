@@ -664,15 +664,13 @@ func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedNestedStateAdditionalEnv
 		"/path/to/helmfile.yaml": `
 helmfiles:
 - path: helmfile.d/a*.yaml
-  environment:
-    values:
-     - env.values.yaml
+  values:
+  - env.values.yaml
 - helmfile.d/b*.yaml
 - path: helmfile.d/c*.yaml
-  environment:
-    values:
-     - env.values.yaml
-     - tillerNs: INLINE_TILLER_NS_3
+  values:
+  - env.values.yaml
+  - tillerNs: INLINE_TILLER_NS_3
 `,
 		"/path/to/helmfile.d/a1.yaml": `
 environments:

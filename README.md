@@ -175,12 +175,12 @@ helmfiles:
   #   helmfile -f path/to/subhelmfile.yaml -l name=prometheus sync
   selectors:
   - name=prometheus
-  environment:
-    values:
-    # Environment values files merged into the nested state
-    - additiona.values.yaml
-    # Inline environment values merged into the nested state
-    - key1: val1
+  # Override state values
+  values:
+  # Values files merged into the nested state's values
+  - additiona.values.yaml
+  # Inline state values merged into the nested state's values
+  - key1: val1
 - # All the nested state files under `helmfiles:` is processed in the order of definition.
   # So it can be used for preparation for your main `releases`. An example would be creating CRDs required by `reelases` in the parent state file. 
   path: path/to/mycrd.helmfile.yaml

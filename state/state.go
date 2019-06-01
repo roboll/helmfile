@@ -1477,7 +1477,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 			Selectors          []string `yaml:"selectors"`
 			SelectorsInherited bool     `yaml:"selectorsInherited"`
 
-			Environment SubhelmfileEnvironmentSpec `yaml:"environment"`
+			Environment SubhelmfileEnvironmentSpec `yaml:",inline"`
 		}
 		if err := unmarshal(&subHelmfileSpecTmp); err != nil {
 			return err
