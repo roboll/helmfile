@@ -1,10 +1,9 @@
 package state
 
 import (
+	"github.com/roboll/helmfile/pkg/environment"
 	"reflect"
 	"testing"
-
-	"github.com/roboll/helmfile/environment"
 )
 
 func TestHelmState_executeTemplates(t *testing.T) {

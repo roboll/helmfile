@@ -1,6 +1,7 @@
 package state
 
 import (
+	"github.com/roboll/helmfile/pkg/helmexec"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,7 +12,6 @@ import (
 	"strings"
 
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
 )
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")

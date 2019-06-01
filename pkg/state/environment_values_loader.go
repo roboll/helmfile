@@ -3,9 +3,9 @@ package state
 import (
 	"fmt"
 	"github.com/imdario/mergo"
-	"github.com/roboll/helmfile/environment"
+	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/maputil"
-	"github.com/roboll/helmfile/tmpl"
+	"github.com/roboll/helmfile/pkg/tmpl"
 	"gopkg.in/yaml.v2"
 	"path/filepath"
 )

@@ -1,10 +1,9 @@
-package args
+package argparser
 
 import (
 	"fmt"
+	"github.com/roboll/helmfile/pkg/state"
 	"strings"
-
-	"github.com/roboll/helmfile/state"
 )
 
 type keyVal struct {

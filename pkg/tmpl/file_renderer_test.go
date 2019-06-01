@@ -2,7 +2,7 @@ package tmpl
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/environment"
+	"github.com/roboll/helmfile/pkg/environment"
 	"reflect"
 	"testing"
 )

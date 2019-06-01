@@ -1,6 +1,8 @@
 package app
 
-import "github.com/roboll/helmfile/state"
+import (
+	"github.com/roboll/helmfile/pkg/state"
+)
 
 type Context struct {
 	updatedRepos map[string]struct{}

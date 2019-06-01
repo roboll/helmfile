@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"github.com/roboll/helmfile/args"
-	"github.com/roboll/helmfile/helmexec"
 	"github.com/roboll/helmfile/pkg/app"
-	"github.com/roboll/helmfile/state"
+	"github.com/roboll/helmfile/pkg/argparser"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
 	"github.com/urfave/cli"
 )
 
@@ -21,7 +21,7 @@ func Deps() cli.Command {
 		},
 		Action: func(c *cli.Context) error {
 			return VisitAllDesiredStates(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) (bool, []error) {
-				args := args.GetArgs(c.String("args"), state)
+				args := argparser.GetArgs(c.String("args"), state)
 				if len(args) > 0 {
 					helm.SetExtraArgs(args...)
 				}

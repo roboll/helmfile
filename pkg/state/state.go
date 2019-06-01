@@ -3,6 +3,10 @@ package state
 import (
 	"errors"
 	"fmt"
+	"github.com/roboll/helmfile/pkg/environment"
+	"github.com/roboll/helmfile/pkg/event"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/tmpl"
 	"io/ioutil"
 	"os"
 	"path"
@@ -11,13 +15,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/roboll/helmfile/helmexec"
-
 	"regexp"
 
-	"github.com/roboll/helmfile/environment"
-	"github.com/roboll/helmfile/event"
-	"github.com/roboll/helmfile/tmpl"
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"

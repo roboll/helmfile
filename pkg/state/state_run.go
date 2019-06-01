@@ -2,7 +2,7 @@ package state
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/pkg/helmexec"
 	"sync"
 )
 

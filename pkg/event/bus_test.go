@@ -2,8 +2,8 @@ package event
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/environment"
-	"github.com/roboll/helmfile/helmexec"
+	"github.com/roboll/helmfile/pkg/environment"
+	"github.com/roboll/helmfile/pkg/helmexec"
 	"os"
 	"testing"
 )

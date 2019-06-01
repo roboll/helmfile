@@ -1,10 +1,9 @@
-package args
+package argparser
 
 import (
+	"github.com/roboll/helmfile/pkg/state"
 	"strings"
 	"testing"
-
-	"github.com/roboll/helmfile/state"
 )
 
 func TestGetArgs(t *testing.T) {

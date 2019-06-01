@@ -2,6 +2,8 @@ package app
 
 import (
 	"fmt"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
 	"io/ioutil"
 	"log"
 	"os"
@@ -9,8 +11,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/roboll/helmfile/helmexec"
-	"github.com/roboll/helmfile/state"
 	"go.uber.org/zap"
 
 	"path/filepath"
