@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/cmd"
 	"github.com/roboll/helmfile/pkg/app"
-	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/urfave/cli"
@@ -94,7 +92,20 @@ func main() {
 
 	cliApp.Before = configureLogging
 	cliApp.Commands = []cli.Command{
-		cmd.Deps(),
+		{
+			Name:  "deps",
+			Usage: "update charts based on the contents of requirements.yaml",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "args",
+					Value: "",
+					Usage: "pass args to helm exec",
+				},
+			},
+			Action: action(func(run *app.App, _ configImpl) error {
+				return run.Deps()
+			}),
+		},
 		{
 			Name:  "repos",
 			Usage: "sync repositories from state file (helm repo add && helm repo update)",
@@ -105,20 +116,9 @@ func main() {
 					Usage: "pass args to helm exec",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				return cmd.VisitAllDesiredStates(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) (bool, []error) {
-					args := argparser.GetArgs(c.String("args"), state)
-					if len(args) > 0 {
-						helm.SetExtraArgs(args...)
-					}
-
-					errs := ctx.SyncReposOnce(state, helm)
-
-					ok := len(state.Repositories) > 0 && len(errs) == 0
-
-					return ok, errs
-				})
-			},
+			Action: action(func(run *app.App, _ configImpl) error {
+				return run.Repos()
+			}),
 		},
 		{
 			Name:  "charts",
@@ -139,14 +139,9 @@ func main() {
 					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				affectedReleases := state.AffectedReleases{}
-				errs := findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
-					return executeSyncCommand(c, &affectedReleases, st, helm)
-				})
-				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
-				return errs
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.DeprecatedSyncCharts(c)
+			}),
 		},
 		{
 			Name:  "diff",
@@ -179,24 +174,9 @@ func main() {
 					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
-					if !c.Bool("skip-deps") {
-						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-					}
-					if errs := state.PrepareReleases(helm, "diff"); errs != nil && len(errs) > 0 {
-						return errs
-					}
-
-					_, errs := ExecuteDiffCommand(NewUrfaveCliConfigImpl(c), state, helm, c.Bool("detailed-exitcode"), c.Bool("suppress-secrets"))
-					return errs
-				})
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Diff(c)
+			}),
 		},
 		{
 			Name:  "template",
@@ -221,22 +201,9 @@ func main() {
 					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
-					if !c.Bool("skip-deps") {
-						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-					}
-					if errs := state.PrepareReleases(helm, "template"); errs != nil && len(errs) > 0 {
-						return errs
-					}
-					return executeTemplateCommand(c, state, helm)
-				})
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Template(c)
+			}),
 		},
 		{
 			Name:  "lint",
@@ -261,25 +228,9 @@ func main() {
 					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
-					values := c.StringSlice("values")
-					args := argparser.GetArgs(c.String("args"), state)
-					workers := c.Int("concurrency")
-					if !c.Bool("skip-deps") {
-						if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-						if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-					}
-					if errs := state.PrepareReleases(helm, "lint"); errs != nil && len(errs) > 0 {
-						return errs
-					}
-					return state.LintReleases(helm, values, args, workers)
-				})
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Lint(c)
+			}),
 		},
 		{
 			Name:  "sync",
@@ -304,25 +255,9 @@ func main() {
 					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				affectedReleases := state.AffectedReleases{}
-				errs := findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
-					if !c.Bool("skip-deps") {
-						if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-						if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-					}
-					if errs := st.PrepareReleases(helm, "sync"); errs != nil && len(errs) > 0 {
-						return errs
-					}
-					return executeSyncCommand(c, &affectedReleases, st, helm)
-				})
-				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
-				return errs
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Sync(c)
+			}),
 		},
 		{
 			Name:  "apply",
@@ -351,88 +286,9 @@ func main() {
 					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				affectedReleases := state.AffectedReleases{}
-				errs := findAndIterateOverDesiredStatesUsingFlags(c, func(st *state.HelmState, helm helmexec.Interface, ctx app.Context) []error {
-					if !c.Bool("skip-deps") {
-						if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-						if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-							return errs
-						}
-					}
-					if errs := st.PrepareReleases(helm, "apply"); errs != nil && len(errs) > 0 {
-						return errs
-					}
-
-					releases, errs := ExecuteDiffCommand(NewUrfaveCliConfigImpl(c), st, helm, true, c.Bool("suppress-secrets"))
-
-					releasesToBeDeleted, err := st.DetectReleasesToBeDeleted(helm)
-					if err != nil {
-						errs = append(errs, err)
-					}
-
-					fatalErrs := []error{}
-
-					noError := true
-					for _, e := range errs {
-						switch err := e.(type) {
-						case *state.ReleaseError:
-							if err.Code != 2 {
-								noError = false
-								fatalErrs = append(fatalErrs, e)
-							}
-						default:
-							noError = false
-							fatalErrs = append(fatalErrs, e)
-						}
-					}
-
-					// sync only when there are changes
-					if noError {
-						if len(releases) == 0 && len(releasesToBeDeleted) == 0 {
-							// TODO better way to get the logger
-							logger := c.App.Metadata["logger"].(*zap.SugaredLogger)
-							logger.Infof("")
-							logger.Infof("No affected releases")
-						} else {
-							names := []string{}
-							for _, r := range releases {
-								names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
-							}
-							for _, r := range releasesToBeDeleted {
-								names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
-							}
-
-							msg := fmt.Sprintf(`Affected releases are:
-%s
-
-Do you really want to apply?
-  Helmfile will apply all your changes, as shown above.
-
-`, strings.Join(names, "\n"))
-							interactive := c.GlobalBool("interactive")
-							if !interactive || interactive && askForConfirmation(msg) {
-								rs := []state.ReleaseSpec{}
-								for _, r := range releases {
-									rs = append(rs, *r)
-								}
-								for _, r := range releasesToBeDeleted {
-									rs = append(rs, *r)
-								}
-
-								st.Releases = rs
-								return executeSyncCommand(c, &affectedReleases, st, helm)
-							}
-						}
-					}
-
-					return fatalErrs
-				})
-				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
-				return errs
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Apply(c)
+			}),
 		},
 		{
 			Name:  "status",
@@ -449,18 +305,9 @@ Do you really want to apply?
 					Usage: "pass args to helm exec",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
-					workers := c.Int("concurrency")
-
-					args := argparser.GetArgs(c.String("args"), state)
-					if len(args) > 0 {
-						helm.SetExtraArgs(args...)
-					}
-
-					return state.ReleaseStatuses(helm, workers)
-				})
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Status(c)
+			}),
 		},
 		{
 			Name:  "delete",
@@ -476,37 +323,9 @@ Do you really want to apply?
 					Usage: "purge releases i.e. free release names and histories",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				affectedReleases := state.AffectedReleases{}
-				errs := cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
-					purge := c.Bool("purge")
-
-					args := argparser.GetArgs(c.String("args"), state)
-					if len(args) > 0 {
-						helm.SetExtraArgs(args...)
-					}
-
-					names := make([]string, len(state.Releases))
-					for i, r := range state.Releases {
-						names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
-					}
-
-					msg := fmt.Sprintf(`Affected releases are:
-%s
-
-Do you really want to delete?
-  Helmfile will delete all your releases, as shown above.
-
-`, strings.Join(names, "\n"))
-					interactive := c.GlobalBool("interactive")
-					if !interactive || interactive && askForConfirmation(msg) {
-						return state.DeleteReleases(&affectedReleases, helm, purge)
-					}
-					return nil
-				})
-				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
-				return errs
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Delete(c)
+			}),
 		},
 		{
 			Name:  "destroy",
@@ -518,35 +337,9 @@ Do you really want to delete?
 					Usage: "pass args to helm exec",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				affectedReleases := state.AffectedReleases{}
-				errs := cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, true, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
-					args := argparser.GetArgs(c.String("args"), state)
-					if len(args) > 0 {
-						helm.SetExtraArgs(args...)
-					}
-
-					names := make([]string, len(state.Releases))
-					for i, r := range state.Releases {
-						names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
-					}
-
-					msg := fmt.Sprintf(`Affected releases are:
-%s
-
-Do you really want to delete?
-  Helmfile will delete all your releases, as shown above.
-
-`, strings.Join(names, "\n"))
-					interactive := c.GlobalBool("interactive")
-					if !interactive || interactive && askForConfirmation(msg) {
-						return state.DeleteReleases(&affectedReleases, helm, true)
-					}
-					return nil
-				})
-				affectedReleases.DisplayAffectedReleases(c.App.Metadata["logger"].(*zap.SugaredLogger))
-				return errs
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Destroy(c)
+			}),
 		},
 		{
 			Name:  "test",
@@ -572,20 +365,9 @@ Do you really want to delete?
 					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				return findAndIterateOverDesiredStatesUsingFlags(c, func(state *state.HelmState, helm helmexec.Interface, _ app.Context) []error {
-					cleanup := c.Bool("cleanup")
-					timeout := c.Int("timeout")
-					concurrency := c.Int("concurrency")
-
-					args := argparser.GetArgs(c.String("args"), state)
-					if len(args) > 0 {
-						helm.SetExtraArgs(args...)
-					}
-
-					return state.TestReleases(helm, cleanup, timeout, concurrency)
-				})
-			},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Test(c)
+			}),
 		},
 	}
 
@@ -596,41 +378,19 @@ Do you really want to delete?
 	}
 }
 
-func executeSyncCommand(c *cli.Context, affectedReleases *state.AffectedReleases, state *state.HelmState, helm helmexec.Interface) []error {
-	args := argparser.GetArgs(c.String("args"), state)
-	if len(args) > 0 {
-		helm.SetExtraArgs(args...)
-	}
-
-	values := c.StringSlice("values")
-	workers := c.Int("concurrency")
-
-	return state.SyncReleases(affectedReleases, helm, values, workers)
-}
-
-func executeTemplateCommand(c *cli.Context, state *state.HelmState, helm helmexec.Interface) []error {
-	args := argparser.GetArgs(c.String("args"), state)
-	values := c.StringSlice("values")
-	workers := c.Int("concurrency")
-
-	return state.TemplateReleases(helm, values, args, workers)
-}
-
-type Config interface {
-	HasCommandName(string) bool
-	Values() []string
-	Concurrency() int
-	Args() string
-}
-
 type configImpl struct {
 	c *cli.Context
 }
 
-func NewUrfaveCliConfigImpl(c *cli.Context) configImpl {
+func NewUrfaveCliConfigImpl(c *cli.Context) (configImpl, error) {
+	if c.NArg() > 0 {
+		cli.ShowAppHelp(c)
+		return configImpl{}, fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
+	}
+
 	return configImpl{
 		c: c,
-	}
+	}, nil
 }
 
 func (c configImpl) Values() []string {
@@ -649,17 +409,105 @@ func (c configImpl) HasCommandName(name string) bool {
 	return c.c.Command.HasName(name)
 }
 
-func ExecuteDiffCommand(c Config, st *state.HelmState, helm helmexec.Interface, detailedExitCode, suppressSecrets bool) ([]*state.ReleaseSpec, []error) {
-	args := argparser.GetArgs(c.Args(), st)
-	if len(args) > 0 {
-		helm.SetExtraArgs(args...)
-	}
+// DiffConfig
 
-	triggerCleanupEvents := c.HasCommandName("diff")
-
-	return st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, suppressSecrets, triggerCleanupEvents)
+func (c configImpl) SkipDeps() bool {
+	return c.c.Bool("skip-deps")
 }
 
-func findAndIterateOverDesiredStatesUsingFlags(c *cli.Context, converge func(*state.HelmState, helmexec.Interface, app.Context) []error) error {
-	return cmd.FindAndIterateOverDesiredStatesUsingFlagsWithReverse(c, false, converge)
+func (c configImpl) DetailedExitcode() bool {
+	return c.c.Bool("detailed-exitcode")
+}
+
+func (c configImpl) SuppressSecrets() bool {
+	return c.c.Bool("suppress-secrets")
+}
+
+// DeleteConfig
+
+func (c configImpl) Purge() bool {
+	return c.c.Bool("purge")
+}
+
+// TestConfig
+
+func (c configImpl) Cleanup() bool {
+	return c.c.Bool("cleanup")
+}
+
+func (c configImpl) Timeout() int {
+	return c.c.Int("timeout")
+}
+
+// GlobalConfig
+
+func (c configImpl) HelmBinary() string {
+	return c.c.GlobalString("helm-binary")
+}
+
+func (c configImpl) KubeContext() string {
+	return c.c.GlobalString("kube-context")
+}
+
+func (c configImpl) Namespace() string {
+	return c.c.GlobalString("namespace")
+}
+
+func (c configImpl) FileOrDir() string {
+	return c.c.GlobalString("file")
+}
+
+func (c configImpl) Selectors() []string {
+	return c.c.GlobalStringSlice("selector")
+}
+
+func (c configImpl) Interactive() bool {
+	return c.c.GlobalBool("interactive")
+}
+
+func (c configImpl) Logger() *zap.SugaredLogger {
+	return c.c.App.Metadata["logger"].(*zap.SugaredLogger)
+}
+
+func (c configImpl) Env() string {
+	env := c.c.GlobalString("environment")
+	if env == "" {
+		env = state.DefaultEnv
+	}
+	return env
+}
+
+func action(do func(*app.App, configImpl) error) func(*cli.Context) error {
+	return func(implCtx *cli.Context) error {
+		conf, err := NewUrfaveCliConfigImpl(implCtx)
+		if err != nil {
+			return err
+		}
+
+		a := app.New(conf)
+
+		a.ErrorHandler = func(err error) error {
+			return toCliError(implCtx, err)
+		}
+
+		return do(a, conf)
+	}
+}
+
+func toCliError(c *cli.Context, err error) error {
+	if err != nil {
+		switch e := err.(type) {
+		case *app.NoMatchingHelmfileError:
+			noMatchingExitCode := 3
+			if c.GlobalBool("allow-no-matching-release") {
+				noMatchingExitCode = 0
+			}
+			return cli.NewExitError(e.Error(), noMatchingExitCode)
+		case *app.Error:
+			return cli.NewExitError(e.Error(), e.Code())
+		default:
+			panic(fmt.Errorf("BUG: please file an github issue for this unhandled error: %T: %v", e, e))
+		}
+	}
+	return err
 }
