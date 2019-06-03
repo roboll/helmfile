@@ -22,7 +22,17 @@ type DeprecatedChartsConfigProvider interface {
 	loggingConfig
 }
 
+type DepsConfigProvider interface {
+	Args() string
+}
+
+type ReposConfigProvider interface {
+	Args() string
+}
+
 type ApplyConfigProvider interface {
+	Args() string
+
 	Values() []string
 	SkipDeps() bool
 
@@ -34,6 +44,8 @@ type ApplyConfigProvider interface {
 }
 
 type SyncConfigProvider interface {
+	Args() string
+
 	Values() []string
 	SkipDeps() bool
 
@@ -42,6 +54,8 @@ type SyncConfigProvider interface {
 }
 
 type DiffConfigProvider interface {
+	Args() string
+
 	Values() []string
 	SkipDeps() bool
 
@@ -53,6 +67,8 @@ type DiffConfigProvider interface {
 }
 
 type DeleteConfigProvider interface {
+	Args() string
+
 	Purge() bool
 
 	interactive
@@ -60,11 +76,15 @@ type DeleteConfigProvider interface {
 }
 
 type DestroyConfigProvider interface {
+	Args() string
+
 	interactive
 	loggingConfig
 }
 
 type TestConfigProvider interface {
+	Args() string
+
 	Timeout() int
 	Cleanup() bool
 
@@ -72,24 +92,26 @@ type TestConfigProvider interface {
 }
 
 type LintConfigProvider interface {
+	Args() string
+
 	Values() []string
 	SkipDeps() bool
-
-	Args() string
 
 	concurrencyConfig
 }
 
 type TemplateConfigProvider interface {
+	Args() string
+
 	Values() []string
 	SkipDeps() bool
-
-	Args() string
 
 	concurrencyConfig
 }
 
 type StatusesConfigProvider interface {
+	Args() string
+
 	concurrencyConfig
 }
 

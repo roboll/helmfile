@@ -102,8 +102,8 @@ func main() {
 					Usage: "pass args to helm exec",
 				},
 			},
-			Action: action(func(run *app.App, _ configImpl) error {
-				return run.Deps()
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Deps(c)
 			}),
 		},
 		{
@@ -116,8 +116,8 @@ func main() {
 					Usage: "pass args to helm exec",
 				},
 			},
-			Action: action(func(run *app.App, _ configImpl) error {
-				return run.Repos()
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.Repos(c)
 			}),
 		},
 		{

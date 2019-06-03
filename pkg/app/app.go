@@ -67,15 +67,15 @@ func Init(app *App) *App {
 	return app
 }
 
-func (a *App) Deps() error {
+func (a *App) Deps(c DepsConfigProvider) error {
 	return a.ForEachState(func(run *Run) []error {
-		return run.Deps()
+		return run.Deps(c)
 	})
 }
 
-func (a *App) Repos() error {
+func (a *App) Repos(c ReposConfigProvider) error {
 	return a.ForEachState(func(run *Run) []error {
-		return run.Repos()
+		return run.Repos(c)
 	})
 }
 

@@ -27,11 +27,15 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-func (r *Run) Deps() []error {
+func (r *Run) Deps(c DepsConfigProvider) []error {
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
 	return r.state.UpdateDeps(r.helm)
 }
 
-func (r *Run) Repos() []error {
+func (r *Run) Repos(c ReposConfigProvider) []error {
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
 	return r.ctx.SyncReposOnce(r.state, r.helm)
 }
 
@@ -47,6 +51,8 @@ func (r *Run) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) []error {
 
 func (r *Run) Status(c StatusesConfigProvider) []error {
 	workers := c.Concurrency()
+
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	return r.state.ReleaseStatuses(r.helm, workers)
 }
@@ -71,6 +77,8 @@ Do you really want to delete?
 `, strings.Join(names, "\n"))
 	interactive := c.Interactive()
 	if !interactive || interactive && r.askForConfirmation(msg) {
+		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
 		errs = r.state.DeleteReleases(&affectedReleases, r.helm, purge)
 	}
 	affectedReleases.DisplayAffectedReleases(c.Logger())
@@ -95,6 +103,8 @@ Do you really want to delete?
 `, strings.Join(names, "\n"))
 	interactive := c.Interactive()
 	if !interactive || interactive && r.askForConfirmation(msg) {
+		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
 		errs = r.state.DeleteReleases(&affectedReleases, r.helm, true)
 	}
 	affectedReleases.DisplayAffectedReleases(c.Logger())
@@ -178,6 +188,8 @@ Do you really want to apply?
 					rs = append(rs, *r)
 				}
 
+				r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
 				st.Releases = rs
 				return st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency())
 			}
@@ -205,6 +217,8 @@ func (r *Run) Diff(c DiffConfigProvider) []error {
 		return errs
 	}
 
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
 	_, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), c.DetailedExitcode(), c.SuppressSecrets(), true)
 	return errs
 }
@@ -226,6 +240,9 @@ func (r *Run) Sync(c SyncConfigProvider) []error {
 	if errs := st.PrepareReleases(helm, "sync"); errs != nil && len(errs) > 0 {
 		return errs
 	}
+
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
 	errs := st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency())
 	affectedReleases.DisplayAffectedReleases(c.Logger())
 	return errs
@@ -256,6 +273,8 @@ func (r *Run) Test(c TestConfigProvider) []error {
 	cleanup := c.Cleanup()
 	timeout := c.Timeout()
 	concurrency := c.Concurrency()
+
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	return r.state.TestReleases(r.helm, cleanup, timeout, concurrency)
 }
