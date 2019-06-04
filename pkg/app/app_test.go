@@ -1522,6 +1522,8 @@ releases:
 		{stateExternal, `{{ if (keys .Environment.Values | has "foo") }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
 		// See https://github.com/roboll/helmfile/issues/624
 		{stateExternal, `{{ if (keys .Environment.Values | has "bar") }}{{ if (keys .Environment.Values.bar | has "baz") }}{{ .Environment.Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
+		// See https://github.com/roboll/helmfile/issues/643
+		{stateExternal, `{{ range $service := .Environment.Values.services }}{{ $service.name }}{{ if hasKey $service "something" }}{{ $service.something }}{{ end }}{{ end }}`, `xyfalse`},
 	}
 	for i := range testcases {
 		tc := testcases[i]
@@ -1530,7 +1532,12 @@ releases:
 		testFs := state.NewTestFs(map[string]string{
 			statePath:         stateContent,
 			"/path/to/1.yaml": `foo: FOO`,
-			"/path/to/2.yaml": `bar: { "baz": "BAZ" }`,
+			"/path/to/2.yaml": `bar: { "baz": "BAZ" }
+services:
+  - name: "x"
+  - name: "y"
+    something: false
+`,
 		})
 		app := &App{
 			readFile: testFs.ReadFile,
