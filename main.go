@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/roboll/helmfile/pkg/app"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/maputil"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
@@ -56,6 +57,14 @@ func main() {
 		cli.StringFlag{
 			Name:  "environment, e",
 			Usage: "specify the environment name. defaults to `default`",
+		},
+		cli.StringSliceFlag{
+			Name:  "state-values-set",
+			Usage: "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)",
+		},
+		cli.StringSliceFlag{
+			Name:  "state-values-file",
+			Usage: "specify state values in a YAML file",
 		},
 		cli.BoolFlag{
 			Name:  "quiet, q",
@@ -380,6 +389,8 @@ func main() {
 
 type configImpl struct {
 	c *cli.Context
+
+	set map[string]interface{}
 }
 
 func NewUrfaveCliConfigImpl(c *cli.Context) (configImpl, error) {
@@ -388,9 +399,27 @@ func NewUrfaveCliConfigImpl(c *cli.Context) (configImpl, error) {
 		return configImpl{}, fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
 	}
 
-	return configImpl{
+	conf := configImpl{
 		c: c,
-	}, nil
+	}
+
+	optsSet := c.GlobalStringSlice("state-values-set")
+	if len(optsSet) > 0 {
+		set := map[string]interface{}{}
+		for i := range optsSet {
+			ops := strings.Split(optsSet[i], ",")
+			for j := range ops {
+				op := strings.Split(ops[j], "=")
+				k := strings.Split(op[0], ".")
+				v := op[1]
+
+				set = maputil.Set(set, k, v)
+			}
+		}
+		conf.set = set
+	}
+
+	return conf, nil
 }
 
 func (c configImpl) Values() []string {
@@ -459,6 +488,14 @@ func (c configImpl) FileOrDir() string {
 
 func (c configImpl) Selectors() []string {
 	return c.c.GlobalStringSlice("selector")
+}
+
+func (c configImpl) Set() map[string]interface{} {
+	return c.set
+}
+
+func (c configImpl) ValuesFiles() []string {
+	return c.c.GlobalStringSlice("state-values-file")
 }
 
 func (c configImpl) Interactive() bool {

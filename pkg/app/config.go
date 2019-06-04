@@ -10,6 +10,8 @@ type ConfigProvider interface {
 	KubeContext() string
 	Namespace() string
 	Selectors() []string
+	Set() map[string]interface{}
+	ValuesFiles() []string
 	Env() string
 
 	loggingConfig

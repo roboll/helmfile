@@ -26,6 +26,8 @@ type App struct {
 	Selectors   []string
 	HelmBinary  string
 	Args        string
+	ValuesFiles []string
+	Set         map[string]interface{}
 
 	FileOrDir string
 
@@ -52,6 +54,8 @@ func New(conf ConfigProvider) *App {
 		HelmBinary:  conf.HelmBinary(),
 		Args:        conf.Args(),
 		FileOrDir:   conf.FileOrDir(),
+		ValuesFiles: conf.ValuesFiles(),
+		Set:         conf.Set(),
 	})
 }
 
@@ -237,10 +241,16 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 	return ld.Load(file, op)
 }
 
-func (a *App) visitStates(fileOrDir string, opts LoadOpts, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	noMatchInHelmfiles := true
 
 	err := a.visitStateFiles(fileOrDir, func(f, d string) error {
+		opts := defOpts.DeepCopy()
+
+		if opts.CalleePath == "" {
+			opts.CalleePath = f
+		}
+
 		st, err := a.loadDesiredStateFromYaml(f, opts)
 
 		sigs := make(chan os.Signal, 1)
@@ -343,7 +353,25 @@ func (a *App) ForEachState(do func(*Run) []error) error {
 }
 
 func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
-	opts := LoadOpts{Selectors: a.Selectors}
+	opts := LoadOpts{
+		Selectors: a.Selectors,
+	}
+
+	envvals := []interface{}{}
+
+	if a.ValuesFiles != nil {
+		for i := range a.ValuesFiles {
+			envvals = append(envvals, a.ValuesFiles[i])
+		}
+	}
+
+	if a.Set != nil {
+		envvals = append(envvals, a.Set)
+	}
+
+	if len(envvals) > 0 {
+		opts.Environment.OverrideValues = envvals
+	}
 
 	err := a.visitStates(fileOrDir, opts, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		if len(st.Selectors) > 0 {

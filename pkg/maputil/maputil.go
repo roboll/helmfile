@@ -48,3 +48,28 @@ func CastKeysToStrings(s interface{}) (map[string]interface{}, error) {
 	}
 	return new, nil
 }
+
+func Set(m map[string]interface{}, key []string, value string) map[string]interface{} {
+	if len(key) == 0 {
+		panic(fmt.Errorf("bug: unexpected length of key: %d", len(key)))
+	}
+
+	k := key[0]
+
+	if len(key) == 1 {
+		m[k] = value
+		return m
+	}
+
+	remain := key[1:]
+
+	nested, ok := m[k]
+	if !ok {
+		new_m := map[string]interface{}{}
+		nested = Set(new_m, remain, value)
+	}
+
+	m[k] = nested
+
+	return m
+}
