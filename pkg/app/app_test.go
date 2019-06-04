@@ -900,6 +900,130 @@ bar: "bar1"
 	}
 }
 
+func TestVisitDesiredStatesWithReleasesFiltered_StateValueOverrides(t *testing.T) {
+	envTmplExpr := "{{ .Values.foo }}-{{ .Values.bar }}-{{ .Values.baz }}-{{ .Values.hoge }}-{{ .Values.fuga }}-{{ .Values.a | first | pluck \"b\" | first | first | pluck \"c\" | first }}"
+	relTmplExpr := "\"{{`{{ .Values.foo }}-{{ .Values.bar }}-{{ .Values.baz }}-{{ .Values.hoge }}-{{ .Values.fuga }}-{{ .Values.a | first | pluck \\\"b\\\" | first | first | pluck \\\"c\\\" | first }}`}}\""
+
+	testcases := []struct {
+		expr, env, expected string
+	}{
+		{
+			expr:     envTmplExpr,
+			env:      "default",
+			expected: "foo-bar_default-baz_override-hoge_set-fuga_set-C",
+		},
+		{
+			expr:     envTmplExpr,
+			env:      "production",
+			expected: "foo-bar_production-baz_override-hoge_set-fuga_set-C",
+		},
+		{
+			expr:     relTmplExpr,
+			env:      "default",
+			expected: "foo-bar_default-baz_override-hoge_set-fuga_set-C",
+		},
+		{
+			expr:     relTmplExpr,
+			env:      "production",
+			expected: "foo-bar_production-baz_override-hoge_set-fuga_set-C",
+		},
+	}
+	for i := range testcases {
+		testcase := testcases[i]
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			files := map[string]string{
+				"/path/to/helmfile.yaml": fmt.Sprintf(`
+# The top-level "values" are "base" values has inherited to state values with the lowest priority.
+# The lowest priority results in environment-specific values to override values defined in the base.
+values:
+- values.yaml
+
+environments:
+  default:
+    values:
+    - default.yaml
+  production:
+    values:
+    - production.yaml
+---
+releases:
+- name: %s
+  chart: %s
+  namespace: %s
+`, testcase.expr, testcase.expr, testcase.expr),
+				"/path/to/values.yaml": `
+foo: foo
+bar: bar
+baz: baz
+hoge: hoge
+fuga: fuga
+
+a: []
+`,
+				"/path/to/default.yaml": `
+bar: "bar_default"
+baz: "baz_default"
+
+a:
+- b: []
+`,
+				"/path/to/production.yaml": `
+bar: "bar_production"
+baz: "baz_production"
+
+a:
+- b: []
+`,
+				"/path/to/overrides.yaml": `
+baz: baz_override
+hoge: hoge_override
+
+a:
+- b:
+  - c: C
+`,
+			}
+
+			actual := []state.ReleaseSpec{}
+
+			collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+				for _, r := range st.Releases {
+					actual = append(actual, r)
+				}
+				return []error{}
+			}
+			app := appWithFs(&App{
+				KubeContext: "default",
+				Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+				Reverse:     false,
+				Namespace:   "",
+				Selectors:   []string{},
+				Env:         testcase.env,
+				ValuesFiles: []string{"overrides.yaml"},
+				Set:         map[string]interface{}{"hoge": "hoge_set", "fuga": "fuga_set"},
+			}, files)
+			err := app.VisitDesiredStatesWithReleasesFiltered(
+				"helmfile.yaml", collectReleases,
+			)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(actual) != 1 {
+				t.Errorf("unexpected number of processed releases: expected=1, got=%d", len(actual))
+			}
+			if actual[0].Name != testcase.expected {
+				t.Errorf("unexpected name: expected=%s, got=%s", testcase.expected, actual[0].Name)
+			}
+			if actual[0].Chart != testcase.expected {
+				t.Errorf("unexpected chart: expected=%s, got=%s", testcase.expected, actual[0].Chart)
+			}
+			if actual[0].Namespace != testcase.expected {
+				t.Errorf("unexpected namespace: expected=%s, got=%s", testcase.expected, actual[0].Namespace)
+			}
+		})
+	}
+}
+
 func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`releases:

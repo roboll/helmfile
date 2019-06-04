@@ -27,6 +27,9 @@ type HelmState struct {
 	basePath string
 	FilePath string
 
+	// DefaultValues is the default values to be overrode by environment values and command-line overrides
+	DefaultValues []interface{} `yaml:"values"`
+
 	Environments map[string]EnvironmentSpec `yaml:"environments"`
 
 	Bases              []string          `yaml:"bases"`
@@ -1243,7 +1246,7 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 }
 
 func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
-	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), st.envTemplateData())
+	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), st.valuesFileTemplateData())
 	return r.RenderToBytes(path)
 }
 

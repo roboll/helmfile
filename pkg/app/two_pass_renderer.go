@@ -19,8 +19,12 @@ func prependLineNumbers(text string) string {
 	return buf.String()
 }
 
-func (r *desiredStateLoader) renderEnvironment(firstPassEnv *environment.Environment, baseDir, filename string, content []byte) *environment.Environment {
-	tmplData := state.EnvironmentTemplateData{Environment: *firstPassEnv, Namespace: r.namespace}
+func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environment, baseDir, filename string, content []byte) (*environment.Environment, *state.HelmState) {
+	tmplData := state.EnvironmentTemplateData{
+		Environment: *firstPassEnv,
+		Namespace:   r.namespace,
+		Values:      map[string]interface{}{},
+	}
 	firstPassRenderer := tmpl.NewFirstPassRenderer(baseDir, tmplData)
 
 	// parse as much as we can, tolerate errors, this is a preparse
@@ -29,7 +33,7 @@ func (r *desiredStateLoader) renderEnvironment(firstPassEnv *environment.Environ
 		r.logger.Debugf("first-pass rendering input of \"%s\":\n%s", filename, prependLineNumbers(string(content)))
 		if yamlBuf == nil { // we have a template syntax error, let the second parse report
 			r.logger.Debugf("template syntax error: %v", err)
-			return firstPassEnv
+			return firstPassEnv, nil
 		}
 	}
 	yamlData := yamlBuf.String()
@@ -57,7 +61,8 @@ func (r *desiredStateLoader) renderEnvironment(firstPassEnv *environment.Environ
 	if prestate != nil {
 		firstPassEnv = &prestate.Env
 	}
-	return firstPassEnv
+
+	return firstPassEnv, prestate
 }
 
 type RenderOpts struct {
@@ -88,13 +93,18 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 		r.logger.Debugf("first-pass uses: %v", initEnv)
 	}
 
-	renderedEnv := r.renderEnvironment(initEnv, baseDir, filename, content)
+	renderedEnv, prestate := r.renderPrestate(initEnv, baseDir, filename, content)
 
 	if r.logger != nil {
 		r.logger.Debugf("first-pass produced: %v", renderedEnv)
 	}
 
-	finalEnv, err := renderedEnv.Merge(overrode)
+	finalEnv, err := inherited.Merge(renderedEnv)
+	if err != nil {
+		return nil, err
+	}
+
+	finalEnv, err = finalEnv.Merge(overrode)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +113,23 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 		r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, *finalEnv)
 	}
 
-	tmplData := state.EnvironmentTemplateData{Environment: *finalEnv, Namespace: r.namespace}
+	vals := map[string]interface{}{}
+	if prestate != nil {
+		prestate.Env = *finalEnv
+		vals, err = prestate.Values()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if prestate != nil {
+		r.logger.Debugf("vals:\n%v\ndefaultVals:%v", vals, prestate.DefaultValues)
+	}
+
+	tmplData := state.EnvironmentTemplateData{
+		Environment: *finalEnv,
+		Namespace:   r.namespace,
+		Values:      vals,
+	}
 	secondPassRenderer := tmpl.NewFileRenderer(r.readFile, baseDir, tmplData)
 	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
 	if err != nil {

@@ -114,6 +114,12 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *envi
 	if err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
+
+	e.Defaults, err = state.loadValuesEntries(nil, state.DefaultValues)
+	if err != nil {
+		return nil, err
+	}
+
 	state.Env = *e
 
 	return &state, nil
@@ -137,7 +143,12 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 		return nil, err
 	}
 
-	return c.LoadEnvValues(state, envName, envValues)
+	state, err = c.LoadEnvValues(state, envName, envValues)
+	if err != nil {
+		return nil, err
+	}
+
+	return state, nil
 }
 
 func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmState, baseDir string) (*HelmState, error) {
@@ -164,13 +175,8 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
 	if ok {
-		envValues := append([]interface{}{}, envSpec.Values...)
-		ld := &EnvironmentValuesLoader{
-			storage:  st.storage(),
-			readFile: st.readFile,
-		}
 		var err error
-		envVals, err = ld.LoadEnvironmentValues(envSpec.MissingFileHandler, envValues)
+		envVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envSpec.Values)
 		if err != nil {
 			return nil, err
 		}
@@ -236,4 +242,21 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 	}
 
 	return newEnv, nil
+}
+
+func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []interface{}) (map[string]interface{}, error) {
+	envVals := map[string]interface{}{}
+
+	valuesEntries := append([]interface{}{}, entries...)
+	ld := &EnvironmentValuesLoader{
+		storage:  st.storage(),
+		readFile: st.readFile,
+	}
+	var err error
+	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries)
+	if err != nil {
+		return nil, err
+	}
+
+	return envVals, nil
 }
