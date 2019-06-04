@@ -1,7 +1,8 @@
-package state
+package testhelper
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -20,8 +21,10 @@ type TestFs struct {
 func NewTestFs(files map[string]string) *TestFs {
 	dirs := map[string]bool{}
 	for abs, _ := range files {
-		d := filepath.Dir(abs)
-		dirs[d] = true
+		for d := filepath.Dir(abs); !dirs[d]; d = filepath.Dir(d) {
+			dirs[d] = true
+			fmt.Fprintf(os.Stderr, "testfs: recognized dir: %s\n", d)
+		}
 	}
 	return &TestFs{
 		Cwd:   "/path/to",

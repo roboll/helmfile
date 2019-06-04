@@ -2,6 +2,7 @@ package state
 
 import (
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/testhelper"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ import (
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
 
-func injectFs(st *HelmState, fs *TestFs) *HelmState {
+func injectFs(st *HelmState, fs *testhelper.TestFs) *HelmState {
 	st.glob = fs.Glob
 	st.readFile = fs.ReadFile
 	st.fileExists = fs.FileExists
@@ -1035,7 +1036,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				Releases: []ReleaseSpec{tt.release},
 				logger:   logger,
 			}
-			fs := NewTestFs(map[string]string{})
+			fs := testhelper.NewTestFs(map[string]string{})
 			state = injectFs(state, fs)
 			helm := &mockHelmExec{
 				lists: map[listKey]string{},
@@ -1434,7 +1435,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 					return nil
 				},
 			}
-			testfs := NewTestFs(map[string]string{
+			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: FOO`,
 			})
 			state = injectFs(state, testfs)
@@ -1517,7 +1518,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 					return nil
 				},
 			}
-			testfs := NewTestFs(map[string]string{
+			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: bar
 `,
 			})
