@@ -24,6 +24,12 @@ type App struct {
 	Env         string
 	Namespace   string
 	Selectors   []string
+	HelmBinary  string
+	Args        string
+
+	FileOrDir string
+
+	ErrorHandler func(error) error
 
 	readFile          func(string) ([]byte, error)
 	fileExists        func(string) (bool, error)
@@ -36,6 +42,19 @@ type App struct {
 	chdir func(string) error
 }
 
+func New(conf ConfigProvider) *App {
+	return Init(&App{
+		KubeContext: conf.KubeContext(),
+		Logger:      conf.Logger(),
+		Env:         conf.Env(),
+		Namespace:   conf.Namespace(),
+		Selectors:   conf.Selectors(),
+		HelmBinary:  conf.HelmBinary(),
+		Args:        conf.Args(),
+		FileOrDir:   conf.FileOrDir(),
+	})
+}
+
 func Init(app *App) *App {
 	app.readFile = ioutil.ReadFile
 	app.glob = filepath.Glob
@@ -46,6 +65,84 @@ func Init(app *App) *App {
 	app.fileExists = fileExists
 	app.directoryExistsAt = directoryExistsAt
 	return app
+}
+
+func (a *App) Deps(c DepsConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.Deps(c)
+	})
+}
+
+func (a *App) Repos(c ReposConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.Repos(c)
+	})
+}
+
+func (a *App) reverse() *App {
+	new := *a
+	new.Reverse = true
+	return &new
+}
+
+func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.DeprecatedSyncCharts(c)
+	})
+}
+
+func (a *App) Diff(c DiffConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.Diff(c)
+	})
+}
+
+func (a *App) Template(c TemplateConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.Template(c)
+	})
+}
+
+func (a *App) Lint(c LintConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.Lint(c)
+	})
+}
+
+func (a *App) Sync(c SyncConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.Sync(c)
+	})
+}
+
+func (a *App) Apply(c ApplyConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.Apply(c)
+	})
+}
+
+func (a *App) Status(c StatusesConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.Status(c)
+	})
+}
+
+func (a *App) Delete(c DeleteConfigProvider) error {
+	return a.reverse().ForEachState(func(run *Run) []error {
+		return run.Delete(c)
+	})
+}
+
+func (a *App) Destroy(c DestroyConfigProvider) error {
+	return a.reverse().ForEachState(func(run *Run) []error {
+		return run.Destroy(c)
+	})
+}
+
+func (a *App) Test(c TestConfigProvider) error {
+	return a.ForEachState(func(run *Run) []error {
+		return run.Test(c)
+	})
 }
 
 func (a *App) within(dir string, do func() error) error {
@@ -140,7 +237,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 	return ld.Load(file, op)
 }
 
-func (a *App) VisitDesiredStates(fileOrDir string, opts LoadOpts, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+func (a *App) visitStates(fileOrDir string, opts LoadOpts, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	noMatchInHelmfiles := true
 
 	err := a.visitStateFiles(fileOrDir, func(f, d string) error {
@@ -195,7 +292,7 @@ func (a *App) VisitDesiredStates(fileOrDir string, opts LoadOpts, converge func(
 				} else {
 					optsForNestedState.Selectors = m.Selectors
 				}
-				if err := a.VisitDesiredStates(m.Path, optsForNestedState, converge); err != nil {
+				if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
 					switch err.(type) {
 					case *NoMatchingHelmfileError:
 
@@ -229,15 +326,35 @@ func (a *App) VisitDesiredStates(fileOrDir string, opts LoadOpts, converge func(
 	return nil
 }
 
+func (a *App) ForEachState(do func(*Run) []error) error {
+	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) []error {
+		ctx := NewContext()
+
+		run := NewRun(st, helm, ctx)
+
+		return do(run)
+	})
+
+	if err != nil && a.ErrorHandler != nil {
+		return a.ErrorHandler(err)
+	}
+
+	return err
+}
+
 func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
 	opts := LoadOpts{Selectors: a.Selectors}
 
-	err := a.VisitDesiredStates(fileOrDir, opts, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+	err := a.visitStates(fileOrDir, opts, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		if len(st.Selectors) > 0 {
 			err := st.FilterReleases()
 			if err != nil {
 				return false, []error{err}
 			}
+		}
+
+		if a.HelmBinary != "" {
+			helm.SetHelmBinary(a.HelmBinary)
 		}
 
 		type Key struct {

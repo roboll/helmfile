@@ -514,6 +514,9 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 
 // TemplateReleases wrapper for executing helm template on the releases
 func (st *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
+	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
+	helm.SetExtraArgs()
+
 	errs := []error{}
 	// Create tmp directory and bail immediately if it fails
 	dir, err := ioutil.TempDir("", "")
@@ -577,6 +580,9 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues 
 
 // LintReleases wrapper for executing helm lint on the releases
 func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
+	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
+	helm.SetExtraArgs()
+
 	errs := []error{}
 	// Create tmp directory and bail immediately if it fails
 	dir, err := ioutil.TempDir("", "")

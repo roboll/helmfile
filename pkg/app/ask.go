@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"bufio"
@@ -11,7 +11,7 @@ import (
 // Copyright (c) 2017 Roland Singer [roland.singer@desertbit.com]
 //
 // Shamelessly borrowed from @r0l1's awesome work that is available at https://gist.github.com/r0l1/3dcbb0c8f6cfe9c66ab8008f55f8f28b
-func askForConfirmation(s string) bool {
+func AskForConfirmation(s string) bool {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
