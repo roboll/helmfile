@@ -320,9 +320,10 @@ USAGE:
    helmfile [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.52.0
+   v0.70.0
 
 COMMANDS:
+     deps      update charts based on the contents of requirements.yaml
      repos     sync repositories from state file (helm repo add && helm repo update)
      charts    DEPRECATED: sync releases from state file (helm upgrade --install)
      diff      diff releases from state file against env (helm diff)
@@ -339,6 +340,8 @@ GLOBAL OPTIONS:
    --helm-binary value, -b value           path to helm binary
    --file helmfile.yaml, -f helmfile.yaml  load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
    --environment default, -e default       specify the environment name. defaults to default
+   --state-values-set value                set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+   --state-values-file value               specify state values in a YAML file
    --quiet, -q                             Silence output. Equivalent to log-level warn
    --kube-context value                    Set kubectl context. Uses current context by default
    --log-level value                       Set log level, default info
@@ -347,6 +350,7 @@ GLOBAL OPTIONS:
                                            A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                            --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
                                            The name of a release can be used as a label. --selector name=myrelease
+   --allow-no-matching-release             Do not exit with an error code if the provided selector has no matching releases.
    --interactive, -i                       Request confirmation before attempting to modify clusters
    --help, -h                              show help
    --version, -v                           print the version

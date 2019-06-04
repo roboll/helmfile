@@ -838,6 +838,68 @@ releases:
 	}
 }
 
+func TestVisitDesiredStatesWithReleasesFiltered_StateValueOverrides(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+environments:
+  default:
+    values:
+    - values.yaml
+---
+releases:
+- name: {{ .Environment.Values.foo }}-{{ .Environment.Values.bar }}-{{ .Environment.Values.baz }}
+  chart: stable/zipkin
+`,
+		"/path/to/values.yaml": `
+foo: foo
+bar: bar
+baz: baz
+`,
+		"/path/to/overrides.yaml": `
+foo: "foo1"
+bar: "bar1"
+`,
+	}
+
+	testcases := []struct {
+		expected string
+	}{
+		{expected: "foo1-bar2-baz1"},
+	}
+	for _, testcase := range testcases {
+		actual := []string{}
+
+		collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+			for _, r := range st.Releases {
+				actual = append(actual, r.Name)
+			}
+			return []error{}
+		}
+		app := appWithFs(&App{
+			KubeContext: "default",
+			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+			Reverse:     false,
+			Namespace:   "",
+			Selectors:   []string{},
+			Env:         "default",
+			ValuesFiles: []string{"overrides.yaml"},
+			Set:         map[string]interface{}{"bar": "bar2", "baz": "baz1"},
+		}, files)
+		err := app.VisitDesiredStatesWithReleasesFiltered(
+			"helmfile.yaml", collectReleases,
+		)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(actual) != 1 {
+			t.Errorf("unexpected number of processed releases: expected=1, got=%d", len(actual))
+		}
+		if actual[0] != testcase.expected {
+			t.Errorf("unexpected result: expected=%s, got=%s", testcase.expected, actual[0])
+		}
+	}
+}
+
 func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`releases:

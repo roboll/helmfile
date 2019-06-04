@@ -27,12 +27,6 @@ type desiredStateLoader struct {
 	logger *zap.SugaredLogger
 }
 
-type LoadOpts struct {
-	Selectors   []string
-	Environment state.SubhelmfileEnvironmentSpec
-	CalleePath  string
-}
-
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
 	var overrodeEnv *environment.Environment
 

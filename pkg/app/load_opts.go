@@ -1,0 +1,28 @@
+package app
+
+import (
+	"github.com/roboll/helmfile/pkg/state"
+	"gopkg.in/yaml.v2"
+)
+
+type LoadOpts struct {
+	Selectors   []string
+	Environment state.SubhelmfileEnvironmentSpec
+
+	// CalleePath is the absolute path to the file being loaded
+	CalleePath string
+}
+
+func (o LoadOpts) DeepCopy() LoadOpts {
+	bytes, err := yaml.Marshal(o)
+	if err != nil {
+		panic(err)
+	}
+
+	new := LoadOpts{}
+	if err := yaml.Unmarshal(bytes, &new); err != nil {
+		panic(err)
+	}
+
+	return new
+}
