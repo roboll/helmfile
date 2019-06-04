@@ -103,23 +103,16 @@ Let's assume that your `helmfile.yaml` looks like:
 
 ```
 bases:
-- commons.yaml
 - environments.yaml
 
 releases:
+- name: metricbaet
+  chart: stable/metricbeat
 - name: myapp
   chart: mychart
 ```
 
-Whereas `commons.yaml` contained a monitoring agent:
-
-```yaml
-releases:
-- name: metricbaet
-  chart: stable/metricbeat
-```
-
-And `environments.yaml` contained well-known environments:
+Whereas `environments.yaml` contained well-known environments:
 
 ```yaml
 environments:
@@ -130,10 +123,6 @@ environments:
 At run time, `bases` in your `helmfile.yaml` are evaluated to produce:
 
 ```yaml
-# commons.yaml
-releases:
-- name: metricbaet
-  chart: stable/metricbeat
 ---
 # environments.yaml
 environments:
@@ -144,6 +133,8 @@ environments:
 releases:
 - name: myapp
   chart: mychart
+- name: metricbaet
+  chart: stable/metricbeat
 ```
 
 Finally the resulting YAML documents are merged in the order of occurrence,
@@ -166,6 +157,51 @@ Great!
 Now, repeat the above steps for each your `helmfile.yaml`, so that all your helmfiles becomes DRY.
 
 Please also see [the discussion in the issue 388](https://github.com/roboll/helmfile/issues/388#issuecomment-491710348) for more advanced layering examples.
+
+## Merging Arrays in Layers
+
+Helmfile doesn't merge arrays across layers. That is, the below example doesn't work as you might have expected:
+
+```yaml
+releases:
+- name: metricbaet
+  chart: stable/metricbeat
+---
+releases:
+- name: myapp
+  chart: mychart
+```
+
+Helmfile overrides the `releases` array with the latest layer so the resulting state file will be:
+
+```yaml
+releases:
+# metricbeat release disappeared! but that's how helmfiel works
+- name: myapp
+  chart: mychart
+```
+
+A work-around is to treat the state file as a go template and use `readFile` template function to import the common part of your state file as a plain text:
+
+`common.yaml`:
+
+```yaml
+templates:
+  metricbeat: &metricbeat
+  - name: metricbeat
+    chart: stable/metricbeat
+```
+
+`helmfile.yaml`:
+
+```yaml
+{{ readFile "common.yaml" }}
+
+releases:
+- <<: *metricbeat
+- name: myapp
+  chart: mychart
+```
 
 ## Layering State Template Files
 
