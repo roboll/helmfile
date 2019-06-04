@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/roboll/helmfile/pkg/tmpl"
@@ -31,10 +32,20 @@ func (r *desiredStateLoader) renderEnvironment(firstPassEnv *environment.Environ
 			return firstPassEnv
 		}
 	}
+	yamlData := yamlBuf.String()
+
+	// Work-around for https://github.com/golang/go/issues/24963
+	sanitized := strings.ReplaceAll(yamlData, "<no value>", "")
+
+	if len(yamlData) != len(sanitized) {
+		msg := "replaced <no value>s to workaround https://github.com/golang/go/issues/24963 to address https://github.com/roboll/helmfile/issues/553:\n%s"
+		r.logger.Debugf(msg, cmp.Diff(yamlData, sanitized))
+	}
+
 	c := r.underlying()
 	c.Strict = false
 	// create preliminary state, as we may have an environment. Tolerate errors.
-	prestate, err := c.ParseAndLoad(yamlBuf.Bytes(), baseDir, filename, r.env, false, firstPassEnv)
+	prestate, err := c.ParseAndLoad([]byte(sanitized), baseDir, filename, r.env, false, firstPassEnv)
 	if err != nil && r.logger != nil {
 		switch err.(type) {
 		case *state.StateLoadError:

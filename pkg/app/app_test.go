@@ -838,7 +838,7 @@ releases:
 	}
 }
 
-func TestVisitDesiredStatesWithReleasesFiltered_StateValueOverrides(t *testing.T) {
+func TestVisitDesiredStatesWithReleasesFiltered_EnvironmentValueOverrides(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 environments:
