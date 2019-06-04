@@ -1,6 +1,7 @@
 package state
 
 import (
+	"github.com/roboll/helmfile/pkg/testhelper"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"path/filepath"
@@ -98,7 +99,7 @@ bar: {{ readFile "bar.txt" }}
 
 	expectedValues := `env: production`
 
-	testFs := NewTestFs(map[string]string{
+	testFs := testhelper.NewTestFs(map[string]string{
 		fooYamlFile: string(fooYamlContent),
 		barYamlFile: string(barYamlContent),
 		barTextFile: string(barTextContent),

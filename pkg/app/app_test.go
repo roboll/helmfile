@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
+	"github.com/roboll/helmfile/pkg/testhelper"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,11 +14,11 @@ import (
 )
 
 func appWithFs(app *App, files map[string]string) *App {
-	fs := state.NewTestFs(files)
+	fs := testhelper.NewTestFs(files)
 	return injectFs(app, fs)
 }
 
-func injectFs(app *App, fs *state.TestFs) *App {
+func injectFs(app *App, fs *testhelper.TestFs) *App {
 	app.readFile = fs.ReadFile
 	app.glob = fs.Glob
 	app.abs = fs.Abs
@@ -52,7 +53,7 @@ releases:
   chart: stable/grafana
 `,
 	}
-	fs := state.NewTestFs(files)
+	fs := testhelper.NewTestFs(files)
 	fs.GlobFixtures["/path/to/helmfile.d/a*.yaml"] = []string{"/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/a1.yaml"}
 	app := &App{
 		KubeContext: "default",
@@ -98,7 +99,7 @@ BAR: 2
 BAZ: 4
 `,
 	}
-	fs := state.NewTestFs(files)
+	fs := testhelper.NewTestFs(files)
 	fs.GlobFixtures["/path/to/env.*.yaml"] = []string{"/path/to/env.2.yaml", "/path/to/env.1.yaml"}
 	app := &App{
 		KubeContext: "default",
@@ -137,7 +138,7 @@ releases:
   chart: stable/zipkin
 `,
 	}
-	fs := state.NewTestFs(files)
+	fs := testhelper.NewTestFs(files)
 	app := &App{
 		KubeContext: "default",
 		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
@@ -190,7 +191,7 @@ releases:
   chart: stable/zipkin
 `, testcase.handler, testcase.filePattern),
 			}
-			fs := state.NewTestFs(files)
+			fs := testhelper.NewTestFs(files)
 			app := &App{
 				KubeContext: "default",
 				Logger:      helmexec.NewLogger(os.Stderr, "debug"),
@@ -251,7 +252,7 @@ releases:
 	}
 
 	for _, testcase := range testcases {
-		fs := state.NewTestFs(files)
+		fs := testhelper.NewTestFs(files)
 		fs.GlobFixtures["/path/to/helmfile.d/a*.yaml"] = []string{"/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/a1.yaml"}
 		app := &App{
 			KubeContext: "default",
@@ -1077,7 +1078,7 @@ releases:
     stage: post
   <<: *default
 `
-	testFs := state.NewTestFs(map[string]string{
+	testFs := testhelper.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
 		"/path/to/base.yaml": `environments:
   default:
@@ -1158,7 +1159,7 @@ releases:
     stage: post
   <<: *default
 `
-	testFs := state.NewTestFs(map[string]string{
+	testFs := testhelper.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
 		"/path/to/base.yaml": `environments:
   default:
@@ -1235,7 +1236,7 @@ releases:
 - name: myrelease0
   chart: mychart0
 `
-	testFs := state.NewTestFs(map[string]string{
+	testFs := testhelper.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
 		"/path/to/base.yaml": `environments:
   default:
@@ -1295,7 +1296,7 @@ releases:
 - name: myrelease0
   chart: mychart0
 `
-	testFs := state.NewTestFs(map[string]string{
+	testFs := testhelper.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
 		"/path/to/base.yaml": `environments:
   default:
@@ -1372,7 +1373,7 @@ releases:
     stage: post
   <<: *default
 `
-	testFs := state.NewTestFs(map[string]string{
+	testFs := testhelper.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
 		"/path/to/base.yaml": `environments:
   test:
@@ -1458,7 +1459,7 @@ releases:
   chart: mychart3
   <<: *default
 `
-	testFs := state.NewTestFs(map[string]string{
+	testFs := testhelper.NewTestFs(map[string]string{
 		yamlFile: yamlContent,
 		"/path/to/yaml/templates.yaml": `templates:
   default: &default
@@ -1515,7 +1516,7 @@ releases:
 - name: {{ .Environment.Values.foo | quote }}
   chart: {{ .Environment.Values.bar | quote }}
 `
-	testFs := state.NewTestFs(map[string]string{
+	testFs := testhelper.NewTestFs(map[string]string{
 		statePath:         stateContent,
 		"/path/to/1.yaml": `bar: ["bar"]`,
 		"/path/to/2.yaml": `bar: ["BAR"]`,
@@ -1568,7 +1569,7 @@ releases:
 - name: {{ .Environment.Values.foo | quote }}
   chart: {{ .Environment.Values.bar | quote }}
 `
-		testFs := state.NewTestFs(map[string]string{
+		testFs := testhelper.NewTestFs(map[string]string{
 			statePath:         stateContent,
 			"/path/to/1.yaml": `bar: ["bar"]`,
 			"/path/to/2.yaml": `bar: ["BAR"]`,
@@ -1653,7 +1654,7 @@ releases:
 		tc := testcases[i]
 		statePath := "/path/to/helmfile.yaml"
 		stateContent := fmt.Sprintf(tc.state, tc.expr)
-		testFs := state.NewTestFs(map[string]string{
+		testFs := testhelper.NewTestFs(map[string]string{
 			statePath:         stateContent,
 			"/path/to/1.yaml": `foo: FOO`,
 			"/path/to/2.yaml": `bar: { "baz": "BAZ" }

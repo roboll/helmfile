@@ -6,6 +6,7 @@ import (
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/event"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/tmpl"
 	"io/ioutil"
 	"os"
@@ -1262,6 +1263,11 @@ func (st *HelmState) storage() *Storage {
 func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 	helmfiles := []SubHelmfileSpec{}
 	for _, hf := range st.Helmfiles {
+		if remote.IsRemote(hf.Path) {
+			helmfiles = append(helmfiles, hf)
+			continue
+		}
+
 		matches, err := st.storage().ExpandPaths(hf.Path)
 		if err != nil {
 			return nil, err

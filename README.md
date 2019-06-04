@@ -184,6 +184,10 @@ helmfiles:
 - # All the nested state files under `helmfiles:` is processed in the order of definition.
   # So it can be used for preparation for your main `releases`. An example would be creating CRDs required by `reelases` in the parent state file. 
   path: path/to/mycrd.helmfile.yaml
+- # Terraform-module-like URL for importing a remote directory and use a file in it as a nested-state file
+  # The nested-state file is locally checked-out along with the remote directory containing it.
+  # Therefore all the local paths in the file are resolved relative to the file
+  path: git::https://github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=0.40.0
 
 #
 # Advanced Configuration: Environments

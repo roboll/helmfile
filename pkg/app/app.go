@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/state"
 	"io/ioutil"
 	"log"
@@ -42,6 +43,8 @@ type App struct {
 
 	getwd func() (string, error)
 	chdir func(string) error
+
+	remote *remote.Remote
 }
 
 func New(conf ConfigProvider) *App {
@@ -302,6 +305,14 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 				} else {
 					optsForNestedState.Selectors = m.Selectors
 				}
+
+				path, err := a.remote.Locate(m.Path)
+				if err != nil {
+					return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+				}
+
+				m.Path = path
+
 				if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
 					switch err.(type) {
 					case *NoMatchingHelmfileError:
@@ -373,6 +384,26 @@ func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge 
 		opts.Environment.OverrideValues = envvals
 	}
 
+	var dir string
+	if a.directoryExistsAt(fileOrDir) {
+		dir = fileOrDir
+	} else {
+		dir = filepath.Dir(fileOrDir)
+	}
+
+	getter := &remote.GoGetter{Logger: a.Logger}
+
+	remote := &remote.Remote{
+		Logger:     a.Logger,
+		Home:       dir,
+		Getter:     getter,
+		ReadFile:   a.readFile,
+		DirExists:  a.directoryExistsAt,
+		FileExists: a.fileExistsAt,
+	}
+
+	a.remote = remote
+
 	err := a.visitStates(fileOrDir, opts, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		if len(st.Selectors) > 0 {
 			err := st.FilterReleases()
@@ -388,6 +419,7 @@ func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge 
 		type Key struct {
 			TillerNamespace, Name string
 		}
+
 		releaseNameCounts := map[Key]int{}
 		for _, r := range st.Releases {
 			tillerNamespace := st.HelmDefaults.TillerNamespace
