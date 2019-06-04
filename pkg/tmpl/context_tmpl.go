@@ -13,9 +13,9 @@ func (c *Context) stringTemplate() *template.Template {
 	}
 	tmpl := template.New("stringTemplate").Funcs(funcMap)
 	if c.preRender {
-		tmpl.Option("missingkey=zero")
+		tmpl = tmpl.Option("missingkey=zero")
 	} else {
-		tmpl.Option("missingkey=error")
+		tmpl = tmpl.Option("missingkey=error")
 	}
 	return tmpl
 }
