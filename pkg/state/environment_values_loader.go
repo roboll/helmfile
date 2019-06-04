@@ -39,7 +39,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			}
 
 			for _, envvalFullPath := range resolved {
-				tmplData := EnvironmentTemplateData{Environment: environment.EmptyEnvironment, Namespace: ""}
+				tmplData := EnvironmentTemplateData{environment.EmptyEnvironment, "", map[string]interface{}{}}
 				r := tmpl.NewFileRenderer(ld.readFile, filepath.Dir(envvalFullPath), tmplData)
 				bytes, err := r.RenderToBytes(envvalFullPath)
 				if err != nil {

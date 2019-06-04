@@ -7,28 +7,44 @@ import (
 )
 
 type Environment struct {
-	Name   string
-	Values map[string]interface{}
+	Name     string
+	Values   map[string]interface{}
+	Defaults map[string]interface{}
 }
 
 var EmptyEnvironment Environment
 
 func (e Environment) DeepCopy() Environment {
-	bytes, err := yaml.Marshal(e.Values)
+	valuesBytes, err := yaml.Marshal(e.Values)
 	if err != nil {
 		panic(err)
 	}
 	var values map[string]interface{}
-	if err := yaml.Unmarshal(bytes, &values); err != nil {
+	if err := yaml.Unmarshal(valuesBytes, &values); err != nil {
 		panic(err)
 	}
 	values, err = maputil.CastKeysToStrings(values)
 	if err != nil {
 		panic(err)
 	}
+
+	defaultsBytes, err := yaml.Marshal(e.Defaults)
+	if err != nil {
+		panic(err)
+	}
+	var defaults map[string]interface{}
+	if err := yaml.Unmarshal(defaultsBytes, &defaults); err != nil {
+		panic(err)
+	}
+	defaults, err = maputil.CastKeysToStrings(defaults)
+	if err != nil {
+		panic(err)
+	}
+
 	return Environment{
-		Name:   e.Name,
-		Values: values,
+		Name:     e.Name,
+		Values:   values,
+		Defaults: defaults,
 	}
 }
 
