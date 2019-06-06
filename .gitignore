@@ -1,3 +1,5 @@
 dist/
 .idea/
 helmfile
+vendor
+helmfile.lock

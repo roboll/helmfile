@@ -2,15 +2,17 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/remote"
-	"github.com/roboll/helmfile/pkg/state"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/roboll/helmfile/datasource"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
+	"github.com/roboll/helmfile/pkg/state"
 
 	"go.uber.org/zap"
 
@@ -348,6 +350,8 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 }
 
 func (a *App) ForEachState(do func(*Run) []error) error {
+	datasource.PrepareAll(a.FileOrDir)
+
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) []error {
 		ctx := NewContext()
 

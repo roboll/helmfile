@@ -3,20 +3,21 @@ package state
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/roboll/helmfile/datasource"
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/event"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/tmpl"
-	"io/ioutil"
-	"os"
-	"path"
-	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
-
-	"regexp"
 
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
@@ -44,6 +45,8 @@ type HelmState struct {
 	Selectors          []string
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
+
+	SSM []datasource.SSMSpec `yaml:"ssm"`
 
 	Env environment.Environment
 

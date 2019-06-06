@@ -2,7 +2,6 @@ package tmpl
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io"
 	"os"
 	"os/exec"
@@ -10,6 +9,10 @@ import (
 	"reflect"
 	"strings"
 	"text/template"
+
+	"github.com/roboll/helmfile/datasource"
+
+	"gopkg.in/yaml.v2"
 )
 
 type Values = map[string]interface{}
@@ -25,6 +28,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"get":            get,
 		"getOrNil":       getOrNil,
 		"tpl":            c.Tpl,
+		"ssm":            SSM,
 	}
 	if c.preRender {
 		// disable potential side-effect template calls
@@ -205,4 +209,8 @@ func RequiredEnv(name string) (string, error) {
 	}
 
 	return "", fmt.Errorf("required env var `%s` is not set", name)
+}
+
+func SSM(key string) (val string, err error) {
+	return datasource.SSMGet(key)
 }
