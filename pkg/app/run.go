@@ -30,6 +30,10 @@ func (r *Run) askForConfirmation(msg string) bool {
 func (r *Run) Deps(c DepsConfigProvider) []error {
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
+	if errs := r.ctx.SyncReposOnce(r.state, r.helm); errs != nil && len(errs) > 0 {
+		return errs
+	}
+
 	return r.state.UpdateDeps(r.helm)
 }
 
