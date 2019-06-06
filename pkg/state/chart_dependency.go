@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -49,6 +50,8 @@ type ChartRequirements struct {
 
 type ChartLockedRequirements struct {
 	ResolvedDependencies []ResolvedChartDependency `yaml:"dependencies"`
+	Digest               string                    `yaml:"digest"`
+	Generated            string                    `yaml:"generated"`
 }
 
 func (d *UnresolvedDependencies) Add(chart, url, versionConstraint string) error {
@@ -324,6 +327,22 @@ func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd str
 	}
 
 	updatedLockFileContent, err := m.readBytes(filepath.Join(wd, "requirements.lock"))
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort requirements alphabetically by name.
+	lockedReqs := &ChartLockedRequirements{}
+	if err := yaml.Unmarshal(updatedLockFileContent, lockedReqs); err != nil {
+		return nil, err
+	}
+
+	sort.Slice(lockedReqs.ResolvedDependencies, func(i, j int) bool {
+		return lockedReqs.ResolvedDependencies[i].ChartName < lockedReqs.ResolvedDependencies[j].ChartName
+	})
+
+	updatedLockFileContent, err = yaml.Marshal(lockedReqs)
+
 	if err != nil {
 		return nil, err
 	}
