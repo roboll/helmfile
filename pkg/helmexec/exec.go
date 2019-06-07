@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -130,10 +131,14 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 	helm.decryptionMutex.Lock()
 	defer helm.decryptionMutex.Unlock()
 
-	helm.logger.Infof("Decrypting secret %v", name)
+	absPath, err := filepath.Abs(name)
+	if err != nil {
+		return "", err
+	}
+	helm.logger.Infof("Decrypting secret %v", absPath)
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
-	out, err := helm.exec(append(append(preArgs, "secrets", "dec", name), flags...), env)
+	out, err := helm.exec(append(append(preArgs, "secrets", "dec", absPath), flags...), env)
 	helm.write(out)
 	if err != nil {
 		return "", err
@@ -150,7 +155,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 	if len(decSuffix) == 0 {
 		decSuffix = ".yaml.dec"
 	}
-	decFilename := strings.Replace(name, ".yaml", decSuffix, 1)
+	decFilename := strings.Replace(absPath, ".yaml", decSuffix, 1)
 
 	// os.Rename seems to results in "cross-device link` errors in some cases
 	// Instead of moving, copy it to the destination temp file as a work-around
