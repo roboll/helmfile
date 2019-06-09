@@ -1,13 +1,14 @@
 package state
 
 import (
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/testhelper"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/testhelper"
 
 	"errors"
 	"strings"
@@ -1230,6 +1231,16 @@ func TestGetDeployedVersion(t *testing.T) {
 			},
 			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
 										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-1.0.0-alpha+001	0.1.0      	default`,
+			installedVersion: "1.0.0-alpha+001",
+		},
+		{
+			name: "chart version with dash and release with dash",
+			release: ReleaseSpec{
+				Name:  "foo-bar",
+				Chart: "registry/foo-bar",
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo-bar-release	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-1.0.0-alpha+001	0.1.0      	default`,
 			installedVersion: "1.0.0-alpha+001",
 		},
 	}
