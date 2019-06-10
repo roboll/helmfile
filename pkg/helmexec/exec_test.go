@@ -221,7 +221,7 @@ func Test_DecryptSecret(t *testing.T) {
 	}
 	expected := fmt.Sprintf(`Decrypting secret %s/secretName
 exec: helm secrets dec %s/secretName --kube-context dev
-exec: helm secrets dec %s/secretName --kube-context dev:
+exec: helm secrets dec %s/secretName --kube-context dev: 
 `, cwd, cwd, cwd)
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DecryptSecret()\nactual = %v\nexpect = %v", buffer.String(), expected)
