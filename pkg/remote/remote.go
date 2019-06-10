@@ -179,6 +179,10 @@ func (r *Remote) Fetch(goGetterSrc string) (string, error) {
 
 	cacheDirPath := filepath.Join(r.Home, getterDst)
 
+	r.Logger.Debugf("home: %s", r.Home)
+	r.Logger.Debugf("getter dest: %s", getterDst)
+	r.Logger.Debugf("cached dir: %s", cacheDirPath)
+
 	{
 		if r.FileExists(cacheDirPath) {
 			return "", fmt.Errorf("%s is not directory. please remove it so that variant could use it for dependency caching", getterDst)
