@@ -2,8 +2,10 @@ package helmexec
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -213,10 +215,14 @@ func Test_DecryptSecret(t *testing.T) {
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.DecryptSecret(HelmContext{}, "secretName")
-	expected := `Decrypting secret secretName
-exec: helm secrets dec secretName --kube-context dev
-exec: helm secrets dec secretName --kube-context dev: 
-`
+	cwd, err := filepath.Abs(".")
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+	expected := fmt.Sprintf(`Decrypting secret %s/secretName
+exec: helm secrets dec %s/secretName --kube-context dev
+exec: helm secrets dec %s/secretName --kube-context dev:
+`, cwd, cwd, cwd)
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DecryptSecret()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
