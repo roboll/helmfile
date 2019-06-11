@@ -148,6 +148,8 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 		return nil, err
 	}
 
+	state.FilePath = file
+
 	return state, nil
 }
 
