@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+
 	"github.com/roboll/helmfile/pkg/tmpl"
 	"gopkg.in/yaml.v2"
 )
@@ -36,6 +37,14 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		result.Namespace, err = renderer.RenderTemplateContentToString([]byte(ts))
 		if err != nil {
 			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".namespace = \"%s\": %v", r.Name, ts, err)
+		}
+	}
+
+	{
+		ts := result.Version
+		result.Version, err = renderer.RenderTemplateContentToString([]byte(ts))
+		if err != nil {
+			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".version = \"%s\": %v", r.Name, ts, err)
 		}
 	}
 
