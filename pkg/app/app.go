@@ -306,13 +306,6 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 					optsForNestedState.Selectors = m.Selectors
 				}
 
-				path, err := a.remote.Locate(m.Path)
-				if err != nil {
-					return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
-				}
-
-				m.Path = path
-
 				if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
 					switch err.(type) {
 					case *NoMatchingHelmfileError:
@@ -384,11 +377,9 @@ func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge 
 		opts.Environment.OverrideValues = envvals
 	}
 
-	var dir string
-	if a.directoryExistsAt(fileOrDir) {
-		dir = fileOrDir
-	} else {
-		dir = filepath.Dir(fileOrDir)
+	dir, err := a.getwd()
+	if err != nil {
+		return err
 	}
 
 	getter := &remote.GoGetter{Logger: a.Logger}
@@ -404,7 +395,7 @@ func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge 
 
 	a.remote = remote
 
-	err := a.visitStates(fileOrDir, opts, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+	return a.visitStates(fileOrDir, opts, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		if len(st.Selectors) > 0 {
 			err := st.FilterReleases()
 			if err != nil {
@@ -440,10 +431,6 @@ func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge 
 
 		return processed, errs
 	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (a *App) findStateFilesInAbsPaths(specifiedPath string) ([]string, error) {
@@ -463,6 +450,15 @@ func (a *App) findStateFilesInAbsPaths(specifiedPath string) ([]string, error) {
 }
 
 func (a *App) findDesiredStateFiles(specifiedPath string) ([]string, error) {
+	path, err := a.remote.Locate(specifiedPath)
+	if err != nil {
+		return nil, fmt.Errorf("locate: %v", err)
+	}
+	if specifiedPath != path {
+		a.Logger.Debugf("fetched remote \"%s\" to local cache \"%s\" and loading the latter...", specifiedPath, path)
+	}
+	specifiedPath = path
+
 	var helmfileDir string
 	if specifiedPath != "" {
 		if a.fileExistsAt(specifiedPath) {
