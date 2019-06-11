@@ -16,7 +16,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			name: "Has template expressions in chart, values, and secrets",
 			input: ReleaseSpec{
 				Chart:     "test-charts/{{ .Release.Name }}",
-				Version:   "0.1",
+				Version:   "{{ .Release.Name }}-0.1",
 				Verify:    nil,
 				Name:      "test-app",
 				Namespace: "test-namespace-{{ .Release.Name }}",
@@ -25,7 +25,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			},
 			want: ReleaseSpec{
 				Chart:     "test-charts/test-app",
-				Version:   "0.1",
+				Version:   "test-app-0.1",
 				Verify:    nil,
 				Name:      "test-app",
 				Namespace: "test-namespace-test-app",
@@ -70,6 +70,9 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			}
 			if !reflect.DeepEqual(actual.Secrets, tt.want.Secrets) {
 				t.Errorf("expected %+v, got %+v", tt.want.Secrets, actual.Secrets)
+			}
+			if !reflect.DeepEqual(actual.Version, tt.want.Version) {
+				t.Errorf("expected %+v, got %+v", tt.want.Version, actual.Version)
 			}
 		})
 	}

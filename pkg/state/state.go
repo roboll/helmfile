@@ -437,7 +437,8 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 	//retrieve the version
 	if out, err := helm.List(context, "^"+release.Name+"$", st.tillerFlags(release)...); err == nil {
 		chartName := filepath.Base(release.Chart)
-		pat := regexp.MustCompile(chartName + "-(.*?)\\s")
+		//the regexp without escapes : .*\s.*\s.*\s.*\schartName-(.*?)\s
+		pat := regexp.MustCompile(".*\\s.*\\s.*\\s.*\\s" + chartName + "-(.*?)\\s")
 		versions := pat.FindStringSubmatch(out)
 		if len(versions) > 0 {
 			return versions[1], nil
