@@ -1127,6 +1127,10 @@ helmDefaults:
 	if st.Releases[1].Values[0] != "{{`{{.Release.Name}}`}}/values.yaml" {
 		t.Errorf("unexpected releases[0].missingFileHandler: expected={{`{{.Release.Name}}`}}/values.yaml, got=%s", st.Releases[1].Values[0])
 	}
+
+	if st.FilePath != yamlFile {
+		t.Errorf("unexpected filePath: expected=%s, got=%s", yamlFile, st.FilePath)
+	}
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate(t *testing.T) {
