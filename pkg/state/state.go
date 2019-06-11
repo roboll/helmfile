@@ -158,6 +158,11 @@ type ReleaseSpec struct {
 	TLSKey    string `yaml:"tlsKey"`
 	TLSCert   string `yaml:"tlsCert"`
 
+	// These settings requires helm-x integration to work
+	Dependencies          []Dependency  `yaml:"dependencies"`
+	JSONPatches           []interface{} `yaml:"jsonPatches"`
+	StrategicMergePatches []interface{} `yaml:"strategicMergePatches"`
+
 	// generatedValues are values that need cleaned up on exit
 	generatedValues []string
 	//version of the chart that has really been installed cause desired version may be fuzzy (~2.0.0)
@@ -1198,6 +1203,12 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendTillerFlags(flags, release)
 
+	var err error
+	flags, err = st.appendHelmXFlags(flags, release)
+	if err != nil {
+		return nil, err
+	}
+
 	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
@@ -1209,6 +1220,13 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags := []string{
 		"--name", release.Name,
 	}
+
+	var err error
+	flags, err = st.appendHelmXFlags(flags, release)
+	if err != nil {
+		return nil, err
+	}
+
 	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
@@ -1228,6 +1246,12 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	flags = st.appendTillerFlags(flags, release)
 
+	var err error
+	flags, err = st.appendHelmXFlags(flags, release)
+	if err != nil {
+		return nil, err
+	}
+
 	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
@@ -1245,7 +1269,17 @@ func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {
 }
 
 func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
-	return st.namespaceAndValuesFlags(helm, release, workerIndex)
+	flags, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	flags, err = st.appendHelmXFlags(flags, release)
+	if err != nil {
+		return nil, err
+	}
+
+	return flags, nil
 }
 
 func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
