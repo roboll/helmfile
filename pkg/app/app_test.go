@@ -902,8 +902,8 @@ bar: "bar1"
 }
 
 func TestVisitDesiredStatesWithReleasesFiltered_StateValueOverrides(t *testing.T) {
-	envTmplExpr := "{{ .Values.foo }}-{{ .Values.bar }}-{{ .Values.baz }}-{{ .Values.hoge }}-{{ .Values.fuga }}-{{ .Values.a | first | pluck \"b\" | first | first | pluck \"c\" | first }}"
-	relTmplExpr := "\"{{`{{ .Values.foo }}-{{ .Values.bar }}-{{ .Values.baz }}-{{ .Values.hoge }}-{{ .Values.fuga }}-{{ .Values.a | first | pluck \\\"b\\\" | first | first | pluck \\\"c\\\" | first }}`}}\""
+	envTmplExpr := "{{ .Values.x.foo }}-{{ .Values.x.bar }}-{{ .Values.x.baz }}-{{ .Values.x.hoge }}-{{ .Values.x.fuga }}-{{ .Values.x.a | first | pluck \"b\" | first | first | pluck \"c\" | first }}"
+	relTmplExpr := "\"{{`{{ .Values.x.foo }}-{{ .Values.x.bar }}-{{ .Values.x.baz }}-{{ .Values.x.hoge }}-{{ .Values.x.fuga }}-{{ .Values.x.a | first | pluck \\\"b\\\" | first | first | pluck \\\"c\\\" | first }}`}}\""
 
 	testcases := []struct {
 		expr, env, expected string
@@ -953,35 +953,35 @@ releases:
   namespace: %s
 `, testcase.expr, testcase.expr, testcase.expr),
 				"/path/to/values.yaml": `
-foo: foo
-bar: bar
-baz: baz
-hoge: hoge
-fuga: fuga
-
-a: []
+x:
+  foo: foo
+  bar: bar
+  baz: baz
+  hoge: hoge
+  fuga: fuga
+  a: []
 `,
 				"/path/to/default.yaml": `
-bar: "bar_default"
-baz: "baz_default"
-
-a:
-- b: []
+x:
+  bar: "bar_default"
+  baz: "baz_default"
+  a:
+  - b: []
 `,
 				"/path/to/production.yaml": `
-bar: "bar_production"
-baz: "baz_production"
-
-a:
-- b: []
+x:
+  bar: "bar_production"
+  baz: "baz_production"
+  a:
+  - b: []
 `,
 				"/path/to/overrides.yaml": `
-baz: baz_override
-hoge: hoge_override
-
-a:
-- b:
-  - c: C
+x:
+  baz: baz_override
+  hoge: hoge_override
+  a:
+  - b:
+    - c: C
 `,
 			}
 
@@ -1001,7 +1001,7 @@ a:
 				Selectors:   []string{},
 				Env:         testcase.env,
 				ValuesFiles: []string{"overrides.yaml"},
-				Set:         map[string]interface{}{"hoge": "hoge_set", "fuga": "fuga_set"},
+				Set:         map[string]interface{}{"x": map[string]interface{}{"hoge": "hoge_set", "fuga": "fuga_set"}},
 			}, files)
 			err := app.VisitDesiredStatesWithReleasesFiltered(
 				"helmfile.yaml", collectReleases,

@@ -37,7 +37,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, fmt.Errorf("bug: opts.CalleePath was nil: f=%s, opts=%v", f, opts)
 		}
 		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.glob)
-		envld := state.NewEnvironmentValuesLoader(storage, ld.readFile)
+		envld := state.NewEnvironmentValuesLoader(storage, ld.readFile, ld.logger)
 		handler := state.MissingFileHandlerError
 		vals, err := envld.LoadEnvironmentValues(&handler, args)
 		if err != nil {

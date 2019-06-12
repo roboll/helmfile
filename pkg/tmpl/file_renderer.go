@@ -46,6 +46,8 @@ func (r *FileRenderer) RenderTemplateFileToBuffer(file string) (*bytes.Buffer, e
 	return r.RenderTemplateContentToBuffer(content)
 }
 
+// RenderToBytes loads the content of the file.
+// If its extension is `gotmpl` it treats the content as a go template and renders it.
 func (r *FileRenderer) RenderToBytes(path string) ([]byte, error) {
 	var yamlBytes []byte
 	splits := strings.Split(path, ".")
