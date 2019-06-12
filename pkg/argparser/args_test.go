@@ -13,7 +13,7 @@ func TestGetArgs(t *testing.T) {
 	testState := &state.HelmState{HelmDefaults: Helmdefaults}
 	receivedArgs := GetArgs(args, testState)
 
-	expectedOutput := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false --tiller-namespace ns --recreate-pods --force --kube-context=test"
+	expectedOutput := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false --tiller-namespace ns --recreate-pods --force"
 
 	if compareArgs(expectedOutput, receivedArgs) == false {
 		t.Errorf("expected %s, got %s", expectedOutput, strings.Join(receivedArgs, " "))
@@ -27,7 +27,7 @@ func Test2(t *testing.T) {
 	testState := &state.HelmState{HelmDefaults: Helmdefaults}
 	receivedArgs := GetArgs(args, testState)
 
-	expectedOutput := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --tiller-namespace ns --recreate-pods --force --kube-context=test"
+	expectedOutput := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --tiller-namespace ns --recreate-pods --force"
 
 	if compareArgs(expectedOutput, receivedArgs) == false {
 		t.Errorf("expected %s, got %s", expectedOutput, strings.Join(receivedArgs, " "))

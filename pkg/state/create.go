@@ -209,7 +209,7 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 				// installed on the cluster, just for decrypting secrets!
 				// Related: https://github.com/futuresimple/helm-secrets/issues/83
 				release := &ReleaseSpec{}
-				flags := st.appendTillerFlags([]string{}, release)
+				flags := st.appendConnectionFlags([]string{}, release)
 				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), path, flags...)
 				if err != nil {
 					return nil, err
