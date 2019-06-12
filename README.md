@@ -164,6 +164,10 @@ releases:
     tlsCert: "path/to/cert.pem"
     # path to TLS key file (default "$HELM_HOME/key.pem")
     tlsKey: "path/to/key.pem"
+    # --kube-context to be passed to helm commands
+    # CAUTION: this doesn't work as expected for `tilerless: true`.
+    # See https://github.com/roboll/helmfile/issues/642
+    kubeContext: kube-context
 
   # Local chart example
   - name: grafana                            # name of this release

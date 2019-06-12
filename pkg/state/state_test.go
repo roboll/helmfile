@@ -1917,6 +1917,8 @@ func TestHelmState_Delete(t *testing.T) {
 		purge           bool
 		flags           string
 		tillerNamespace string
+		kubeContext     string
+		defKubeContext  string
 	}{
 		{
 			name:      "desired and installed (purge=false)",
@@ -2008,6 +2010,37 @@ func TestHelmState_Delete(t *testing.T) {
 			flags:           "--tiller-namespacetillerns",
 			deleted:         []mockRelease{{"releaseA", []string{"--purge", "--tiller-namespace", "tillerns"}}},
 		},
+		{
+			name:        "with kubecontext",
+			wantErr:     false,
+			desired:     nil,
+			installed:   true,
+			purge:       true,
+			kubeContext: "ctx",
+			flags:       "--kube-contextctx",
+			deleted:     []mockRelease{{"releaseA", []string{"--purge", "--kube-context", "ctx"}}},
+		},
+		{
+			name:           "with default kubecontext",
+			wantErr:        false,
+			desired:        nil,
+			installed:      true,
+			purge:          true,
+			defKubeContext: "defctx",
+			flags:          "--kube-contextdefctx",
+			deleted:        []mockRelease{{"releaseA", []string{"--purge", "--kube-context", "defctx"}}},
+		},
+		{
+			name:           "with non-default and default kubecontexts",
+			wantErr:        false,
+			desired:        nil,
+			installed:      true,
+			purge:          true,
+			kubeContext:    "ctx",
+			defKubeContext: "defctx",
+			flags:          "--kube-contextctx",
+			deleted:        []mockRelease{{"releaseA", []string{"--purge", "--kube-context", "ctx"}}},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -2020,11 +2053,15 @@ func TestHelmState_Delete(t *testing.T) {
 				Name:            name,
 				Installed:       tt.desired,
 				TillerNamespace: tt.tillerNamespace,
+				KubeContext:     tt.kubeContext,
 			}
 			releases := []ReleaseSpec{
 				release,
 			}
 			state := &HelmState{
+				HelmDefaults: HelmSpec{
+					KubeContext: tt.defKubeContext,
+				},
 				Releases: releases,
 				logger:   logger,
 			}
@@ -2043,7 +2080,7 @@ func TestHelmState_Delete(t *testing.T) {
 					return
 				}
 			} else if !(reflect.DeepEqual(tt.deleted, helm.deleted) && (len(affectedReleases.Deleted) == len(tt.deleted))) {
-				t.Errorf("unexpected deletions happened: expected %v, got %v", &affectedReleases.Deleted, tt.deleted)
+				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, &affectedReleases.Deleted)
 			}
 		}
 		t.Run(tt.name, f)

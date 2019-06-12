@@ -153,6 +153,8 @@ type ReleaseSpec struct {
 	TillerNamespace string `yaml:"tillerNamespace"`
 	Tillerless      *bool  `yaml:"tillerless"`
 
+	KubeContext string `yaml:"kubeContext"`
+
 	TLS       *bool  `yaml:"tls"`
 	TLSCACert string `yaml:"tlsCACert"`
 	TLSKey    string `yaml:"tlsKey"`
@@ -318,7 +320,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 }
 
 func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
-	out, err := helm.List(context, "^"+release.Name+"$", st.tillerFlags(&release)...)
+	out, err := helm.List(context, "^"+release.Name+"$", st.connectionFlags(&release)...)
 	if err != nil {
 		return false, err
 	} else if out != "" {
@@ -438,7 +440,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 
 func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
 	//retrieve the version
-	if out, err := helm.List(context, "^"+release.Name+"$", st.tillerFlags(release)...); err == nil {
+	if out, err := helm.List(context, "^"+release.Name+"$", st.connectionFlags(release)...); err == nil {
 		chartName := filepath.Base(release.Chart)
 		//the regexp without escapes : .*\s.*\s.*\s.*\schartName-(.*?)\s
 		pat := regexp.MustCompile(".*\\s.*\\s.*\\s.*\\s" + chartName + "-(.*?)\\s")
@@ -835,7 +837,7 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		}
 
 		flags := []string{}
-		flags = st.appendTillerFlags(flags, &release)
+		flags = st.appendConnectionFlags(flags, &release)
 
 		return helm.ReleaseStatus(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
@@ -852,7 +854,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		if purge {
 			flags = append(flags, "--purge")
 		}
-		flags = st.appendTillerFlags(flags, &release)
+		flags = st.appendConnectionFlags(flags, &release)
 		context := st.createHelmContext(&release, workerIndex)
 
 		installed, err := st.isReleaseInstalled(context, helm, release)
@@ -884,7 +886,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 			flags = append(flags, "--cleanup")
 		}
 		flags = append(flags, "--timeout", strconv.Itoa(timeout))
-		flags = st.appendTillerFlags(flags, &release)
+		flags = st.appendConnectionFlags(flags, &release)
 
 		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
@@ -1116,15 +1118,16 @@ func findChartDirectory(topLevelDir string) (string, error) {
 	return topLevelDir, errors.New("No Chart.yaml found")
 }
 
-func (st *HelmState) appendTillerFlags(flags []string, release *ReleaseSpec) []string {
-	adds := st.tillerFlags(release)
+// appendConnectionFlags append all the helm command-line flags related to K8s API and Tiller connection including the kubecontext
+func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec) []string {
+	adds := st.connectionFlags(release)
 	for _, a := range adds {
 		flags = append(flags, a)
 	}
 	return flags
 }
 
-func (st *HelmState) tillerFlags(release *ReleaseSpec) []string {
+func (st *HelmState) connectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
 	tillerless := st.HelmDefaults.Tillerless
 	if release.Tillerless != nil {
@@ -1157,6 +1160,12 @@ func (st *HelmState) tillerFlags(release *ReleaseSpec) []string {
 			flags = append(flags, "--tls-ca-cert", release.TLSCACert)
 		} else if st.HelmDefaults.TLSCACert != "" {
 			flags = append(flags, "--tls-ca-cert", st.HelmDefaults.TLSCACert)
+		}
+
+		if release.KubeContext != "" {
+			flags = append(flags, "--kube-context", release.KubeContext)
+		} else if st.HelmDefaults.KubeContext != "" {
+			flags = append(flags, "--kube-context", st.HelmDefaults.KubeContext)
 		}
 	}
 
@@ -1201,7 +1210,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--atomic")
 	}
 
-	flags = st.appendTillerFlags(flags, release)
+	flags = st.appendConnectionFlags(flags, release)
 
 	var err error
 	flags, err = st.appendHelmXFlags(flags, release)
@@ -1244,7 +1253,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--devel")
 	}
 
-	flags = st.appendTillerFlags(flags, release)
+	flags = st.appendConnectionFlags(flags, release)
 
 	var err error
 	flags, err = st.appendHelmXFlags(flags, release)
@@ -1417,7 +1426,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 		}
 		path := paths[0]
 
-		decryptFlags := st.appendTillerFlags([]string{}, release)
+		decryptFlags := st.appendConnectionFlags([]string{}, release)
 		valfile, err := helm.DecryptSecret(st.createHelmContext(release, workerIndex), path, decryptFlags...)
 		if err != nil {
 			return nil, err

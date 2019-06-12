@@ -82,10 +82,6 @@ func GetArgs(args string, state *state.HelmState) []string {
 		}
 	}
 
-	if state.HelmDefaults.KubeContext != "" {
-		argsMap.SetArg("--kube-context", state.HelmDefaults.KubeContext, false)
-	}
-
 	var argArr []string
 
 	for _, flag := range argsMap.flags {
