@@ -75,6 +75,7 @@ type DeleteConfigProvider interface {
 
 	interactive
 	loggingConfig
+	concurrencyConfig
 }
 
 type DestroyConfigProvider interface {
@@ -82,6 +83,7 @@ type DestroyConfigProvider interface {
 
 	interactive
 	loggingConfig
+	concurrencyConfig
 }
 
 type TestConfigProvider interface {

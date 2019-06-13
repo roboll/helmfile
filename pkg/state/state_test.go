@@ -2073,7 +2073,7 @@ func TestHelmState_Delete(t *testing.T) {
 				helm.lists[listKey{filter: "^" + name + "$", flags: tt.flags}] = name
 			}
 			affectedReleases := AffectedReleases{}
-			errs := state.DeleteReleases(&affectedReleases, helm, tt.purge)
+			errs := state.DeleteReleases(&affectedReleases, helm, 1, tt.purge)
 			if errs != nil {
 				if !tt.wantErr || len(affectedReleases.Failed) != 1 || affectedReleases.Failed[0].Name != release.Name {
 					t.Errorf("DeleteReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
