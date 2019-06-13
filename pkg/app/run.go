@@ -83,7 +83,7 @@ Do you really want to delete?
 	if !interactive || interactive && r.askForConfirmation(msg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-		errs = r.state.DeleteReleases(&affectedReleases, r.helm, purge)
+		errs = r.state.DeleteReleases(&affectedReleases, r.helm, c.Concurrency(), purge)
 	}
 	affectedReleases.DisplayAffectedReleases(c.Logger())
 	return errs
@@ -109,7 +109,7 @@ Do you really want to delete?
 	if !interactive || interactive && r.askForConfirmation(msg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-		errs = r.state.DeleteReleases(&affectedReleases, r.helm, true)
+		errs = r.state.DeleteReleases(&affectedReleases, r.helm, c.Concurrency(), true)
 	}
 	affectedReleases.DisplayAffectedReleases(c.Logger())
 	return errs

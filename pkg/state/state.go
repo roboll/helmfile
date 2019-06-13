@@ -845,8 +845,8 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
-func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, purge bool) []error {
-	return st.scatterGatherReleases(helm, len(st.Releases), func(release ReleaseSpec, workerIndex int) error {
+func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool) []error {
+	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}

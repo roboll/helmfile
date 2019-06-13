@@ -322,6 +322,11 @@ func main() {
 			Name:  "delete",
 			Usage: "DEPRECATED: delete releases from state file (helm delete)",
 			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
 				cli.StringFlag{
 					Name:  "args",
 					Value: "",
@@ -340,6 +345,11 @@ func main() {
 			Name:  "destroy",
 			Usage: "deletes and then purges releases",
 			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
 				cli.StringFlag{
 					Name:  "args",
 					Value: "",
