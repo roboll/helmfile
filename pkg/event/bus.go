@@ -2,18 +2,21 @@ package event
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/tmpl"
 	"go.uber.org/zap"
-	"os"
 )
 
 type Hook struct {
-	Name    string   `yaml:"name"`
-	Events  []string `yaml:"events"`
-	Command string   `yaml:"command"`
-	Args    []string `yaml:"args"`
+	Name     string   `yaml:"name"`
+	Events   []string `yaml:"events"`
+	Command  string   `yaml:"command"`
+	Args     []string `yaml:"args"`
+	ShowLogs bool     `yaml:"showlogs"`
 }
 
 type event struct {
@@ -90,6 +93,10 @@ func (bus *Bus) Trigger(evt string, context map[string]interface{}) (bool, error
 
 		bytes, err := bus.Runner.Execute(command, args, map[string]string{})
 		bus.Logger.Debugf("hook[%s]: %s\n", name, string(bytes))
+		if hook.ShowLogs {
+			prefix := fmt.Sprintf("\nhook[%s] logs | ", evt)
+			bus.Logger.Infow(prefix + strings.ReplaceAll(string(bytes), "\n", prefix))
+		}
 
 		if err != nil {
 			return false, fmt.Errorf("hook[%s]: command `%s` failed: %v", name, command, err)

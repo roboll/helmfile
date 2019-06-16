@@ -2,10 +2,13 @@ package event
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/environment"
-	"github.com/roboll/helmfile/pkg/helmexec"
 	"os"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/environment"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
@@ -35,14 +38,21 @@ func TestTrigger(t *testing.T) {
 	}{
 		{
 			"okhook1",
-			&Hook{"okhook1", []string{"foo"}, "ok", []string{}},
+			&Hook{"okhook1", []string{"foo"}, "ok", []string{}, true},
+			"foo",
+			true,
+			"",
+		},
+		{
+			"okhooké",
+			&Hook{"okhook2", []string{"foo"}, "ok", []string{}, false},
 			"foo",
 			true,
 			"",
 		},
 		{
 			"missinghook1",
-			&Hook{"okhook1", []string{"foo"}, "ok", []string{}},
+			&Hook{"okhook1", []string{"foo"}, "ok", []string{}, false},
 			"bar",
 			false,
 			"",
@@ -56,14 +66,14 @@ func TestTrigger(t *testing.T) {
 		},
 		{
 			"nghook1",
-			&Hook{"nghook1", []string{"foo"}, "ng", []string{}},
+			&Hook{"nghook1", []string{"foo"}, "ng", []string{}, false},
 			"foo",
 			false,
 			"hook[nghook1]: command `ng` failed: cmd failed due to invalid cmd: ng",
 		},
 		{
 			"nghook2",
-			&Hook{"nghook2", []string{"foo"}, "ok", []string{"ng"}},
+			&Hook{"nghook2", []string{"foo"}, "ok", []string{"ng"}, false},
 			"foo",
 			false,
 			"hook[nghook2]: command `ok` failed: cmd failed due to invalid arg: ng",
@@ -77,13 +87,15 @@ func TestTrigger(t *testing.T) {
 		if c.hook != nil {
 			hooks = append(hooks, *c.hook)
 		}
+		observer, observedLogs := observer.New(zap.InfoLevel)
+		zeLogger := zap.New(observer).Sugar()
 		bus := &Bus{
 			Hooks:         hooks,
 			StateFilePath: "path/to/helmfile.yaml",
 			BasePath:      "path/to",
 			Namespace:     "myns",
 			Env:           environment.Environment{Name: "prod"},
-			Logger:        logger,
+			Logger:        zeLogger,
 			ReadFile:      readFile,
 		}
 
@@ -108,6 +120,9 @@ func TestTrigger(t *testing.T) {
 			if err != nil {
 				t.Errorf("unexpected error for case \"%s\": %v", c.name, err)
 			}
+		}
+		if observedLogs.Len() != 0 && !hooks[0].ShowLogs {
+			t.Errorf("unexpected error for case \"%s\": Logs should not be created : %v", c.name, observedLogs.All())
 		}
 	}
 }
