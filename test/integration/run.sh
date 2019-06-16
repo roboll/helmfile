@@ -93,6 +93,9 @@ ${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release shou
 info "Ensuring \"helmfile delete\" doesn't fail when no releases installed"
 ${helmfile} -f ${dir}/happypath.yaml delete || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
 
+info "Ensuring \"helmfile template\" output does contain only YAML docs"
+(${helmfile} -f ${dir}/happypath.yaml template | kubectl apply -f -) || fail "\"helmfile template | kubectl apply -f -\" shouldn't fail"
+
 test_pass "happypath"
 
 
