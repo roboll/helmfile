@@ -192,7 +192,7 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags .
 	helm.logger.Infof("Comparing %v %v", name, chart)
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
-	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env)
+	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--reset-values", "--allow-unreleased", name, chart), flags...), env)
 	// Do our best to write STDOUT only when diff existed
 	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
 	detailedExitcodeEnabled := false
