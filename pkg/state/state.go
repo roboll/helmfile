@@ -1073,17 +1073,6 @@ func normalizeChart(basePath, chart string) string {
 	}
 	return filepath.Join(basePath, chart)
 }
-
-func isLocalChart(chart string) bool {
-	regex, _ := regexp.Compile("^[.]?./")
-	matched := regex.MatchString(chart)
-	if matched {
-		return true
-	}
-
-	return chart == "" || chart[0] == '/' || len(strings.Split(chart, "/")) != 2
-}
-
 func pathExists(chart string) bool {
 	_, err := os.Stat(chart)
 	return err == nil

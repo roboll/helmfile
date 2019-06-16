@@ -128,21 +128,6 @@ func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, err
 	return "", fmt.Errorf("no resolved dependency found for \"%s\"", chart)
 }
 
-func resolveRemoteChart(repoAndChart string) (string, string, bool) {
-	parts := strings.Split(repoAndChart, "/")
-	if isLocalChart(repoAndChart) {
-		return "", "", false
-	}
-	if len(parts) != 2 {
-		panic(fmt.Sprintf("unsupported format of chart name: %s", repoAndChart))
-	}
-
-	repo := parts[0]
-	chart := parts[1]
-
-	return repo, chart, true
-}
-
 func (st *HelmState) mergeLockedDependencies() (*HelmState, error) {
 	filename, unresolved, err := getUnresolvedDependenciess(st)
 	if err != nil {
