@@ -95,7 +95,7 @@ func (helm *execer) UpdateDeps(chart string) error {
 func (helm *execer) BuildDeps(chart string) error {
 	helm.logger.Infof("Building dependency %v", chart)
 	out, err := helm.exec([]string{"dependency", "build", chart}, map[string]string{})
-	helm.write(out)
+	helm.info(out)
 	return err
 }
 
@@ -139,7 +139,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "secrets", "dec", absPath), flags...), env)
-	helm.write(out)
+	helm.info(out)
 	if err != nil {
 		return "", err
 	}
