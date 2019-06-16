@@ -234,8 +234,8 @@ func Test_DiffRelease(t *testing.T) {
 	helm := MockExecer(logger, "dev")
 	helm.DiffRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait")
 	expected := `Comparing release chart
-exec: helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --kube-context dev
-exec: helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --kube-context dev: 
+exec: helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev
+exec: helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -244,8 +244,8 @@ exec: helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --k
 	buffer.Reset()
 	helm.DiffRelease(HelmContext{}, "release", "chart")
 	expected = `Comparing release chart
-exec: helm diff upgrade --allow-unreleased release chart --kube-context dev
-exec: helm diff upgrade --allow-unreleased release chart --kube-context dev: 
+exec: helm diff upgrade --reset-values --allow-unreleased release chart --kube-context dev
+exec: helm diff upgrade --reset-values --allow-unreleased release chart --kube-context dev: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -258,8 +258,8 @@ func Test_DiffReleaseTillerless(t *testing.T) {
 	helm := MockExecer(logger, "dev")
 	helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", "--timeout 10", "--wait")
 	expected := `Comparing release chart
-exec: helm tiller run -- helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --kube-context dev
-exec: helm tiller run -- helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --kube-context dev: 
+exec: helm tiller run -- helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev
+exec: helm tiller run -- helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
