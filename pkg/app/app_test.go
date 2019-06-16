@@ -1025,6 +1025,57 @@ x:
 	}
 }
 
+func TestVisitDesiredStatesWithReleasesFiltered_RemoteTgzAsChart(t *testing.T) {
+	testcases := []struct {
+		expr, env, expected string
+	}{
+		{
+			expected: "https://github.com/arangodb/kube-arangodb/releases/download/0.3.11/kube-arangodb-crd.tgz",
+		},
+	}
+	for i := range testcases {
+		testcase := testcases[i]
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			files := map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+  - name: arangodb-crd
+    chart: https://github.com/arangodb/kube-arangodb/releases/download/0.3.11/kube-arangodb-crd.tgz
+`,
+			}
+
+			actual := []state.ReleaseSpec{}
+
+			collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+				for _, r := range st.Releases {
+					actual = append(actual, r)
+				}
+				return []error{}
+			}
+			app := appWithFs(&App{
+				KubeContext: "default",
+				Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+				Reverse:     false,
+				Namespace:   "",
+				Selectors:   []string{},
+				Env:         "default",
+			}, files)
+			err := app.VisitDesiredStatesWithReleasesFiltered(
+				"helmfile.yaml", collectReleases,
+			)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(actual) != 1 {
+				t.Errorf("unexpected number of processed releases: expected=1, got=%d", len(actual))
+			}
+			if actual[0].Chart != testcase.expected {
+				t.Errorf("unexpected chart: expected=%s, got=%s", testcase.expected, actual[0].Chart)
+			}
+		})
+	}
+}
+
 func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`releases:
