@@ -829,9 +829,10 @@ A Helmfile hook is a per-release extension point that is composed of:
 - `events`
 - `command`
 - `args`
+- `showlogs`
 
 Helmfile triggers various `events` while it is running.
-Once `events` are triggered, associated `hooks` are executed, by running the `command` with `args`.
+Once `events` are triggered, associated `hooks` are executed, by running the `command` with `args`. The standard output of the `command` will be displayed if `showlogs` is set and it's value is `true`.
 
 Currently supported `events` are:
 
@@ -857,6 +858,7 @@ releases:
   # *snip*
   hooks:
   - events: ["prepare", "cleanup"]
+    showlogs: true
     command: "echo"
     args: ["{{`{{.Environment.Name}}`}}", "{{`{{.Release.Name}}`}}", "{{`{{.HelmfileCommand}}`}}\
 "]
