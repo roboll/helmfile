@@ -53,7 +53,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				}
 				m := map[string]interface{}{}
 				if err := yaml.Unmarshal(bytes, &m); err != nil {
-					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)
+					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
 				}
 				maps = append(maps, m)
 				if ld.logger != nil {
