@@ -282,7 +282,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 			case *state.StateLoadError:
 				switch stateLoadErr.Cause.(type) {
 				case *state.UndefinedEnvError:
-					return nil
+					return stateLoadErr
 				default:
 					return ctx.wrapErrs(err)
 				}
