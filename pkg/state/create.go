@@ -7,6 +7,7 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/maputil"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"io"
@@ -222,7 +223,14 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 				if err := yaml.Unmarshal(bytes, &m); err != nil {
 					return nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err)
 				}
-				if err := mergo.Merge(&envVals, &m, mergo.WithOverride); err != nil {
+				// All the nested map key should be string. Otherwise we get strange errors due to that
+				// mergo or reflect is unable to merge map[interface{}]interface{} with map[string]interface{} or vice versa.
+				// See https://github.com/roboll/helmfile/issues/677
+				vals, err := maputil.CastKeysToStrings(m)
+				if err != nil {
+					return nil, err
+				}
+				if err := mergo.Merge(&envVals, &vals, mergo.WithOverride); err != nil {
 					return nil, fmt.Errorf("failed to load \"%s\": %v", path, err)
 				}
 			}
