@@ -35,7 +35,7 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 ## Configuration
 
-**CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.31.0](https://github.com/roboll/helmfile/tree/v0.31.0).
+**CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.31.0](https://github.com/roboll/helmfile/tree/v0.79.1).
 
 The default helmfile is `helmfile.yaml`:
 
@@ -196,7 +196,7 @@ helmfiles:
   # Inline state values merged into the nested state's values
   - key1: val1
 - # All the nested state files under `helmfiles:` is processed in the order of definition.
-  # So it can be used for preparation for your main `releases`. An example would be creating CRDs required by `reelases` in the parent state file. 
+  # So it can be used for preparation for your main `releases`. An example would be creating CRDs required by `releases` in the parent state file.
   path: path/to/mycrd.helmfile.yaml
 - # Terraform-module-like URL for importing a remote directory and use a file in it as a nested-state file
   # The nested-state file is locally checked-out along with the remote directory containing it.
@@ -376,7 +376,7 @@ GLOBAL OPTIONS:
 
 ### sync
 
-The `helmfile sync` sub-command sync your cluster state as described in your `helmfile`. The default helmfile is `helmfile.yaml`, but any yaml file can be passed by specifying a `--file path/to/your/yaml/file` flag.
+The `helmfile sync` sub-command sync your cluster state as described in your `helmfile`. The default helmfile is `helmfile.yaml`, but any YAML file can be passed by specifying a `--file path/to/your/yaml/file` flag.
 
 Under the covers, Helmfile executes `helm upgrade --install` for each `release` declared in the manifest, by optionally decrypting [secrets](#secrets) to be consumed as helm chart values. It also updates specified chart repositories and updates the
 dependencies of any referenced local charts.
