@@ -35,7 +35,7 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 ## Configuration
 
-**CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.31.0](https://github.com/roboll/helmfile/tree/v0.79.1).
+**CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.79.1](https://github.com/roboll/helmfile/tree/v0.79.1).
 
 The default helmfile is `helmfile.yaml`:
 
