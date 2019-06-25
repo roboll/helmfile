@@ -100,7 +100,7 @@ func (e InvalidURLError) Error() string {
 }
 
 type Source struct {
-	Getter, Scheme, Host, Dir, File, RawQuery string
+	Getter, Scheme, User, Host, Dir, File, RawQuery string
 }
 
 func IsRemote(goGetterSrc string) bool {
@@ -135,6 +135,7 @@ func Parse(goGetterSrc string) (*Source, error) {
 
 	return &Source{
 		Getter:   getter,
+		User:     u.User.String(),
 		Scheme:   u.Scheme,
 		Host:     u.Host,
 		Dir:      pathComponents[0],
@@ -154,6 +155,7 @@ func (r *Remote) Fetch(goGetterSrc string) (string, error) {
 
 	r.Logger.Debugf("getter: %s", u.Getter)
 	r.Logger.Debugf("scheme: %s", u.Scheme)
+	r.Logger.Debugf("user: %s", u.User)
 	r.Logger.Debugf("host: %s", u.Host)
 	r.Logger.Debugf("dir: %s", u.Dir)
 	r.Logger.Debugf("file: %s", u.File)
@@ -195,11 +197,14 @@ func (r *Remote) Fetch(goGetterSrc string) (string, error) {
 
 	if !cached {
 		var getterSrc string
-
-		if len(query) == 0 {
-			getterSrc = srcDir
+		if u.User != "" {
+			getterSrc = fmt.Sprintf("%s://%s@%s%s", u.Scheme, u.User, u.Host, u.Dir)
 		} else {
-			getterSrc = strings.Join([]string{srcDir, query}, "?")
+			getterSrc = fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.Dir)
+		}
+
+		if len(query) > 0 {
+			getterSrc = strings.Join([]string{getterSrc, query}, "?")
 		}
 
 		if u.Getter != "" {
