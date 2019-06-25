@@ -419,7 +419,7 @@ func NewUrfaveCliConfigImpl(c *cli.Context) (configImpl, error) {
 		for i := range optsSet {
 			ops := strings.Split(optsSet[i], ",")
 			for j := range ops {
-				op := strings.Split(ops[j], "=")
+				op := strings.SplitN(ops[j], "=", 2)
 				k := strings.Split(op[0], ".")
 				v := op[1]
 
