@@ -80,6 +80,9 @@ func (r *Remote) GetBytes(goGetterSrc string) ([]byte, error) {
 // If the argument was an URL, it fetches the remote directory contained within the URL,
 // and returns the path to the file in the fetched directory
 func (r *Remote) Locate(urlOrPath string) (string, error) {
+	if r.FileExists(urlOrPath) || r.DirExists(urlOrPath) {
+		return urlOrPath, nil
+	}
 	fetched, err := r.Fetch(urlOrPath)
 	if err != nil {
 		switch err.(type) {
