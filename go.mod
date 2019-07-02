@@ -3,13 +3,14 @@ module github.com/roboll/helmfile
 go 1.12
 
 require (
+	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.1
-	github.com/Masterminds/sprig v2.16.0+incompatible
+	github.com/Masterminds/sprig v2.20.0+incompatible
 	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/google/go-cmp v0.3.0
 	github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c // indirect
 	github.com/hashicorp/go-getter v1.3.0
-	github.com/huandu/xstrings v1.0.0 // indirect
+	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
