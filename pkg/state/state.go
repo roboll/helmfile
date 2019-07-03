@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/event"
@@ -58,6 +59,9 @@ type HelmState struct {
 	tempDir    func(string, string) (string, error)
 
 	runner helmexec.Runner
+
+	vals      map[string]interface{}
+	valsMutex sync.Mutex
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options

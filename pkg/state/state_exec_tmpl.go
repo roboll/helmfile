@@ -8,6 +8,12 @@ import (
 )
 
 func (st *HelmState) Values() (map[string]interface{}, error) {
+	st.valsMutex.Lock()
+	defer st.valsMutex.Unlock()
+	if st.vals != nil {
+		return st.vals, nil
+	}
+
 	vals := map[string]interface{}{}
 
 	if err := mergo.Merge(&vals, st.Env.Defaults, mergo.WithOverride); err != nil {
@@ -21,6 +27,8 @@ func (st *HelmState) Values() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	st.vals = vals
 
 	return vals, nil
 }
