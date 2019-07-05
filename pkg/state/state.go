@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/event"
@@ -248,6 +249,8 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 	res := []syncPrepareResult{}
 	errs := []error{}
 
+	mut := sync.Mutex{}
+
 	st.scatterGather(
 		concurrency,
 		numReleases,
@@ -272,7 +275,11 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					continue
 				}
 
+				// TODO We need a long-term fix for this :)
+				// See https://github.com/roboll/helmfile/issues/737
+				mut.Lock()
 				flags, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
+				mut.Unlock()
 				if flagsErr != nil {
 					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseError(release, flagsErr)}}
 					continue
@@ -683,6 +690,8 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	rs := []diffPrepareResult{}
 	errs := []error{}
 
+	mut := sync.Mutex{}
+
 	st.scatterGather(
 		concurrency,
 		numReleases,
@@ -698,7 +707,11 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				st.applyDefaultsTo(release)
 
+				// TODO We need a long-term fix for this :)
+				// See https://github.com/roboll/helmfile/issues/737
+				mut.Lock()
 				flags, err := st.flagsForDiff(helm, release, workerIndex)
+				mut.Unlock()
 				if err != nil {
 					errs = append(errs, err)
 				}
