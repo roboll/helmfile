@@ -14,6 +14,6 @@ information to this file.
 | [Sight Machine](https://sightmachine.com/) | production | We don't have anything publicly posted about it, but have been using it for quite a while in production. | San Francisco, CA and Ann Arbor, MI | December 2018 |
 | [VSHN – The DevOps Company](https://vshn.ch) | production	| | Zurich, Switzerland | March 2019 |
 | [Vlocity](https://vlocity.com/) | proof-of-concept | | Melbourne, Australia | March 2019 |
-| [transit](https://transit.app/) | production | Repos are private, but [here's a blog post](https://medium.com/@naseem_60378/helmfile-its-like-a-helm-for-your-helm-74a908581599). We're using `helmfile.d` with 1 helmfile per namespace. Multiple environments, but not all charts on all environments. Using installed: `{{ eq .Environment.Name "env1" "env2" "env5" }}`. Loving it so far! Thanks! | Montreal, Canada | March 2019 |
+| [transit](https://transit.app/) | production | [Blog post](https://medium.com/@naseem_60378/helmfile-its-like-a-helm-for-your-helm-74a908581599). | Montreal, Canada | March 2019 |
 | [uniqkey](https://uniqkey.eu/) | production | [Wiki Page](https://ocd-scm.github.io/ocd-meta/) | Copenhagen, Denmark | April 2019 |
 <!-- TABLE_END -->
