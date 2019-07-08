@@ -19,7 +19,7 @@ func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) ([]s
 		flags = append(flags, "--dependency", dep)
 	}
 
-	for  _, adopt := range release.Adopt {
+	for _, adopt := range release.Adopt {
 		flags = append(flags, "--adopt", adopt)
 	}
 
