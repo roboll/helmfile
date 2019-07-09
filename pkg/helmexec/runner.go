@@ -25,7 +25,7 @@ type Runner interface {
 type ShellRunner struct {
 	Dir string
 
-	logger *zap.SugaredLogger
+	Logger *zap.SugaredLogger
 }
 
 // Execute a shell command
@@ -33,7 +33,7 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
-	return combinedOutput(preparedCmd, shell.logger)
+	return combinedOutput(preparedCmd, shell.Logger)
 }
 
 func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {

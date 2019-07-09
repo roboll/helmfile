@@ -44,14 +44,12 @@ func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 }
 
 // New for running helm commands
-func New(logger *zap.SugaredLogger, kubeContext string) *execer {
+func New(logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	return &execer{
 		helmBinary:  command,
 		logger:      logger,
 		kubeContext: kubeContext,
-		runner: &ShellRunner{
-			logger: logger,
-		},
+		runner:      runner,
 	}
 }
 
