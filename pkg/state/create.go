@@ -185,7 +185,9 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 		}
 
 		if len(envSpec.Secrets) > 0 {
-			helm := helmexec.New(st.logger, "")
+			helm := helmexec.New(st.logger, "", &helmexec.ShellRunner{
+				Logger: st.logger,
+			})
 
 			var envSecretFiles []string
 			for _, urlOrPath := range envSpec.Secrets {

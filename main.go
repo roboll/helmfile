@@ -200,6 +200,10 @@ func main() {
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
+				cli.StringFlag{
+					Name:  "output-dir",
+					Usage: "output directory to pass to helm template (helm template --output-dir)",
+				},
 				cli.IntFlag{
 					Name:  "concurrency",
 					Value: 0,
@@ -438,6 +442,10 @@ func (c configImpl) Values() []string {
 
 func (c configImpl) Args() string {
 	return c.c.String("args")
+}
+
+func (c configImpl) OutputDir() string {
+	return c.c.String("output-dir")
 }
 
 func (c configImpl) Concurrency() int {

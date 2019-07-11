@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
@@ -8,8 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"testing"
 
+	"go.uber.org/zap"
 	"gotest.tools/env"
 )
 
@@ -1737,4 +1740,159 @@ services:
 			t.Errorf("unexpected releases[0].name at %d: expected=%s, got=%s", i, tc.expected, st.Releases[0].Name)
 		}
 	}
+}
+
+type configImpl struct {
+}
+
+func (c configImpl) Values() []string {
+	return []string{}
+}
+
+func (c configImpl) Args() string {
+	return "some args"
+}
+
+func (c configImpl) SkipDeps() bool {
+	return true
+}
+
+func (c configImpl) OutputDir() string {
+	return "output/subdir"
+}
+
+func (c configImpl) Concurrency() int {
+	return 1
+}
+
+// Mocking the command-line runner
+
+type mockRunner struct {
+	output []byte
+	err    error
+}
+
+func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
+	return []byte{}, nil
+}
+
+func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interface {
+	execer := helmexec.New(logger, kubeContext, &mockRunner{})
+	return execer
+}
+
+// mocking helmexec.Interface
+
+type listKey struct {
+	filter string
+	flags  string
+}
+
+type mockHelmExec struct {
+	templated []mockTemplates
+
+	updateDepsCallbacks map[string]func(string) error
+}
+
+type mockTemplates struct {
+	flags []string
+}
+
+func (helm *mockHelmExec) TemplateRelease(chart string, flags ...string) error {
+	helm.templated = append(helm.templated, mockTemplates{flags: flags})
+	return nil
+}
+
+func (helm *mockHelmExec) UpdateDeps(chart string) error {
+	return nil
+}
+
+func (helm *mockHelmExec) BuildDeps(chart string) error {
+	return nil
+}
+
+func (helm *mockHelmExec) SetExtraArgs(args ...string) {
+	return
+}
+func (helm *mockHelmExec) SetHelmBinary(bin string) {
+	return
+}
+func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile, username, password string) error {
+	return nil
+}
+func (helm *mockHelmExec) UpdateRepo() error {
+	return nil
+}
+func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
+	return "", nil
+}
+func (helm *mockHelmExec) DecryptSecret(context helmexec.HelmContext, name string, flags ...string) (string, error) {
+	return "", nil
+}
+func (helm *mockHelmExec) TestRelease(context helmexec.HelmContext, name string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) Fetch(chart string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) Lint(chart string, flags ...string) error {
+	return nil
+}
+
+func TestTemplate_SingleStateFile(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+- name: myrelease2
+  chart: mychart1
+`,
+	}
+
+	var helm = &mockHelmExec{}
+	var wantReleases = []mockTemplates{
+		{[]string{"--name", "myrelease1", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{[]string{"--name", "myrelease2", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
+	}
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		glob:        filepath.Glob,
+		abs:         filepath.Abs,
+		KubeContext: "default",
+		Env:         "default",
+		Logger:      logger,
+		helmExecer:  helm,
+	}, files)
+	app.Template(configImpl{})
+
+	for i := range wantReleases {
+		for j := range wantReleases[i].flags {
+			if j == 3 {
+				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
+				if !matched {
+					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
+				}
+			} else if wantReleases[i].flags[j] != helm.templated[i].flags[j] {
+				t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
+			}
+		}
+
+	}
+
 }

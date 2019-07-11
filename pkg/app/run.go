@@ -270,7 +270,7 @@ func (r *Run) Template(c TemplateConfigProvider) []error {
 	}
 
 	args := argparser.GetArgs(c.Args(), state)
-	return state.TemplateReleases(helm, c.Values(), args, c.Concurrency())
+	return state.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency())
 }
 
 func (r *Run) Test(c TestConfigProvider) []error {

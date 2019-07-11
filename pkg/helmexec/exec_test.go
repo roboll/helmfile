@@ -24,8 +24,7 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
-	execer := New(logger, kubeContext)
-	execer.runner = &mockRunner{}
+	execer := New(logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -34,7 +33,9 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
 func TestNewHelmExec(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
 	logger := NewLogger(buffer, "debug")
-	helm := New(logger, "dev")
+	helm := New(logger, "dev", &ShellRunner{
+		Logger: logger,
+	})
 	if helm.kubeContext != "dev" {
 		t.Error("helmexec.New() - kubeContext")
 	}
@@ -47,7 +48,11 @@ func TestNewHelmExec(t *testing.T) {
 }
 
 func Test_SetExtraArgs(t *testing.T) {
-	helm := New(NewLogger(os.Stdout, "info"), "dev")
+	buffer := bytes.NewBufferString("something")
+	logger := NewLogger(buffer, "debug")
+	helm := New(NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
+		Logger: logger,
+	})
 	helm.SetExtraArgs()
 	if len(helm.extra) != 0 {
 		t.Error("helmexec.SetExtraArgs() - passing no arguments should not change extra field")
@@ -63,7 +68,11 @@ func Test_SetExtraArgs(t *testing.T) {
 }
 
 func Test_SetHelmBinary(t *testing.T) {
-	helm := New(NewLogger(os.Stdout, "info"), "dev")
+	buffer := bytes.NewBufferString("something")
+	logger := NewLogger(buffer, "debug")
+	helm := New(NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
+		Logger: logger,
+	})
 	if helm.helmBinary != "helm" {
 		t.Error("helmexec.command - default command is not helm")
 	}
@@ -476,5 +485,18 @@ func Test_mergeEnv(t *testing.T) {
 	expected := map[string]string{"A": "1", "B": "3", "E": "2", "F": "4"}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("mergeEnv()\nactual = %v\nexpect = %v", actual, expected)
+	}
+}
+
+func Test_Template(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := MockExecer(logger, "dev")
+	helm.TemplateRelease("path/to/chart", "--values", "file.yml")
+	expected := `exec: helm template path/to/chart --values file.yml --kube-context dev
+exec: helm template path/to/chart --values file.yml --kube-context dev: 
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.Template()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 }

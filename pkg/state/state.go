@@ -1,8 +1,11 @@
 package state
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -534,7 +537,7 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 }
 
 // TemplateReleases wrapper for executing helm template on the releases
-func (st *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
+func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int) []error {
 	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
 	helm.SetExtraArgs()
 
@@ -569,6 +572,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues 
 		if err != nil {
 			errs = append(errs, err)
 		}
+
 		for _, value := range additionalValues {
 			valfile, err := filepath.Abs(value)
 			if err != nil {
@@ -579,6 +583,17 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, additionalValues 
 				errs = append(errs, err)
 			}
 			flags = append(flags, "--values", valfile)
+		}
+
+		if len(outputDir) > 0 {
+			releaseOutputDir, err := st.GenerateOutputDir(outputDir, release)
+			if err != nil {
+				errs = append(errs, err)
+			}
+
+			flags = append(flags, "--output-dir", releaseOutputDir)
+			st.logger.Debugf("Generating templates to : %s\n", releaseOutputDir)
+			os.Mkdir(releaseOutputDir, 0755)
 		}
 
 		if len(errs) == 0 {
@@ -1559,4 +1574,29 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 		return fmt.Errorf("You cannot use 'SelectorsInherited: true' along with and explicit selector for path: %v", hf.Path)
 	}
 	return nil
+}
+
+func (st *HelmState) GenerateOutputDir(outputDir string, release ReleaseSpec) (string, error) {
+	// get absolute path of state file to generate a hash
+	// use this hash to write helm output in a specific directory by state file and release name
+	// ie. in a directory named stateFileName-stateFileHash-releaseName
+	stateAbsPath, err := filepath.Abs(st.FilePath)
+	if err != nil {
+		return stateAbsPath, err
+	}
+
+	hasher := sha1.New()
+	io.WriteString(hasher, stateAbsPath)
+
+	var stateFileExtension = filepath.Ext(st.FilePath)
+	var stateFileName = st.FilePath[0 : len(st.FilePath)-len(stateFileExtension)]
+
+	var sb strings.Builder
+	sb.WriteString(stateFileName)
+	sb.WriteString("-")
+	sb.WriteString(hex.EncodeToString(hasher.Sum(nil))[:8])
+	sb.WriteString("-")
+	sb.WriteString(release.Name)
+
+	return path.Join(outputDir, sb.String()), nil
 }

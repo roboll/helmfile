@@ -524,7 +524,9 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Releases:          []ReleaseSpec{*tt.release},
 				HelmDefaults:      tt.defaults,
 			}
-			helm := helmexec.New(logger, "default")
+			helm := helmexec.New(logger, "default", &helmexec.ShellRunner{
+				Logger: logger,
+			})
 			args, err := state.flagsForUpgrade(helm, tt.release, 0)
 			if err != nil {
 				t.Errorf("unexpected error flagsForUpgade: %v", err)

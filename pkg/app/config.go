@@ -109,6 +109,7 @@ type TemplateConfigProvider interface {
 
 	Values() []string
 	SkipDeps() bool
+	OutputDir() string
 
 	concurrencyConfig
 }

@@ -45,6 +45,8 @@ type App struct {
 	chdir func(string) error
 
 	remote *remote.Remote
+
+	helmExecer helmexec.Interface
 }
 
 func New(conf ConfigProvider) *App {
@@ -59,6 +61,9 @@ func New(conf ConfigProvider) *App {
 		FileOrDir:   conf.FileOrDir(),
 		ValuesFiles: conf.ValuesFiles(),
 		Set:         conf.Set(),
+		helmExecer: helmexec.New(conf.Logger(), conf.KubeContext(), &helmexec.ShellRunner{
+			Logger: conf.Logger(),
+		}),
 	})
 }
 
@@ -274,7 +279,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 
 		ctx := context{a, st}
 
-		helm := helmexec.New(a.Logger, a.KubeContext)
+		helm := a.helmExecer
 
 		if err != nil {
 			switch stateLoadErr := err.(type) {
