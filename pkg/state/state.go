@@ -168,6 +168,7 @@ type ReleaseSpec struct {
 	Dependencies          []Dependency  `yaml:"dependencies"`
 	JSONPatches           []interface{} `yaml:"jsonPatches"`
 	StrategicMergePatches []interface{} `yaml:"strategicMergePatches"`
+	Adopt                 []string      `yaml:"adopt"`
 
 	// generatedValues are values that need cleaned up on exit
 	generatedValues []string

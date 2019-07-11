@@ -19,6 +19,10 @@ func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) ([]s
 		flags = append(flags, "--dependency", dep)
 	}
 
+	for _, adopt := range release.Adopt {
+		flags = append(flags, "--adopt", adopt)
+	}
+
 	jsonPatches := release.JSONPatches
 	if len(jsonPatches) > 0 {
 		generatedFiles, err := st.generateTemporaryValuesFiles(jsonPatches, release.MissingFileHandler)
