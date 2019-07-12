@@ -1092,16 +1092,6 @@ func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
 	return nil
 }
 
-// normalizeChart allows for the distinction between a file path reference and repository references.
-// - Any single (or double character) followed by a `/` will be considered a local file reference and
-// 	 be constructed relative to the `base path`.
-// - Everything else is assumed to be an absolute path or an actual <repository>/<chart> reference.
-func normalizeChart(basePath, chart string) string {
-	if !isLocalChart(chart) {
-		return chart
-	}
-	return filepath.Join(basePath, chart)
-}
 func pathExists(chart string) bool {
 	_, err := os.Stat(chart)
 	return err == nil
