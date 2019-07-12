@@ -1028,6 +1028,48 @@ x:
 	}
 }
 
+func TestVisitDesiredStatesWithReleasesFiltered_ChartAtAbsPath(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myapp
+  chart: /path/to/mychart
+`,
+	}
+
+	actual := []state.ReleaseSpec{}
+
+	collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+		for _, r := range st.Releases {
+			actual = append(actual, r)
+		}
+		return []error{}
+	}
+	app := appWithFs(&App{
+		KubeContext: "default",
+		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+		Reverse:     false,
+		Namespace:   "",
+		Env:         "default",
+		Selectors:   []string{},
+	}, files)
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", collectReleases,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actual) != 1 {
+		t.Errorf("unexpected number of processed releases: expected=1, got=%d", len(actual))
+	}
+	if actual[0].Name != "myapp" {
+		t.Errorf("unexpected name: expected=%s, got=%s", "myapp", actual[0].Name)
+	}
+	if actual[0].Chart != "/path/to/mychart" {
+		t.Errorf("unexpected chart: expected=%s, got=%s", "/path/to/mychart", actual[0].Chart)
+	}
+}
+
 func TestVisitDesiredStatesWithReleasesFiltered_RemoteTgzAsChart(t *testing.T) {
 	testcases := []struct {
 		expr, env, expected string

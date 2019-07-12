@@ -28,6 +28,10 @@ func TestIsLocalChart(t *testing.T) {
 			expected: true,
 		},
 		{
+			input:    "/charts/mysubsystem/myapp",
+			expected: true,
+		},
+		{
 			// Regression test case for:
 			// * https://github.com/roboll/helmfile/issues/675
 			// * https://github.com/roboll/helmfile/issues/687
@@ -81,6 +85,10 @@ func TestResolveRemortChart(t *testing.T) {
 			remote: false,
 		},
 		{
+			input:  "/charts/mysubsystem/myapp",
+			remote: false,
+		},
+		{
 			// Regression test case for:
 			// * https://github.com/roboll/helmfile/issues/675
 			// * https://github.com/roboll/helmfile/issues/687
@@ -108,6 +116,32 @@ func TestResolveRemortChart(t *testing.T) {
 
 		if testcase.chart != chart {
 			t.Errorf("unexpected chart: %s: expected=%v, got=%v", testcase.input, testcase.chart, chart)
+		}
+	}
+}
+
+func TestNormalizeChart(t *testing.T) {
+	testcases := []struct {
+		input    string
+		expected string
+	}{
+		{
+			input:    "mychart",
+			expected: "/path/to/mychart",
+		},
+		{
+			input:    "/charts/mychart",
+			expected: "/charts/mychart",
+		},
+	}
+
+	for i := range testcases {
+		testcase := testcases[i]
+
+		actual := normalizeChart("/path/to", testcase.input)
+
+		if testcase.expected != actual {
+			t.Fatalf("unexpected result: normalizeChart(\"/path/to\", \"%s\"): expected=%v, got=%v", testcase.input, testcase.expected, actual)
 		}
 	}
 }
