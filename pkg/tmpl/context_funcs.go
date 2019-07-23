@@ -149,7 +149,7 @@ func FromYaml(str string) (Values, error) {
 	m := Values{}
 
 	if err := yaml.Unmarshal([]byte(str), &m); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
 	}
 	return m, nil
 }
