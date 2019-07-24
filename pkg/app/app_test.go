@@ -1906,8 +1906,8 @@ releases:
 
 	var helm = &mockHelmExec{}
 	var wantReleases = []mockTemplates{
-		{[]string{"--name", "myrelease1", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
-		{[]string{"--name", "myrelease2", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
+		{[]string{"--name", "myrelease1", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{[]string{"--name", "myrelease2", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
 	}
 
 	var buffer bytes.Buffer
@@ -1920,12 +1920,13 @@ releases:
 		Env:         "default",
 		Logger:      logger,
 		helmExecer:  helm,
+		Namespace:   "testNamespace",
 	}, files)
 	app.Template(configImpl{})
 
 	for i := range wantReleases {
 		for j := range wantReleases[i].flags {
-			if j == 3 {
+			if j == 5 {
 				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
 				if !matched {
 					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
@@ -1936,5 +1937,4 @@ releases:
 		}
 
 	}
-
 }

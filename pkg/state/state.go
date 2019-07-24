@@ -569,6 +569,8 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			continue
 		}
 
+		st.applyDefaultsTo(&release)
+
 		flags, err := st.flagsForTemplate(helm, &release, 0)
 		if err != nil {
 			errs = append(errs, err)
