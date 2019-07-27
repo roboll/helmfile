@@ -76,8 +76,13 @@ func Set(m map[string]interface{}, key []string, value string) map[string]interf
 
 	nested, ok := m[k]
 	if !ok {
-		new_m := map[string]interface{}{}
-		nested = Set(new_m, remain, value)
+		nested = map[string]interface{}{}
+	}
+	switch t := nested.(type) {
+	case map[string]interface{}:
+		nested = Set(t, remain, value)
+	default:
+		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
 	}
 
 	m[k] = nested
