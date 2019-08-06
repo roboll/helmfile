@@ -228,10 +228,16 @@ func Test_DecryptSecret(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
-	expected := fmt.Sprintf(`Decrypting secret %s/secretName
+	// Run again for caching
+	helm.DecryptSecret(HelmContext{}, "secretName")
+
+	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName
+Decrypting secret %s/secretName
 exec: helm secrets dec %s/secretName --kube-context dev
 exec: helm secrets dec %s/secretName --kube-context dev: 
-`, cwd, cwd, cwd)
+Preparing to decrypt secret %s/secretName
+Found secret in cache %s/secretName
+`, cwd, cwd, cwd, cwd, cwd, cwd)
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DecryptSecret()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
