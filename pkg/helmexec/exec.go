@@ -17,13 +17,19 @@ const (
 	command = "helm"
 )
 
+type decryptedSecret struct {
+	mutex sync.RWMutex
+	bytes []byte
+}
+
 type execer struct {
-	helmBinary      string
-	runner          Runner
-	logger          *zap.SugaredLogger
-	kubeContext     string
-	extra           []string
-	decryptionMutex sync.Mutex
+	helmBinary           string
+	runner               Runner
+	logger               *zap.SugaredLogger
+	kubeContext          string
+	extra                []string
+	decryptedSecretMutex sync.Mutex
+	decryptedSecrets     map[string]*decryptedSecret
 }
 
 func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
@@ -46,10 +52,11 @@ func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 // New for running helm commands
 func New(logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	return &execer{
-		helmBinary:  command,
-		logger:      logger,
-		kubeContext: kubeContext,
-		runner:      runner,
+		helmBinary:       command,
+		logger:           logger,
+		kubeContext:      kubeContext,
+		runner:           runner,
+		decryptedSecrets: make(map[string]*decryptedSecret),
 	}
 }
 
@@ -125,55 +132,67 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 }
 
 func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...string) (string, error) {
-	// Prevents https://github.com/roboll/helmfile/issues/258
-	helm.decryptionMutex.Lock()
-	defer helm.decryptionMutex.Unlock()
-
 	absPath, err := filepath.Abs(name)
 	if err != nil {
 		return "", err
 	}
-	helm.logger.Infof("Decrypting secret %v", absPath)
-	preArgs := context.GetTillerlessArgs(helm.helmBinary)
-	env := context.getTillerlessEnv()
-	out, err := helm.exec(append(append(preArgs, "secrets", "dec", absPath), flags...), env)
-	helm.info(out)
-	if err != nil {
-		return "", err
+
+	helm.logger.Debugf("Preparing to decrypt secret %v", absPath)
+	helm.decryptedSecretMutex.Lock()
+
+	secret, ok := helm.decryptedSecrets[absPath]
+
+	// Cache miss
+	if !ok {
+
+		secret = &decryptedSecret{}
+		helm.decryptedSecrets[absPath] = secret
+
+		secret.mutex.Lock()
+		defer secret.mutex.Unlock()
+		helm.decryptedSecretMutex.Unlock()
+
+		helm.logger.Infof("Decrypting secret %v", absPath)
+		preArgs := context.GetTillerlessArgs(helm.helmBinary)
+		env := context.getTillerlessEnv()
+		out, err := helm.exec(append(append(preArgs, "secrets", "dec", absPath), flags...), env)
+		helm.info(out)
+		if err != nil {
+			return "", err
+		}
+
+		// HELM_SECRETS_DEC_SUFFIX is used by the helm-secrets plugin to define the output file
+		decSuffix := os.Getenv("HELM_SECRETS_DEC_SUFFIX")
+		if len(decSuffix) == 0 {
+			decSuffix = ".yaml.dec"
+		}
+		decFilename := strings.Replace(absPath, ".yaml", decSuffix, 1)
+
+		secretBytes, err := ioutil.ReadFile(decFilename)
+		if err != nil {
+			return "", err
+		}
+		secret.bytes = secretBytes
+
+		if err := os.Remove(decFilename); err != nil {
+			return "", err
+		}
+
+	} else {
+		// Cache hit
+		helm.logger.Debugf("Found secret in cache %v", absPath)
+
+		secret.mutex.RLock()
+		helm.decryptedSecretMutex.Unlock()
+		defer secret.mutex.RUnlock()
 	}
 
 	tmpFile, err := ioutil.TempFile("", "secret")
 	if err != nil {
 		return "", err
 	}
-	defer tmpFile.Close()
-
-	// HELM_SECRETS_DEC_SUFFIX is used by the helm-secrets plugin to define the output file
-	decSuffix := os.Getenv("HELM_SECRETS_DEC_SUFFIX")
-	if len(decSuffix) == 0 {
-		decSuffix = ".yaml.dec"
-	}
-	decFilename := strings.Replace(absPath, ".yaml", decSuffix, 1)
-
-	// os.Rename seems to results in "cross-device link` errors in some cases
-	// Instead of moving, copy it to the destination temp file as a work-around
-	// See https://github.com/roboll/helmfile/issues/251#issuecomment-417166296f
-	decFile, err := os.Open(decFilename)
+	_, err = tmpFile.Write(secret.bytes)
 	if err != nil {
-		return "", err
-	}
-	defer decFile.Close()
-
-	_, err = io.Copy(tmpFile, decFile)
-	if err != nil {
-		return "", err
-	}
-
-	if err := decFile.Close(); err != nil {
-		return "", err
-	}
-
-	if err := os.Remove(decFilename); err != nil {
 		return "", err
 	}
 
