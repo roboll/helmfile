@@ -23,8 +23,10 @@ RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
 # using the install documentation found at https://kubernetes.io/docs/tasks/tools/install-kubectl/
 # for now but in a future version of alpine (in the testing version at the time of writing)
 # we should be able to install using apk add.
-RUN KUBERNETES_STABLE=$(curl -s "https://storage.googleapis.com/kubernetes-release/release/stable.txt") && \
-    curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBERNETES_STABLE}/bin/linux/amd64/kubectl" && \
+ENV KUBECTL_VERSION="v1.14.5"
+ENV KUBECTL_SHA256="26681319de56820a8467c9407e9203d5b15fb010ffc75ac5b99c9945ad0bd28c"
+RUN curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
+    sha256sum kubectl | grep ${KUBECTL_SHA256} && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/kubectl
 
