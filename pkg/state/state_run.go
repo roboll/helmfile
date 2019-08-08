@@ -2,8 +2,9 @@ package state
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/helmexec"
 	"sync"
+
+	"github.com/roboll/helmfile/pkg/helmexec"
 )
 
 type result struct {
@@ -12,11 +13,9 @@ type result struct {
 }
 
 func (st *HelmState) scatterGather(concurrency int, items int, produceInputs func(), receiveInputsAndProduceIntermediates func(int), aggregateIntermediates func()) {
-	numReleases := len(st.Releases)
-	if concurrency < 1 {
-		concurrency = numReleases
-	} else if concurrency > numReleases {
-		concurrency = numReleases
+
+	if concurrency < 1 || concurrency > items {
+		concurrency = items
 	}
 
 	for _, r := range st.Releases {
