@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/imdario/mergo"
-	"github.com/roboll/helmfile/pkg/environment"
-	"github.com/roboll/helmfile/pkg/state"
-	"go.uber.org/zap"
 	"path/filepath"
 	"sort"
+
+	"github.com/imdario/mergo"
+	"github.com/roboll/helmfile/pkg/environment"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
+	"go.uber.org/zap"
 )
 
 type desiredStateLoader struct {
@@ -25,6 +27,7 @@ type desiredStateLoader struct {
 	glob       func(string) ([]string, error)
 
 	logger *zap.SugaredLogger
+	helm   helmexec.Interface
 }
 
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
@@ -125,7 +128,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob)
+	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.helm)
 	c.LoadFile = a.loadFile
 	return c
 }

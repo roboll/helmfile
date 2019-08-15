@@ -2,15 +2,16 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/remote"
-	"github.com/roboll/helmfile/pkg/state"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
+	"github.com/roboll/helmfile/pkg/state"
 
 	"go.uber.org/zap"
 
@@ -239,6 +240,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		Reverse:     a.Reverse,
 		KubeContext: a.KubeContext,
 		glob:        a.glob,
+		helm:        a.helmExecer,
 	}
 
 	var op LoadOpts

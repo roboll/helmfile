@@ -62,6 +62,7 @@ type HelmState struct {
 	tempDir    func(string, string) (string, error)
 
 	runner helmexec.Runner
+	helm   helmexec.Interface
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options

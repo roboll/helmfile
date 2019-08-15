@@ -1,12 +1,13 @@
 package state
 
 import (
-	"github.com/roboll/helmfile/pkg/testhelper"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/testhelper"
+	"go.uber.org/zap"
 
 	. "gotest.tools/assert"
 	"gotest.tools/assert/cmp"
@@ -107,7 +108,7 @@ bar: {{ readFile "bar.txt" }}
 	})
 	testFs.Cwd = "/example/path/to"
 
-	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob).ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", false, nil)
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil).ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
