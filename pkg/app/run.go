@@ -2,10 +2,11 @@ package app
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
-	"strings"
 )
 
 type Run struct {
@@ -136,6 +137,8 @@ func (r *Run) Apply(c ApplyConfigProvider) []error {
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
 	detailedExitCode := true
 
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
 	releases, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false)
 
 	releasesToBeDeleted, err := st.DetectReleasesToBeDeleted(helm)
@@ -191,8 +194,6 @@ Do you really want to apply?
 				for _, r := range releasesToBeDeleted {
 					rs = append(rs, *r)
 				}
-
-				r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 				st.Releases = rs
 				return st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency())
