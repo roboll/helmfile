@@ -16,7 +16,7 @@ require (
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v0.0.0-20160620154522-6011f165dc28
 	go.uber.org/atomic v1.3.2 // indirect
-	go.uber.org/multierr v1.1.0 // indirect
+	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.8.0
 	gopkg.in/yaml.v2 v2.2.1
 	gotest.tools v2.2.0+incompatible
