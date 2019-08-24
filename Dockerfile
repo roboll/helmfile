@@ -1,12 +1,3 @@
-FROM golang:1.12.4-alpine3.9 as builder
-
-RUN apk add --no-cache make git
-WORKDIR /workspace/helmfile
-COPY . /workspace/helmfile
-RUN make static-linux
-
-# -----------------------------------------------------------------------------
-
 FROM alpine:3.8
 
 RUN apk add --no-cache ca-certificates git bash curl jq
@@ -36,6 +27,6 @@ RUN helm plugin install https://github.com/databus23/helm-diff && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git && \
     helm plugin install https://github.com/aslafy-z/helm-git.git
 
-COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
+COPY dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 
 CMD ["/usr/local/bin/helmfile"]
