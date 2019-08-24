@@ -26,7 +26,7 @@ integration:
 .PHONY: integration
 
 cross:
-	env CGO_ENABLED=0 gox -os '!openbsd !freebsd !netbsd' -arch '!arm !mips !mipsle !mips64 !mips64le' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -os '!openbsd !freebsd !netbsd' -arch '!arm !mips !mipsle !mips64 !mips64le !s390x' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:
