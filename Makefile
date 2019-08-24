@@ -26,7 +26,7 @@ integration:
 .PHONY: integration
 
 cross:
-	env CGO_ENABLED=0 gox -os '!openbsd !freebsd !netbsd' -arch '!arm !mips !mipsle !mips64 !mips64le' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -os '!openbsd !freebsd !netbsd' -arch '!arm !mips !mipsle !mips64 !mips64le !s390x' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:
@@ -50,8 +50,12 @@ release: pristine cross
 	@ghr -b ${BODY} -t ${GITHUB_TOKEN} -u ${ORG} -recreate ${TAG} dist
 .PHONY: release
 
-image:
+image: static-linux/in-docker
 	docker build -t quay.io/${ORG}/helmfile:${TAG} .
+
+static-linux/in-docker:
+	if [ -f dist/helmfile_linux_amd64 ]; then echo removing dist/helmfile_linux_amd64; rm dist/helmfile_linux_amd64; fi
+	docker run -v $(HOME)/go:/go -v $(PWD):/workspace/helmfile -w /workspace/helmfile golang:1.12.4-alpine3.9 sh -c 'apk add --no-cache make git && make static-linux'
 
 run: image
 	docker run --rm -it -t quay.io/${ORG}/helmfile:${TAG} sh
