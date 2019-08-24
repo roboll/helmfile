@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -180,8 +182,10 @@ func (r *Remote) Fetch(goGetterSrc string) (string, error) {
 
 	cached := false
 
+	// e.g. .helmfile/cache/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
 	getterDst := filepath.Join(cacheBaseDir, cacheKey)
 
+	// e.g. $PWD/.helmfile/cache/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
 	cacheDirPath := filepath.Join(r.Home, getterDst)
 
 	r.Logger.Debugf("home: %s", r.Home)
@@ -217,6 +221,10 @@ func (r *Remote) Fetch(goGetterSrc string) (string, error) {
 		r.Logger.Debugf("downloading %s to %s", getterSrc, getterDst)
 
 		if err := r.Getter.Get(r.Home, getterSrc, getterDst); err != nil {
+			rmerr := os.RemoveAll(cacheDirPath)
+			if rmerr != nil {
+				return "", multierr.Append(err, rmerr)
+			}
 			return "", err
 		}
 	}
