@@ -167,6 +167,12 @@ type ReleaseSpec struct {
 	TLSKey    string `yaml:"tlsKey"`
 	TLSCert   string `yaml:"tlsCert"`
 
+	// These values are used in templating
+	TillerlessTemplate *string `yaml:"tillerlessTemplate"`
+	VerifyTemplate     *string `yaml:"verifyTemplate"`
+	WaitTemplate       *string `yaml:"waitTemplate"`
+	InstalledTemplate  *string `yaml:"installedTemplate"`
+
 	// These settings requires helm-x integration to work
 	Dependencies          []Dependency  `yaml:"dependencies"`
 	JSONPatches           []interface{} `yaml:"jsonPatches"`

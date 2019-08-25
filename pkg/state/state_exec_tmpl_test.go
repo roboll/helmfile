@@ -1,11 +1,24 @@
 package state
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/roboll/helmfile/pkg/environment"
 )
+
+func boolPtrToString(ptr *bool) string {
+	if ptr == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("&%t", *ptr)
+}
+
+func ptr(v interface{}) interface{} {
+	r := v
+	return reflect.ValueOf(r).Addr().Interface()
+}
 
 func TestHelmState_executeTemplates(t *testing.T) {
 	tests := []struct {
@@ -49,6 +62,30 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Verify:    nil,
 				Name:      "test-chart-dev",
 				Namespace: "dev",
+			},
+		},
+		{
+			name: "Has template expressions in boolean values",
+			input: ReleaseSpec{
+				Id:                 "app",
+				Chart:              "test-chart",
+				Name:               "app-dev",
+				Namespace:          "dev",
+				InstalledTemplate:  func(i string) *string { return &i }(`{{ eq .Release.Id "app" | ternary "yes" "no" }}`),
+				VerifyTemplate:     func(i string) *string { return &i }(`{{ true }}`),
+				Verify:             func(i bool) *bool { return &i }(false),
+				WaitTemplate:       func(i string) *string { return &i }(`{{ false }}`),
+				TillerlessTemplate: func(i string) *string { return &i }(`yes`),
+			},
+			want: ReleaseSpec{
+				Id:         "app",
+				Chart:      "test-chart",
+				Name:       "app-dev",
+				Namespace:  "dev",
+				Installed:  func(i bool) *bool { return &i }(true),
+				Verify:     func(i bool) *bool { return &i }(true),
+				Wait:       func(i bool) *bool { return &i }(false),
+				Tillerless: func(i bool) *bool { return &i }(true),
 			},
 		},
 		// TODO: make complex trees work (values and set values)
@@ -131,6 +168,26 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			if !reflect.DeepEqual(actual.Version, tt.want.Version) {
 				t.Errorf("expected Version %+v, got %+v", tt.want.Version, actual.Version)
 			}
+			if !reflect.DeepEqual(actual.Installed, tt.want.Installed) {
+				t.Errorf("expected actual.Installed %+v, got %+v",
+					boolPtrToString(tt.want.Installed), boolPtrToString(actual.Installed),
+				)
+			}
+			if !reflect.DeepEqual(actual.Tillerless, tt.want.Tillerless) {
+				t.Errorf("expected actual.Tillerless %+v, got %+v",
+					boolPtrToString(tt.want.Tillerless), boolPtrToString(actual.Tillerless),
+				)
+			}
+			if !reflect.DeepEqual(actual.Verify, tt.want.Verify) {
+				t.Errorf("expected actual.Verify %+v, got %+v",
+					boolPtrToString(tt.want.Verify), boolPtrToString(actual.Verify),
+				)
+			}
+			if !reflect.DeepEqual(actual.Wait, tt.want.Wait) {
+				t.Errorf("expected actual.Wait %+v, got %+v",
+					boolPtrToString(tt.want.Wait), boolPtrToString(actual.Wait),
+				)
+			}
 		})
 	}
 }
@@ -149,6 +206,17 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 				Verify:    nil,
 				Name:      "{{ .Release.Id }}",
 				Namespace: "dev",
+			},
+		},
+		{
+			name: "Has unresolvable boolean templates",
+			input: ReleaseSpec{
+				Id:           "app",
+				Name:         "app-dev",
+				Chart:        "test-charts/app",
+				Verify:       nil,
+				Namespace:    "dev",
+				WaitTemplate: func(i string) *string { return &i }("hi"),
 			},
 		},
 	}

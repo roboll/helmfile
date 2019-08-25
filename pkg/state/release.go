@@ -56,6 +56,42 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		}
 	}
 
+	if result.WaitTemplate != nil {
+		ts := *result.WaitTemplate
+		resultTmpl, err := renderer.RenderTemplateContentToString([]byte(ts))
+		if err != nil {
+			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".version = \"%s\": %v", r.Name, ts, err)
+		}
+		result.WaitTemplate = &resultTmpl
+	}
+
+	if result.InstalledTemplate != nil {
+		ts := *result.InstalledTemplate
+		resultTmpl, err := renderer.RenderTemplateContentToString([]byte(ts))
+		if err != nil {
+			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".version = \"%s\": %v", r.Name, ts, err)
+		}
+		result.InstalledTemplate = &resultTmpl
+	}
+
+	if result.TillerlessTemplate != nil {
+		ts := *result.TillerlessTemplate
+		resultTmpl, err := renderer.RenderTemplateContentToString([]byte(ts))
+		if err != nil {
+			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".version = \"%s\": %v", r.Name, ts, err)
+		}
+		result.TillerlessTemplate = &resultTmpl
+	}
+
+	if result.VerifyTemplate != nil {
+		ts := *result.VerifyTemplate
+		resultTmpl, err := renderer.RenderTemplateContentToString([]byte(ts))
+		if err != nil {
+			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".version = \"%s\": %v", r.Name, ts, err)
+		}
+		result.VerifyTemplate = &resultTmpl
+	}
+
 	for i, t := range result.Values {
 		switch ts := t.(type) {
 		case string:
