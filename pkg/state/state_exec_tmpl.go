@@ -2,6 +2,8 @@ package state
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/pkg/maputil"
 	"github.com/roboll/helmfile/pkg/tmpl"
@@ -50,17 +52,29 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 	}
 
 	for i, rt := range st.Releases {
-		tmplData := releaseTemplateData{
-			Environment: st.Env,
-			Release:     rt,
-			Values:      vals,
+		successFlag := false
+		for it, prev := 0, &rt; it < 6; it++ {
+			tmplData := releaseTemplateData{
+				Environment: st.Env,
+				Release:     *prev,
+				Values:      vals,
+			}
+			renderer := tmpl.NewFileRenderer(st.readFile, st.basePath, tmplData)
+			r, err := rt.ExecuteTemplateExpressions(renderer)
+			if err != nil {
+				return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %v", st.FilePath, rt.Name, err)
+			}
+			if reflect.DeepEqual(prev, r) {
+				st.Releases[i] = *r
+				successFlag = true
+				break
+			}
+			prev = r
 		}
-		renderer := tmpl.NewFileRenderer(st.readFile, st.basePath, tmplData)
-		r, err := rt.ExecuteTemplateExpressions(renderer)
-		if err != nil {
-			return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %v", st.FilePath, rt.Name, err)
+		if !successFlag {
+			return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %s", st.FilePath, rt.Name,
+				"recursive references can't be resolved")
 		}
-		st.Releases[i] = *r
 	}
 
 	return &r, nil
