@@ -17,6 +17,14 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 	}
 
 	{
+		ts := result.Id
+		result.Id, err = renderer.RenderTemplateContentToString([]byte(ts))
+		if err != nil {
+			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".name = \"%s\": %v", r.Id, ts, err)
+		}
+	}
+
+	{
 		ts := result.Name
 		result.Name, err = renderer.RenderTemplateContentToString([]byte(ts))
 		if err != nil {
