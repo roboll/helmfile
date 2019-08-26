@@ -140,6 +140,14 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 			}
 			result.SetValues[i].File = s.String()
 		}
+		for j, ts := range val.Values {
+			// values
+			s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
+			if err != nil {
+				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].values[%d] = \"%s\": %v", r.Name, i, j, ts, err)
+			}
+			result.SetValues[i].Values[j] = s.String()
+		}
 	}
 
 	return result, nil
