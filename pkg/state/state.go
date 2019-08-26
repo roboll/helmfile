@@ -1600,3 +1600,11 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release ReleaseSpec) (s
 
 	return path.Join(outputDir, sb.String()), nil
 }
+
+func (st *HelmState) ToYaml() (string, error) {
+	if result, err := yaml.Marshal(st); err != nil {
+		return "", err
+	} else {
+		return string(result), nil
+	}
+}

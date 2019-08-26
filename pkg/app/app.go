@@ -158,6 +158,18 @@ func (a *App) Test(c TestConfigProvider) error {
 	})
 }
 
+func (a *App) PrintState(c StateConfigProvider) error {
+
+	return a.ForEachState(func(run *Run) []error {
+		state, err := run.state.ToYaml()
+		if err != nil {
+			return []error{err}
+		}
+		fmt.Printf("---\n#  Source: %s\n\n%+v", run.state.FilePath, state)
+		return []error{}
+	})
+}
+
 func (a *App) within(dir string, do func() error) error {
 	if dir == "." {
 		return do()
