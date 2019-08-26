@@ -3,8 +3,10 @@ package state
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/go-test/deep"
 	"github.com/roboll/helmfile/pkg/environment"
 )
 
@@ -31,7 +33,6 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			input: ReleaseSpec{
 				Chart:     "test-charts/{{ .Release.Name }}",
 				Version:   "{{ .Release.Name }}-0.1",
-				Verify:    nil,
 				Name:      "test-app",
 				Namespace: "test-namespace-{{ .Release.Name }}",
 				Values:    []interface{}{"config/{{ .Environment.Name }}/{{ .Release.Name }}/values.yaml"},
@@ -41,7 +42,6 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			want: ReleaseSpec{
 				Chart:     "test-charts/test-app",
 				Version:   "test-app-0.1",
-				Verify:    nil,
 				Name:      "test-app",
 				Namespace: "test-namespace-test-app",
 				Values:    []interface{}{"config/test_env/test-app/values.yaml"},
@@ -88,31 +88,29 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Tillerless: func(i bool) *bool { return &i }(true),
 			},
 		},
-		// {
-		// 	name: "Has template in set-values",
-		// 	input: ReleaseSpec{
-		// 		Chart:     "test-charts/chart",
-		// 		Verify:    nil,
-		// 		Name:      "app",
-		// 		Namespace: "dev",
-		// 		SetValues: []SetValue{
-		// 			SetValue{Name: "val1", Value: "{{ .Release.Name }}-val1"},
-		// 			SetValue{Name: "val2", File: "{{ .Release.Name }}.yml"},
-		// 			SetValue{Name: "val3", Values: []string{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
-		// 		},
-		// 	},
-		// 	want: ReleaseSpec{
-		// 		Chart:     "test-charts/chart",
-		// 		Verify:    nil,
-		// 		Name:      "app",
-		// 		Namespace: "dev",
-		// 		SetValues: []SetValue{
-		// 			SetValue{Name: "val1", Value: "test-app-val1"},
-		// 			SetValue{Name: "val2", File: "test-app.yml"},
-		// 			SetValue{Name: "val3", Values: []string{"test-app-val2", "test-app-val3"}},
-		// 		},
-		// 	},
-		// },
+		{
+			name: "Has template in set-values",
+			input: ReleaseSpec{
+				Chart:     "test-charts/chart",
+				Name:      "test-app",
+				Namespace: "dev",
+				SetValues: []SetValue{
+					SetValue{Name: "val1", Value: "{{ .Release.Name }}-val1"},
+					SetValue{Name: "val2", File: "{{ .Release.Name }}.yml"},
+					// SetValue{Name: "val3", Values: []string{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
+				},
+			},
+			want: ReleaseSpec{
+				Chart:     "test-charts/chart",
+				Name:      "test-app",
+				Namespace: "dev",
+				SetValues: []SetValue{
+					SetValue{Name: "val1", Value: "test-app-val1", Values: []string{}},
+					SetValue{Name: "val2", File: "test-app.yml", Values: []string{}},
+					// SetValue{Name: "val3", Values: []string{"test-app-val2", "test-app-val3"}},
+				},
+			},
+		},
 		// TODO: make complex trees work (values)
 		// {
 		// 	name: "Has template in values (map)",
@@ -168,17 +166,17 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			if !reflect.DeepEqual(actual.Namespace, tt.want.Namespace) {
 				t.Errorf("expected Namespace %+v, got %+v", tt.want.Namespace, actual.Namespace)
 			}
-			if !reflect.DeepEqual(actual.Values, tt.want.Values) && len(actual.Values) > 0 {
-				t.Errorf("expected Values %+v, got %+v", tt.want.Values, actual.Values)
+			if diff := deep.Equal(actual.Values, tt.want.Values); diff != nil && len(actual.Values) > 0 {
+				t.Errorf("Values differs \n%+v", strings.Join(diff, "\n"))
 			}
-			if !reflect.DeepEqual(actual.Secrets, tt.want.Secrets) && len(actual.Secrets) > 0 {
-				t.Errorf("expected Secrets %+v, got %+v", tt.want.Secrets, actual.Secrets)
+			if diff := deep.Equal(actual.Secrets, tt.want.Secrets); diff != nil && len(actual.Secrets) > 0 {
+				t.Errorf("Secrets differs \n%+v", strings.Join(diff, "\n"))
 			}
-			if !reflect.DeepEqual(actual.SetValues, tt.want.SetValues) && len(actual.SetValues) > 0 {
-				t.Errorf("expected SetValues %+v, got %+v", tt.want.SetValues, actual.SetValues)
+			if diff := deep.Equal(actual.SetValues, tt.want.SetValues); diff != nil && len(actual.SetValues) > 0 {
+				t.Errorf("SetValues differs \n%+v", strings.Join(diff, "\n"))
 			}
-			if !reflect.DeepEqual(actual.Labels, tt.want.Labels) && len(actual.Labels) > 0 {
-				t.Errorf("expected Labels %+v, got %+v", tt.want.Labels, actual.Labels)
+			if diff := deep.Equal(actual.Labels, tt.want.Labels); diff != nil && len(actual.Labels) > 0 {
+				t.Errorf("Labels differs \n%+v", strings.Join(diff, "\n"))
 			}
 			if !reflect.DeepEqual(actual.Version, tt.want.Version) {
 				t.Errorf("expected Version %+v, got %+v", tt.want.Version, actual.Version)

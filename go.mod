@@ -6,6 +6,7 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.1
 	github.com/Masterminds/sprig v2.20.0+incompatible
+	github.com/go-test/deep v1.0.3
 	github.com/google/go-cmp v0.3.0
 	github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c // indirect
 	github.com/hashicorp/go-getter v1.3.0
