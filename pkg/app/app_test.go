@@ -3,14 +3,20 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/state"
-	"github.com/roboll/helmfile/pkg/testhelper"
+	"gotest.tools/assert"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
+	"sync"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
+	"github.com/roboll/helmfile/pkg/testhelper"
 
 	"go.uber.org/zap"
 	"gotest.tools/env"
@@ -1937,4 +1943,110 @@ releases:
 		}
 
 	}
+}
+
+func captureStdout(f func()) string {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		panic(err)
+	}
+	stdout := os.Stdout
+	defer func() {
+		os.Stdout = stdout
+		log.SetOutput(os.Stderr)
+	}()
+	os.Stdout = writer
+	log.SetOutput(writer)
+	out := make(chan string)
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+	go func() {
+		var buf bytes.Buffer
+		wg.Done()
+		io.Copy(&buf, reader)
+		out <- buf.String()
+	}()
+	wg.Wait()
+	f()
+	writer.Close()
+	return <-out
+}
+
+func TestPrint_SingleStateFile(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+- name: myrelease2
+  chart: mychart1
+`,
+	}
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		glob:        filepath.Glob,
+		abs:         filepath.Abs,
+		KubeContext: "default",
+		Env:         "default",
+		Logger:      logger,
+		Namespace:   "testNamespace",
+	}, files)
+	out := captureStdout(func() {
+		err := app.PrintState(configImpl{})
+		assert.NilError(t, err)
+	})
+	assert.Assert(t, strings.Count(out, "---") == 1,
+		"state should contain '---' yaml doc separator:\n%s\n", out)
+	assert.Assert(t, strings.Contains(out, "helmfile.yaml"),
+		"state should contain source helmfile name:\n%s\n", out)
+	assert.Assert(t, strings.Contains(out, "name: myrelease1"),
+		"state should contain releases:\n%s\n", out)
+}
+
+func TestPrint_MultiStateFile(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+- name: myrelease2
+  chart: mychart1
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: myrelease3
+  chart: mychart1
+- name: myrelease4
+  chart: mychart1
+`,
+	}
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		glob:        filepath.Glob,
+		abs:         filepath.Abs,
+		KubeContext: "default",
+		Env:         "default",
+		Logger:      logger,
+		Namespace:   "testNamespace",
+	}, files)
+	out := captureStdout(func() {
+		err := app.PrintState(configImpl{})
+		assert.NilError(t, err)
+	})
+	assert.Assert(t, strings.Count(out, "---") == 2,
+		"state should contain '---' yaml doc separators:\n%s\n", out)
+	assert.Assert(t, strings.Contains(out, "second.yaml"),
+		"state should contain source helmfile name:\n%s\n", out)
+	assert.Assert(t, strings.Contains(out, "second.yaml"),
+		"state should contain source helmfile name:\n%s\n", out)
 }
