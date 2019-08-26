@@ -34,7 +34,8 @@ RUN mkdir -p "$(helm home)/plugins"
 RUN helm plugin install https://github.com/databus23/helm-diff && \
     helm plugin install https://github.com/futuresimple/helm-secrets && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git && \
-    helm plugin install https://github.com/aslafy-z/helm-git.git
+    helm plugin install https://github.com/aslafy-z/helm-git.git && \
+    helm plugin install https://github.com/rimusz/helm-tiller
 
 COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 
