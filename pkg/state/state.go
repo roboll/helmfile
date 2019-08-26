@@ -46,11 +46,11 @@ type HelmState struct {
 	Namespace          string            `yaml:"namespace,omitempty"`
 	Repositories       []RepositorySpec  `yaml:"repositories,omitempty"`
 	Releases           []ReleaseSpec     `yaml:"releases,omitempty"`
-	Selectors          []string          `yaml:"selectors,omitempty"`
+	Selectors          []string          `yaml:"-"`
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
-	Env environment.Environment
+	Env environment.Environment `yaml:"-"`
 
 	logger *zap.SugaredLogger
 
