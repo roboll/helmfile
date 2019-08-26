@@ -17,14 +17,6 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 	}
 
 	{
-		ts := result.Id
-		result.Id, err = renderer.RenderTemplateContentToString([]byte(ts))
-		if err != nil {
-			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".name = \"%s\": %v", r.Id, ts, err)
-		}
-	}
-
-	{
 		ts := result.Name
 		result.Name, err = renderer.RenderTemplateContentToString([]byte(ts))
 		if err != nil {
@@ -90,6 +82,15 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".version = \"%s\": %v", r.Name, ts, err)
 		}
 		result.VerifyTemplate = &resultTmpl
+	}
+
+	for key, val := range result.Labels {
+		ts := val
+		s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
+		if err != nil {
+			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".labels[%s] = \"%s\": %v", r.Name, key, ts, err)
+		}
+		result.Labels[key] = s.String()
 	}
 
 	for i, t := range result.Values {

@@ -27,7 +27,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		want  ReleaseSpec
 	}{
 		{
-			name: "Has template expressions in chart, values, secrets, set",
+			name: "Has template expressions in chart, values, secrets, version, labels",
 			input: ReleaseSpec{
 				Chart:     "test-charts/{{ .Release.Name }}",
 				Version:   "{{ .Release.Name }}-0.1",
@@ -36,6 +36,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Namespace: "test-namespace-{{ .Release.Name }}",
 				Values:    []interface{}{"config/{{ .Environment.Name }}/{{ .Release.Name }}/values.yaml"},
 				Secrets:   []string{"config/{{ .Environment.Name }}/{{ .Release.Name }}/secrets.yaml"},
+				Labels:    map[string]string{"id": "{{ .Release.Name }}"},
 			},
 			want: ReleaseSpec{
 				Chart:     "test-charts/test-app",
@@ -45,52 +46,76 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Namespace: "test-namespace-test-app",
 				Values:    []interface{}{"config/test_env/test-app/values.yaml"},
 				Secrets:   []string{"config/test_env/test-app/secrets.yaml"},
+				Labels:    map[string]string{"id": "test-app"},
 			},
 		},
 		{
-			name: "Has template expressions in name and id with recursive refs",
+			name: "Has template expressions in name with recursive refs",
 			input: ReleaseSpec{
-				Id:        "{{ .Release.Chart }}",
 				Chart:     "test-chart",
-				Verify:    nil,
-				Name:      "{{ .Release.Id }}-{{ .Release.Namespace }}",
+				Name:      "{{ .Release.Labels.id }}-{{ .Release.Namespace }}",
 				Namespace: "dev",
+				Labels:    map[string]string{"id": "{{ .Release.Chart }}"},
 			},
 			want: ReleaseSpec{
-				Id:        "test-chart",
 				Chart:     "test-chart",
-				Verify:    nil,
 				Name:      "test-chart-dev",
 				Namespace: "dev",
+				Labels:    map[string]string{"id": "test-chart"},
 			},
 		},
 		{
 			name: "Has template expressions in boolean values",
 			input: ReleaseSpec{
-				Id:                 "app",
 				Chart:              "test-chart",
 				Name:               "app-dev",
 				Namespace:          "dev",
-				InstalledTemplate:  func(i string) *string { return &i }(`{{ eq .Release.Id "app" | ternary "yes" "no" }}`),
+				Labels:             map[string]string{"id": "app"},
+				InstalledTemplate:  func(i string) *string { return &i }(`{{ eq .Release.Labels.id "app" | ternary "yes" "no" }}`),
 				VerifyTemplate:     func(i string) *string { return &i }(`{{ true }}`),
 				Verify:             func(i bool) *bool { return &i }(false),
 				WaitTemplate:       func(i string) *string { return &i }(`{{ false }}`),
 				TillerlessTemplate: func(i string) *string { return &i }(`yes`),
 			},
 			want: ReleaseSpec{
-				Id:         "app",
 				Chart:      "test-chart",
 				Name:       "app-dev",
 				Namespace:  "dev",
+				Labels:     map[string]string{"id": "app"},
 				Installed:  func(i bool) *bool { return &i }(true),
 				Verify:     func(i bool) *bool { return &i }(true),
 				Wait:       func(i bool) *bool { return &i }(false),
 				Tillerless: func(i bool) *bool { return &i }(true),
 			},
 		},
-		// TODO: make complex trees work (values and set values)
 		// {
-		// 	name: "Has template in values and set-values",
+		// 	name: "Has template in set-values",
+		// 	input: ReleaseSpec{
+		// 		Chart:     "test-charts/chart",
+		// 		Verify:    nil,
+		// 		Name:      "app",
+		// 		Namespace: "dev",
+		// 		SetValues: []SetValue{
+		// 			SetValue{Name: "val1", Value: "{{ .Release.Name }}-val1"},
+		// 			SetValue{Name: "val2", File: "{{ .Release.Name }}.yml"},
+		// 			SetValue{Name: "val3", Values: []string{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
+		// 		},
+		// 	},
+		// 	want: ReleaseSpec{
+		// 		Chart:     "test-charts/chart",
+		// 		Verify:    nil,
+		// 		Name:      "app",
+		// 		Namespace: "dev",
+		// 		SetValues: []SetValue{
+		// 			SetValue{Name: "val1", Value: "test-app-val1"},
+		// 			SetValue{Name: "val2", File: "test-app.yml"},
+		// 			SetValue{Name: "val3", Values: []string{"test-app-val2", "test-app-val3"}},
+		// 		},
+		// 	},
+		// },
+		// TODO: make complex trees work (values)
+		// {
+		// 	name: "Has template in values (map)",
 		// 	input: ReleaseSpec{
 		// 		Id:        "app",
 		// 		Chart:     "test-charts/chart",
@@ -98,11 +123,6 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		// 		Name:      "app",
 		// 		Namespace: "dev",
 		// 		Values:    []interface{}{map[string]string{"key": "{{ .Release.Name }}-val0"}},
-		// 		SetValues: []SetValue{
-		// 			SetValue{Name: "val1", Value: "{{ .Release.Name }}-val1"},
-		// 			SetValue{Name: "val2", File: "{{ .Release.Name }}.yml"},
-		// 			SetValue{Name: "val3", Values: []string{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
-		// 		},
 		// 	},
 		// 	want: ReleaseSpec{
 		// 		Id:        "app",
@@ -111,11 +131,6 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		// 		Name:      "app",
 		// 		Namespace: "dev",
 		// 		Values:    []interface{}{map[string]string{"key": "app-val0"}},
-		// 		SetValues: []SetValue{
-		// 			SetValue{Name: "val1", Value: "test-app-val1"},
-		// 			SetValue{Name: "val2", File: "test-app.yml"},
-		// 			SetValue{Name: "val3", Values: []string{"test-app-val2", "test-app-val3"}},
-		// 		},
 		// 	},
 		// },
 	}
@@ -144,9 +159,6 @@ func TestHelmState_executeTemplates(t *testing.T) {
 
 			actual := r.Releases[0]
 
-			if !reflect.DeepEqual(actual.Id, tt.want.Id) {
-				t.Errorf("expected Id %+v, got %+v", tt.want.Id, actual.Id)
-			}
 			if !reflect.DeepEqual(actual.Name, tt.want.Name) {
 				t.Errorf("expected Name %+v, got %+v", tt.want.Name, actual.Name)
 			}
@@ -164,6 +176,9 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			}
 			if !reflect.DeepEqual(actual.SetValues, tt.want.SetValues) && len(actual.SetValues) > 0 {
 				t.Errorf("expected SetValues %+v, got %+v", tt.want.SetValues, actual.SetValues)
+			}
+			if !reflect.DeepEqual(actual.Labels, tt.want.Labels) && len(actual.Labels) > 0 {
+				t.Errorf("expected Labels %+v, got %+v", tt.want.Labels, actual.Labels)
 			}
 			if !reflect.DeepEqual(actual.Version, tt.want.Version) {
 				t.Errorf("expected Version %+v, got %+v", tt.want.Version, actual.Version)
@@ -201,17 +216,16 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 		{
 			name: "Has reqursive references",
 			input: ReleaseSpec{
-				Id:        "app-{{ .Release.Name }}",
 				Chart:     "test-charts/{{ .Release.Name }}",
 				Verify:    nil,
-				Name:      "{{ .Release.Id }}",
+				Name:      "{{ .Release.Labels.id }}",
 				Namespace: "dev",
+				Labels:    map[string]string{"id": "app-{{ .Release.Name }}"},
 			},
 		},
 		{
 			name: "Has unresolvable boolean templates",
 			input: ReleaseSpec{
-				Id:           "app",
 				Name:         "app-dev",
 				Chart:        "test-charts/app",
 				Verify:       nil,
