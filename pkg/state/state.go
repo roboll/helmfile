@@ -1330,7 +1330,7 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 			return nil, err
 		}
 		if len(matches) == 0 {
-			return nil, fmt.Errorf("no file matching %s found", hf.Path)
+			continue
 		}
 		for _, match := range matches {
 			newHelmfile := hf
