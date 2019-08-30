@@ -2050,3 +2050,54 @@ releases:
 	assert.Assert(t, strings.Contains(out, "second.yaml"),
 		"state should contain source helmfile name:\n%s\n", out)
 }
+
+func TestList(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+  installed: no
+  labels:
+    id: myrelease1
+- name: myrelease2
+  chart: mychart1
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: myrelease3
+  chart: mychart1
+  installed: yes
+- name: myrelease4
+  chart: mychart1
+  labels:
+    id: myrelease1
+`,
+	}
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		glob:        filepath.Glob,
+		abs:         filepath.Abs,
+		KubeContext: "default",
+		Env:         "default",
+		Logger:      logger,
+		Namespace:   "testNamespace",
+	}, files)
+	out := captureStdout(func() {
+		err := app.ListReleases(configImpl{})
+		assert.NilError(t, err)
+	})
+
+	expected := `NAME      	NAMESPACE	INSTALLED	LABELS       
+myrelease1	         	false    	id:myrelease1
+myrelease2	         	true     	             
+myrelease3	         	true     	             
+myrelease4	         	true     	id:myrelease1
+`
+	assert.Equal(t, expected, out)
+}

@@ -394,11 +394,19 @@ func main() {
 			}),
 		},
 		{
-			Name:  "state",
-			Usage: "print compiled helmfile state(s)",
+			Name:  "build",
+			Usage: "output compiled helmfile state(s) as YAML",
 			Flags: []cli.Flag{},
 			Action: action(func(run *app.App, c configImpl) error {
 				return run.PrintState(c)
+			}),
+		},
+		{
+			Name:  "list",
+			Usage: "list releases defined in state file",
+			Flags: []cli.Flag{},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.ListReleases(c)
 			}),
 		},
 	}

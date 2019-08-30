@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/gosuri/uitable"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/state"
@@ -168,6 +169,26 @@ func (a *App) PrintState(c StateConfigProvider) error {
 		fmt.Printf("---\n#  Source: %s\n\n%+v", run.state.FilePath, state)
 		return []error{}
 	})
+}
+
+func (a *App) ListReleases(c StateConfigProvider) error {
+	table := uitable.New()
+	table.AddRow("NAME", "NAMESPACE", "INSTALLED", "LABELS")
+
+	err := a.ForEachState(func(run *Run) []error {
+		//var releases m
+		for _, r := range run.state.Releases {
+			labels := ""
+			for k, v := range r.Labels {
+				labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
+			}
+			installed := r.Installed == nil || *r.Installed
+			table.AddRow(r.Name, r.Namespace, fmt.Sprintf("%t", installed), strings.Trim(labels, ","))
+		}
+		return []error{}
+	})
+	fmt.Println(table.String())
+	return err
 }
 
 func (a *App) within(dir string, do func() error) error {
