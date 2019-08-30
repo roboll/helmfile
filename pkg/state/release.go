@@ -101,6 +101,24 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%s\": %v", r.Name, i, ts, err)
 			}
 			result.Values[i] = s.String()
+		case map[interface{}]interface{}:
+			serialized, err := yaml.Marshal(ts)
+			if err != nil {
+				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
+			}
+
+			s, err := renderer.RenderTemplateContentToBuffer([]byte(serialized))
+			if err != nil {
+				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, serialized, err)
+			}
+
+			var deserialized map[interface{}]interface{}
+
+			if err := yaml.Unmarshal(s.Bytes(), &deserialized); err != nil {
+				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
+			}
+
+			result.Values[i] = deserialized
 		}
 	}
 

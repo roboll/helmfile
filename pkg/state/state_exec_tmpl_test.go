@@ -111,26 +111,23 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				},
 			},
 		},
-		// TODO: make complex trees work (values)
-		// {
-		// 	name: "Has template in values (map)",
-		// 	input: ReleaseSpec{
-		// 		Id:        "app",
-		// 		Chart:     "test-charts/chart",
-		// 		Verify:    nil,
-		// 		Name:      "app",
-		// 		Namespace: "dev",
-		// 		Values:    []interface{}{map[string]string{"key": "{{ .Release.Name }}-val0"}},
-		// 	},
-		// 	want: ReleaseSpec{
-		// 		Id:        "app",
-		// 		Chart:     "test-charts/chart",
-		// 		Verify:    nil,
-		// 		Name:      "app",
-		// 		Namespace: "dev",
-		// 		Values:    []interface{}{map[string]string{"key": "app-val0"}},
-		// 	},
-		// },
+		{
+			name: "Has template in values (map)",
+			input: ReleaseSpec{
+				Chart:     "test-charts/chart",
+				Verify:    nil,
+				Name:      "app",
+				Namespace: "dev",
+				Values:    []interface{}{map[string]string{"key": "{{ .Release.Name }}-val0"}},
+			},
+			want: ReleaseSpec{
+				Chart:     "test-charts/chart",
+				Verify:    nil,
+				Name:      "app",
+				Namespace: "dev",
+				Values:    []interface{}{map[interface{}]interface{}{"key": "app-val0"}},
+			},
+		},
 	}
 
 	for i := range tests {
