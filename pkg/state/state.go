@@ -610,7 +610,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 		}
 
 		if len(errs) == 0 {
-			if err := helm.TemplateRelease(temp[release.Name], flags...); err != nil {
+			if err := helm.TemplateRelease(release.Name, temp[release.Name], flags...); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -675,7 +675,7 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 		}
 
 		if len(errs) == 0 {
-			if err := helm.Lint(temp[release.Name], flags...); err != nil {
+			if err := helm.Lint(release.Name, temp[release.Name], flags...); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -1060,7 +1060,7 @@ func (st *HelmState) ResolveDeps() (*HelmState, error) {
 
 // UpdateDeps wrapper for updating dependencies on the releases
 func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
-	errs := []error{}
+	var errs []error
 
 	for _, release := range st.Releases {
 		if isLocalChart(release.Chart) {
@@ -1093,7 +1093,7 @@ func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
 
 	for _, release := range st.Releases {
 		if isLocalChart(release.Chart) {
-			if err := helm.BuildDeps(normalizeChart(st.basePath, release.Chart)); err != nil {
+			if err := helm.BuildDeps(release.Name, normalizeChart(st.basePath, release.Chart)); err != nil {
 				errs = append(errs, err)
 			}
 		}

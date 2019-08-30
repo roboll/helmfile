@@ -7,13 +7,13 @@ type Interface interface {
 
 	AddRepo(name, repository, certfile, keyfile, username, password string) error
 	UpdateRepo() error
-	BuildDeps(chart string) error
+	BuildDeps(name, chart string) error
 	UpdateDeps(chart string) error
 	SyncRelease(context HelmContext, name, chart string, flags ...string) error
 	DiffRelease(context HelmContext, name, chart string, flags ...string) error
-	TemplateRelease(chart string, flags ...string) error
+	TemplateRelease(name, chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
-	Lint(chart string, flags ...string) error
+	Lint(name, chart string, flags ...string) error
 	ReleaseStatus(context HelmContext, name string, flags ...string) error
 	DeleteRelease(context HelmContext, name string, flags ...string) error
 	TestRelease(context HelmContext, name string, flags ...string) error

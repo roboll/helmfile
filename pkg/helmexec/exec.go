@@ -90,6 +90,13 @@ func (helm *execer) UpdateRepo() error {
 	return err
 }
 
+func (helm *execer) BuildDeps(name, chart string) error {
+	helm.logger.Infof("Building dependency release=%v, chart=%v", name, chart)
+	out, err := helm.exec([]string{"dependency", "build", chart}, map[string]string{})
+	helm.info(out)
+	return err
+}
+
 func (helm *execer) UpdateDeps(chart string) error {
 	helm.logger.Infof("Updating dependency %v", chart)
 	out, err := helm.exec([]string{"dependency", "update", chart}, map[string]string{})
@@ -97,15 +104,8 @@ func (helm *execer) UpdateDeps(chart string) error {
 	return err
 }
 
-func (helm *execer) BuildDeps(chart string) error {
-	helm.logger.Infof("Building dependency %v", chart)
-	out, err := helm.exec([]string{"dependency", "build", chart}, map[string]string{})
-	helm.info(out)
-	return err
-}
-
 func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
-	helm.logger.Infof("Upgrading %v", chart)
+	helm.logger.Infof("Upgrading release=%v, chart=%v", name, chart)
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", "--reset-values", name, chart), flags...), env)
@@ -199,14 +199,15 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 	return tmpFile.Name(), err
 }
 
-func (helm *execer) TemplateRelease(chart string, flags ...string) error {
-	out, err := helm.exec(append([]string{"template", chart}, flags...), map[string]string{})
+func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {
+	helm.logger.Infof("Templating release=%v, chart=%v", name, chart)
+	out, err := helm.exec(append([]string{"template", chart, "--name", name}, flags...), map[string]string{})
 	helm.write(out)
 	return err
 }
 
 func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags ...string) error {
-	helm.logger.Infof("Comparing %v %v", name, chart)
+	helm.logger.Infof("Comparing release=%v, chart=%v", name, chart)
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--reset-values", "--allow-unreleased", name, chart), flags...), env)
@@ -233,8 +234,8 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags .
 	return err
 }
 
-func (helm *execer) Lint(chart string, flags ...string) error {
-	helm.logger.Infof("Linting %v", chart)
+func (helm *execer) Lint(name, chart string, flags ...string) error {
+	helm.logger.Infof("Linting release=%v, chart=%v", name, chart)
 	out, err := helm.exec(append([]string{"lint", chart}, flags...), map[string]string{})
 	helm.write(out)
 	return err
