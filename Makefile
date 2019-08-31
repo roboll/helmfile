@@ -31,7 +31,7 @@ cross:
 
 static-linux:
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=vendor go build -o "dist/helmfile_linux_amd64" -ldflags '-X main.Version=${TAG}' ${TARGETS}
-.PHONY: linux
+.PHONY: static-linux
 
 install:
 	env CGO_ENABLED=0 go install -ldflags '-X main.Version=${TAG}' ${TARGETS}

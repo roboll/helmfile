@@ -135,7 +135,7 @@ func Test_SyncRelease(t *testing.T) {
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.SyncRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait")
-	expected := `Upgrading chart
+	expected := `Upgrading release=release, chart=chart
 exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev
 exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev: 
 `
@@ -145,7 +145,7 @@ exec: helm upgrade --install --reset-values release chart --timeout 10 --wait --
 
 	buffer.Reset()
 	helm.SyncRelease(HelmContext{}, "release", "chart")
-	expected = `Upgrading chart
+	expected = `Upgrading release=release, chart=chart
 exec: helm upgrade --install --reset-values release chart --kube-context dev
 exec: helm upgrade --install --reset-values release chart --kube-context dev: 
 `
@@ -160,7 +160,7 @@ func Test_SyncReleaseTillerless(t *testing.T) {
 	helm := MockExecer(logger, "dev")
 	helm.SyncRelease(HelmContext{Tillerless: true, TillerNamespace: "foo"}, "release", "chart",
 		"--timeout 10", "--wait")
-	expected := `Upgrading chart
+	expected := `Upgrading release=release, chart=chart
 exec: helm tiller run foo -- helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev
 exec: helm tiller run foo -- helm upgrade --install --reset-values release chart --timeout 10 --wait --kube-context dev: 
 `
@@ -198,8 +198,8 @@ func Test_BuildDeps(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.BuildDeps("./chart/foo")
-	expected := `Building dependency ./chart/foo
+	helm.BuildDeps("foo", "./chart/foo")
+	expected := `Building dependency release=foo, chart=./chart/foo
 exec: helm dependency build ./chart/foo --kube-context dev
 exec: helm dependency build ./chart/foo --kube-context dev: 
 `
@@ -209,8 +209,8 @@ exec: helm dependency build ./chart/foo --kube-context dev:
 
 	buffer.Reset()
 	helm.SetExtraArgs("--verify")
-	helm.BuildDeps("./chart/foo")
-	expected = `Building dependency ./chart/foo
+	helm.BuildDeps("foo", "./chart/foo")
+	expected = `Building dependency release=foo, chart=./chart/foo
 exec: helm dependency build ./chart/foo --verify --kube-context dev
 exec: helm dependency build ./chart/foo --verify --kube-context dev: 
 `
@@ -248,7 +248,7 @@ func Test_DiffRelease(t *testing.T) {
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.DiffRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait")
-	expected := `Comparing release chart
+	expected := `Comparing release=release, chart=chart
 exec: helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev
 exec: helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev: 
 `
@@ -258,7 +258,7 @@ exec: helm diff upgrade --reset-values --allow-unreleased release chart --timeou
 
 	buffer.Reset()
 	helm.DiffRelease(HelmContext{}, "release", "chart")
-	expected = `Comparing release chart
+	expected = `Comparing release=release, chart=chart
 exec: helm diff upgrade --reset-values --allow-unreleased release chart --kube-context dev
 exec: helm diff upgrade --reset-values --allow-unreleased release chart --kube-context dev: 
 `
@@ -272,7 +272,7 @@ func Test_DiffReleaseTillerless(t *testing.T) {
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
 	helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", "--timeout 10", "--wait")
-	expected := `Comparing release chart
+	expected := `Comparing release=release, chart=chart
 exec: helm tiller run -- helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev
 exec: helm tiller run -- helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev: 
 `
@@ -413,8 +413,8 @@ func Test_Lint(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.Lint("path/to/chart", "--values", "file.yml")
-	expected := `Linting path/to/chart
+	helm.Lint("release", "path/to/chart", "--values", "file.yml")
+	expected := `Linting release=release, chart=path/to/chart
 exec: helm lint path/to/chart --values file.yml --kube-context dev
 exec: helm lint path/to/chart --values file.yml --kube-context dev: 
 `
@@ -498,9 +498,10 @@ func Test_Template(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.TemplateRelease("path/to/chart", "--values", "file.yml")
-	expected := `exec: helm template path/to/chart --values file.yml --kube-context dev
-exec: helm template path/to/chart --values file.yml --kube-context dev: 
+	helm.TemplateRelease("release", "path/to/chart", "--values", "file.yml")
+	expected := `Templating release=release, chart=path/to/chart
+exec: helm template path/to/chart --name release --values file.yml --kube-context dev
+exec: helm template path/to/chart --name release --values file.yml --kube-context dev: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.Template()\nactual = %v\nexpect = %v", buffer.String(), expected)

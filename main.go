@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/roboll/helmfile/pkg/app"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/maputil"
@@ -9,8 +12,6 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os"
-	"strings"
 )
 
 var Version string
@@ -390,6 +391,22 @@ func main() {
 			},
 			Action: action(func(run *app.App, c configImpl) error {
 				return run.Test(c)
+			}),
+		},
+		{
+			Name:  "build",
+			Usage: "output compiled helmfile state(s) as YAML",
+			Flags: []cli.Flag{},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.PrintState(c)
+			}),
+		},
+		{
+			Name:  "list",
+			Usage: "list releases defined in state file",
+			Flags: []cli.Flag{},
+			Action: action(func(run *app.App, c configImpl) error {
+				return run.ListReleases(c)
 			}),
 		},
 	}
