@@ -153,6 +153,9 @@ type ReleaseSpec struct {
 	Secrets   []string          `yaml:"secrets,omitempty"`
 	SetValues []SetValue        `yaml:"set,omitempty"`
 
+	ValuesTemplate    []interface{} `yaml:"valuesTemplate,omitempty"`
+	SetValuesTemplate []SetValue    `yaml:"setTemplate,omitempty"`
+
 	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
 	EnvValues []SetValue `yaml:"env,omitempty"`
 

@@ -31,13 +31,13 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		{
 			name: "Has template expressions in chart, values, secrets, version, labels",
 			input: ReleaseSpec{
-				Chart:     "test-charts/{{ .Release.Name }}",
-				Version:   "{{ .Release.Name }}-0.1",
-				Name:      "test-app",
-				Namespace: "test-namespace-{{ .Release.Name }}",
-				Values:    []interface{}{"config/{{ .Environment.Name }}/{{ .Release.Name }}/values.yaml"},
-				Secrets:   []string{"config/{{ .Environment.Name }}/{{ .Release.Name }}/secrets.yaml"},
-				Labels:    map[string]string{"id": "{{ .Release.Name }}"},
+				Chart:          "test-charts/{{ .Release.Name }}",
+				Version:        "{{ .Release.Name }}-0.1",
+				Name:           "test-app",
+				Namespace:      "test-namespace-{{ .Release.Name }}",
+				ValuesTemplate: []interface{}{"config/{{ .Environment.Name }}/{{ .Release.Name }}/values.yaml"},
+				Secrets:        []string{"config/{{ .Environment.Name }}/{{ .Release.Name }}/secrets.yaml"},
+				Labels:         map[string]string{"id": "{{ .Release.Name }}"},
 			},
 			want: ReleaseSpec{
 				Chart:     "test-charts/test-app",
@@ -94,7 +94,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Chart:     "test-charts/chart",
 				Name:      "test-app",
 				Namespace: "dev",
-				SetValues: []SetValue{
+				SetValuesTemplate: []SetValue{
 					SetValue{Name: "val1", Value: "{{ .Release.Name }}-val1"},
 					SetValue{Name: "val2", File: "{{ .Release.Name }}.yml"},
 					SetValue{Name: "val3", Values: []string{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
@@ -114,11 +114,11 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		{
 			name: "Has template in values (map)",
 			input: ReleaseSpec{
-				Chart:     "test-charts/chart",
-				Verify:    nil,
-				Name:      "app",
-				Namespace: "dev",
-				Values:    []interface{}{map[string]string{"key": "{{ .Release.Name }}-val0"}},
+				Chart:          "test-charts/chart",
+				Verify:         nil,
+				Name:           "app",
+				Namespace:      "dev",
+				ValuesTemplate: []interface{}{map[string]string{"key": "{{ .Release.Name }}-val0"}},
 			},
 			want: ReleaseSpec{
 				Chart:     "test-charts/chart",
