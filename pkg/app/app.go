@@ -381,9 +381,8 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 }
 
 func (a *App) ForEachState(do func(*Run) []error) error {
+	ctx := NewContext()
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) []error {
-		ctx := NewContext()
-
 		run := NewRun(st, helm, ctx)
 
 		return do(run)
