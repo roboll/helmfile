@@ -102,7 +102,7 @@ Release Templating supports the following parts of release definition:
 - `set` block values:
   ```yaml
   # ...
-    set:
+    setTemplate:
     - name: '{{`{{ .Release.Name }}`}}'
       values: '{{`{{ .Release.Namespace }}`}}'
   # ...
@@ -110,7 +110,7 @@ Release Templating supports the following parts of release definition:
 - `values` and `secrets` file paths:
   ```yaml
   # ...
-    values:
+    valuesTemplate:
     - config/{{`{{ .Release.Name }}`}}/values.yaml
     secrets:
     - config/{{`{{ .Release.Name }}`}}/secrets.yaml
@@ -119,7 +119,7 @@ Release Templating supports the following parts of release definition:
 - inline `values` map:
   ```yaml
   # ...
-    values:
+    valuesTemplate:
     - image:
         tag: `{{ .Release.Labels.tag }}`
   # ...

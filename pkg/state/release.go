@@ -93,6 +93,33 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		result.Labels[key] = s.String()
 	}
 
+	if result.ValuesTemplate != nil && len(result.ValuesTemplate) > 0 {
+		for i, t := range result.ValuesTemplate {
+			switch ts := t.(type) {
+			case map[interface{}]interface{}:
+				serialized, err := yaml.Marshal(ts)
+				if err != nil {
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
+				}
+
+				s, err := renderer.RenderTemplateContentToBuffer([]byte(serialized))
+				if err != nil {
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, serialized, err)
+				}
+
+				var deserialized map[interface{}]interface{}
+
+				if err := yaml.Unmarshal(s.Bytes(), &deserialized); err != nil {
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
+				}
+
+				result.ValuesTemplate[i] = deserialized
+			}
+		}
+
+		result.Values = result.ValuesTemplate
+	}
+
 	for i, t := range result.Values {
 		switch ts := t.(type) {
 		case string:
@@ -101,24 +128,6 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%s\": %v", r.Name, i, ts, err)
 			}
 			result.Values[i] = s.String()
-		case map[interface{}]interface{}:
-			serialized, err := yaml.Marshal(ts)
-			if err != nil {
-				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
-			}
-
-			s, err := renderer.RenderTemplateContentToBuffer([]byte(serialized))
-			if err != nil {
-				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, serialized, err)
-			}
-
-			var deserialized map[interface{}]interface{}
-
-			if err := yaml.Unmarshal(s.Bytes(), &deserialized); err != nil {
-				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
-			}
-
-			result.Values[i] = deserialized
 		}
 	}
 
@@ -130,42 +139,46 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		result.Secrets[i] = s.String()
 	}
 
-	for i, val := range result.SetValues {
-		{
-			// name
-			ts := val.Name
-			s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
-			if err != nil {
-				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].name = \"%s\": %v", r.Name, i, ts, err)
+	if result.SetValuesTemplate != nil && len(result.SetValuesTemplate) > 0 {
+		for i, val := range result.SetValuesTemplate {
+			{
+				// name
+				ts := val.Name
+				s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
+				if err != nil {
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].name = \"%s\": %v", r.Name, i, ts, err)
+				}
+				result.SetValuesTemplate[i].Name = s.String()
 			}
-			result.SetValues[i].Name = s.String()
-		}
-		{
-			// value
-			ts := val.Value
-			s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
-			if err != nil {
-				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].value = \"%s\": %v", r.Name, i, ts, err)
+			{
+				// value
+				ts := val.Value
+				s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
+				if err != nil {
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].value = \"%s\": %v", r.Name, i, ts, err)
+				}
+				result.SetValuesTemplate[i].Value = s.String()
 			}
-			result.SetValues[i].Value = s.String()
-		}
-		{
-			// file
-			ts := val.File
-			s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
-			if err != nil {
-				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].file = \"%s\": %v", r.Name, i, ts, err)
+			{
+				// file
+				ts := val.File
+				s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
+				if err != nil {
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].file = \"%s\": %v", r.Name, i, ts, err)
+				}
+				result.SetValuesTemplate[i].File = s.String()
 			}
-			result.SetValues[i].File = s.String()
-		}
-		for j, ts := range val.Values {
-			// values
-			s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
-			if err != nil {
-				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].values[%d] = \"%s\": %v", r.Name, i, j, ts, err)
+			for j, ts := range val.Values {
+				// values
+				s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
+				if err != nil {
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].values[%d] = \"%s\": %v", r.Name, i, j, ts, err)
+				}
+				result.SetValuesTemplate[i].Values[j] = s.String()
 			}
-			result.SetValues[i].Values[j] = s.String()
 		}
+
+		result.SetValues = result.SetValuesTemplate
 	}
 
 	return result, nil
