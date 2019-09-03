@@ -26,12 +26,12 @@ integration:
 .PHONY: integration
 
 cross:
-	env CGO_ENABLED=0 gox -os '!freebsd !netbsd' -arch '!arm' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -os '!openbsd !freebsd !netbsd' -arch '!arm !mips !mipsle !mips64 !mips64le !s390x' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X main.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "dist/helmfile_linux_amd64" -ldflags '-X main.Version=${TAG}' ${TARGETS}
-.PHONY: linux
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=vendor go build -o "dist/helmfile_linux_amd64" -ldflags '-X main.Version=${TAG}' ${TARGETS}
+.PHONY: static-linux
 
 install:
 	env CGO_ENABLED=0 go install -ldflags '-X main.Version=${TAG}' ${TARGETS}

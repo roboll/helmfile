@@ -34,23 +34,23 @@ type HelmState struct {
 	FilePath string
 
 	// DefaultValues is the default values to be overrode by environment values and command-line overrides
-	DefaultValues []interface{} `yaml:"values"`
+	DefaultValues []interface{} `yaml:"values,omitempty"`
 
-	Environments map[string]EnvironmentSpec `yaml:"environments"`
+	Environments map[string]EnvironmentSpec `yaml:"environments,omitempty"`
 
-	Bases              []string          `yaml:"bases"`
-	HelmDefaults       HelmSpec          `yaml:"helmDefaults"`
-	Helmfiles          []SubHelmfileSpec `yaml:"helmfiles"`
-	DeprecatedContext  string            `yaml:"context"`
-	DeprecatedReleases []ReleaseSpec     `yaml:"charts"`
-	Namespace          string            `yaml:"namespace"`
-	Repositories       []RepositorySpec  `yaml:"repositories"`
-	Releases           []ReleaseSpec     `yaml:"releases"`
-	Selectors          []string
+	Bases              []string          `yaml:"bases,omitempty"`
+	HelmDefaults       HelmSpec          `yaml:"helmDefaults,omitempty"`
+	Helmfiles          []SubHelmfileSpec `yaml:"helmfiles,omitempty"`
+	DeprecatedContext  string            `yaml:"context,omitempty"`
+	DeprecatedReleases []ReleaseSpec     `yaml:"charts,omitempty"`
+	Namespace          string            `yaml:"namespace,omitempty"`
+	Repositories       []RepositorySpec  `yaml:"repositories,omitempty"`
+	Releases           []ReleaseSpec     `yaml:"releases,omitempty"`
+	Selectors          []string          `yaml:"-"`
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
-	Env environment.Environment
+	Env environment.Environment `yaml:"-"`
 
 	logger *zap.SugaredLogger
 
@@ -62,27 +62,31 @@ type HelmState struct {
 	tempDir    func(string, string) (string, error)
 
 	runner helmexec.Runner
+	helm   helmexec.Interface
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options
 type SubHelmfileSpec struct {
-	Path               string   //path or glob pattern for the sub helmfiles
-	Selectors          []string //chosen selectors for the sub helmfiles
-	SelectorsInherited bool     //do the sub helmfiles inherits from parent selectors
+	//path or glob pattern for the sub helmfiles
+	Path string `yaml:"path,omitempty"`
+	//chosen selectors for the sub helmfiles
+	Selectors []string `yaml:"selectors,omitempty"`
+	//do the sub helmfiles inherits from parent selectors
+	SelectorsInherited bool `yaml:"selectorsInherited,omitempty"`
 
 	Environment SubhelmfileEnvironmentSpec
 }
 
 type SubhelmfileEnvironmentSpec struct {
-	OverrideValues []interface{} `yaml:"values"`
+	OverrideValues []interface{} `yaml:"values,omitempty"`
 }
 
 // HelmSpec to defines helmDefault values
 type HelmSpec struct {
-	KubeContext     string   `yaml:"kubeContext"`
-	TillerNamespace string   `yaml:"tillerNamespace"`
+	KubeContext     string   `yaml:"kubeContext,omitempty"`
+	TillerNamespace string   `yaml:"tillerNamespace,omitempty"`
 	Tillerless      bool     `yaml:"tillerless"`
-	Args            []string `yaml:"args"`
+	Args            []string `yaml:"args,omitempty"`
 	Verify          bool     `yaml:"verify"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
@@ -98,77 +102,86 @@ type HelmSpec struct {
 	Atomic bool `yaml:"atomic"`
 
 	TLS       bool   `yaml:"tls"`
-	TLSCACert string `yaml:"tlsCACert"`
-	TLSKey    string `yaml:"tlsKey"`
-	TLSCert   string `yaml:"tlsCert"`
+	TLSCACert string `yaml:"tlsCACert,omitempty"`
+	TLSKey    string `yaml:"tlsKey,omitempty"`
+	TLSCert   string `yaml:"tlsCert,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
 type RepositorySpec struct {
-	Name     string `yaml:"name"`
-	URL      string `yaml:"url"`
-	CertFile string `yaml:"certFile"`
-	KeyFile  string `yaml:"keyFile"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	Name     string `yaml:"name,omitempty"`
+	URL      string `yaml:"url,omitempty"`
+	CertFile string `yaml:"certFile,omitempty"`
+	KeyFile  string `yaml:"keyFile,omitempty"`
+	Username string `yaml:"username,omitempty"`
+	Password string `yaml:"password,omitempty"`
 }
 
 // ReleaseSpec defines the structure of a helm release
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
-	Chart   string `yaml:"chart"`
-	Version string `yaml:"version"`
-	Verify  *bool  `yaml:"verify"`
+	Chart   string `yaml:"chart,omitempty"`
+	Version string `yaml:"version,omitempty"`
+	Verify  *bool  `yaml:"verify,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
-	Devel *bool `yaml:"devel"`
+	Devel *bool `yaml:"devel,omitempty"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
-	Wait *bool `yaml:"wait"`
+	Wait *bool `yaml:"wait,omitempty"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
-	Timeout *int `yaml:"timeout"`
+	Timeout *int `yaml:"timeout,omitempty"`
 	// RecreatePods, when set to true, instruct helmfile to perform pods restart for the resource if applicable
-	RecreatePods *bool `yaml:"recreatePods"`
+	RecreatePods *bool `yaml:"recreatePods,omitempty"`
 	// Force, when set to true, forces resource update through delete/recreate if needed
-	Force *bool `yaml:"force"`
+	Force *bool `yaml:"force,omitempty"`
 	// Installed, when set to true, `delete --purge` the release
-	Installed *bool `yaml:"installed"`
+	Installed *bool `yaml:"installed,omitempty"`
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
-	Atomic *bool `yaml:"atomic"`
+	Atomic *bool `yaml:"atomic,omitempty"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
-	MissingFileHandler *string `yaml:"missingFileHandler"`
+	MissingFileHandler *string `yaml:"missingFileHandler,omitempty"`
 
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
-	Hooks []event.Hook `yaml:"hooks"`
+	Hooks []event.Hook `yaml:"hooks,omitempty"`
 
 	// Name is the name of this release
-	Name      string            `yaml:"name"`
-	Namespace string            `yaml:"namespace"`
-	Labels    map[string]string `yaml:"labels"`
-	Values    []interface{}     `yaml:"values"`
-	Secrets   []string          `yaml:"secrets"`
-	SetValues []SetValue        `yaml:"set"`
+	Name      string            `yaml:"name,omitempty"`
+	Namespace string            `yaml:"namespace,omitempty"`
+	Labels    map[string]string `yaml:"labels,omitempty"`
+	Values    []interface{}     `yaml:"values,omitempty"`
+	Secrets   []string          `yaml:"secrets,omitempty"`
+	SetValues []SetValue        `yaml:"set,omitempty"`
+
+	ValuesTemplate    []interface{} `yaml:"valuesTemplate,omitempty"`
+	SetValuesTemplate []SetValue    `yaml:"setTemplate,omitempty"`
 
 	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
-	EnvValues []SetValue `yaml:"env"`
+	EnvValues []SetValue `yaml:"env,omitempty"`
 
-	ValuesPathPrefix string `yaml:"valuesPathPrefix"`
+	ValuesPathPrefix string `yaml:"valuesPathPrefix,omitempty"`
 
-	TillerNamespace string `yaml:"tillerNamespace"`
-	Tillerless      *bool  `yaml:"tillerless"`
+	TillerNamespace string `yaml:"tillerNamespace,omitempty"`
+	Tillerless      *bool  `yaml:"tillerless,omitempty"`
 
-	KubeContext string `yaml:"kubeContext"`
+	KubeContext string `yaml:"kubeContext,omitempty"`
 
-	TLS       *bool  `yaml:"tls"`
-	TLSCACert string `yaml:"tlsCACert"`
-	TLSKey    string `yaml:"tlsKey"`
-	TLSCert   string `yaml:"tlsCert"`
+	TLS       *bool  `yaml:"tls,omitempty"`
+	TLSCACert string `yaml:"tlsCACert,omitempty"`
+	TLSKey    string `yaml:"tlsKey,omitempty"`
+	TLSCert   string `yaml:"tlsCert,omitempty"`
+
+	// These values are used in templating
+	TillerlessTemplate *string `yaml:"tillerlessTemplate,omitempty"`
+	VerifyTemplate     *string `yaml:"verifyTemplate,omitempty"`
+	WaitTemplate       *string `yaml:"waitTemplate,omitempty"`
+	InstalledTemplate  *string `yaml:"installedTemplate,omitempty"`
 
 	// These settings requires helm-x integration to work
-	Dependencies          []Dependency  `yaml:"dependencies"`
-	JSONPatches           []interface{} `yaml:"jsonPatches"`
-	StrategicMergePatches []interface{} `yaml:"strategicMergePatches"`
-	Adopt                 []string      `yaml:"adopt"`
+	Dependencies          []Dependency  `yaml:"dependencies,omitempty"`
+	JSONPatches           []interface{} `yaml:"jsonPatches,omitempty"`
+	StrategicMergePatches []interface{} `yaml:"strategicMergePatches,omitempty"`
+	Adopt                 []string      `yaml:"adopt,omitempty"`
 
 	// generatedValues are values that need cleaned up on exit
 	generatedValues []string
@@ -178,10 +191,10 @@ type ReleaseSpec struct {
 
 // SetValue are the key values to set on a helm release
 type SetValue struct {
-	Name   string   `yaml:"name"`
-	Value  string   `yaml:"value"`
-	File   string   `yaml:"file"`
-	Values []string `yaml:"values"`
+	Name   string   `yaml:"name,omitempty"`
+	Value  string   `yaml:"value,omitempty"`
+	File   string   `yaml:"file,omitempty"`
+	Values []string `yaml:"values,omitempty"`
 }
 
 // AffectedReleases hold the list of released that where updated, deleted, or in error
@@ -569,6 +582,8 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			continue
 		}
 
+		st.applyDefaultsTo(&release)
+
 		flags, err := st.flagsForTemplate(helm, &release, 0)
 		if err != nil {
 			errs = append(errs, err)
@@ -598,7 +613,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 		}
 
 		if len(errs) == 0 {
-			if err := helm.TemplateRelease(temp[release.Name], flags...); err != nil {
+			if err := helm.TemplateRelease(release.Name, temp[release.Name], flags...); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -663,7 +678,7 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 		}
 
 		if len(errs) == 0 {
-			if err := helm.Lint(temp[release.Name], flags...); err != nil {
+			if err := helm.Lint(release.Name, temp[release.Name], flags...); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -1048,7 +1063,7 @@ func (st *HelmState) ResolveDeps() (*HelmState, error) {
 
 // UpdateDeps wrapper for updating dependencies on the releases
 func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
-	errs := []error{}
+	var errs []error
 
 	for _, release := range st.Releases {
 		if isLocalChart(release.Chart) {
@@ -1081,7 +1096,7 @@ func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
 
 	for _, release := range st.Releases {
 		if isLocalChart(release.Chart) {
-			if err := helm.BuildDeps(normalizeChart(st.basePath, release.Chart)); err != nil {
+			if err := helm.BuildDeps(release.Name, normalizeChart(st.basePath, release.Chart)); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -1590,4 +1605,12 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release ReleaseSpec) (s
 	sb.WriteString(release.Name)
 
 	return path.Join(outputDir, sb.String()), nil
+}
+
+func (st *HelmState) ToYaml() (string, error) {
+	if result, err := yaml.Marshal(st); err != nil {
+		return "", err
+	} else {
+		return string(result), nil
+	}
 }

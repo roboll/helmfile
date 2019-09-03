@@ -2,15 +2,17 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/remote"
-	"github.com/roboll/helmfile/pkg/state"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/gosuri/uitable"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
+	"github.com/roboll/helmfile/pkg/state"
 
 	"go.uber.org/zap"
 
@@ -157,6 +159,38 @@ func (a *App) Test(c TestConfigProvider) error {
 	})
 }
 
+func (a *App) PrintState(c StateConfigProvider) error {
+
+	return a.ForEachState(func(run *Run) []error {
+		state, err := run.state.ToYaml()
+		if err != nil {
+			return []error{err}
+		}
+		fmt.Printf("---\n#  Source: %s\n\n%+v", run.state.FilePath, state)
+		return []error{}
+	})
+}
+
+func (a *App) ListReleases(c StateConfigProvider) error {
+	table := uitable.New()
+	table.AddRow("NAME", "NAMESPACE", "INSTALLED", "LABELS")
+
+	err := a.ForEachState(func(run *Run) []error {
+		//var releases m
+		for _, r := range run.state.Releases {
+			labels := ""
+			for k, v := range r.Labels {
+				labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
+			}
+			installed := r.Installed == nil || *r.Installed
+			table.AddRow(r.Name, r.Namespace, fmt.Sprintf("%t", installed), strings.Trim(labels, ","))
+		}
+		return []error{}
+	})
+	fmt.Println(table.String())
+	return err
+}
+
 func (a *App) within(dir string, do func() error) error {
 	if dir == "." {
 		return do()
@@ -239,6 +273,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		Reverse:     a.Reverse,
 		KubeContext: a.KubeContext,
 		glob:        a.glob,
+		helm:        a.helmExecer,
 	}
 
 	var op LoadOpts
@@ -346,9 +381,8 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 }
 
 func (a *App) ForEachState(do func(*Run) []error) error {
+	ctx := NewContext()
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) []error {
-		ctx := NewContext()
-
 		run := NewRun(st, helm, ctx)
 
 		return do(run)

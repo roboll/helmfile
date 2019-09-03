@@ -706,7 +706,7 @@ func (helm *mockHelmExec) UpdateDeps(chart string) error {
 	return nil
 }
 
-func (helm *mockHelmExec) BuildDeps(chart string) error {
+func (helm *mockHelmExec) BuildDeps(name, chart string) error {
 	if strings.Contains(chart, "error") {
 		return errors.New("error")
 	}
@@ -769,10 +769,10 @@ func (helm *mockHelmExec) TestRelease(context helmexec.HelmContext, name string,
 func (helm *mockHelmExec) Fetch(chart string, flags ...string) error {
 	return nil
 }
-func (helm *mockHelmExec) Lint(chart string, flags ...string) error {
+func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
 	return nil
 }
-func (helm *mockHelmExec) TemplateRelease(chart string, flags ...string) error {
+func (helm *mockHelmExec) TemplateRelease(name, chart string, flags ...string) error {
 	return nil
 }
 func TestHelmState_SyncRepos(t *testing.T) {

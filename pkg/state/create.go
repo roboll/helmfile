@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/maputil"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"io"
-	"os"
 )
 
 type StateLoadError struct {
@@ -37,13 +38,14 @@ type StateCreator struct {
 	fileExists func(string) (bool, error)
 	abs        func(string) (string, error)
 	glob       func(string) ([]string, error)
+	helm       helmexec.Interface
 
 	Strict bool
 
 	LoadFile func(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error)) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), helm helmexec.Interface) *StateCreator {
 	return &StateCreator{
 		logger:     logger,
 		readFile:   readFile,
@@ -51,6 +53,7 @@ func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error)
 		abs:        abs,
 		glob:       glob,
 		Strict:     true,
+		helm:       helm,
 	}
 }
 
@@ -60,6 +63,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	state.FilePath = file
 	state.basePath = baseDir
+	state.helm = c.helm
 
 	decoder := yaml.NewDecoder(bytes.NewReader(content))
 	if !c.Strict {
@@ -185,9 +189,6 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 		}
 
 		if len(envSpec.Secrets) > 0 {
-			helm := helmexec.New(st.logger, "", &helmexec.ShellRunner{
-				Logger: st.logger,
-			})
 
 			var envSecretFiles []string
 			for _, urlOrPath := range envSpec.Secrets {
@@ -201,40 +202,8 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 
 				envSecretFiles = append(envSecretFiles, resolved...)
 			}
-
-			for _, path := range envSecretFiles {
-				// Work-around to allow decrypting environment secrets
-				//
-				// We don't have releases loaded yet and therefore unable to decide whether
-				// helmfile should use helm-tiller to call helm-secrets or not.
-				//
-				// This means that, when you use environment secrets + tillerless setup, you still need a tiller
-				// installed on the cluster, just for decrypting secrets!
-				// Related: https://github.com/futuresimple/helm-secrets/issues/83
-				release := &ReleaseSpec{}
-				flags := st.appendConnectionFlags([]string{}, release)
-				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), path, flags...)
-				if err != nil {
-					return nil, err
-				}
-				bytes, err := readFile(decFile)
-				if err != nil {
-					return nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err)
-				}
-				m := map[string]interface{}{}
-				if err := yaml.Unmarshal(bytes, &m); err != nil {
-					return nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err)
-				}
-				// All the nested map key should be string. Otherwise we get strange errors due to that
-				// mergo or reflect is unable to merge map[interface{}]interface{} with map[string]interface{} or vice versa.
-				// See https://github.com/roboll/helmfile/issues/677
-				vals, err := maputil.CastKeysToStrings(m)
-				if err != nil {
-					return nil, err
-				}
-				if err := mergo.Merge(&envVals, &vals, mergo.WithOverride); err != nil {
-					return nil, fmt.Errorf("failed to load \"%s\": %v", path, err)
-				}
+			if err = st.scatterGatherEnvSecretFiles(envSecretFiles, envVals, readFile); err != nil {
+				return nil, err
 			}
 		}
 	} else if ctxEnv == nil && name != DefaultEnv {
@@ -254,6 +223,83 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 	}
 
 	return newEnv, nil
+}
+
+func (st *HelmState) scatterGatherEnvSecretFiles(envSecretFiles []string, envVals map[string]interface{}, readFile func(string) ([]byte, error)) error {
+	var errs []error
+
+	inputs := envSecretFiles
+	inputsSize := len(inputs)
+
+	type secretResult struct {
+		result map[string]interface{}
+		err    error
+		path   string
+	}
+
+	secrets := make(chan string, inputsSize)
+	results := make(chan secretResult, inputsSize)
+	helm := st.helm
+
+	st.scatterGather(0, inputsSize,
+		func() {
+			for _, secretFile := range envSecretFiles {
+				secrets <- secretFile
+			}
+			close(secrets)
+		},
+		func(id int) {
+			for path := range secrets {
+				release := &ReleaseSpec{}
+				flags := st.appendConnectionFlags([]string{}, release)
+				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), path, flags...)
+				if err != nil {
+					results <- secretResult{nil, err, path}
+					continue
+				}
+				bytes, err := readFile(decFile)
+				if err != nil {
+					results <- secretResult{nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err), path}
+					continue
+				}
+				m := map[string]interface{}{}
+				if err := yaml.Unmarshal(bytes, &m); err != nil {
+					results <- secretResult{nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err), path}
+					continue
+				}
+				// All the nested map key should be string. Otherwise we get strange errors due to that
+				// mergo or reflect is unable to merge map[interface{}]interface{} with map[string]interface{} or vice versa.
+				// See https://github.com/roboll/helmfile/issues/677
+				vals, err := maputil.CastKeysToStrings(m)
+				if err != nil {
+					results <- secretResult{nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err), path}
+					continue
+				}
+				results <- secretResult{vals, nil, path}
+			}
+		},
+		func() {
+			for i := 0; i < inputsSize; i++ {
+				result := <-results
+				if result.err != nil {
+					errs = append(errs, result.err)
+				} else {
+					if err := mergo.Merge(&envVals, &result.result, mergo.WithOverride); err != nil {
+						errs = append(errs, fmt.Errorf("failed to load environment secrets file \"%s\": %v", result.path, err))
+					}
+				}
+			}
+			close(results)
+		},
+	)
+
+	if len(errs) > 1 {
+		for _, err := range errs {
+			st.logger.Error(err)
+		}
+		return fmt.Errorf("Failed loading environment secrets with %d errors", len(errs))
+	}
+	return nil
 }
 
 func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []interface{}) (map[string]interface{}, error) {

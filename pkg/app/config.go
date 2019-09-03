@@ -120,6 +120,9 @@ type StatusesConfigProvider interface {
 	concurrencyConfig
 }
 
+type StateConfigProvider interface {
+}
+
 type concurrencyConfig interface {
 	Concurrency() int
 }

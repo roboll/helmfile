@@ -2,10 +2,11 @@ package app
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
-	"strings"
 )
 
 type Run struct {

@@ -89,6 +89,42 @@ releases:
   <<: *default
 ```
 
+Release Templating supports the following parts of release definition:
+- basic fields: `name`, `namespace`, `chart`, `version`
+- boolean fields: `installed`, `wait`, `tillerless`, `verify` by the means of additional text
+  fields designed for templating only: `installedTemplate`, `waitTemplate`, `tillerlessTemplate`, `verifyTemplate`
+  ```yaml
+  # ...
+    installedTemplate: '{{`{{ eq .Release.Namespace "kube-system" }}`}}'
+    waitTemplate: '{{`{{ eq .Release.Labels.tag "safe" | not }}`}}'
+  # ...
+  ```
+- `set` block values:
+  ```yaml
+  # ...
+    setTemplate:
+    - name: '{{`{{ .Release.Name }}`}}'
+      values: '{{`{{ .Release.Namespace }}`}}'
+  # ...
+  ```
+- `values` and `secrets` file paths:
+  ```yaml
+  # ...
+    valuesTemplate:
+    - config/{{`{{ .Release.Name }}`}}/values.yaml
+    secrets:
+    - config/{{`{{ .Release.Name }}`}}/secrets.yaml
+  # ...
+  ```
+- inline `values` map:
+  ```yaml
+  # ...
+    valuesTemplate:
+    - image:
+        tag: `{{ .Release.Labels.tag }}`
+  # ...
+  ```
+
 See the [issue 428](https://github.com/roboll/helmfile/issues/428) for more context on how this is supposed to work.
 
 ## Layering State Files

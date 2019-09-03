@@ -3,14 +3,20 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/state"
-	"github.com/roboll/helmfile/pkg/testhelper"
+	"gotest.tools/assert"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
+	"sync"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
+	"github.com/roboll/helmfile/pkg/testhelper"
 
 	"go.uber.org/zap"
 	"gotest.tools/env"
@@ -1840,7 +1846,7 @@ type mockTemplates struct {
 	flags []string
 }
 
-func (helm *mockHelmExec) TemplateRelease(chart string, flags ...string) error {
+func (helm *mockHelmExec) TemplateRelease(name, chart string, flags ...string) error {
 	helm.templated = append(helm.templated, mockTemplates{flags: flags})
 	return nil
 }
@@ -1849,7 +1855,7 @@ func (helm *mockHelmExec) UpdateDeps(chart string) error {
 	return nil
 }
 
-func (helm *mockHelmExec) BuildDeps(chart string) error {
+func (helm *mockHelmExec) BuildDeps(name, chart string) error {
 	return nil
 }
 
@@ -1889,7 +1895,7 @@ func (helm *mockHelmExec) TestRelease(context helmexec.HelmContext, name string,
 func (helm *mockHelmExec) Fetch(chart string, flags ...string) error {
 	return nil
 }
-func (helm *mockHelmExec) Lint(chart string, flags ...string) error {
+func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
 	return nil
 }
 
@@ -1906,8 +1912,8 @@ releases:
 
 	var helm = &mockHelmExec{}
 	var wantReleases = []mockTemplates{
-		{[]string{"--name", "myrelease1", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
-		{[]string{"--name", "myrelease2", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
+		{[]string{"--name", "myrelease1", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{[]string{"--name", "myrelease2", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
 	}
 
 	var buffer bytes.Buffer
@@ -1920,12 +1926,13 @@ releases:
 		Env:         "default",
 		Logger:      logger,
 		helmExecer:  helm,
+		Namespace:   "testNamespace",
 	}, files)
 	app.Template(configImpl{})
 
 	for i := range wantReleases {
 		for j := range wantReleases[i].flags {
-			if j == 3 {
+			if j == 5 {
 				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
 				if !matched {
 					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
@@ -1936,5 +1943,161 @@ releases:
 		}
 
 	}
+}
 
+func captureStdout(f func()) string {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		panic(err)
+	}
+	stdout := os.Stdout
+	defer func() {
+		os.Stdout = stdout
+		log.SetOutput(os.Stderr)
+	}()
+	os.Stdout = writer
+	log.SetOutput(writer)
+	out := make(chan string)
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+	go func() {
+		var buf bytes.Buffer
+		wg.Done()
+		io.Copy(&buf, reader)
+		out <- buf.String()
+	}()
+	wg.Wait()
+	f()
+	writer.Close()
+	return <-out
+}
+
+func TestPrint_SingleStateFile(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+- name: myrelease2
+  chart: mychart1
+`,
+	}
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		glob:        filepath.Glob,
+		abs:         filepath.Abs,
+		KubeContext: "default",
+		Env:         "default",
+		Logger:      logger,
+		Namespace:   "testNamespace",
+	}, files)
+	out := captureStdout(func() {
+		err := app.PrintState(configImpl{})
+		assert.NilError(t, err)
+	})
+	assert.Assert(t, strings.Count(out, "---") == 1,
+		"state should contain '---' yaml doc separator:\n%s\n", out)
+	assert.Assert(t, strings.Contains(out, "helmfile.yaml"),
+		"state should contain source helmfile name:\n%s\n", out)
+	assert.Assert(t, strings.Contains(out, "name: myrelease1"),
+		"state should contain releases:\n%s\n", out)
+}
+
+func TestPrint_MultiStateFile(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+- name: myrelease2
+  chart: mychart1
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: myrelease3
+  chart: mychart1
+- name: myrelease4
+  chart: mychart1
+`,
+	}
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		glob:        filepath.Glob,
+		abs:         filepath.Abs,
+		KubeContext: "default",
+		Env:         "default",
+		Logger:      logger,
+		Namespace:   "testNamespace",
+	}, files)
+	out := captureStdout(func() {
+		err := app.PrintState(configImpl{})
+		assert.NilError(t, err)
+	})
+	assert.Assert(t, strings.Count(out, "---") == 2,
+		"state should contain '---' yaml doc separators:\n%s\n", out)
+	assert.Assert(t, strings.Contains(out, "second.yaml"),
+		"state should contain source helmfile name:\n%s\n", out)
+	assert.Assert(t, strings.Contains(out, "second.yaml"),
+		"state should contain source helmfile name:\n%s\n", out)
+}
+
+func TestList(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+  installed: no
+  labels:
+    id: myrelease1
+- name: myrelease2
+  chart: mychart1
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: myrelease3
+  chart: mychart1
+  installed: yes
+- name: myrelease4
+  chart: mychart1
+  labels:
+    id: myrelease1
+`,
+	}
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		glob:        filepath.Glob,
+		abs:         filepath.Abs,
+		KubeContext: "default",
+		Env:         "default",
+		Logger:      logger,
+		Namespace:   "testNamespace",
+	}, files)
+	out := captureStdout(func() {
+		err := app.ListReleases(configImpl{})
+		assert.NilError(t, err)
+	})
+
+	expected := `NAME      	NAMESPACE	INSTALLED	LABELS       
+myrelease1	         	false    	id:myrelease1
+myrelease2	         	true     	             
+myrelease3	         	true     	             
+myrelease4	         	true     	id:myrelease1
+`
+	assert.Equal(t, expected, out)
 }
