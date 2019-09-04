@@ -22,3 +22,5 @@ require (
 	gopkg.in/yaml.v2 v2.2.1
 	gotest.tools v2.2.0+incompatible
 )
+
+replace git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
