@@ -668,7 +668,7 @@ releases:
 The `{{ .Values.foo }}` syntax is the recommended way of using environment values.
 
 Prior to this [pull request](https://github.com/roboll/helmfile/pull/647), environment values were made available through the `{{ .Environment.Values.foo }}` syntax.
-This syntax is still working but is **deprecated** and the new `{{ .Values.foo }}` syntax should be used instead.
+This is still working but is **deprecated** and the new `{{ .Values.foo }}` syntax should be used instead.
 
 You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
 
