@@ -102,7 +102,7 @@ Release Templating supports the following parts of release definition:
 - `set` block values:
   ```yaml
   # ...
-    set:
+    setTemplate:
     - name: '{{`{{ .Release.Name }}`}}'
       values: '{{`{{ .Release.Namespace }}`}}'
   # ...
@@ -110,7 +110,7 @@ Release Templating supports the following parts of release definition:
 - `values` and `secrets` file paths:
   ```yaml
   # ...
-    values:
+    valuesTemplate:
     - config/{{`{{ .Release.Name }}`}}/values.yaml
     secrets:
     - config/{{`{{ .Release.Name }}`}}/secrets.yaml
@@ -124,9 +124,9 @@ Release Templating supports the following parts of release definition:
         tag: `{{ .Release.Labels.tag }}`
   # ...
   ```
-Please note, that it is not possible to layer `values` sections. If you define `values` both in the template and in the release, only the `values` defined in the release will be considered. The same applies to `secrets` and `set`.
-
 See the [issue 428](https://github.com/roboll/helmfile/issues/428) for more context on how this is supposed to work.
+
+Please note, that it is not possible to layer `values` sections. If `values` is defined in the release and in the release template, only the `values` defined in the release will be considered. The same applies to `secrets` and `set`.
 
 ## Layering State Files
 
