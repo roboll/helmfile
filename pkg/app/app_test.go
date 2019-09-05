@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"gotest.tools/assert"
 	"io"
 	"log"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"gotest.tools/assert"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
@@ -691,8 +692,8 @@ environments:
 releases:
 - name: foo
   chart: stable/zipkin
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
-  namespace: {{ .Environment.Values.ns }}
+  tillerNamespace: {{ .Values.tillerNs }}
+  namespace: {{ .Values.ns }}
 `,
 		"/path/to/helmfile.d/b.yaml": `
 environments:
@@ -703,8 +704,8 @@ environments:
 releases:
 - name: bar
   chart: stable/grafana
-  tillerNamespace:  {{ .Environment.Values.tillerNs }}
-  namespace: {{ .Environment.Values.ns }}
+  tillerNamespace:  {{ .Values.tillerNs }}
+  namespace: {{ .Values.ns }}
 `,
 		"/path/to/helmfile.d/c.yaml": `
 environments:
@@ -715,8 +716,8 @@ environments:
 releases:
 - name: baz
   chart: stable/envoy
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
-  namespace: {{ .Environment.Values.ns }}
+  tillerNamespace: {{ .Values.tillerNs }}
+  namespace: {{ .Values.ns }}
 `,
 		"/path/to/env.values.yaml": `
 tillerNs: INLINE_TILLER_NS_2
@@ -857,7 +858,7 @@ environments:
     - values.yaml
 ---
 releases:
-- name: {{ .Environment.Values.foo }}-{{ .Environment.Values.bar }}-{{ .Environment.Values.baz }}
+- name: {{ .Values.foo }}-{{ .Values.bar }}-{{ .Values.baz }}
   chart: stable/zipkin
 `,
 		"/path/to/values.yaml": `
@@ -1194,7 +1195,7 @@ releases:
     - environments/default/2.yaml
 
 helmDefaults:
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
+  tillerNamespace: {{ .Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
 		"/path/to/yaml/templates.yaml": `templates:
@@ -1244,7 +1245,7 @@ bases:
 - ../base.gotmpl
 ---
 helmDefaults:
-  kubeContext: {{ .Environment.Values.foo }}
+  kubeContext: {{ .Values.foo }}
 ---
 releases:
 - name: myrelease0
@@ -1279,7 +1280,7 @@ releases:
     - environments/default/2.yaml
 
 helmDefaults:
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
+  tillerNamespace: {{ .Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
 		"/path/to/yaml/templates.yaml": `templates:
@@ -1350,8 +1351,8 @@ releases:
     - environments/default/1.yaml
 `,
 		"/path/to/base.gotmpl": `helmDefaults:
-  kubeContext: {{ .Environment.Values.foo }}
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
+  kubeContext: {{ .Values.foo }}
+  tillerNamespace: {{ .Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/1.yaml": `tillerNs: TILLER_NS
 foo: FOO
@@ -1411,8 +1412,8 @@ releases:
     - tillerNs: INLINE_TILLER_NS
 `,
 		"/path/to/base.gotmpl": `helmDefaults:
-  kubeContext: {{ .Environment.Values.foo }}
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
+  kubeContext: {{ .Values.foo }}
+  tillerNamespace: {{ .Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/1.yaml": `tillerNs: TILLER_NS
 foo: FOO
@@ -1458,7 +1459,7 @@ bases:
 - ../base.gotmpl
 ---
 helmDefaults:
-  kubeContext: {{ .Environment.Values.foo }}
+  kubeContext: {{ .Values.foo }}
 ---
 releases:
 - name: myrelease0
@@ -1493,7 +1494,7 @@ releases:
     - environments/default/2.yaml
 
 helmDefaults:
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
+  tillerNamespace: {{ .Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
 		"/path/to/yaml/templates.yaml": `templates:
@@ -1619,8 +1620,8 @@ environments:
     - 2.yaml
 ---
 releases:
-- name: {{ .Environment.Values.foo | quote }}
-  chart: {{ .Environment.Values.bar | quote }}
+- name: {{ .Values.foo | quote }}
+  chart: {{ .Values.bar | quote }}
 `
 	testFs := testhelper.NewTestFs(map[string]string{
 		statePath:         stateContent,
@@ -1672,8 +1673,8 @@ environments:
     - 2.yaml
 ---
 releases:
-- name: {{ .Environment.Values.foo | quote }}
-  chart: {{ .Environment.Values.bar | quote }}
+- name: {{ .Values.foo | quote }}
+  chart: {{ .Values.bar | quote }}
 `
 		testFs := testhelper.NewTestFs(map[string]string{
 			statePath:         stateContent,
@@ -1738,23 +1739,23 @@ releases:
   chart: stable/nginx
 `
 	testcases := []testcase{
-		{stateInline, `{{ getOrNil "foo" .Environment.Values }}`, `FOO`},
-		{stateInline, `{{ getOrNil "baz" (getOrNil "bar" .Environment.Values) }}`, `BAZ`},
-		{stateInline, `{{ if hasKey .Environment.Values "foo" }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
-		{stateInline, `{{ if hasKey .Environment.Values "bar" }}{{ .Environment.Values.bar.baz }}{{ end }}`, `BAZ`},
-		{stateInline, `{{ if (keys .Environment.Values | has "foo") }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
+		{stateInline, `{{ getOrNil "foo" .Values }}`, `FOO`},
+		{stateInline, `{{ getOrNil "baz" (getOrNil "bar" .Values) }}`, `BAZ`},
+		{stateInline, `{{ if hasKey .Values "foo" }}{{ .Values.foo }}{{ end }}`, `FOO`},
+		{stateInline, `{{ if hasKey .Values "bar" }}{{ .Values.bar.baz }}{{ end }}`, `BAZ`},
+		{stateInline, `{{ if (keys .Values | has "foo") }}{{ .Values.foo }}{{ end }}`, `FOO`},
 		// See https://github.com/roboll/helmfile/issues/624
-		// This fails when .Environment.Values.bar is not map[string]interface{}. At the time of #624 it was map[interface{}]interface{}, which sprig's dict funcs don't support.
-		{stateInline, `{{ if (keys .Environment.Values | has "bar") }}{{ if (keys .Environment.Values.bar | has "baz") }}{{ .Environment.Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
-		{stateExternal, `{{ getOrNil "foo" .Environment.Values }}`, `FOO`},
-		{stateExternal, `{{ getOrNil "baz" (getOrNil "bar" .Environment.Values) }}`, `BAZ`},
-		{stateExternal, `{{ if hasKey .Environment.Values "foo" }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
-		{stateExternal, `{{ if hasKey .Environment.Values "bar" }}{{ .Environment.Values.bar.baz }}{{ end }}`, `BAZ`},
-		{stateExternal, `{{ if (keys .Environment.Values | has "foo") }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
+		// This fails when .Values.bar is not map[string]interface{}. At the time of #624 it was map[interface{}]interface{}, which sprig's dict funcs don't support.
+		{stateInline, `{{ if (keys .Values | has "bar") }}{{ if (keys .Values.bar | has "baz") }}{{ .Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
+		{stateExternal, `{{ getOrNil "foo" .Values }}`, `FOO`},
+		{stateExternal, `{{ getOrNil "baz" (getOrNil "bar" .Values) }}`, `BAZ`},
+		{stateExternal, `{{ if hasKey .Values "foo" }}{{ .Values.foo }}{{ end }}`, `FOO`},
+		{stateExternal, `{{ if hasKey .Values "bar" }}{{ .Values.bar.baz }}{{ end }}`, `BAZ`},
+		{stateExternal, `{{ if (keys .Values | has "foo") }}{{ .Values.foo }}{{ end }}`, `FOO`},
 		// See https://github.com/roboll/helmfile/issues/624
-		{stateExternal, `{{ if (keys .Environment.Values | has "bar") }}{{ if (keys .Environment.Values.bar | has "baz") }}{{ .Environment.Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
+		{stateExternal, `{{ if (keys .Values | has "bar") }}{{ if (keys .Values.bar | has "baz") }}{{ .Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
 		// See https://github.com/roboll/helmfile/issues/643
-		{stateExternal, `{{ range $service := .Environment.Values.services }}{{ $service.name }}{{ if hasKey $service "something" }}{{ $service.something }}{{ end }}{{ end }}`, `xyfalse`},
+		{stateExternal, `{{ range $service := .Values.services }}{{ $service.name }}{{ if hasKey $service "something" }}{{ $service.something }}{{ end }}{{ end }}`, `xyfalse`},
 	}
 	for i := range testcases {
 		tc := testcases[i]

@@ -1,12 +1,13 @@
 package app
 
 import (
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/state"
-	"github.com/roboll/helmfile/pkg/testhelper"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
+	"github.com/roboll/helmfile/pkg/testhelper"
 
 	"gopkg.in/yaml.v2"
 )
@@ -76,10 +77,10 @@ environments:
   production:
 
 releases:
-- name: {{ .Environment.Values.releaseName }}
+- name: {{ .Values.releaseName }}
   chart: mychart1
 
-{{ if (eq .Environment.Values.conditionalReleaseTag "yes") }}
+{{ if (eq .Values.conditionalReleaseTag "yes") }}
 - name: conditionalRelease
 {{ end }}
 
@@ -126,7 +127,7 @@ environments:
     - default/values.yaml
   production:
 
-{{ if (eq .Environment.Values.releaseName "a") }} # line 8
+{{ if (eq .Values.releaseName "a") }} # line 8
 releases:
 - name: a
 	chart: mychart1
@@ -162,7 +163,7 @@ environments:
     - values.yaml.gotmpl
   production:
 
-{{ if (eq .Environment.Values.releaseName "release-a") }} # line 8
+{{ if (eq .Values.releaseName "release-a") }} # line 8
 releases:
 - name: a
   chart: mychart1
