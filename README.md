@@ -663,6 +663,15 @@ releases:
 {{ end }}
 ```
 
+### Note
+
+The `.Values` syntax is the recommended way of using environment values.
+
+Prior to this [pull request](https://github.com/roboll/helmfile/pull/647), environment values were made available through the `.Environment.Values` syntax.
+This syntax is still working but is *deprecated* and the new `.Values` syntax should be used instead.
+
+You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
+
 ## Environment Secrets
 
 Environment Secrets (not to be confused with Kubernetes Secrets) are encrypted versions of `Environment Values`.
