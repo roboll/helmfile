@@ -124,6 +124,7 @@ Release Templating supports the following parts of release definition:
         tag: `{{ .Release.Labels.tag }}`
   # ...
   ```
+  
 See the [issue 428](https://github.com/roboll/helmfile/issues/428) for more context on how this is supposed to work.
 
 Please note, that it is not possible to layer `values` sections. If `values` is defined in the release and in the release template, only the `values` defined in the release will be considered. The same applies to `secrets` and `set`.
