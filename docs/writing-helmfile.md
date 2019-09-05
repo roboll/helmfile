@@ -119,7 +119,7 @@ Release Templating supports the following parts of release definition:
 - inline `values` map:
   ```yaml
   # ...
-    values:
+    valuesTemplate:
     - image:
         tag: `{{ .Release.Labels.tag }}`
   # ...
