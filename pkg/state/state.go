@@ -896,7 +896,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		}
 
 		flags := []string{}
-		if purge && !st.isHelm3() {
+		if purge && !isHelm3() {
 			flags = append(flags, "--purge")
 		}
 		flags = st.appendConnectionFlags(flags, &release)
@@ -931,7 +931,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 			flags = append(flags, "--cleanup")
 		}
 		duration := strconv.Itoa(timeout)
-		if st.isHelm3() {
+		if isHelm3() {
 			duration += "s"
 		}
 		flags = append(flags, "--timeout", duration)
@@ -941,7 +941,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 	})
 }
 
-func (st *HelmState) isHelm3() bool {
+func isHelm3() bool {
 	return os.Getenv("HELMFILE_HELM3") != ""
 }
 
