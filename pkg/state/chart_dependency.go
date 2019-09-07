@@ -278,8 +278,31 @@ func (m *chartDependencyManager) lockFileName() string {
 }
 
 func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
+	if isHelm3() {
+		return m.updateHelm3(shell, wd, unresolved)
+	}
+	return m.updateHelm2(shell, wd, unresolved)
+}
+
+func (m *chartDependencyManager) updateHelm3(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
 	// Generate `Chart.yaml` of the temporary local chart
-	if err := m.writeBytes(filepath.Join(wd, "Chart.yaml"), []byte(fmt.Sprintf("name: %s\n", m.Name))); err != nil {
+	chartMetaContent := fmt.Sprintf("name: %s\nversion: 1.0.0\n", m.Name)
+
+	// Generate `requirements.yaml` of the temporary local chart from the helmfile state
+	reqsContent, err := yaml.Marshal(unresolved.ToChartRequirements())
+	if err != nil {
+		return nil, err
+	}
+	if err := m.writeBytes(filepath.Join(wd, "Chart.yaml"), []byte(chartMetaContent+string(reqsContent))); err != nil {
+		return nil, err
+	}
+
+	return m.doUpdate("Chart.lock", unresolved, shell, wd)
+}
+
+func (m *chartDependencyManager) updateHelm2(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
+	// Generate `Chart.yaml` of the temporary local chart
+	if err := m.writeBytes(filepath.Join(wd, "Chart.yaml"), []byte(fmt.Sprintf("name: %s\nversion: 1.0.0\n", m.Name))); err != nil {
 		return nil, err
 	}
 
@@ -292,6 +315,11 @@ func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd str
 		return nil, err
 	}
 
+	return m.doUpdate("requirements.lock", unresolved, shell, wd)
+}
+
+func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *UnresolvedDependencies, shell helmexec.DependencyUpdater, wd string) (*ResolvedDependencies, error) {
+
 	// Generate `requirements.lock` of the temporary local chart by coping `<basename>.lock`
 	lockFile := m.lockFileName()
 
@@ -301,7 +329,7 @@ func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd str
 	}
 
 	if lockFileContent != nil {
-		if err := m.writeBytes(filepath.Join(wd, "requirements.lock"), lockFileContent); err != nil {
+		if err := m.writeBytes(filepath.Join(wd, chartLockFile), lockFileContent); err != nil {
 			return nil, err
 		}
 	}
@@ -311,7 +339,7 @@ func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd str
 		return nil, err
 	}
 
-	updatedLockFileContent, err := m.readBytes(filepath.Join(wd, "requirements.lock"))
+	updatedLockFileContent, err := m.readBytes(filepath.Join(wd, chartLockFile))
 	if err != nil {
 		return nil, err
 	}
