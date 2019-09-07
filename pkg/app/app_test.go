@@ -1843,11 +1843,12 @@ type mockHelmExec struct {
 }
 
 type mockTemplates struct {
-	flags []string
+	name, chart string
+	flags       []string
 }
 
 func (helm *mockHelmExec) TemplateRelease(name, chart string, flags ...string) error {
-	helm.templated = append(helm.templated, mockTemplates{flags: flags})
+	helm.templated = append(helm.templated, mockTemplates{name: name, chart: chart, flags: flags})
 	return nil
 }
 
@@ -1906,14 +1907,14 @@ releases:
 - name: myrelease1
   chart: mychart1
 - name: myrelease2
-  chart: mychart1
+  chart: mychart2
 `,
 	}
 
 	var helm = &mockHelmExec{}
 	var wantReleases = []mockTemplates{
-		{[]string{"--name", "myrelease1", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
-		{[]string{"--name", "myrelease2", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
+		{name: "myrelease1", chart: "mychart1", flags: []string{"--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{name: "myrelease2", chart: "mychart2", flags: []string{"--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
 	}
 
 	var buffer bytes.Buffer
@@ -1931,8 +1932,14 @@ releases:
 	app.Template(configImpl{})
 
 	for i := range wantReleases {
+		if wantReleases[i].name != helm.templated[i].name {
+			t.Errorf("name = [%v], want %v", helm.templated[i].name, wantReleases[i].name)
+		}
+		if !strings.Contains(helm.templated[i].chart, wantReleases[i].chart) {
+			t.Errorf("chart = [%v], want %v", helm.templated[i].chart, wantReleases[i].chart)
+		}
 		for j := range wantReleases[i].flags {
-			if j == 5 {
+			if j == 3 {
 				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
 				if !matched {
 					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])

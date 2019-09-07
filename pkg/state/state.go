@@ -896,7 +896,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		}
 
 		flags := []string{}
-		if purge {
+		if purge && !st.isHelm3() {
 			flags = append(flags, "--purge")
 		}
 		flags = st.appendConnectionFlags(flags, &release)
@@ -930,11 +930,19 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		if cleanup {
 			flags = append(flags, "--cleanup")
 		}
-		flags = append(flags, "--timeout", strconv.Itoa(timeout))
+		duration := strconv.Itoa(timeout)
+		if st.isHelm3() {
+			duration += "s"
+		}
+		flags = append(flags, "--timeout", duration)
 		flags = st.appendConnectionFlags(flags, &release)
 
 		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
+}
+
+func (st *HelmState) isHelm3() bool {
+	return os.Getenv("HELMFILE_HELM3") != ""
 }
 
 // Clean will remove any generated secrets
@@ -1250,9 +1258,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 }
 
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
-	flags := []string{
-		"--name", release.Name,
-	}
+	flags := []string{}
 
 	var err error
 	flags, err = st.appendHelmXFlags(flags, release)

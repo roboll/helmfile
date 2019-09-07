@@ -126,7 +126,14 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	helm.logger.Infof("Listing releases matching %v", filter)
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
-	out, err := helm.exec(append(append(preArgs, "list", filter), flags...), env)
+	var args []string
+	if helm.isHelm3() {
+		args = []string{"list", "--filter", filter}
+	} else {
+		args = []string{"list", filter}
+	}
+
+	out, err := helm.exec(append(append(preArgs, args...), flags...), env)
 	helm.write(out)
 	return string(out), err
 }
@@ -201,7 +208,14 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 
 func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {
 	helm.logger.Infof("Templating release=%v, chart=%v", name, chart)
-	out, err := helm.exec(append([]string{"template", chart, "--name", name}, flags...), map[string]string{})
+	var args []string
+	if helm.isHelm3() {
+		args = []string{"template", name, chart}
+	} else {
+		args = []string{"template", chart, "--name", name}
+	}
+
+	out, err := helm.exec(append(args, flags...), map[string]string{})
 	helm.write(out)
 	return err
 }
@@ -261,7 +275,13 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	helm.logger.Infof("Testing %v", name)
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
-	out, err := helm.exec(append(append(preArgs, "test", name), flags...), env)
+	var args []string
+	if helm.isHelm3() {
+		args = []string{"test", "run", name}
+	} else {
+		args = []string{"test", name}
+	}
+	out, err := helm.exec(append(append(preArgs, args...), flags...), env)
 	helm.write(out)
 	return err
 }
@@ -291,4 +311,8 @@ func (helm *execer) write(out []byte) {
 	if len(out) > 0 {
 		fmt.Printf("%s\n", out)
 	}
+}
+
+func (helm *execer) isHelm3() bool {
+	return os.Getenv("HELMFILE_HELM3") != ""
 }
