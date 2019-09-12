@@ -23,5 +23,5 @@ releases:
   - name: raw
     chart: incubator/raw
     values:
-      - mysecret: {{ .Values.mysecret }}
+      - mysecret: {{ .Environment.Values.mysecret }}
       - values.yaml

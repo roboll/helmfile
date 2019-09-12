@@ -77,10 +77,10 @@ environments:
   production:
 
 releases:
-- name: {{ .Values.releaseName }}
+- name: {{ .Environment.Values.releaseName }}
   chart: mychart1
 
-{{ if (eq .Values.conditionalReleaseTag "yes") }}
+{{ if (eq .Environment.Values.conditionalReleaseTag "yes") }}
 - name: conditionalRelease
 {{ end }}
 
@@ -127,7 +127,7 @@ environments:
     - default/values.yaml
   production:
 
-{{ if (eq .Values.releaseName "a") }} # line 8
+{{ if (eq .Environment.Values.releaseName "a") }} # line 8
 releases:
 - name: a
 	chart: mychart1
@@ -163,7 +163,7 @@ environments:
     - values.yaml.gotmpl
   production:
 
-{{ if (eq .Values.releaseName "release-a") }} # line 8
+{{ if (eq .Environment.Values.releaseName "release-a") }} # line 8
 releases:
 - name: a
   chart: mychart1
