@@ -115,6 +115,10 @@ func main() {
 					Value: "",
 					Usage: "pass args to helm exec",
 				},
+				cli.BoolFlag{
+					Name:  "skip-repos",
+					Usage: "skip running `helm repo update` before running `helm dependency build`",
+				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
 				return run.Deps(c)
@@ -493,6 +497,10 @@ func NewUrfaveCliConfigImpl(c *cli.Context) (configImpl, error) {
 
 func (c configImpl) Set() []string {
 	return c.c.StringSlice("set")
+}
+
+func (c configImpl) SkipRepos() bool {
+	return c.c.Bool("skip-repos")
 }
 
 func (c configImpl) Values() []string {
