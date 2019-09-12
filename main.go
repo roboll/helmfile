@@ -144,6 +144,10 @@ func main() {
 					Usage: "pass args to helm exec",
 				},
 				cli.StringSliceFlag{
+					Name:  "set",
+					Usage: "additional values to be merged into the command",
+				},
+				cli.StringSliceFlag{
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
@@ -165,6 +169,10 @@ func main() {
 					Name:  "args",
 					Value: "",
 					Usage: "pass args to helm exec",
+				},
+				cli.StringSliceFlag{
+					Name:  "set",
+					Usage: "additional values to be merged into the command",
 				},
 				cli.StringSliceFlag{
 					Name:  "values",
@@ -207,6 +215,10 @@ func main() {
 					Usage: "pass args to helm template",
 				},
 				cli.StringSliceFlag{
+					Name:  "set",
+					Usage: "additional values to be merged into the command",
+				},
+				cli.StringSliceFlag{
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
@@ -238,6 +250,10 @@ func main() {
 					Usage: "pass args to helm exec",
 				},
 				cli.StringSliceFlag{
+					Name:  "set",
+					Usage: "additional values to be merged into the command",
+				},
+				cli.StringSliceFlag{
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
 				},
@@ -259,6 +275,10 @@ func main() {
 			Name:  "sync",
 			Usage: "sync all resources from state file (repos, releases and chart deps)",
 			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:  "set",
+					Usage: "additional values to be merged into the command",
+				},
 				cli.StringSliceFlag{
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
@@ -286,6 +306,10 @@ func main() {
 			Name:  "apply",
 			Usage: "apply all resources from state file only when there are changes",
 			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:  "set",
+					Usage: "additional values to be merged into the command",
+				},
 				cli.StringSliceFlag{
 					Name:  "values",
 					Usage: "additional value files to be merged into the command",
@@ -467,6 +491,10 @@ func NewUrfaveCliConfigImpl(c *cli.Context) (configImpl, error) {
 	return conf, nil
 }
 
+func (c configImpl) Set() []string {
+	return c.c.StringSlice("set")
+}
+
 func (c configImpl) Values() []string {
 	return c.c.StringSlice("values")
 }
@@ -539,11 +567,11 @@ func (c configImpl) Selectors() []string {
 	return c.c.GlobalStringSlice("selector")
 }
 
-func (c configImpl) Set() map[string]interface{} {
+func (c configImpl) StateValuesSet() map[string]interface{} {
 	return c.set
 }
 
-func (c configImpl) ValuesFiles() []string {
+func (c configImpl) StateValuesFiles() []string {
 	return c.c.GlobalStringSlice("state-values-file")
 }
 

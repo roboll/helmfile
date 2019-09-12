@@ -61,8 +61,8 @@ func New(conf ConfigProvider) *App {
 		HelmBinary:  conf.HelmBinary(),
 		Args:        conf.Args(),
 		FileOrDir:   conf.FileOrDir(),
-		ValuesFiles: conf.ValuesFiles(),
-		Set:         conf.Set(),
+		ValuesFiles: conf.StateValuesFiles(),
+		Set:         conf.StateValuesSet(),
 		helmExecer: helmexec.New(conf.Logger(), conf.KubeContext(), &helmexec.ShellRunner{
 			Logger: conf.Logger(),
 		}),

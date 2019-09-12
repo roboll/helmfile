@@ -253,7 +253,12 @@ type syncPrepareResult struct {
 }
 
 // SyncReleases wrapper for executing helm upgrade on the releases
-func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int) ([]syncPrepareResult, []error) {
+func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int, opt ...SyncOpt) ([]syncPrepareResult, []error) {
+	opts := &SyncOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
 	releases := []*ReleaseSpec{}
 	for i, _ := range st.Releases {
 		releases = append(releases, &st.Releases[i])
@@ -318,6 +323,12 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--values", valfile)
 				}
 
+				if opts.Set != nil {
+					for _, s := range opts.Set {
+						flags = append(flags, "--set", s)
+					}
+				}
+
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs}
 					continue
@@ -372,9 +383,24 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*Rele
 	return detected, nil
 }
 
+type SyncOpts struct {
+	Set []string
+}
+
+type SyncOpt interface{ Apply(*SyncOpts) }
+
+func (o *SyncOpts) Apply(opts *SyncOpts) {
+	*opts = *o
+}
+
 // SyncReleases wrapper for executing helm upgrade on the releases
-func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, additionalValues []string, workerLimit int) []error {
-	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit)
+func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, additionalValues []string, workerLimit int, opt ...SyncOpt) []error {
+	opts := &SyncOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
+	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit, opts)
 	if len(prepErrs) > 0 {
 		return prepErrs
 	}
@@ -550,8 +576,23 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 	return temp, nil
 }
 
+type TemplateOpts struct {
+	Set []string
+}
+
+type TemplateOpt interface{ Apply(*TemplateOpts) }
+
+func (o *TemplateOpts) Apply(opts *TemplateOpts) {
+	*opts = *o
+}
+
 // TemplateReleases wrapper for executing helm template on the releases
-func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int) []error {
+func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int, opt ...TemplateOpt) []error {
+	opts := &TemplateOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
 	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
 	helm.SetExtraArgs()
 
@@ -601,6 +642,12 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			flags = append(flags, "--values", valfile)
 		}
 
+		if opts.Set != nil {
+			for _, s := range opts.Set {
+				flags = append(flags, "--set", s)
+			}
+		}
+
 		if len(outputDir) > 0 {
 			releaseOutputDir, err := st.GenerateOutputDir(outputDir, release)
 			if err != nil {
@@ -630,8 +677,23 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 	return nil
 }
 
+type LintOpts struct {
+	Set []string
+}
+
+type LintOpt interface{ Apply(*LintOpts) }
+
+func (o *LintOpts) Apply(opts *LintOpts) {
+	*opts = *o
+}
+
 // LintReleases wrapper for executing helm lint on the releases
-func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int) []error {
+func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int, opt ...LintOpt) []error {
+	opts := &LintOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
 	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
 	helm.SetExtraArgs()
 
@@ -675,6 +737,12 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 				errs = append(errs, err)
 			}
 			flags = append(flags, "--values", valfile)
+		}
+
+		if opts.Set != nil {
+			for _, s := range opts.Set {
+				flags = append(flags, "--set", s)
+			}
 		}
 
 		if len(errs) == 0 {
@@ -780,6 +848,12 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--context", fmt.Sprintf("%d", opts.Context))
 				}
 
+				if opts.Set != nil {
+					for _, s := range opts.Set {
+						flags = append(flags, "--set", s)
+					}
+				}
+
 				if len(errs) > 0 {
 					rsErrs := make([]*ReleaseError, len(errs))
 					for i, e := range errs {
@@ -826,8 +900,9 @@ func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helme
 }
 
 type DiffOpts struct {
-	NoColor bool
 	Context int
+	NoColor bool
+	Set     []string
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
