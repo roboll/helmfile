@@ -705,7 +705,12 @@ type diffPrepareResult struct {
 	errors  []*ReleaseError
 }
 
-func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, suppressSecrets bool) ([]diffPrepareResult, []error) {
+func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, suppressSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
+	opts := &DiffOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
 	releases := []*ReleaseSpec{}
 	for i, _ := range st.Releases {
 		if !st.Releases[i].Desired() {
@@ -767,6 +772,10 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--suppress-secrets")
 				}
 
+				if opts.NoColor {
+					flags = append(flags, "--no-color")
+				}
+
 				if len(errs) > 0 {
 					rsErrs := make([]*ReleaseError, len(errs))
 					for i, e := range errs {
@@ -812,10 +821,25 @@ func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helme
 	}
 }
 
+type DiffOpts struct {
+	NoColor bool
+}
+
+func (o *DiffOpts) Apply(opts *DiffOpts) {
+	*opts = *o
+}
+
+type DiffOpt interface{ Apply(*DiffOpts) }
+
 // DiffReleases wrapper for executing helm diff on the releases
 // It returns releases that had any changes
-func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, triggerCleanupEvents bool) ([]*ReleaseSpec, []error) {
-	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, suppressSecrets)
+func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, triggerCleanupEvents bool, opt ...DiffOpt) ([]*ReleaseSpec, []error) {
+	opts := &DiffOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
+	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, suppressSecrets, opts)
 	if len(prepErrs) > 0 {
 		return []*ReleaseSpec{}, prepErrs
 	}

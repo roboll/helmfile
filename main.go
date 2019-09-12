@@ -75,6 +75,10 @@ func main() {
 			Name:  "kube-context",
 			Usage: "Set kubectl context. Uses current context by default",
 		},
+		cli.BoolFlag{
+			Name:  "no-color",
+			Usage: "Output without color",
+		},
 		cli.StringFlag{
 			Name:  "log-level",
 			Usage: "Set log level, default info",
@@ -535,6 +539,10 @@ func (c configImpl) ValuesFiles() []string {
 
 func (c configImpl) Interactive() bool {
 	return c.c.GlobalBool("interactive")
+}
+
+func (c configImpl) NoColor() bool {
+	return c.c.GlobalBool("no-color")
 }
 
 func (c configImpl) Logger() *zap.SugaredLogger {

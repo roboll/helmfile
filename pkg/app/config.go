@@ -40,6 +40,8 @@ type ApplyConfigProvider interface {
 
 	SuppressSecrets() bool
 
+	NoColor() bool
+
 	concurrencyConfig
 	interactive
 	loggingConfig
@@ -64,6 +66,7 @@ type DiffConfigProvider interface {
 	SuppressSecrets() bool
 
 	DetailedExitcode() bool
+	NoColor() bool
 
 	concurrencyConfig
 }

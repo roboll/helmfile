@@ -137,7 +137,11 @@ func (r *Run) Apply(c ApplyConfigProvider) []error {
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
 	detailedExitCode := true
 
-	releases, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false)
+	diffOpts := &state.DiffOpts{
+		NoColor: c.NoColor(),
+	}
+
+	releases, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false, diffOpts)
 
 	releasesToBeDeleted, err := st.DetectReleasesToBeDeleted(helm)
 	if err != nil {
