@@ -14,6 +14,7 @@ require (
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6
 	github.com/pkg/errors v0.8.1 // indirect
+	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v0.0.0-20160620154522-6011f165dc28
 	go.uber.org/atomic v1.3.2 // indirect
