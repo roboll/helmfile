@@ -41,6 +41,7 @@ type ApplyConfigProvider interface {
 	SuppressSecrets() bool
 
 	NoColor() bool
+	Context() int
 
 	concurrencyConfig
 	interactive
@@ -67,6 +68,7 @@ type DiffConfigProvider interface {
 
 	DetailedExitcode() bool
 	NoColor() bool
+	Context() int
 
 	concurrencyConfig
 }
