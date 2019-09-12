@@ -63,6 +63,9 @@ bash -c "${helmfile} -f ${dir}/happypath.yaml diff --detailed-exitcode; code="'$
 info "Diffing ${dir}/happypath.yaml without color"
 bash -c "${helmfile} -f ${dir}/happypath.yaml --no-color diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
+info "Diffing ${dir}/happypath.yaml with limited context"
+bash -c "${helmfile} -f ${dir}/happypath.yaml diff --context 3 --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+
 info "Templating ${dir}/happypath.yaml"
 ${helmfile} -f ${dir}/happypath.yaml template
 code=$?

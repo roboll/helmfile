@@ -139,6 +139,7 @@ func (r *Run) Apply(c ApplyConfigProvider) []error {
 
 	diffOpts := &state.DiffOpts{
 		NoColor: c.NoColor(),
+		Context: c.Context(),
 	}
 
 	releases, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false, diffOpts)

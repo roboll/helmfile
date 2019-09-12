@@ -776,6 +776,10 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--no-color")
 				}
 
+				if opts.Context > 0 {
+					flags = append(flags, "--context", fmt.Sprintf("%d", opts.Context))
+				}
+
 				if len(errs) > 0 {
 					rsErrs := make([]*ReleaseError, len(errs))
 					for i, e := range errs {
@@ -823,6 +827,7 @@ func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helme
 
 type DiffOpts struct {
 	NoColor bool
+	Context int
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {

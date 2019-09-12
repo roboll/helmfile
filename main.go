@@ -187,6 +187,11 @@ func main() {
 					Value: 0,
 					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
 				},
+				cli.IntFlag{
+					Name:  "context",
+					Value: 0,
+					Usage: "output NUM lines of context around changes",
+				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
 				return run.Diff(c)
@@ -289,6 +294,11 @@ func main() {
 					Name:  "concurrency",
 					Value: 0,
 					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
+				cli.IntFlag{
+					Name:  "context",
+					Value: 0,
+					Usage: "output NUM lines of context around changes",
 				},
 				cli.StringFlag{
 					Name:  "args",
@@ -543,6 +553,10 @@ func (c configImpl) Interactive() bool {
 
 func (c configImpl) NoColor() bool {
 	return c.c.GlobalBool("no-color")
+}
+
+func (c configImpl) Context() int {
+	return c.c.Int("context")
 }
 
 func (c configImpl) Logger() *zap.SugaredLogger {
