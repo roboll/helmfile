@@ -10,8 +10,8 @@ type ConfigProvider interface {
 	KubeContext() string
 	Namespace() string
 	Selectors() []string
-	Set() map[string]interface{}
-	ValuesFiles() []string
+	StateValuesSet() map[string]interface{}
+	StateValuesFiles() []string
 	Env() string
 
 	loggingConfig
@@ -36,6 +36,7 @@ type ApplyConfigProvider interface {
 	Args() string
 
 	Values() []string
+	Set() []string
 	SkipDeps() bool
 
 	SuppressSecrets() bool
@@ -52,6 +53,7 @@ type SyncConfigProvider interface {
 	Args() string
 
 	Values() []string
+	Set() []string
 	SkipDeps() bool
 
 	concurrencyConfig
@@ -62,6 +64,7 @@ type DiffConfigProvider interface {
 	Args() string
 
 	Values() []string
+	Set() []string
 	SkipDeps() bool
 
 	SuppressSecrets() bool
@@ -104,6 +107,7 @@ type LintConfigProvider interface {
 	Args() string
 
 	Values() []string
+	Set() []string
 	SkipDeps() bool
 
 	concurrencyConfig
@@ -113,6 +117,7 @@ type TemplateConfigProvider interface {
 	Args() string
 
 	Values() []string
+	Set() []string
 	SkipDeps() bool
 	OutputDir() string
 

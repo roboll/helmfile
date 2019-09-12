@@ -140,6 +140,7 @@ func (r *Run) Apply(c ApplyConfigProvider) []error {
 	diffOpts := &state.DiffOpts{
 		NoColor: c.NoColor(),
 		Context: c.Context(),
+		Set:     c.Set(),
 	}
 
 	releases, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false, diffOpts)
@@ -201,7 +202,10 @@ Do you really want to apply?
 				r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 				st.Releases = rs
-				return st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency())
+				syncOpts := &state.SyncOpts{
+					Set: c.Set(),
+				}
+				return st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}
 		}
 	}
@@ -229,7 +233,12 @@ func (r *Run) Diff(c DiffConfigProvider) []error {
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-	_, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), c.DetailedExitcode(), c.SuppressSecrets(), true)
+	opts := &state.DiffOpts{
+		Context: c.Context(),
+		NoColor: c.NoColor(),
+		Set:     c.Set(),
+	}
+	_, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), c.DetailedExitcode(), c.SuppressSecrets(), true, opts)
 	return errs
 }
 
@@ -253,30 +262,36 @@ func (r *Run) Sync(c SyncConfigProvider) []error {
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-	errs := st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency())
+	opts := &state.SyncOpts{
+		Set: c.Set(),
+	}
+	errs := st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 	affectedReleases.DisplayAffectedReleases(c.Logger())
 	return errs
 }
 
 func (r *Run) Template(c TemplateConfigProvider) []error {
-	state := r.state
+	st := r.state
 	helm := r.helm
 	ctx := r.ctx
 
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
 			return errs
 		}
-		if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
+		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return errs
 		}
 	}
-	if errs := state.PrepareReleases(helm, "template"); errs != nil && len(errs) > 0 {
+	if errs := st.PrepareReleases(helm, "template"); errs != nil && len(errs) > 0 {
 		return errs
 	}
 
-	args := argparser.GetArgs(c.Args(), state)
-	return state.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency())
+	args := argparser.GetArgs(c.Args(), st)
+	opts := &state.TemplateOpts{
+		Set: c.Set(),
+	}
+	return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), opts)
 }
 
 func (r *Run) Test(c TestConfigProvider) []error {
@@ -290,23 +305,26 @@ func (r *Run) Test(c TestConfigProvider) []error {
 }
 
 func (r *Run) Lint(c LintConfigProvider) []error {
-	state := r.state
+	st := r.state
 	helm := r.helm
 	ctx := r.ctx
 
 	values := c.Values()
-	args := argparser.GetArgs(c.Args(), state)
+	args := argparser.GetArgs(c.Args(), st)
 	workers := c.Concurrency()
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(state, helm); errs != nil && len(errs) > 0 {
+		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
 			return errs
 		}
-		if errs := state.BuildDeps(helm); errs != nil && len(errs) > 0 {
+		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return errs
 		}
 	}
-	if errs := state.PrepareReleases(helm, "lint"); errs != nil && len(errs) > 0 {
+	if errs := st.PrepareReleases(helm, "lint"); errs != nil && len(errs) > 0 {
 		return errs
 	}
-	return state.LintReleases(helm, values, args, workers)
+	opts := &state.LintOpts{
+		Set: c.Set(),
+	}
+	return st.LintReleases(helm, values, args, workers, opts)
 }

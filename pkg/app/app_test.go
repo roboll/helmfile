@@ -1791,6 +1791,11 @@ services:
 }
 
 type configImpl struct {
+	set []string
+}
+
+func (c configImpl) Set() []string {
+	return c.set
 }
 
 func (c configImpl) Values() []string {
@@ -1913,8 +1918,8 @@ releases:
 
 	var helm = &mockHelmExec{}
 	var wantReleases = []mockTemplates{
-		{name: "myrelease1", chart: "mychart1", flags: []string{"--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
-		{name: "myrelease2", chart: "mychart2", flags: []string{"--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
+		{name: "myrelease1", chart: "mychart1", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{name: "myrelease2", chart: "mychart2", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
 	}
 
 	var buffer bytes.Buffer
@@ -1929,7 +1934,7 @@ releases:
 		helmExecer:  helm,
 		Namespace:   "testNamespace",
 	}, files)
-	app.Template(configImpl{})
+	app.Template(configImpl{set: []string{"foo=a", "bar=b"}})
 
 	for i := range wantReleases {
 		if wantReleases[i].name != helm.templated[i].name {
@@ -1939,7 +1944,7 @@ releases:
 			t.Errorf("chart = [%v], want %v", helm.templated[i].chart, wantReleases[i].chart)
 		}
 		for j := range wantReleases[i].flags {
-			if j == 3 {
+			if j == 7 {
 				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
 				if !matched {
 					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
