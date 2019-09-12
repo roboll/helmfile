@@ -26,6 +26,7 @@ type DeprecatedChartsConfigProvider interface {
 
 type DepsConfigProvider interface {
 	Args() string
+	SkipRepos() bool
 }
 
 type ReposConfigProvider interface {
