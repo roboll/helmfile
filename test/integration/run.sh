@@ -60,6 +60,9 @@ test_start "happypath - simple rollout of httpbin chart"
 info "Diffing ${dir}/happypath.yaml"
 bash -c "${helmfile} -f ${dir}/happypath.yaml diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
+info "Diffing ${dir}/happypath.yaml without color"
+bash -c "${helmfile} -f ${dir}/happypath.yaml --no-color diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+
 info "Templating ${dir}/happypath.yaml"
 ${helmfile} -f ${dir}/happypath.yaml template
 code=$?
