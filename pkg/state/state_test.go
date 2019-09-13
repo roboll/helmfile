@@ -720,8 +720,8 @@ func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 func (helm *mockHelmExec) SetHelmBinary(bin string) {
 	return
 }
-func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile, username, password string) error {
-	helm.repo = []string{name, repository, certfile, keyfile, username, password}
+func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error {
+	helm.repo = []string{name, repository, cafile, certfile, keyfile, username, password}
 	return nil
 }
 func (helm *mockHelmExec) UpdateRepo() error {
@@ -796,7 +796,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &mockHelmExec{},
-			want: []string{"name", "http://example.com/", "", "", "", ""},
+			want: []string{"name", "http://example.com/", "", "", "", "", ""},
 		},
 		{
 			name: "repository with cert and key",
@@ -811,7 +811,21 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &mockHelmExec{},
-			want: []string{"name", "http://example.com/", "certfile", "keyfile", "", ""},
+			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", ""},
+		},
+		{
+			name: "repository with ca file",
+			repos: []RepositorySpec{
+				{
+					Name:     "name",
+					URL:      "http://example.com/",
+					CaFile:   "cafile",
+					Username: "",
+					Password: "",
+				},
+			},
+			helm: &mockHelmExec{},
+			want: []string{"name", "http://example.com/", "cafile", "", "", "", ""},
 		},
 		{
 			name: "repository with username and password",
@@ -826,7 +840,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &mockHelmExec{},
-			want: []string{"name", "http://example.com/", "", "", "example_user", "example_password"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password"},
 		},
 	}
 	for i := range tests {

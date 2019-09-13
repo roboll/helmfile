@@ -1871,7 +1871,7 @@ func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 func (helm *mockHelmExec) SetHelmBinary(bin string) {
 	return
 }
-func (helm *mockHelmExec) AddRepo(name, repository, certfile, keyfile, username, password string) error {
+func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error {
 	return nil
 }
 func (helm *mockHelmExec) UpdateRepo() error {

@@ -86,7 +86,7 @@ func Test_AddRepo(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.AddRepo("myRepo", "https://repo.example.com/", "cert.pem", "key.pem", "", "")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
 exec: helm repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem --kube-context dev
 exec: helm repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem --kube-context dev: 
@@ -96,7 +96,17 @@ exec: helm repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-
 	}
 
 	buffer.Reset()
-	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "ca.crt", "", "", "", "")
+	expected = `Adding repo myRepo https://repo.example.com/
+exec: helm repo add myRepo https://repo.example.com/ --ca-file ca.crt --kube-context dev
+exec: helm repo add myRepo https://repo.example.com/ --ca-file ca.crt --kube-context dev: 
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm repo add myRepo https://repo.example.com/ --kube-context dev
 exec: helm repo add myRepo https://repo.example.com/ --kube-context dev: 
@@ -106,7 +116,7 @@ exec: helm repo add myRepo https://repo.example.com/ --kube-context dev:
 	}
 
 	buffer.Reset()
-	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "example_user", "example_password")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm repo add myRepo https://repo.example.com/ --username example_user --password example_password --kube-context dev
 exec: helm repo add myRepo https://repo.example.com/ --username example_user --password example_password --kube-context dev: 
@@ -453,7 +463,7 @@ func Test_LogLevels(t *testing.T) {
 		buffer.Reset()
 		logger := NewLogger(&buffer, logLevel)
 		helm := MockExecer(logger, "")
-		helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "example_user", "example_password")
+		helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password")
 		if buffer.String() != expected {
 			t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 		}

@@ -111,6 +111,7 @@ type HelmSpec struct {
 type RepositorySpec struct {
 	Name     string `yaml:"name,omitempty"`
 	URL      string `yaml:"url,omitempty"`
+	CaFile   string `yaml:"caFile,omitempty"`
 	CertFile string `yaml:"certFile,omitempty"`
 	KeyFile  string `yaml:"keyFile,omitempty"`
 	Username string `yaml:"username,omitempty"`
@@ -218,7 +219,7 @@ func (st *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
 }
 
 type RepoUpdater interface {
-	AddRepo(name, repository, certfile, keyfile, username, password string) error
+	AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error
 	UpdateRepo() error
 }
 
@@ -227,7 +228,7 @@ func (st *HelmState) SyncRepos(helm RepoUpdater) []error {
 	errs := []error{}
 
 	for _, repo := range st.Repositories {
-		if err := helm.AddRepo(repo.Name, repo.URL, repo.CertFile, repo.KeyFile, repo.Username, repo.Password); err != nil {
+		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password); err != nil {
 			errs = append(errs, err)
 		}
 	}

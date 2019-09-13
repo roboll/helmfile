@@ -61,6 +61,11 @@ repositories:
   keyFile: optional_client_key
   username: optional_username
   password: optional_password
+# Advanced configuration: You can use a ca bundle to use an https repo
+# with a self-signed certificate
+- name: insecure
+   url: https://charts.my-insecure-domain.com
+   caFile: optional_ca_crt
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
