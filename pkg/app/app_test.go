@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"gotest.tools/assert"
 	"io"
 	"log"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"gotest.tools/assert"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
@@ -1755,6 +1756,24 @@ releases:
 		{stateExternal, `{{ if (keys .Environment.Values | has "bar") }}{{ if (keys .Environment.Values.bar | has "baz") }}{{ .Environment.Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
 		// See https://github.com/roboll/helmfile/issues/643
 		{stateExternal, `{{ range $service := .Environment.Values.services }}{{ $service.name }}{{ if hasKey $service "something" }}{{ $service.something }}{{ end }}{{ end }}`, `xyfalse`},
+		// Same test with .Values
+		{stateInline, `{{ getOrNil "foo" .Values }}`, `FOO`},
+		{stateInline, `{{ getOrNil "baz" (getOrNil "bar" .Values) }}`, `BAZ`},
+		{stateInline, `{{ if hasKey .Values "foo" }}{{ .Values.foo }}{{ end }}`, `FOO`},
+		{stateInline, `{{ if hasKey .Values "bar" }}{{ .Values.bar.baz }}{{ end }}`, `BAZ`},
+		{stateInline, `{{ if (keys .Values | has "foo") }}{{ .Values.foo }}{{ end }}`, `FOO`},
+		// See https://github.com/roboll/helmfile/issues/624
+		// This fails when .Values.bar is not map[string]interface{}. At the time of #624 it was map[interface{}]interface{}, which sprig's dict funcs don't support.
+		{stateInline, `{{ if (keys .Values | has "bar") }}{{ if (keys .Values.bar | has "baz") }}{{ .Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
+		{stateExternal, `{{ getOrNil "foo" .Values }}`, `FOO`},
+		{stateExternal, `{{ getOrNil "baz" (getOrNil "bar" .Values) }}`, `BAZ`},
+		{stateExternal, `{{ if hasKey .Values "foo" }}{{ .Values.foo }}{{ end }}`, `FOO`},
+		{stateExternal, `{{ if hasKey .Values "bar" }}{{ .Values.bar.baz }}{{ end }}`, `BAZ`},
+		{stateExternal, `{{ if (keys .Values | has "foo") }}{{ .Values.foo }}{{ end }}`, `FOO`},
+		// See https://github.com/roboll/helmfile/issues/624
+		{stateExternal, `{{ if (keys .Values | has "bar") }}{{ if (keys .Values.bar | has "baz") }}{{ .Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
+		// See https://github.com/roboll/helmfile/issues/643
+		{stateExternal, `{{ range $service := .Values.services }}{{ $service.name }}{{ if hasKey $service "something" }}{{ $service.something }}{{ end }}{{ end }}`, `xyfalse`},
 	}
 	for i := range testcases {
 		tc := testcases[i]

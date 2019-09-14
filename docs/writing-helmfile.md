@@ -11,13 +11,13 @@ One example of how helmfile achieves it is that, `helmfile` fails when you tried
 That is, the following example let `helmfile` fail when you have no `eventApi.replicas` defined in environment values.
 
 ```
-{{ .Environment.Values.eventApi.replicas | default 1 }}
+{{ .Values.eventApi.replicas | default 1 }}
 ```
 
 In case it isn't a mistake and you do want to allow missing keys, use the `getOrNil` template function:
 
 ```
-{{ .Environment.Values | getOrNil "eventApi.replicas" }}
+{{ .Values | getOrNil "eventApi.replicas" }}
 ```
 
 This result in printing `<no value` in your template, that may or may not result in a failure.
@@ -25,7 +25,7 @@ This result in printing `<no value` in your template, that may or may not result
 If you want a kind of default values that is used when a missing key was referenced, use `default` like:
 
 ```
-{{ .Environment.Values | getOrNil "eventApi.replicas" | default 1 }}
+{{ .Values | getOrNil "eventApi.replicas" | default 1 }}
 ```
 
 Now, you get `1` when there is no `eventApi.replicas` defined in environment values.
@@ -267,7 +267,7 @@ bases:
 # Part 3: Dynamic Releases
 releases:
   - name: test1
-    chart: mychart-{{ .Environment.Values.myname }}
+    chart: mychart-{{ .Values.myname }}
     values:
       replicaCount: 1
       image:
@@ -302,9 +302,9 @@ Where the gotmpl file loaded in the second part looks like:
 ```yaml
 helmDefaults:
   tillerNamespace: kube-system
-  kubeContext: {{ .Environment.Values.kubeContext }}
+  kubeContext: {{ .Values.kubeContext }}
   verify: false
-  {{ if .Environment.Values.wait }}
+  {{ if .Values.wait }}
   wait: true
   {{ else }}
   wait: false
@@ -314,9 +314,9 @@ helmDefaults:
   force: true
 ```
 
-Each go template is rendered in the context where `.Environment.Values` is inherited from the previous part. 
+Each go template is rendered in the context where `.Values` is inherited from the previous part. 
 
-So in `mydefaults.yaml.gotmpl`, both `.Environment.Values.kubeContext` and `.Environment.Values.wait` are valid as they do exist in the environment values inherited from the previous part(=the first part) of your `helmfile.yaml.gotmpl`, and therefore the template is rendered to:
+So in `mydefaults.yaml.gotmpl`, both `.Values.kubeContext` and `.Values.wait` are valid as they do exist in the environment values inherited from the previous part(=the first part) of your `helmfile.yaml.gotmpl`, and therefore the template is rendered to:
 
 ```yaml
 helmDefaults:
@@ -329,13 +329,13 @@ helmDefaults:
   force: true
 ```
 
-Similarly, the third part of the top-level `helmfile.yaml.gotmpl`, `.Environment.Values.myname` is valid as it is included in the environment values inherited from the previous parts:
+Similarly, the third part of the top-level `helmfile.yaml.gotmpl`, `.Values.myname` is valid as it is included in the environment values inherited from the previous parts:
 
 ```yaml
 # Part 3: Dynamic Releases
 releases:
   - name: test1
-    chart: mychart-{{ .Environment.Values.myname }}
+    chart: mychart-{{ .Values.myname }}
     values:
       replicaCount: 1
       image:

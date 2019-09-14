@@ -212,17 +212,17 @@ helmfiles:
 # The default is `environments: {"default": {}}` which implies:
 #
 # - `{{ .Environment.Name }}` evaluates to "default"
-# - `{{ .Environment.Values }}` being empty
+# - `{{ .Values }}` being empty
 environments:
   # The "default" environment is available and used when `helmfile` is run without `--environment NAME`.
   default:
-    # Everything from the values.yaml is available via `{{ .Environment.Values.KEY }}`.
+    # Everything from the values.yaml is available via `{{ .Values.KEY }}`.
     # Suppose `{"foo": {"bar": 1}}` contained in the values.yaml below,
-    # `{{ .Environment.Values.foo.bar }}` is evaluated to `1`.
+    # `{{ .Values.foo.bar }}` is evaluated to `1`.
     values:
     - environments/default/values.yaml
     # Each entry in values can be either a file path or inline values.
-    # The below is an example of inline values, which is merged to the `.Environment.Values`
+    # The below is an example of inline values, which is merged to the `.Values`
     - myChartVer: 1.0.0-dev
   # Any environment other than `default` is used only when `helmfile` is run with `--environment NAME`.
   # That is, the "production" env below is used when and only when it is run like `helmfile --environment production sync`.
@@ -625,7 +625,7 @@ releaseName: prod
 `values.yaml.gotmpl`
 
 ```yaml
-domain: {{ .Environment.Values | getOrNil "my.domain" | default "dev.example.com" }}
+domain: {{ .Values | getOrNil "my.domain" | default "dev.example.com" }}
 ```
 
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
@@ -652,16 +652,25 @@ environments:
     - other.yaml.gotmpl  #  template directives with potential side-effects like `exec` and `readFile` will be honoured
 
 releases:
-- name: myapp-{{ .Environment.Values.releaseName }} # release name will be one of `dev` or `prod` depending on selected environment
+- name: myapp-{{ .Values.releaseName }} # release name will be one of `dev` or `prod` depending on selected environment
   values:
   - values.yaml.gotmpl
 
-{{ if eq (.Environment.Values.releaseName "prod" ) }}
+{{ if eq (.Values.releaseName "prod" ) }}
 # this release would be installed only if selected environment is `production`
 - name: production-specific-release
   ...
 {{ end }}
 ```
+
+### Note
+
+The `{{ .Values.foo }}` syntax is the recommended way of using environment values.
+
+Prior to this [pull request](https://github.com/roboll/helmfile/pull/647), environment values were made available through the `{{ .Environment.Values.foo }}` syntax.
+This is still working but is **deprecated** and the new `{{ .Values.foo }}` syntax should be used instead.
+
+You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
 
 ## Environment Secrets
 
@@ -697,7 +706,7 @@ releases:
 Then the environment secret `foo.bar` can be referenced by the below template expression in your `values.yaml.gotmpl`:
 
 ```yaml
-{{ .Environment.Values.foo.bar }}
+{{ .Values.foo.bar }}
 ```
 
 ## Tillerless

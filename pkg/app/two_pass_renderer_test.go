@@ -1,12 +1,13 @@
 package app
 
 import (
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/state"
-	"github.com/roboll/helmfile/pkg/testhelper"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
+	"github.com/roboll/helmfile/pkg/testhelper"
 
 	"gopkg.in/yaml.v2"
 )
