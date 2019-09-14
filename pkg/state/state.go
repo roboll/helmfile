@@ -355,7 +355,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 }
 
 func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
-	out, err := helm.List(context, "^"+release.Name+"$", st.connectionFlags(&release)...)
+	out, err := st.listReleases(context, helm, &release)
 	if err != nil {
 		return false, err
 	} else if out != "" {
@@ -489,9 +489,17 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 	return nil
 }
 
+func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
+	flags := st.connectionFlags(release)
+	if isHelm3() && release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
+	}
+	return helm.List(context, "^"+release.Name+"$", flags...)
+}
+
 func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
 	//retrieve the version
-	if out, err := helm.List(context, "^"+release.Name+"$", st.connectionFlags(release)...); err == nil {
+	if out, err := st.listReleases(context, helm, release); err == nil {
 		chartName := filepath.Base(release.Chart)
 		//the regexp without escapes : .*\s.*\s.*\s.*\schartName-(.*?)\s
 		pat := regexp.MustCompile(".*\\s.*\\s.*\\s.*\\s" + chartName + "-(.*?)\\s")

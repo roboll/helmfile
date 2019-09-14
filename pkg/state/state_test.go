@@ -2082,7 +2082,7 @@ func TestHelmState_Delete(t *testing.T) {
 					return
 				}
 			} else if !(reflect.DeepEqual(tt.deleted, helm.deleted) && (len(affectedReleases.Deleted) == len(tt.deleted))) {
-				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, &affectedReleases.Deleted)
+				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, helm.deleted)
 			}
 		}
 		t.Run(tt.name, f)
