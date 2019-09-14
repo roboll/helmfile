@@ -220,7 +220,7 @@ func (r *Remote) Fetch(goGetterSrc string) (string, error) {
 
 		r.Logger.Debugf("downloading %s to %s", getterSrc, getterDst)
 
-		if err := r.Getter.Get(r.Home, getterSrc, getterDst); err != nil {
+		if err := r.Getter.Get(r.Home, getterSrc, cacheDirPath); err != nil {
 			rmerr := os.RemoveAll(cacheDirPath)
 			if rmerr != nil {
 				return "", multierr.Append(err, rmerr)
