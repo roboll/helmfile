@@ -1013,6 +1013,9 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			flags = append(flags, "--purge")
 		}
 		flags = st.appendConnectionFlags(flags, &release)
+		if isHelm3() && release.Namespace != "" {
+			flags = append(flags, "--namespace", release.Namespace)
+		}
 		context := st.createHelmContext(&release, workerIndex)
 
 		installed, err := st.isReleaseInstalled(context, helm, release)
