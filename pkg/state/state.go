@@ -1343,7 +1343,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		timeout = *release.Timeout
 	}
 	if timeout != 0 {
-		flags = append(flags, "--timeout", fmt.Sprintf("%d", timeout))
+		duration := strconv.Itoa(timeout)
+		if isHelm3() {
+			duration += "s"
+		}
+		flags = append(flags, "--timeout", duration)
 	}
 
 	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
