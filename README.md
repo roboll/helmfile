@@ -197,7 +197,9 @@ helmfiles:
   # Override state values
   values:
   # Values files merged into the nested state's values
-  - additiona.values.yaml
+  - additional.values.yaml
+  # One important aspect of using values here is that they first need to be defined in the values section
+  # of the origin helmfile, so in this example key1 needs to be in the values or environments.NAME.values of path/to/subhelmfile.yaml
   # Inline state values merged into the nested state's values
   - key1: val1
 - # All the nested state files under `helmfiles:` is processed in the order of definition.
