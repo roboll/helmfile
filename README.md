@@ -559,10 +559,10 @@ releases:
     namespace: {{ requiredEnv "NAME" }}
     chart: roboll/vault-secret-manager
     values:
-    - values.yaml.tmpl
+    - values.yaml.gotmpl
 ```
 
-`values.yaml.tmpl`:
+`values.yaml.gotmpl`:
 
 ```yaml
 db:
