@@ -195,6 +195,7 @@ func (st *HelmState) updateDependenciesInTempDir(shell helmexec.DependencyUpdate
 	}
 
 	if len(unresolved.deps) == 0 {
+		st.logger.Warnf("There are no repositories defined in your helmfile.yaml.\nThis means helmfile cannot update your dependencies or create a lock file.\nSee https://github.com/roboll/helmfile/issues/878 for more information.")
 		return st, nil
 	}
 
