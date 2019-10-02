@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.1
-	github.com/Masterminds/sprig v2.20.0+incompatible
+	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/go-test/deep v1.0.3
 	github.com/google/go-cmp v0.3.0
 	github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c // indirect
@@ -13,6 +13,7 @@ require (
 	github.com/hashicorp/go-getter v1.3.0
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6
+	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
