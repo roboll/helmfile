@@ -4,7 +4,8 @@ echo "=> Fetch unshallow origin"
 git fetch --unshallow origin || true
 
 echo "=> Tag image:"
-docker tag "${IMAGE_NAME}" "${DOCKER_REPO}:$(git describe --long --always)"
+docker tag "${IMAGE_NAME}" "${DOCKER_REPO}:$(git describe --tags --abbrev=0 HEAD^)"
+docker tag "${IMAGE_NAME}" "${DOCKER_REPO}:$(git describe --tags --abbrev=0 HEAD)"
 
 echo "=> Push images"
 docker push "${DOCKER_REPO}"
