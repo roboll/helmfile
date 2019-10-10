@@ -994,6 +994,22 @@ Those features are set using the environment variable `HELMFILE_EXPERIMENTAL`. H
 
 If you want to enable all experimental features set the env var to `HELMFILE_EXPERIMENTAL=true`
 
+## Azure ACR integration
+
+Azure offers helm repository [support for Azure Container Registry](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos) as a preview feature.
+
+To use this you must first `az login` and then `az acr helm repo add -n <MyRegistry>`. This will extract a token for the given ACR and configure `helm` to use it, e.g. `helm repo update` should work straight away.
+
+To use `helmfile` with ACR, on the other hand, you must either include a username/password in the repository definition for the ACR in your `helmfile.yaml` or use the `--skip-deps` switch, e.g. `helmfile template --skip-deps`.
+
+An ACR repository definition in `helmfile.yaml` looks like this:
+
+```
+repositories:
+  - name: <MyRegistry>
+    url: https://<MyRegistry>.azurecr.io/helm/v1/repo
+```
+
 ## Examples
 
 For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile`](https://github.com/cloudposse/helmfiles/tree/master/releases) distribution by [Cloud Posse](https://github.com/cloudposse/).
