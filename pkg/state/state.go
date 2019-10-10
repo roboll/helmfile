@@ -434,7 +434,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					if err != nil {
 						relErr = newReleaseError(release, err)
 					} else if installed {
-						deletionFlags := st.appendConnectionFlags([]string{"--purge"}, release)
+						var args []string
+						if isHelm3() {
+							args = []string{}
+						} else {
+							args = []string{"--purge"}
+						}
+						deletionFlags := st.appendConnectionFlags(args, release)
 						if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseError(release, err)
