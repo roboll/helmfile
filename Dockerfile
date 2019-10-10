@@ -1,4 +1,4 @@
-FROM golang:1.12.4-alpine3.9 as builder
+FROM golang:1.13.1-alpine3.10 as builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -7,7 +7,7 @@ RUN make static-linux
 
 # -----------------------------------------------------------------------------
 
-FROM alpine:3.8
+FROM alpine:3.10
 
 RUN apk add --no-cache ca-certificates git bash curl jq
 
