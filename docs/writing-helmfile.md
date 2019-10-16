@@ -57,7 +57,7 @@ releases:
   values:
   - "./config/kubernetes-dashboard/values.yaml"
   - "./config/kubernetes-dashboard/{{ .Environment.Name }}.yaml"
-  values:
+  secrets:
   - "./config/kubernetes-dashboard/secrets.yaml"
   - "./config/kubernetes-dashboard/{{ .Environment.Name }}-secrets.yaml"
 ```
