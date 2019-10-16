@@ -467,7 +467,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					results <- syncResult{errors: []*ReleaseError{relErr}}
 				}
 
-				if _, err := st.triggerPostsyncEvent(release, "sync"); err != nil {
+				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
@@ -1154,22 +1154,22 @@ func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand st
 }
 
 func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("prepare", r, helmfileCommand)
+	return st.triggerReleaseEvent("prepare", nil, r, helmfileCommand)
 }
 
 func (st *HelmState) triggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("cleanup", r, helmfileCommand)
+	return st.triggerReleaseEvent("cleanup", nil, r, helmfileCommand)
 }
 
 func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("presync", r, helmfileCommand)
+	return st.triggerReleaseEvent("presync", nil, r, helmfileCommand)
 }
 
-func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("postsync", r, helmfileCommand)
+func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, evtErr error, helmfileCommand string) (bool, error) {
+	return st.triggerReleaseEvent("postsync", evtErr, r, helmfileCommand)
 }
 
-func (st *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd string) (bool, error) {
+func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string) (bool, error) {
 	bus := &event.Bus{
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,
@@ -1183,7 +1183,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, r *ReleaseSpec, helmfileCmd
 		"Release":         r,
 		"HelmfileCommand": helmfileCmd,
 	}
-	return bus.Trigger(evt, data)
+	return bus.Trigger(evt, evtErr, data)
 }
 
 // ResolveDeps returns a copy of this helmfile state with the concrete chart version numbers filled in for remote chart dependencies

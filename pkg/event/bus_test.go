@@ -104,7 +104,7 @@ func TestTrigger(t *testing.T) {
 			"Release":         "myrel",
 			"HelmfileCommand": "mycmd",
 		}
-		ok, err := bus.Trigger(c.triggeredEvt, data)
+		ok, err := bus.Trigger(c.triggeredEvt, nil, data)
 
 		if ok != c.expectedResult {
 			t.Errorf("unexpected result for case \"%s\": expected=%v, actual=%v", c.name, c.expectedResult, ok)

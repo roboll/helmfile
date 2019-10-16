@@ -20,7 +20,8 @@ type Hook struct {
 }
 
 type event struct {
-	Name string
+	Name  string
+	Error error
 }
 
 type Bus struct {
@@ -37,7 +38,7 @@ type Bus struct {
 	Logger   *zap.SugaredLogger
 }
 
-func (bus *Bus) Trigger(evt string, context map[string]interface{}) (bool, error) {
+func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}) (bool, error) {
 	if bus.Runner == nil {
 		bus.Runner = helmexec.ShellRunner{
 			Dir: bus.BasePath,
@@ -68,7 +69,8 @@ func (bus *Bus) Trigger(evt string, context map[string]interface{}) (bool, error
 			"Environment": bus.Env,
 			"Namespace":   bus.Namespace,
 			"Event": event{
-				Name: evt,
+				Name:  evt,
+				Error: evtErr,
 			},
 		}
 		for k, v := range context {
