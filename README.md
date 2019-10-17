@@ -663,11 +663,11 @@ releases:
   values:
   - values.yaml.gotmpl
 
-{{ if eq (.Values.releaseName "prod" ) }}
+
 # this release would be installed only if selected environment is `production`
 - name: production-specific-release
+  installed: {{ if eq .Environment.Name "production" }}
   ...
-{{ end }}
 ```
 
 ### Note
