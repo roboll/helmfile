@@ -24,6 +24,7 @@ import (
 	"regexp"
 
 	"github.com/tatsushid/go-prettytable"
+	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
@@ -61,8 +62,9 @@ type HelmState struct {
 	glob       func(string) ([]string, error)
 	tempDir    func(string, string) (string, error)
 
-	runner helmexec.Runner
-	helm   helmexec.Interface
+	runner      helmexec.Runner
+	helm        helmexec.Interface
+	valsRuntime vals.Evaluator
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options
@@ -1521,7 +1523,7 @@ func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingF
 			}
 			st.logger.Debugf("successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
 			generatedFiles = append(generatedFiles, valfile.Name())
-		case map[interface{}]interface{}:
+		case map[interface{}]interface{}, map[string]interface{}:
 			valfile, err := ioutil.TempFile("", "values")
 			if err != nil {
 				return nil, err
@@ -1557,7 +1559,17 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 		}
 	}
 
-	generatedFiles, err := st.generateTemporaryValuesFiles(values, release.MissingFileHandler)
+	valuesMapSecretsRendered, err := st.valsRuntime.Eval(map[string]interface{}{"values": values})
+	if err != nil {
+		return nil, err
+	}
+
+	valuesSecretsRendered, ok := valuesMapSecretsRendered["values"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("Failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
+	}
+
+	generatedFiles, err := st.generateTemporaryValuesFiles(valuesSecretsRendered, release.MissingFileHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -1594,12 +1606,20 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	if len(release.SetValues) > 0 {
 		for _, set := range release.SetValues {
 			if set.Value != "" {
-				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(set.Value)))
+				renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
+				if err != nil {
+					return nil, fmt.Errorf("Failed to render set value entry in %s for release %s: %v", st.FilePath, release.Name, err)
+				}
+				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
 			} else if set.File != "" {
 				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizePath(set.File)))
 			} else if len(set.Values) > 0 {
-				items := make([]string, len(set.Values))
-				for i, raw := range set.Values {
+				renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
+				if err != nil {
+					return nil, fmt.Errorf("Failed to render set values entry in %s for release %s: %v", st.FilePath, release.Name, err)
+				}
+				items := make([]string, len(renderedValues))
+				for i, raw := range renderedValues {
 					items[i] = escape(raw)
 				}
 				v := strings.Join(items, ",")
@@ -1636,6 +1656,27 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	 **************/
 
 	return flags, nil
+}
+
+// renderValsSecrets helper function which renders 'ref+.*' secrets
+func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
+	output := make([]string, len(input))
+	if len(input) > 0 {
+		mapRendered, err := e.Eval(map[string]interface{}{"values": input})
+		if err != nil {
+			return nil, err
+		}
+
+		rendered, ok := mapRendered["values"].([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("type %T isn't supported", mapRendered["values"])
+		}
+
+		for i := 0; i < len(rendered); i++ {
+			output[i] = fmt.Sprintf("%v", rendered[i])
+		}
+	}
+	return output, nil
 }
 
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases

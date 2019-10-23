@@ -11,6 +11,7 @@ import (
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
+	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 )
 
@@ -26,8 +27,9 @@ type desiredStateLoader struct {
 	abs        func(string) (string, error)
 	glob       func(string) ([]string, error)
 
-	logger *zap.SugaredLogger
-	helm   helmexec.Interface
+	logger      *zap.SugaredLogger
+	helm        helmexec.Interface
+	valsRuntime vals.Evaluator
 }
 
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
@@ -128,7 +130,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.helm)
+	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.helm, a.valsRuntime)
 	c.LoadFile = a.loadFile
 	return c
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
+	"github.com/variantdev/vals"
 
 	"errors"
 	"strings"
@@ -17,6 +18,7 @@ import (
 )
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
+var valsRuntime, _ = vals.New(32)
 
 func injectFs(st *HelmState, fs *testhelper.TestFs) *HelmState {
 	st.glob = fs.Glob
@@ -523,6 +525,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				DeprecatedContext: "default",
 				Releases:          []ReleaseSpec{*tt.release},
 				HelmDefaults:      tt.defaults,
+				valsRuntime:       valsRuntime,
 			}
 			helm := helmexec.New(logger, "default", &helmexec.ShellRunner{
 				Logger: logger,
@@ -963,8 +966,9 @@ func TestHelmState_SyncReleases(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				Releases: tt.releases,
-				logger:   logger,
+				Releases:    tt.releases,
+				logger:      logger,
+				valsRuntime: valsRuntime,
 			}
 			if _ = state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
 				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
@@ -1049,9 +1053,10 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath: ".",
-				Releases: []ReleaseSpec{tt.release},
-				logger:   logger,
+				basePath:    ".",
+				Releases:    []ReleaseSpec{tt.release},
+				logger:      logger,
+				valsRuntime: valsRuntime,
 			}
 			fs := testhelper.NewTestFs(map[string]string{})
 			state = injectFs(state, fs)
@@ -1163,8 +1168,9 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				Releases: tt.releases,
-				logger:   logger,
+				Releases:    tt.releases,
+				logger:      logger,
+				valsRuntime: valsRuntime,
 			}
 			helm := &mockHelmExec{
 				lists: map[listKey]string{},
@@ -1264,8 +1270,9 @@ func TestGetDeployedVersion(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				Releases: []ReleaseSpec{tt.release},
-				logger:   logger,
+				Releases:    []ReleaseSpec{tt.release},
+				logger:      logger,
+				valsRuntime: valsRuntime,
 			}
 			helm := &mockHelmExec{
 				lists: map[listKey]string{},
@@ -1384,8 +1391,9 @@ func TestHelmState_DiffReleases(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				Releases: tt.releases,
-				logger:   logger,
+				Releases:    tt.releases,
+				logger:      logger,
+				valsRuntime: valsRuntime,
 			}
 			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false)
 			if errs != nil && len(errs) > 0 {
@@ -1455,8 +1463,9 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			numRemovedFiles := 0
 			state := &HelmState{
-				Releases: tt.releases,
-				logger:   logger,
+				Releases:    tt.releases,
+				logger:      logger,
+				valsRuntime: valsRuntime,
 				removeFile: func(f string) error {
 					numRemovedFiles += 1
 					return nil
@@ -1538,8 +1547,9 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			numRemovedFiles := 0
 			state := &HelmState{
-				Releases: tt.releases,
-				logger:   logger,
+				Releases:    tt.releases,
+				logger:      logger,
+				valsRuntime: valsRuntime,
 				removeFile: func(f string) error {
 					numRemovedFiles += 1
 					return nil

@@ -13,15 +13,14 @@ require (
 	github.com/hashicorp/go-getter v1.3.0
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6
-	github.com/mitchellh/copystructure v1.0.0 // indirect
-	github.com/pkg/errors v0.8.1 // indirect
 	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v0.0.0-20160620154522-6011f165dc28
+	github.com/variantdev/vals v0.0.0-20191021121525-8b37a511be7e
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.8.0
-	gopkg.in/yaml.v2 v2.2.1
+	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible
 )
 

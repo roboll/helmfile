@@ -18,6 +18,7 @@ import (
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/roboll/helmfile/pkg/testhelper"
+	"github.com/variantdev/vals"
 
 	"go.uber.org/zap"
 	"gotest.tools/env"
@@ -440,8 +441,8 @@ func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedSelectors(t *testing.T) 
 helmfiles:
 - path: helmfile.d/a*.yaml
   selectors:
-  - name=prometheus      
-  - name=zipkin      
+  - name=prometheus
+  - name=zipkin
 - helmfile.d/b*.yaml
 - path: helmfile.d/c*.yaml
   selectors: []
@@ -1944,6 +1945,11 @@ releases:
 	var buffer bytes.Buffer
 	logger := helmexec.NewLogger(&buffer, "debug")
 
+	valsRuntime, err := vals.New(32)
+	if err != nil {
+		t.Errorf("unexpected error creating vals runtime: %v", err)
+	}
+
 	app := appWithFs(&App{
 		glob:        filepath.Glob,
 		abs:         filepath.Abs,
@@ -1952,6 +1958,7 @@ releases:
 		Logger:      logger,
 		helmExecer:  helm,
 		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
 	}, files)
 	app.Template(configImpl{set: []string{"foo=a", "bar=b"}})
 
