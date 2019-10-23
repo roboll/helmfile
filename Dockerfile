@@ -30,7 +30,7 @@ RUN curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECT
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/kubectl
 
-RUN mkdir -p "$(helm home)/plugins"
+RUN ["helm", "init", "--client-only"]
 RUN helm plugin install https://github.com/databus23/helm-diff && \
     helm plugin install https://github.com/futuresimple/helm-secrets && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git && \
