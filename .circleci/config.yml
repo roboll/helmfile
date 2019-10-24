@@ -58,7 +58,7 @@ jobs:
       - run:
           name: Install helm
           environment:
-            HELM_VERSION: v2.13.0
+            HELM_VERSION: v2.15.1
           command: |
             HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
             curl -Lo ${HELM_FILENAME} "https://kubernetes-helm.storage.googleapis.com/${HELM_FILENAME}"
