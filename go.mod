@@ -16,7 +16,7 @@ require (
 	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v0.0.0-20160620154522-6011f165dc28
-	github.com/variantdev/vals v0.0.0-20191021121525-8b37a511be7e
+	github.com/variantdev/vals v0.0.0-20191025124021-e86de6f8cd7d
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.8.0
