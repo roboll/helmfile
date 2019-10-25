@@ -13,11 +13,17 @@ import (
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/state"
+	"github.com/variantdev/vals"
 
 	"go.uber.org/zap"
 
 	"path/filepath"
 	"sort"
+)
+
+const (
+	// cache size for improving performance of ref+.* secrets rendering
+	valsCacheSize = 512
 )
 
 type App struct {
@@ -49,6 +55,8 @@ type App struct {
 	remote *remote.Remote
 
 	helmExecer helmexec.Interface
+
+	valsRuntime vals.Evaluator
 }
 
 func New(conf ConfigProvider) *App {
@@ -78,6 +86,13 @@ func Init(app *App) *App {
 	app.fileExistsAt = fileExistsAt
 	app.fileExists = fileExists
 	app.directoryExistsAt = directoryExistsAt
+
+	var err error
+	app.valsRuntime, err = vals.New(valsCacheSize)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize vals runtime: %v", err))
+	}
+
 	return app
 }
 
@@ -274,6 +289,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		KubeContext: a.KubeContext,
 		glob:        a.glob,
 		helm:        a.helmExecer,
+		valsRuntime: a.valsRuntime,
 	}
 
 	var op LoadOpts

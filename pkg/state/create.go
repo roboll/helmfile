@@ -11,6 +11,7 @@ import (
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/maputil"
+	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
@@ -33,27 +34,29 @@ func (e *UndefinedEnvError) Error() string {
 }
 
 type StateCreator struct {
-	logger     *zap.SugaredLogger
-	readFile   func(string) ([]byte, error)
-	fileExists func(string) (bool, error)
-	abs        func(string) (string, error)
-	glob       func(string) ([]string, error)
-	helm       helmexec.Interface
+	logger      *zap.SugaredLogger
+	readFile    func(string) ([]byte, error)
+	fileExists  func(string) (bool, error)
+	abs         func(string) (string, error)
+	glob        func(string) ([]string, error)
+	helm        helmexec.Interface
+	valsRuntime vals.Evaluator
 
 	Strict bool
 
 	LoadFile func(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), helm helmexec.Interface) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), helm helmexec.Interface, valsRuntime vals.Evaluator) *StateCreator {
 	return &StateCreator{
-		logger:     logger,
-		readFile:   readFile,
-		fileExists: fileExists,
-		abs:        abs,
-		glob:       glob,
-		Strict:     true,
-		helm:       helm,
+		logger:      logger,
+		readFile:    readFile,
+		fileExists:  fileExists,
+		abs:         abs,
+		glob:        glob,
+		Strict:      true,
+		helm:        helm,
+		valsRuntime: valsRuntime,
 	}
 }
 
@@ -107,6 +110,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 	state.removeFile = os.Remove
 	state.fileExists = c.fileExists
 	state.glob = c.glob
+	state.valsRuntime = c.valsRuntime
 
 	return &state, nil
 }
