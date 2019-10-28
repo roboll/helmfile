@@ -459,7 +459,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 
 		st.logger.Debugf("syncing releases in group %d/%d: %s", groupIndex+1, groupsTotal, strings.Join(idsInGroup, ", "))
 
-		errs := st.syncReleaseGroup(affectedReleases, helm, prepsInGroup)
+		errs := st.syncReleaseGroup(affectedReleases, helm, workerLimit, prepsInGroup)
 		if len(errs) > 0 {
 			return errs
 		}
@@ -486,11 +486,15 @@ func releaseToID(r *ReleaseSpec) string {
 	return id
 }
 
-func (st *HelmState) syncReleaseGroup(affectedReleases *AffectedReleases, helm helmexec.Interface, preps []syncPrepareResult) []error {
+func (st *HelmState) syncReleaseGroup(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, preps []syncPrepareResult) []error {
 	errs := []error{}
 	jobQueue := make(chan *syncPrepareResult, len(preps))
 	results := make(chan syncResult, len(preps))
-	concurrency := len(preps)
+	if concurrency == 0 {
+		concurrency = len(preps)
+	}
+
+	m := new(sync.Mutex)
 
 	st.scatterGather(
 		concurrency,
