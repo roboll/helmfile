@@ -523,18 +523,24 @@ func (st *HelmState) syncReleaseGroup(affectedReleases *AffectedReleases, helm h
 							args = []string{"--purge"}
 						}
 						deletionFlags := st.appendConnectionFlags(args, release)
+						m.Lock()
 						if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseError(release, err)
 						} else {
 							affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 						}
+						m.Unlock()
 					}
 				} else if err := helm.SyncRelease(context, release.Name, chart, flags...); err != nil {
+					m.Lock()
 					affectedReleases.Failed = append(affectedReleases.Failed, release)
+					m.Unlock()
 					relErr = newReleaseError(release, err)
 				} else {
+					m.Lock()
 					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
+					m.Unlock()
 					installedVersion, err := st.getDeployedVersion(context, helm, release)
 					if err != nil { //err is not really impacting so just log it
 						st.logger.Debugf("getting deployed release version failed:%v", err)
