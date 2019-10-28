@@ -2,9 +2,11 @@ package state
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/variantdev/dag/pkg/dag"
 )
 
 type result struct {
@@ -51,9 +53,14 @@ func (st *HelmState) scatterGather(concurrency int, items int, produceInputs fun
 
 func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int,
 	do func(ReleaseSpec, int) error) []error {
+
+	return st.iterateOnReleases(helm, concurrency, st.Releases, do)
+}
+
+func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, inputs []ReleaseSpec,
+	do func(ReleaseSpec, int) error) []error {
 	var errs []error
 
-	inputs := st.Releases
 	inputsSize := len(inputs)
 
 	releases := make(chan ReleaseSpec)
@@ -92,6 +99,55 @@ func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency 
 
 	if len(errs) != 0 {
 		return errs
+	}
+
+	return nil
+}
+
+func (st *HelmState) dagAwareReverseIterateOnReleases(helm helmexec.Interface, concurrency int,
+	do func(ReleaseSpec, int) error) []error {
+
+	idToRelease := map[string]ReleaseSpec{}
+
+	preps := st.Releases
+
+	d := dag.New()
+	for _, r := range preps {
+
+		id := releaseToID(&r)
+
+		idToRelease[id] = r
+
+		d.Add(id, dag.Dependencies(r.Needs))
+	}
+
+	plan, err := d.Plan()
+	if err != nil {
+		return []error{err}
+	}
+
+	groupsTotal := len(plan)
+
+	st.logger.Debugf("processing %d groups of releases in this order: %s", groupsTotal, plan)
+
+	for groupIndex := len(plan) - 1; groupIndex >= 0; groupIndex-- {
+		dagNodesInGroup := plan[groupIndex]
+
+		var idsInGroup []string
+		var releasesInGroup []ReleaseSpec
+
+		for _, node := range dagNodesInGroup {
+			releasesInGroup = append(releasesInGroup, idToRelease[node.Id])
+			idsInGroup = append(idsInGroup, node.Id)
+		}
+
+		st.logger.Debugf("processing releases in group %d/%d: %s", groupIndex+1, groupsTotal, strings.Join(idsInGroup, ", "))
+
+		errs := st.iterateOnReleases(helm, concurrency, releasesInGroup, do)
+
+		if len(errs) > 0 {
+			return errs
+		}
 	}
 
 	return nil

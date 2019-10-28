@@ -867,10 +867,11 @@ func TestHelmState_SyncRepos(t *testing.T) {
 
 func TestHelmState_SyncReleases(t *testing.T) {
 	tests := []struct {
-		name         string
-		releases     []ReleaseSpec
-		helm         *mockHelmExec
-		wantReleases []mockRelease
+		name          string
+		releases      []ReleaseSpec
+		helm          *mockHelmExec
+		wantReleases  []mockRelease
+		wantErrorMsgs []string
 	}{
 		{
 			name: "normal release",
@@ -961,6 +962,106 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			helm:         &mockHelmExec{},
 			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo.bar[0]={A,B}"}}},
 		},
+		{
+			name: "foo needs bar",
+			releases: []ReleaseSpec{
+				{
+					Name:  "foo",
+					Chart: "charts/foo",
+					Needs: []string{
+						"bar",
+					},
+				},
+				{
+					Name:  "bar",
+					Chart: "charts/bar",
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"bar", []string{}}, {"foo", []string{}}},
+		},
+		{
+			name: "bar needs foo",
+			releases: []ReleaseSpec{
+				{
+					Name:  "foo",
+					Chart: "charts/foo",
+				},
+				{
+					Name:  "bar",
+					Chart: "charts/bar",
+					Needs: []string{
+						"foo",
+					},
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"foo", []string{}}, {"bar", []string{}}},
+		},
+		{
+			name: "ns2/bar needs ns1/foo",
+			releases: []ReleaseSpec{
+				{
+					Name:      "foo",
+					Namespace: "ns1",
+					Chart:     "charts/foo",
+				},
+				{
+					Name:      "bar",
+					Namespace: "ns2",
+					Chart:     "charts/bar",
+					Needs: []string{
+						"ns1/foo",
+					},
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"foo", []string{"--namespace", "ns1"}}, {"bar", []string{"--namespace", "ns2"}}},
+		},
+		{
+			name: "tillerns1/ns1/foo needs tillerns2/ns2/bar",
+			releases: []ReleaseSpec{
+				{
+					Name:            "foo",
+					Chart:           "charts/foo",
+					Namespace:       "ns1",
+					TillerNamespace: "tillerns1",
+					Needs: []string{
+						"tillerns2/ns2/bar",
+					},
+				},
+				{
+					Name:            "bar",
+					Namespace:       "ns2",
+					TillerNamespace: "tillerns2",
+					Chart:           "charts/bar",
+				},
+			},
+			helm:         &mockHelmExec{},
+			wantReleases: []mockRelease{{"bar", []string{"--tiller-namespace", "tillerns2", "--namespace", "ns2"}}, {"foo", []string{"--tiller-namespace", "tillerns1", "--namespace", "ns1"}}},
+		},
+		{
+			name: "tillerns1/ns1/foo needs tillerns2/ns2/bar",
+			releases: []ReleaseSpec{
+				{
+					Name:            "foo",
+					Chart:           "charts/foo",
+					Namespace:       "ns1",
+					TillerNamespace: "tillerns1",
+					Needs: []string{
+						"bar",
+					},
+				},
+				{
+					Name:            "bar",
+					Namespace:       "ns2",
+					TillerNamespace: "tillerns2",
+					Chart:           "charts/bar",
+				},
+			},
+			helm:          &mockHelmExec{},
+			wantErrorMsgs: []string{`"tillerns1/ns1/foo" needs "bar", but it must be one of tillerns1/ns1/foo, tillerns2/ns2/bar`},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -970,7 +1071,23 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				logger:      logger,
 				valsRuntime: valsRuntime,
 			}
-			if _ = state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
+			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); errs != nil && len(errs) > 0 {
+				if len(errs) != len(tt.wantErrorMsgs) {
+					t.Fatalf("Unexpected errors: %v\nExpected: %v", errs, tt.wantErrorMsgs)
+				}
+				var mismatch int
+				for i := range tt.wantErrorMsgs {
+					expected := tt.wantErrorMsgs[i]
+					actual := errs[i].Error()
+					if !reflect.DeepEqual(actual, expected) {
+						t.Errorf("Unexpected error: expected=%v, got=%v", expected, actual)
+					}
+				}
+				if mismatch > 0 {
+					t.Fatalf("%d unexpected errors detected", mismatch)
+				}
+			}
+			if !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
 				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
 			}
 		})
