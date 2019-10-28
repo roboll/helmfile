@@ -20,6 +20,7 @@ import (
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/tmpl"
+	"github.com/variantdev/dag/pkg/dag"
 
 	"regexp"
 
@@ -144,6 +145,8 @@ type ReleaseSpec struct {
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
 	MissingFileHandler *string `yaml:"missingFileHandler,omitempty"`
+	// Needs is the [TILLER_NS/][NS/]NAME representations of releases that this release depends on.
+	Needs []string `yaml:"needs,omitempty"`
 
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
 	Hooks []event.Hook `yaml:"hooks,omitempty"`
@@ -408,12 +411,89 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 		return prepErrs
 	}
 
+	availableIds := make([]string, len(preps))
+	idToPrep := map[string]syncPrepareResult{}
+
+	d := dag.New()
+	for i, p := range preps {
+		r := p.release
+
+		id := releaseToID(r)
+
+		idToPrep[id] = p
+
+		availableIds[i] = id
+
+		d.Add(id, dag.Dependencies(r.Needs))
+	}
+
+	plan, err := d.Plan()
+	if err != nil {
+		return []error{err}
+	}
+
+	groupsTotal := len(plan)
+
+	st.logger.Debugf("syncing %d groups of releases in this order: %s", groupsTotal, plan)
+
+	for id, prep := range idToPrep {
+		for _, need := range prep.release.Needs {
+			if _, ok := idToPrep[need]; !ok {
+				return []error{fmt.Errorf("%q needs %q, but it must be one of %s", id, need, strings.Join(availableIds, ", "))}
+			}
+		}
+	}
+
+	for groupIndex, dagNodesInGroup := range plan {
+		var idsInGroup []string
+		var prepsInGroup []syncPrepareResult
+
+		for _, node := range dagNodesInGroup {
+			prepareResult, ok := idToPrep[node.Id]
+			if !ok {
+				panic(fmt.Sprintf("[bug] no release found for dag node id %q", node.Id))
+			}
+			prepsInGroup = append(prepsInGroup, prepareResult)
+			idsInGroup = append(idsInGroup, node.Id)
+		}
+
+		st.logger.Debugf("syncing releases in group %d/%d: %s", groupIndex+1, groupsTotal, strings.Join(idsInGroup, ", "))
+
+		errs := st.syncReleaseGroup(affectedReleases, helm, prepsInGroup)
+		if len(errs) > 0 {
+			return errs
+		}
+	}
+
+	return nil
+}
+
+func releaseToID(r *ReleaseSpec) string {
+	var id string
+
+	tns := r.TillerNamespace
+	if tns != "" {
+		id += tns + "/"
+	}
+
+	ns := r.Namespace
+	if ns != "" {
+		id += ns + "/"
+	}
+
+	id += r.Name
+
+	return id
+}
+
+func (st *HelmState) syncReleaseGroup(affectedReleases *AffectedReleases, helm helmexec.Interface, preps []syncPrepareResult) []error {
 	errs := []error{}
 	jobQueue := make(chan *syncPrepareResult, len(preps))
 	results := make(chan syncResult, len(preps))
+	concurrency := len(preps)
 
 	st.scatterGather(
-		workerLimit,
+		concurrency,
 		len(preps),
 		func() {
 			for i := 0; i < len(preps); i++ {
@@ -1010,8 +1090,9 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
+// This function traverses the DAG of the releases in the reverse order, so that the releases that are NOT depended by any others are deleted first.
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool) []error {
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.dagAwareReverseIterateOnReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}

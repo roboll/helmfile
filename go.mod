@@ -25,6 +25,7 @@ require (
 	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.20.0
+	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363
 	github.com/variantdev/vals v0.0.0-20191026125821-5d18b16cf30a
 	go.mozilla.org/sops v0.0.0-20190912205235-14a22d7a7060 // indirect
 	go.opencensus.io v0.22.1 // indirect

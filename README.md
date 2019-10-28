@@ -723,6 +723,50 @@ With the [helm-tiller](https://github.com/rimusz/helm-tiller) plugin installed, 
 To enable this mode, you need to define `tillerless: true` and set the `tillerNamespace` in the `helmDefaults` section
 or in the `releases` entries.
 
+## DAG-aware installation/deletion ordering
+
+`needs` controls the order of the installation/deletion of the release:
+
+```yaml
+relesaes:
+- name: somerelease
+  needs:
+  - [TILLER_NAMESPACE/][NAMESPACE/]anotherelease
+```
+
+All the releases listed under `needs` are installed before(or deleted after) the release itself.
+
+For the following example, `helmfile [sync|apply]` installs releases in this order:
+
+1. logging
+2. servicemesh
+3. myapp1 and myapp2
+
+```yaml
+  - name: myapp1
+    chart: charts/myapp
+    needs:
+    - servicemesh
+    - logging
+  - name: myapp2
+    chart: charts/myapp
+    needs:
+    - servicemesh
+    - logging
+  - name: servicemesh
+    chart: charts/istio
+    needs:
+    - logging
+  - name: logging
+    chart: charts/fluentd
+```
+
+Note that all the releases in a same group is installed concurrently. That is, myapp1 and myapp2 are installed concurrently.
+
+On `helmdile [delete|destroy]`, deleations happen in the reverse order.
+
+That is, `myapp1` and `myapp2` are deleted first, then `servicemesh`, and finally `logging`.
+
 ## Separating helmfile.yaml into multiple independent files
 
 Once your `helmfile.yaml` got to contain too many releases,
