@@ -14,10 +14,12 @@ RUN apk add --no-cache ca-certificates git bash curl jq
 ARG HELM_VERSION=v2.15.1
 ARG HELM_LOCATION="https://kubernetes-helm.storage.googleapis.com"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
-ARG HELM_SHA256="15eca6ad225a8279de80c7ced42305e24bc5ac60bb7d96f2d2fa4af86e02c794"
+ARG HELM_SHA256="b4d366bd6625477b2954941aeb7b601946aa4226af6728e3a84eac4e62a84042"
 RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
+    echo Verifying ${HELM_FILENAME}... && \
     sha256sum ${HELM_FILENAME} | grep -q "${HELM_SHA256}" && \
-    tar zxf ${HELM_FILENAME} && mv /linux-amd64/helm /usr/local/bin/ && \
+    echo Extracting ${HELM_FILENAME}... && \
+    tar zxvf ${HELM_FILENAME} && mv /linux-amd64/helm /usr/local/bin/ && \
     rm ${HELM_FILENAME} && rm -r /linux-amd64
 
 # using the install documentation found at https://kubernetes.io/docs/tasks/tools/install-kubectl/
