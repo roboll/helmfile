@@ -24,6 +24,23 @@ jobs:
           root: ./
           paths:
             - .
+  image:
+    docker:
+      - image: circleci/golang:1.13.3
+    working_directory: /home/circleci/workspace/helmfile
+    steps:
+    - checkout
+    - restore_cache:
+        keys:
+        - go-mod-cache-v1-{{ checksum "./go.sum" }}
+        - go-mod-cache-v1-
+    - setup_remote_docker
+    - run:
+        command: |
+          docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
+          make tools
+          go mod vendor
+          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image
 
   test:
     environment:
@@ -112,6 +129,7 @@ workflows:
   build_and_test:
     jobs:
       - build
+      - image
       - test
       - integration_tests:
           requires:
