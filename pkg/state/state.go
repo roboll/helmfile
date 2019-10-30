@@ -1542,7 +1542,33 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 
 func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
 	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), st.valuesFileTemplateData())
-	return r.RenderToBytes(path)
+	rawBytes, err := r.RenderToBytes(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// If 'ref+.*' exists in file, run vals against the file
+	match, err := regexp.Match("ref\\+.*", rawBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	if match {
+		var rawYaml map[string]interface{}
+
+		if err := yaml.Unmarshal(rawBytes, &rawYaml); err != nil {
+			return nil, err
+		}
+
+		parsedYaml, err := st.valsRuntime.Eval(rawYaml)
+		if err != nil {
+			return nil, err
+		}
+
+		return yaml.Marshal(parsedYaml)
+	}
+
+	return rawBytes, nil
 }
 
 func (st *HelmState) storage() *Storage {
