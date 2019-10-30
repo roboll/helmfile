@@ -37,7 +37,6 @@ jobs:
     - setup_remote_docker
     - run:
         command: |
-          docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
           make tools
           go mod vendor
           ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image
