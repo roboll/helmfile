@@ -339,6 +339,14 @@ releases:
 	}
 }
 
+type ctxLogger struct {
+	label string
+}
+
+func (cl *ctxLogger) Write(b []byte) (int, error) {
+	return os.Stderr.Write(append([]byte(cl.label+":"), b...))
+}
+
 // See https://github.com/roboll/helmfile/issues/322
 func TestVisitDesiredStatesWithReleasesFiltered_Selectors(t *testing.T) {
 	files := map[string]string{
@@ -399,39 +407,43 @@ releases:
 		{label: "duplicatedOK=yes", expectedCount: 2, expectErr: false},
 	}
 
-	for _, testcase := range testcases {
-		actual := []string{}
+	for i := range testcases {
+		testcase := testcases[i]
 
-		collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
-			for _, r := range st.Releases {
-				actual = append(actual, r.Name)
+		t.Run(testcase.label, func(t *testing.T) {
+			actual := []string{}
+
+			collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+				for _, r := range st.Releases {
+					actual = append(actual, r.Name)
+				}
+				return []error{}
 			}
-			return []error{}
-		}
 
-		app := appWithFs(&App{
-			KubeContext: "default",
-			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			Namespace:   "",
-			Selectors:   []string{testcase.label},
-			Env:         "default",
-		}, files)
+			app := appWithFs(&App{
+				KubeContext: "default",
+				Logger:      helmexec.NewLogger(&ctxLogger{label: testcase.label}, "debug"),
+				Namespace:   "",
+				Selectors:   []string{testcase.label},
+				Env:         "default",
+			}, files)
 
-		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", collectReleases,
-		)
-		if testcase.expectErr {
-			if err == nil {
-				t.Errorf("error expected but not happened for selector %s", testcase.label)
-			} else if err.Error() != testcase.errMsg {
-				t.Errorf("unexpected error message: expected=\"%s\", actual=\"%s\"", testcase.errMsg, err.Error())
+			err := app.VisitDesiredStatesWithReleasesFiltered(
+				"helmfile.yaml", collectReleases,
+			)
+			if testcase.expectErr {
+				if err == nil {
+					t.Errorf("error expected but not happened for selector %s", testcase.label)
+				} else if err.Error() != testcase.errMsg {
+					t.Errorf("unexpected error message: expected=\"%s\", actual=\"%s\"", testcase.errMsg, err.Error())
+				}
+			} else if !testcase.expectErr && err != nil {
+				t.Errorf("unexpected error for selector %s: %v", testcase.label, err)
 			}
-		} else if !testcase.expectErr && err != nil {
-			t.Errorf("unexpected error for selector %s: %v", testcase.label, err)
-		}
-		if len(actual) != testcase.expectedCount {
-			t.Errorf("unexpected release count for selector %s: expected=%d, actual=%d", testcase.label, testcase.expectedCount, len(actual))
-		}
+			if len(actual) != testcase.expectedCount {
+				t.Errorf("unexpected release count for selector %s: expected=%d, actual=%d", testcase.label, testcase.expectedCount, len(actual))
+			}
+		})
 	}
 }
 

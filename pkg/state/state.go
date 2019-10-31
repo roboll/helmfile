@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,9 +21,6 @@ import (
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/tmpl"
-	"github.com/variantdev/dag/pkg/dag"
-
-	"regexp"
 
 	"github.com/tatsushid/go-prettytable"
 	"github.com/variantdev/vals"
@@ -193,6 +191,12 @@ type ReleaseSpec struct {
 	generatedValues []string
 	//version of the chart that has really been installed cause desired version may be fuzzy (~2.0.0)
 	installedVersion string
+}
+
+type Release struct {
+	ReleaseSpec
+
+	Filtered bool
 }
 
 // SetValue are the key values to set on a helm release
@@ -370,10 +374,10 @@ func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helme
 	return false, nil
 }
 
-func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*ReleaseSpec, error) {
-	detected := []*ReleaseSpec{}
-	for i := range st.Releases {
-		release := st.Releases[i]
+func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
+	detected := []ReleaseSpec{}
+	for i := range releases {
+		release := releases[i]
 
 		if !release.Desired() {
 			installed, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
@@ -382,7 +386,7 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface) ([]*Rele
 			} else if installed {
 				// Otherwise `release` messed up(https://github.com/roboll/helmfile/issues/554)
 				r := release
-				detected = append(detected, &r)
+				detected = append(detected, r)
 			}
 		}
 	}
@@ -399,76 +403,7 @@ func (o *SyncOpts) Apply(opts *SyncOpts) {
 	*opts = *o
 }
 
-// SyncReleases wrapper for executing helm upgrade on the releases
-func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, additionalValues []string, workerLimit int, opt ...SyncOpt) []error {
-	opts := &SyncOpts{}
-	for _, o := range opt {
-		o.Apply(opts)
-	}
-
-	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit, opts)
-	if len(prepErrs) > 0 {
-		return prepErrs
-	}
-
-	availableIds := make([]string, len(preps))
-	idToPrep := map[string]syncPrepareResult{}
-
-	d := dag.New()
-	for i, p := range preps {
-		r := p.release
-
-		id := releaseToID(r)
-
-		idToPrep[id] = p
-
-		availableIds[i] = id
-
-		d.Add(id, dag.Dependencies(r.Needs))
-	}
-
-	plan, err := d.Plan()
-	if err != nil {
-		return []error{err}
-	}
-
-	groupsTotal := len(plan)
-
-	st.logger.Debugf("syncing %d groups of releases in this order: %s", groupsTotal, plan)
-
-	for id, prep := range idToPrep {
-		for _, need := range prep.release.Needs {
-			if _, ok := idToPrep[need]; !ok {
-				return []error{fmt.Errorf("%q needs %q, but it must be one of %s", id, need, strings.Join(availableIds, ", "))}
-			}
-		}
-	}
-
-	for groupIndex, dagNodesInGroup := range plan {
-		var idsInGroup []string
-		var prepsInGroup []syncPrepareResult
-
-		for _, node := range dagNodesInGroup {
-			prepareResult, ok := idToPrep[node.Id]
-			if !ok {
-				panic(fmt.Sprintf("[bug] no release found for dag node id %q", node.Id))
-			}
-			prepsInGroup = append(prepsInGroup, prepareResult)
-			idsInGroup = append(idsInGroup, node.Id)
-		}
-
-		st.logger.Debugf("syncing releases in group %d/%d: %s", groupIndex+1, groupsTotal, strings.Join(idsInGroup, ", "))
-
-		errs := st.syncReleaseGroup(affectedReleases, helm, workerLimit, prepsInGroup)
-		if len(errs) > 0 {
-			return errs
-		}
-	}
-
-	return nil
-}
-
-func releaseToID(r *ReleaseSpec) string {
+func ReleaseToID(r *ReleaseSpec) string {
 	var id string
 
 	tns := r.TillerNamespace
@@ -486,18 +421,112 @@ func releaseToID(r *ReleaseSpec) string {
 	return id
 }
 
-func (st *HelmState) syncReleaseGroup(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, preps []syncPrepareResult) []error {
+// DeleteReleasesForSync deletes releases that are marked for deletion
+func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, helm helmexec.Interface, workerLimit int) []error {
 	errs := []error{}
-	jobQueue := make(chan *syncPrepareResult, len(preps))
-	results := make(chan syncResult, len(preps))
-	if concurrency == 0 {
-		concurrency = len(preps)
+
+	releases := st.Releases
+
+	jobQueue := make(chan *ReleaseSpec, len(releases))
+	results := make(chan syncResult, len(releases))
+	if workerLimit == 0 {
+		workerLimit = len(releases)
 	}
 
 	m := new(sync.Mutex)
 
 	st.scatterGather(
-		concurrency,
+		workerLimit,
+		len(releases),
+		func() {
+			for i := 0; i < len(releases); i++ {
+				jobQueue <- &releases[i]
+			}
+			close(jobQueue)
+		},
+		func(workerIndex int) {
+			for release := range jobQueue {
+				var relErr *ReleaseError
+				context := st.createHelmContext(release, workerIndex)
+
+				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+					relErr = newReleaseError(release, err)
+				} else {
+					var args []string
+					if isHelm3() {
+						args = []string{}
+					} else {
+						args = []string{"--purge"}
+					}
+					deletionFlags := st.appendConnectionFlags(args, release)
+					m.Lock()
+					if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						relErr = newReleaseError(release, err)
+					} else {
+						affectedReleases.Deleted = append(affectedReleases.Deleted, release)
+					}
+					m.Unlock()
+				}
+
+				if relErr == nil {
+					results <- syncResult{}
+				} else {
+					results <- syncResult{errors: []*ReleaseError{relErr}}
+				}
+
+				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
+					st.logger.Warnf("warn: %v\n", err)
+				}
+
+				if _, err := st.triggerCleanupEvent(release, "sync"); err != nil {
+					st.logger.Warnf("warn: %v\n", err)
+				}
+			}
+		},
+		func() {
+			for i := 0; i < len(releases); {
+				select {
+				case res := <-results:
+					if len(res.errors) > 0 {
+						for _, e := range res.errors {
+							errs = append(errs, e)
+						}
+					}
+				}
+				i++
+			}
+		},
+	)
+	if len(errs) > 0 {
+		return errs
+	}
+	return nil
+}
+
+// SyncReleases wrapper for executing helm upgrade on the releases
+func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, additionalValues []string, workerLimit int, opt ...SyncOpt) []error {
+	opts := &SyncOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
+	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit, opts)
+	if len(prepErrs) > 0 {
+		return prepErrs
+	}
+
+	errs := []error{}
+	jobQueue := make(chan *syncPrepareResult, len(preps))
+	results := make(chan syncResult, len(preps))
+	if workerLimit == 0 {
+		workerLimit = len(preps)
+	}
+
+	m := new(sync.Mutex)
+
+	st.scatterGather(
+		workerLimit,
 		len(preps),
 		func() {
 			for i := 0; i < len(preps); i++ {
@@ -1020,7 +1049,7 @@ type DiffOpt interface{ Apply(*DiffOpts) }
 
 // DiffReleases wrapper for executing helm diff on the releases
 // It returns releases that had any changes
-func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, triggerCleanupEvents bool, opt ...DiffOpt) ([]*ReleaseSpec, []error) {
+func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -1028,13 +1057,13 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 
 	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, suppressSecrets, opts)
 	if len(prepErrs) > 0 {
-		return []*ReleaseSpec{}, prepErrs
+		return []ReleaseSpec{}, prepErrs
 	}
 
 	jobQueue := make(chan *diffPrepareResult, len(preps))
 	results := make(chan diffResult, len(preps))
 
-	rs := []*ReleaseSpec{}
+	rs := []ReleaseSpec{}
 	errs := []error{}
 
 	st.scatterGather(
@@ -1076,7 +1105,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				if res.err != nil {
 					errs = append(errs, res.err)
 					if res.err.Code == 2 {
-						rs = append(rs, res.err.ReleaseSpec)
+						rs = append(rs, *res.err.ReleaseSpec)
 					}
 				}
 			}
@@ -1102,7 +1131,7 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 // DeleteReleases wrapper for executing helm delete on the releases
 // This function traverses the DAG of the releases in the reverse order, so that the releases that are NOT depended by any others are deleted first.
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool) []error {
-	return st.dagAwareReverseIterateOnReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -1180,19 +1209,17 @@ func (st *HelmState) Clean() []error {
 	return nil
 }
 
-// FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
-func (st *HelmState) FilterReleases() error {
-	var filteredReleases []ReleaseSpec
-	releaseSet := map[string][]ReleaseSpec{}
+func MarkFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release, error) {
+	var filteredReleases []Release
 	filters := []ReleaseFilter{}
-	for _, label := range st.Selectors {
+	for _, label := range selectors {
 		f, err := ParseLabels(label)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		filters = append(filters, f)
 	}
-	for _, r := range st.Releases {
+	for _, r := range releases {
 		if r.Labels == nil {
 			r.Labels = map[string]string{}
 		}
@@ -1202,22 +1229,40 @@ func (st *HelmState) FilterReleases() error {
 		// Strip off just the last portion for the name stable/newrelic would give newrelic
 		chartSplit := strings.Split(r.Chart, "/")
 		r.Labels["chart"] = chartSplit[len(chartSplit)-1]
+		var matched bool
 		for _, f := range filters {
 			if r.Labels == nil {
 				r.Labels = map[string]string{}
 			}
 			if f.Match(r) {
-				releaseSet[r.Name] = append(releaseSet[r.Name], r)
-				continue
+				matched = true
+				break
 			}
 		}
+		res := Release{
+			ReleaseSpec: r,
+			Filtered:    len(filters) > 0 && !matched,
+		}
+		filteredReleases = append(filteredReleases, res)
 	}
-	for _, r := range releaseSet {
-		filteredReleases = append(filteredReleases, r...)
+
+	return filteredReleases, nil
+}
+
+// FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
+func (st *HelmState) FilterReleases() error {
+	filteredReleases, err := MarkFilteredReleases(st.Releases, st.Selectors)
+	if err != nil {
+		return err
 	}
-	st.Releases = filteredReleases
-	numFound := len(filteredReleases)
-	st.logger.Debugf("%d release(s) matching %s found in %s\n", numFound, strings.Join(st.Selectors, ","), st.FilePath)
+	var releases []ReleaseSpec
+	for _, r := range filteredReleases {
+		if !r.Filtered {
+			releases = append(releases, r.ReleaseSpec)
+		}
+	}
+	st.Releases = releases
+	st.logger.Debugf("%d release(s) matching %s found in %s\n", len(filteredReleases), strings.Join(st.Selectors, ","), st.FilePath)
 	return nil
 }
 
