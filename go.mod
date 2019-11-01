@@ -23,6 +23,7 @@ require (
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
 	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
+	github.com/sergi/go-diff v1.0.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.20.0
 	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363

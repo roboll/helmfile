@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/roboll/helmfile/pkg/exectest"
 	"gotest.tools/assert"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
@@ -20,6 +22,7 @@ import (
 	"github.com/roboll/helmfile/pkg/testhelper"
 	"github.com/variantdev/vals"
 
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"go.uber.org/zap"
 	"gotest.tools/env"
 )
@@ -1850,6 +1853,59 @@ func (c configImpl) Concurrency() int {
 	return 1
 }
 
+type applyConfig struct {
+	args            string
+	values          []string
+	set             []string
+	skipDeps        bool
+	suppressSecrets bool
+	noColor         bool
+	context         int
+	concurrency     int
+	interactive     bool
+	logger          *zap.SugaredLogger
+}
+
+func (a applyConfig) Args() string {
+	return a.args
+}
+
+func (a applyConfig) Values() []string {
+	return a.values
+}
+
+func (a applyConfig) Set() []string {
+	return a.set
+}
+
+func (a applyConfig) SkipDeps() bool {
+	return a.skipDeps
+}
+
+func (a applyConfig) SuppressSecrets() bool {
+	return a.suppressSecrets
+}
+
+func (a applyConfig) NoColor() bool {
+	return a.noColor
+}
+
+func (a applyConfig) Context() int {
+	return a.context
+}
+
+func (a applyConfig) Concurrency() int {
+	return a.concurrency
+}
+
+func (a applyConfig) Interactive() bool {
+	return a.interactive
+}
+
+func (a applyConfig) Logger() *zap.SugaredLogger {
+	return a.logger
+}
+
 // Mocking the command-line runner
 
 type mockRunner struct {
@@ -1921,9 +1977,11 @@ func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release st
 func (helm *mockHelmExec) DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error {
 	return nil
 }
+
 func (helm *mockHelmExec) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
 	return "", nil
 }
+
 func (helm *mockHelmExec) DecryptSecret(context helmexec.HelmContext, name string, flags ...string) (string, error) {
 	return "", nil
 }
@@ -1992,6 +2050,114 @@ releases:
 			}
 		}
 
+	}
+}
+
+func TestApply(t *testing.T) {
+	testcases := []struct {
+		name     string
+		files    map[string]string
+		lists    map[exectest.ListKey]string
+		diffs    map[exectest.DiffKey]error
+		upgraded []exectest.Release
+		deleted  []exectest.Release
+		log      string
+	}{
+		{
+			name: "test1",
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  chart: mychart2
+  namespace: ns2
+  needs:
+  - foo
+- name: foo
+  chart: mychart1
+  namespace: ns1
+`,
+			},
+			upgraded: []exectest.Release{
+				{Name: "foo", Flags: []string{"--namespace", "ns1"}},
+				{Name: "bar", Flags: []string{"--namespace", "ns2"}},
+			},
+		},
+	}
+
+	for i := range testcases {
+		tc := testcases[i]
+		t.Run(tc.name, func(t *testing.T) {
+			wantReleases := tc.upgraded
+
+			var helm = &exectest.Helm{
+				Lists:     tc.lists,
+				Diffs:     tc.diffs,
+				Releases:  tc.upgraded,
+				Deleted:   tc.deleted,
+				DiffMutex: &sync.Mutex{},
+			}
+
+			logReader, logWriter := io.Pipe()
+
+			bs := &bytes.Buffer{}
+
+			go func() {
+				scanner := bufio.NewScanner(logReader)
+				for scanner.Scan() {
+					bs.Write(scanner.Bytes())
+				}
+			}()
+
+			logger := helmexec.NewLogger(logWriter, "debug")
+
+			valsRuntime, err := vals.New(32)
+			if err != nil {
+				t.Errorf("unexpected error creating vals runtime: %v", err)
+			}
+
+			app := appWithFs(&App{
+				glob:        filepath.Glob,
+				abs:         filepath.Abs,
+				KubeContext: "default",
+				Env:         "default",
+				Logger:      logger,
+				helmExecer:  helm,
+				Namespace:   "testNamespace",
+				valsRuntime: valsRuntime,
+			}, tc.files)
+
+			applyErr := app.Apply(applyConfig{logger: logger})
+			if applyErr != nil {
+				t.Fatalf("unexpected error: %v", applyErr)
+			}
+
+			for i := range wantReleases {
+				if wantReleases[i].Name != helm.Releases[i].Name {
+					t.Errorf("name = [%v], want %v", helm.Releases[i].Name, wantReleases[i].Name)
+				}
+				for j := range wantReleases[i].Flags {
+					if j == 7 {
+						matched, _ := regexp.Match(wantReleases[i].Flags[j], []byte(helm.Releases[i].Flags[j]))
+						if !matched {
+							t.Errorf("Apply() = [%v], want %v", helm.Releases[i].Flags[j], wantReleases[i].Flags[j])
+						}
+					} else if wantReleases[i].Flags[j] != helm.Releases[i].Flags[j] {
+						t.Errorf("Apply() = [%v], want %v", helm.Releases[i].Flags[j], wantReleases[i].Flags[j])
+					}
+				}
+			}
+
+			if tc.log != "" {
+				actual := bs.String()
+
+				if actual != tc.log {
+					dmp := diffmatchpatch.New()
+					diffs := dmp.DiffMain(tc.log, actual, false)
+					t.Errorf("unexpected log:\n%s", dmp.DiffPrettyText(diffs))
+				}
+			}
+		})
 	}
 }
 
