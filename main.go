@@ -50,6 +50,7 @@ func main() {
 		cli.StringFlag{
 			Name:  "helm-binary, b",
 			Usage: "path to helm binary",
+			Value: "helm",
 		},
 		cli.StringFlag{
 			Name:  "file, f",

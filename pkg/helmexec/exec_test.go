@@ -24,7 +24,7 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
-	execer := New(logger, kubeContext, &mockRunner{})
+	execer := New("helm", logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -33,7 +33,7 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
 func TestNewHelmExec(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
 	logger := NewLogger(buffer, "debug")
-	helm := New(logger, "dev", &ShellRunner{
+	helm := New("helm", logger, "dev", &ShellRunner{
 		Logger: logger,
 	})
 	if helm.kubeContext != "dev" {
@@ -50,7 +50,7 @@ func TestNewHelmExec(t *testing.T) {
 func Test_SetExtraArgs(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
 	logger := NewLogger(buffer, "debug")
-	helm := New(NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
+	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
 		Logger: logger,
 	})
 	helm.SetExtraArgs()
@@ -70,7 +70,7 @@ func Test_SetExtraArgs(t *testing.T) {
 func Test_SetHelmBinary(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
 	logger := NewLogger(buffer, "debug")
-	helm := New(NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
+	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
 		Logger: logger,
 	})
 	if helm.helmBinary != "helm" {
