@@ -59,6 +59,13 @@ run: image
 push: image
 	docker push quay.io/${ORG}/helmfile:${TAG}
 
+
+image/helm3:
+	docker build -f Dockerfile.helm3 -t quay.io/${ORG}/helmfile:helm3-${TAG} .
+
+push/helm3: image/helm3
+	docker push quay.io/${ORG}/helmfile:helm3-${TAG}
+
 tools:
 	go get -u github.com/tcnksm/ghr github.com/mitchellh/gox
 .PHONY: tools
