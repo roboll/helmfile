@@ -13,10 +13,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	command = "helm"
-)
-
 type decryptedSecret struct {
 	mutex sync.RWMutex
 	bytes []byte
@@ -50,9 +46,9 @@ func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 }
 
 // New for running helm commands
-func New(logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
+func New(helmBinary string, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	return &execer{
-		helmBinary:       command,
+		helmBinary:       helmBinary,
 		logger:           logger,
 		kubeContext:      kubeContext,
 		runner:           runner,

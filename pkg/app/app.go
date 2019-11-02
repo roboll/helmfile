@@ -36,7 +36,6 @@ type App struct {
 	Env         string
 	Namespace   string
 	Selectors   []string
-	HelmBinary  string
 	Args        string
 	ValuesFiles []string
 	Set         map[string]interface{}
@@ -69,12 +68,11 @@ func New(conf ConfigProvider) *App {
 		Env:         conf.Env(),
 		Namespace:   conf.Namespace(),
 		Selectors:   conf.Selectors(),
-		HelmBinary:  conf.HelmBinary(),
 		Args:        conf.Args(),
 		FileOrDir:   conf.FileOrDir(),
 		ValuesFiles: conf.StateValuesFiles(),
 		Set:         conf.StateValuesSet(),
-		helmExecer: helmexec.New(conf.Logger(), conf.KubeContext(), &helmexec.ShellRunner{
+		helmExecer: helmexec.New(conf.HelmBinary(), conf.Logger(), conf.KubeContext(), &helmexec.ShellRunner{
 			Logger: conf.Logger(),
 		}),
 	})
@@ -532,10 +530,6 @@ func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) 
 			if err != nil {
 				return false, []error{err}
 			}
-		}
-
-		if a.HelmBinary != "" {
-			helm.SetHelmBinary(a.HelmBinary)
 		}
 
 		type Key struct {

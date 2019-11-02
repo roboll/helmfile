@@ -524,7 +524,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				HelmDefaults:      tt.defaults,
 				valsRuntime:       valsRuntime,
 			}
-			helm := helmexec.New(logger, "default", &helmexec.ShellRunner{
+			helm := helmexec.New("helm", logger, "default", &helmexec.ShellRunner{
 				Logger: logger,
 			})
 			args, err := state.flagsForUpgrade(helm, tt.release, 0)
