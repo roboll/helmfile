@@ -1143,6 +1143,8 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			return nil
 		}
 
+		st.ApplyOverrides(&release)
+
 		flags := []string{}
 		if purge && !isHelm3() {
 			flags = append(flags, "--purge")

@@ -45,8 +45,14 @@ function retry() {
 
 set -e
 info "Using namespace: ${test_ns}"
-info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
-${helm} init --wait --override spec.template.spec.automountServiceAccountToken=true
+# helm v2
+if helm version --client 1>/dev/null 2>/dev/null; then
+  info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
+  ${helm} init --wait --override spec.template.spec.automountServiceAccountToken=true
+# helm v3
+else
+  info "Using Helm version: $(helm version --short | grep -o v.*$)"
+fi
 ${helm} plugin install https://github.com/databus23/helm-diff --version master
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
 $kubectl create namespace ${test_ns} || fail "Could not create namespace ${test_ns}"
@@ -91,6 +97,7 @@ info "Applying ${dir}/happypath.yaml with locked dependencies"
 ${helmfile} -f ${dir}/happypath.yaml apply
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
+${helm} list --namespace=${test_ns} || fail "unable to list releases"
 
 info "Deleting release"
 ${helmfile} -f ${dir}/happypath.yaml delete
