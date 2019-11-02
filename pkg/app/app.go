@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"text/tabwriter"
 
 	"github.com/gosuri/uitable"
 	"github.com/roboll/helmfile/pkg/argparser"
@@ -414,6 +416,28 @@ func (a *App) ForEachState(do func(*Run) []error, dagEnabled ...bool) error {
 	return err
 }
 
+func printBatches(batches [][]state.Release) string {
+	buf := &bytes.Buffer{}
+
+	w := new(tabwriter.Writer)
+
+	w.Init(buf, 0, 1, 1, ' ', 0)
+
+	fmt.Fprintln(w, "GROUP\tRELEASES")
+
+	for i, batch := range batches {
+		ids := []string{}
+		for _, r := range batch {
+			ids = append(ids, state.ReleaseToID(&r.ReleaseSpec))
+		}
+		fmt.Fprintf(w, "%d\t%s\n", i+1, strings.Join(ids, ", "))
+	}
+
+	w.Flush()
+
+	return buf.String()
+}
+
 func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.SugaredLogger, reverse bool, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
 	batches, err := state.PlanReleases(templated.Releases, templated.Selectors, reverse)
 	if err != nil {
@@ -422,7 +446,7 @@ func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.Su
 
 	numBatches := len(batches)
 
-	logger.Debugf("processing %d groups of releases in this order: %s", numBatches, batches)
+	logger.Debugf("processing %d groups of releases in this order:\n%s", numBatches, printBatches(batches))
 
 	all := true
 
@@ -433,15 +457,15 @@ func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.Su
 			targets = append(targets, marked.ReleaseSpec)
 		}
 
-		batchSt := *templated
-		batchSt.Releases = targets
-
 		var releaseIds []string
 		for _, r := range targets {
 			releaseIds = append(releaseIds, state.ReleaseToID(&r))
 		}
 
 		logger.Debugf("processing releases in group %d/%d: %s", i+1, numBatches, strings.Join(releaseIds, ", "))
+
+		batchSt := *templated
+		batchSt.Releases = targets
 
 		processed, errs := converge(&batchSt, helm)
 
@@ -707,6 +731,8 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) []error {
 			for _, r := range releasesToBeDeleted {
 				names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
 			}
+			// Make the output deterministic for testing purpose
+			sort.Strings(names)
 
 			infoMsg := fmt.Sprintf(`Affected releases are:
 %s

@@ -153,6 +153,17 @@ func GroupReleasesByDependency(releases []Release) ([][]Release, error) {
 		}
 	}
 
+	for _, r := range releases {
+		if !r.Filtered {
+			for _, n := range r.Needs {
+				if _, ok := idToReleases[n]; !ok {
+					id := ReleaseToID(&r.ReleaseSpec)
+					return nil, fmt.Errorf("%q has dependency to inexistent release %q", id, n)
+				}
+			}
+		}
+	}
+
 	plan, err := d.Plan()
 	if err != nil {
 		return nil, err
@@ -167,8 +178,18 @@ func GroupReleasesByDependency(releases []Release) ([][]Release, error) {
 		var releasesInGroup []Release
 
 		for _, node := range dagNodesInGroup {
-			releasesInGroup = append(releasesInGroup, idToReleases[node.Id]...)
 			idsInGroup = append(idsInGroup, node.Id)
+		}
+
+		// Make the helmfile behavior deterministic for reproducibility and ease of testing
+		sort.Strings(idsInGroup)
+
+		for _, id := range idsInGroup {
+			releases, ok := idToReleases[id]
+			if !ok {
+				panic(fmt.Errorf("bug: unexpectedly failed to get releases for id %q", id))
+			}
+			releasesInGroup = append(releasesInGroup, releases...)
 		}
 
 		result = append(result, releasesInGroup)

@@ -43,7 +43,7 @@ type HelmState struct {
 	Helmfiles          []SubHelmfileSpec `yaml:"helmfiles,omitempty"`
 	DeprecatedContext  string            `yaml:"context,omitempty"`
 	DeprecatedReleases []ReleaseSpec     `yaml:"charts,omitempty"`
-	Namespace          string            `yaml:"namespace,omitempty"`
+	OverrideNamespace  string            `yaml:"namespace,omitempty"`
 	Repositories       []RepositorySpec  `yaml:"repositories,omitempty"`
 	Releases           []ReleaseSpec     `yaml:"releases,omitempty"`
 	Selectors          []string          `yaml:"-"`
@@ -221,9 +221,16 @@ const MissingFileHandlerInfo = "Info"
 const MissingFileHandlerWarn = "Warn"
 const MissingFileHandlerDebug = "Debug"
 
-func (st *HelmState) applyDefaultsTo(spec *ReleaseSpec) {
-	if st.Namespace != "" {
-		spec.Namespace = st.Namespace
+func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
+	if st.OverrideNamespace != "" {
+		spec.Namespace = st.OverrideNamespace
+
+		for i := 0; i < len(spec.Needs); i++ {
+			n := spec.Needs[i]
+			if len(strings.Split(n, "/")) == 1 {
+				spec.Needs[i] = st.OverrideNamespace + "/" + n
+			}
+		}
 	}
 }
 
@@ -294,7 +301,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 		},
 		func(workerIndex int) {
 			for release := range jobs {
-				st.applyDefaultsTo(release)
+				st.ApplyOverrides(release)
 
 				// If `installed: false`, the only potential operation on this release would be uninstalling.
 				// We skip generating values files in that case, because for an uninstall with `helm delete`, we don't need to those.
@@ -759,7 +766,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			continue
 		}
 
-		st.applyDefaultsTo(&release)
+		st.ApplyOverrides(&release)
 
 		flags, err := st.flagsForTemplate(helm, &release, 0)
 		if err != nil {
@@ -945,7 +952,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 			for release := range jobs {
 				errs := []error{}
 
-				st.applyDefaultsTo(release)
+				st.ApplyOverrides(release)
 
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
@@ -1312,7 +1319,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,
 		BasePath:      st.basePath,
-		Namespace:     st.Namespace,
+		Namespace:     st.OverrideNamespace,
 		Env:           st.Env,
 		Logger:        st.logger,
 		ReadFile:      st.readFile,

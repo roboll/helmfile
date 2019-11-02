@@ -33,7 +33,9 @@ type Helm struct {
 
 	UpdateDepsCallbacks map[string]func(string) error
 
-	DiffMutex *sync.Mutex
+	DiffMutex     *sync.Mutex
+	ChartsMutex   *sync.Mutex
+	ReleasesMutex *sync.Mutex
 }
 
 type Release struct {
@@ -89,8 +91,13 @@ func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart string, 
 	if strings.Contains(name, "error") {
 		return errors.New("error")
 	}
-	helm.Releases = append(helm.Releases, Release{Name: name, Flags: flags})
-	helm.Charts = append(helm.Charts, chart)
+	helm.sync(helm.ReleasesMutex, func() {
+		helm.Releases = append(helm.Releases, Release{Name: name, Flags: flags})
+	})
+	helm.sync(helm.ChartsMutex, func() {
+		helm.Charts = append(helm.Charts, chart)
+	})
+
 	return nil
 }
 func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
@@ -148,4 +155,13 @@ func (helm *Helm) Lint(name, chart string, flags ...string) error {
 }
 func (helm *Helm) TemplateRelease(name, chart string, flags ...string) error {
 	return nil
+}
+
+func (helm *Helm) sync(m *sync.Mutex, f func()) {
+	if m != nil {
+		m.Lock()
+		defer m.Unlock()
+	}
+
+	f()
 }

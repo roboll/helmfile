@@ -8,6 +8,7 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.2
 	github.com/Masterminds/sprig v2.22.0+incompatible
+	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/aws/aws-sdk-go v1.25.22 // indirect
 	github.com/go-test/deep v1.0.3
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
@@ -23,7 +24,6 @@ require (
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
 	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
-	github.com/sergi/go-diff v1.0.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.20.0
 	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363

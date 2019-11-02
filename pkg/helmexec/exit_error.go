@@ -8,8 +8,8 @@ import (
 
 func newExitError(helmCmdPath string, exitStatus int, errorMessage string) ExitError {
 	return ExitError{
-		msg:        fmt.Sprintf("%s exited with status %d:\n%s", filepath.Base(helmCmdPath), exitStatus, indent(strings.TrimSpace(errorMessage))),
-		exitStatus: exitStatus,
+		Message: fmt.Sprintf("%s exited with status %d:\n%s", filepath.Base(helmCmdPath), exitStatus, indent(strings.TrimSpace(errorMessage))),
+		Code:    exitStatus,
 	}
 }
 
@@ -23,14 +23,14 @@ func indent(text string) string {
 
 // ExitError is created whenever your shell command exits with a non-zero exit status
 type ExitError struct {
-	msg        string
-	exitStatus int
+	Message string
+	Code    int
 }
 
 func (e ExitError) Error() string {
-	return e.msg
+	return e.Message
 }
 
 func (e ExitError) ExitStatus() int {
-	return e.exitStatus
+	return e.Code
 }

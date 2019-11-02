@@ -130,12 +130,12 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 				basePath:           tt.fields.BaseChartPath,
 				DeprecatedContext:  tt.fields.Context,
 				DeprecatedReleases: tt.fields.DeprecatedReleases,
-				Namespace:          tt.fields.Namespace,
+				OverrideNamespace:  tt.fields.Namespace,
 				Repositories:       tt.fields.Repositories,
 				Releases:           tt.fields.Releases,
 			}
-			if state.applyDefaultsTo(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
-				t.Errorf("HelmState.applyDefaultsTo() = %v, want %v", tt.args.spec, tt.want)
+			if state.ApplyOverrides(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
+				t.Errorf("HelmState.ApplyOverrides() = %v, want %v", tt.args.spec, tt.want)
 			}
 		})
 	}
