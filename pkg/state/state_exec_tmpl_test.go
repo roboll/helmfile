@@ -138,9 +138,9 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				HelmDefaults: HelmSpec{
 					KubeContext: "test_context",
 				},
-				Env:          environment.Environment{Name: "test_env"},
-				Namespace:    "test-namespace_",
-				Repositories: nil,
+				Env:               environment.Environment{Name: "test_env"},
+				OverrideNamespace: "test-namespace_",
+				Repositories:      nil,
 				Releases: []ReleaseSpec{
 					tt.input,
 				},
@@ -238,9 +238,9 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 				HelmDefaults: HelmSpec{
 					KubeContext: "test_context",
 				},
-				Env:          environment.Environment{Name: "test_env"},
-				Namespace:    "test-namespace_",
-				Repositories: nil,
+				Env:               environment.Environment{Name: "test_env"},
+				OverrideNamespace: "test-namespace_",
+				Repositories:      nil,
 				Releases: []ReleaseSpec{
 					tt.input,
 				},

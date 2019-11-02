@@ -2,7 +2,7 @@ package state
 
 import (
 	"fmt"
-	"strings"
+	"sort"
 	"sync"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
@@ -104,51 +104,96 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 	return nil
 }
 
-func (st *HelmState) dagAwareReverseIterateOnReleases(helm helmexec.Interface, concurrency int,
-	do func(ReleaseSpec, int) error) []error {
+type PlanOpts struct {
+	Reverse bool
+}
 
-	idToRelease := map[string]ReleaseSpec{}
+func PlanReleases(releases []ReleaseSpec, selectors []string, reverse bool) ([][]Release, error) {
+	marked, err := MarkFilteredReleases(releases, selectors)
+	if err != nil {
+		return nil, err
+	}
 
-	preps := st.Releases
+	groups, err := SortedReleaseGroups(marked, reverse)
+	if err != nil {
+		return nil, err
+	}
+
+	return groups, nil
+}
+
+func SortedReleaseGroups(releases []Release, reverse bool) ([][]Release, error) {
+	groups, err := GroupReleasesByDependency(releases)
+	if err != nil {
+		return nil, err
+	}
+
+	if reverse {
+		sort.Slice(groups, func(i, j int) bool {
+			return j < i
+		})
+	}
+
+	return groups, nil
+}
+
+func GroupReleasesByDependency(releases []Release) ([][]Release, error) {
+	idToReleases := map[string][]Release{}
 
 	d := dag.New()
-	for _, r := range preps {
+	for _, r := range releases {
 
-		id := releaseToID(&r)
+		id := ReleaseToID(&r.ReleaseSpec)
 
-		idToRelease[id] = r
+		idToReleases[id] = append(idToReleases[id], r)
 
-		d.Add(id, dag.Dependencies(r.Needs))
+		// Only compute dependencies from non-filtered releases
+		if !r.Filtered {
+			d.Add(id, dag.Dependencies(r.Needs))
+		}
+	}
+
+	for _, r := range releases {
+		if !r.Filtered {
+			for _, n := range r.Needs {
+				if _, ok := idToReleases[n]; !ok {
+					id := ReleaseToID(&r.ReleaseSpec)
+					return nil, fmt.Errorf("%q has dependency to inexistent release %q", id, n)
+				}
+			}
+		}
 	}
 
 	plan, err := d.Plan()
 	if err != nil {
-		return []error{err}
+		return nil, err
 	}
 
-	groupsTotal := len(plan)
+	var result [][]Release
 
-	st.logger.Debugf("processing %d groups of releases in this order: %s", groupsTotal, plan)
-
-	for groupIndex := len(plan) - 1; groupIndex >= 0; groupIndex-- {
+	for groupIndex := 0; groupIndex < len(plan); groupIndex++ {
 		dagNodesInGroup := plan[groupIndex]
 
 		var idsInGroup []string
-		var releasesInGroup []ReleaseSpec
+		var releasesInGroup []Release
 
 		for _, node := range dagNodesInGroup {
-			releasesInGroup = append(releasesInGroup, idToRelease[node.Id])
 			idsInGroup = append(idsInGroup, node.Id)
 		}
 
-		st.logger.Debugf("processing releases in group %d/%d: %s", groupIndex+1, groupsTotal, strings.Join(idsInGroup, ", "))
+		// Make the helmfile behavior deterministic for reproducibility and ease of testing
+		sort.Strings(idsInGroup)
 
-		errs := st.iterateOnReleases(helm, concurrency, releasesInGroup, do)
-
-		if len(errs) > 0 {
-			return errs
+		for _, id := range idsInGroup {
+			releases, ok := idToReleases[id]
+			if !ok {
+				panic(fmt.Errorf("bug: unexpectedly failed to get releases for id %q", id))
+			}
+			releasesInGroup = append(releasesInGroup, releases...)
 		}
+
+		result = append(result, releasesInGroup)
 	}
 
-	return nil
+	return result, nil
 }

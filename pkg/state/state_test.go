@@ -1,20 +1,17 @@
 package state
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
+	"github.com/roboll/helmfile/pkg/exectest"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
 	"github.com/variantdev/vals"
-
-	"errors"
-	"strings"
-
-	"fmt"
 )
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
@@ -133,12 +130,12 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 				basePath:           tt.fields.BaseChartPath,
 				DeprecatedContext:  tt.fields.Context,
 				DeprecatedReleases: tt.fields.DeprecatedReleases,
-				Namespace:          tt.fields.Namespace,
+				OverrideNamespace:  tt.fields.Namespace,
 				Repositories:       tt.fields.Repositories,
 				Releases:           tt.fields.Releases,
 			}
-			if state.applyDefaultsTo(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
-				t.Errorf("HelmState.applyDefaultsTo() = %v, want %v", tt.args.spec, tt.want)
+			if state.ApplyOverrides(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
+				t.Errorf("HelmState.ApplyOverrides() = %v, want %v", tt.args.spec, tt.want)
 			}
 		})
 	}
@@ -665,124 +662,11 @@ func Test_normalizeChart(t *testing.T) {
 
 // mocking helmexec.Interface
 
-type listKey struct {
-	filter string
-	flags  string
-}
-
-type mockHelmExec struct {
-	charts   []string
-	repo     []string
-	releases []mockRelease
-	deleted  []mockRelease
-	lists    map[listKey]string
-	diffed   []mockRelease
-
-	updateDepsCallbacks map[string]func(string) error
-}
-
-type mockRelease struct {
-	name  string
-	flags []string
-}
-
-type mockAffected struct {
-	upgraded []*mockRelease
-	deleted  []*mockRelease
-	failed   []*mockRelease
-}
-
-func (helm *mockHelmExec) UpdateDeps(chart string) error {
-	if strings.Contains(chart, "error") {
-		return fmt.Errorf("simulated UpdateDeps failure for chart: %s", chart)
-	}
-	helm.charts = append(helm.charts, chart)
-
-	if helm.updateDepsCallbacks != nil {
-		callback, exists := helm.updateDepsCallbacks[chart]
-		if exists {
-			if err := callback(chart); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (helm *mockHelmExec) BuildDeps(name, chart string) error {
-	if strings.Contains(chart, "error") {
-		return errors.New("error")
-	}
-	helm.charts = append(helm.charts, chart)
-	return nil
-}
-
-func (helm *mockHelmExec) SetExtraArgs(args ...string) {
-	return
-}
-func (helm *mockHelmExec) SetHelmBinary(bin string) {
-	return
-}
-func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error {
-	helm.repo = []string{name, repository, cafile, certfile, keyfile, username, password}
-	return nil
-}
-func (helm *mockHelmExec) UpdateRepo() error {
-	return nil
-}
-func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
-	if strings.Contains(name, "error") {
-		return errors.New("error")
-	}
-	helm.releases = append(helm.releases, mockRelease{name: name, flags: flags})
-	helm.charts = append(helm.charts, chart)
-	return nil
-}
-func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
-	helm.diffed = append(helm.diffed, mockRelease{name: name, flags: flags})
-	return nil
-}
-func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {
-	if strings.Contains(release, "error") {
-		return errors.New("error")
-	}
-	helm.releases = append(helm.releases, mockRelease{name: release, flags: flags})
-	return nil
-}
-func (helm *mockHelmExec) DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error {
-	if strings.Contains(name, "error") {
-		return errors.New("error")
-	}
-	helm.deleted = append(helm.deleted, mockRelease{name: name, flags: flags})
-	return nil
-}
-func (helm *mockHelmExec) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
-	return helm.lists[listKey{filter: filter, flags: strings.Join(flags, "")}], nil
-}
-func (helm *mockHelmExec) DecryptSecret(context helmexec.HelmContext, name string, flags ...string) (string, error) {
-	return "", nil
-}
-func (helm *mockHelmExec) TestRelease(context helmexec.HelmContext, name string, flags ...string) error {
-	if strings.Contains(name, "error") {
-		return errors.New("error")
-	}
-	helm.releases = append(helm.releases, mockRelease{name: name, flags: flags})
-	return nil
-}
-func (helm *mockHelmExec) Fetch(chart string, flags ...string) error {
-	return nil
-}
-func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
-	return nil
-}
-func (helm *mockHelmExec) TemplateRelease(name, chart string, flags ...string) error {
-	return nil
-}
 func TestHelmState_SyncRepos(t *testing.T) {
 	tests := []struct {
 		name  string
 		repos []RepositorySpec
-		helm  *mockHelmExec
+		helm  *exectest.Helm
 		envs  map[string]string
 		want  []string
 	}{
@@ -798,7 +682,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Password: "",
 				},
 			},
-			helm: &mockHelmExec{},
+			helm: &exectest.Helm{},
 			want: []string{"name", "http://example.com/", "", "", "", "", ""},
 		},
 		{
@@ -813,7 +697,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Password: "",
 				},
 			},
-			helm: &mockHelmExec{},
+			helm: &exectest.Helm{},
 			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", ""},
 		},
 		{
@@ -827,7 +711,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Password: "",
 				},
 			},
-			helm: &mockHelmExec{},
+			helm: &exectest.Helm{},
 			want: []string{"name", "http://example.com/", "cafile", "", "", "", ""},
 		},
 		{
@@ -842,7 +726,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Password: "example_password",
 				},
 			},
-			helm: &mockHelmExec{},
+			helm: &exectest.Helm{},
 			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password"},
 		},
 	}
@@ -858,8 +742,8 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			state := &HelmState{
 				Repositories: tt.repos,
 			}
-			if _ = state.SyncRepos(tt.helm); !reflect.DeepEqual(tt.helm.repo, tt.want) {
-				t.Errorf("HelmState.SyncRepos() for [%s] = %v, want %v", tt.name, tt.helm.repo, tt.want)
+			if _ = state.SyncRepos(tt.helm); !reflect.DeepEqual(tt.helm.Repo, tt.want) {
+				t.Errorf("HelmState.SyncRepos() for [%s] = %v, want %v", tt.name, tt.helm.Repo, tt.want)
 			}
 		})
 	}
@@ -869,8 +753,8 @@ func TestHelmState_SyncReleases(t *testing.T) {
 	tests := []struct {
 		name          string
 		releases      []ReleaseSpec
-		helm          *mockHelmExec
-		wantReleases  []mockRelease
+		helm          *exectest.Helm
+		wantReleases  []exectest.Release
 		wantErrorMsgs []string
 	}{
 		{
@@ -881,8 +765,8 @@ func TestHelmState_SyncReleases(t *testing.T) {
 					Chart: "foo",
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{}}},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{}}},
 		},
 		{
 			name: "with tiller args",
@@ -893,8 +777,8 @@ func TestHelmState_SyncReleases(t *testing.T) {
 					TillerNamespace: "tillerns",
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{"--tiller-namespace", "tillerns"}}},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns"}}},
 		},
 		{
 			name: "escaped values",
@@ -914,8 +798,8 @@ func TestHelmState_SyncReleases(t *testing.T) {
 					},
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}}},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}}},
 		},
 		{
 			name: "set single value from file",
@@ -939,8 +823,8 @@ func TestHelmState_SyncReleases(t *testing.T) {
 					},
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
 		},
 		{
 			name: "set single array value in an array",
@@ -959,108 +843,8 @@ func TestHelmState_SyncReleases(t *testing.T) {
 					},
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo.bar[0]={A,B}"}}},
-		},
-		{
-			name: "foo needs bar",
-			releases: []ReleaseSpec{
-				{
-					Name:  "foo",
-					Chart: "charts/foo",
-					Needs: []string{
-						"bar",
-					},
-				},
-				{
-					Name:  "bar",
-					Chart: "charts/bar",
-				},
-			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"bar", []string{}}, {"foo", []string{}}},
-		},
-		{
-			name: "bar needs foo",
-			releases: []ReleaseSpec{
-				{
-					Name:  "foo",
-					Chart: "charts/foo",
-				},
-				{
-					Name:  "bar",
-					Chart: "charts/bar",
-					Needs: []string{
-						"foo",
-					},
-				},
-			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"foo", []string{}}, {"bar", []string{}}},
-		},
-		{
-			name: "ns2/bar needs ns1/foo",
-			releases: []ReleaseSpec{
-				{
-					Name:      "foo",
-					Namespace: "ns1",
-					Chart:     "charts/foo",
-				},
-				{
-					Name:      "bar",
-					Namespace: "ns2",
-					Chart:     "charts/bar",
-					Needs: []string{
-						"ns1/foo",
-					},
-				},
-			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"foo", []string{"--namespace", "ns1"}}, {"bar", []string{"--namespace", "ns2"}}},
-		},
-		{
-			name: "tillerns1/ns1/foo needs tillerns2/ns2/bar",
-			releases: []ReleaseSpec{
-				{
-					Name:            "foo",
-					Chart:           "charts/foo",
-					Namespace:       "ns1",
-					TillerNamespace: "tillerns1",
-					Needs: []string{
-						"tillerns2/ns2/bar",
-					},
-				},
-				{
-					Name:            "bar",
-					Namespace:       "ns2",
-					TillerNamespace: "tillerns2",
-					Chart:           "charts/bar",
-				},
-			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"bar", []string{"--tiller-namespace", "tillerns2", "--namespace", "ns2"}}, {"foo", []string{"--tiller-namespace", "tillerns1", "--namespace", "ns1"}}},
-		},
-		{
-			name: "tillerns1/ns1/foo needs tillerns2/ns2/bar",
-			releases: []ReleaseSpec{
-				{
-					Name:            "foo",
-					Chart:           "charts/foo",
-					Namespace:       "ns1",
-					TillerNamespace: "tillerns1",
-					Needs: []string{
-						"bar",
-					},
-				},
-				{
-					Name:            "bar",
-					Namespace:       "ns2",
-					TillerNamespace: "tillerns2",
-					Chart:           "charts/bar",
-				},
-			},
-			helm:          &mockHelmExec{},
-			wantErrorMsgs: []string{`"tillerns1/ns1/foo" needs "bar", but it must be one of tillerns1/ns1/foo, tillerns2/ns2/bar`},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}"}}},
 		},
 	}
 	for i := range tests {
@@ -1087,8 +871,8 @@ func TestHelmState_SyncReleases(t *testing.T) {
 					t.Fatalf("%d unexpected errors detected", mismatch)
 				}
 			}
-			if !reflect.DeepEqual(tt.helm.releases, tt.wantReleases) {
-				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
+			if !reflect.DeepEqual(tt.helm.Releases, tt.wantReleases) {
+				t.Errorf("HelmState.SyncReleases() for [%s] = %v, want %v", tt.name, tt.helm.Releases, tt.wantReleases)
 			}
 		})
 	}
@@ -1177,11 +961,11 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			}
 			fs := testhelper.NewTestFs(map[string]string{})
 			state = injectFs(state, fs)
-			helm := &mockHelmExec{
-				lists: map[listKey]string{},
+			helm := &exectest.Helm{
+				Lists: map[exectest.ListKey]string{},
 			}
 			//simulate the helm.list call result
-			helm.lists[listKey{filter: "^" + tt.release.Name + "$"}] = tt.listResult
+			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$"}] = tt.listResult
 
 			affectedReleases := AffectedReleases{}
 			errs := state.SyncReleases(&affectedReleases, helm, []string{}, 1)
@@ -1213,7 +997,7 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 		name         string
 		releases     []ReleaseSpec
 		installed    []bool
-		wantAffected mockAffected
+		wantAffected exectest.Affected
 	}{
 		{
 			name: "2 release",
@@ -1227,7 +1011,14 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 					Chart: "bar",
 				},
 			},
-			wantAffected: mockAffected{[]*mockRelease{{"releaseNameFoo", []string{}}, {"releaseNameBar", []string{}}}, nil, nil},
+			wantAffected: exectest.Affected{
+				Upgraded: []*exectest.Release{
+					{Name: "releaseNameFoo", Flags: []string{}},
+					{Name: "releaseNameBar", Flags: []string{}},
+				},
+				Deleted: nil,
+				Failed:  nil,
+			},
 		},
 		{
 			name: "2 removed",
@@ -1243,8 +1034,15 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 					Installed: &no,
 				},
 			},
-			installed:    []bool{true, true},
-			wantAffected: mockAffected{nil, []*mockRelease{{"releaseNameFoo", []string{}}, {"releaseNameBar", []string{}}}, nil},
+			installed: []bool{true, true},
+			wantAffected: exectest.Affected{
+				Upgraded: nil,
+				Deleted: []*exectest.Release{
+					{Name: "releaseNameFoo", Flags: []string{}},
+					{Name: "releaseNameBar", Flags: []string{}},
+				},
+				Failed: nil,
+			},
 		},
 		{
 			name: "2 errors",
@@ -1258,7 +1056,14 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 					Chart: "foo",
 				},
 			},
-			wantAffected: mockAffected{nil, nil, []*mockRelease{{"releaseNameFoo-error", []string{}}, {"releaseNameBar-error", []string{}}}},
+			wantAffected: exectest.Affected{
+				Upgraded: nil,
+				Deleted:  nil,
+				Failed: []*exectest.Release{
+					{Name: "releaseNameFoo-error", Flags: []string{}},
+					{Name: "releaseNameBar-error", Flags: []string{}},
+				},
+			},
 		},
 		{
 			name: "1 removed, 1 new, 1 error",
@@ -1277,8 +1082,18 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 					Chart: "foo",
 				},
 			},
-			installed:    []bool{true, true, true},
-			wantAffected: mockAffected{[]*mockRelease{{"releaseNameFoo", []string{}}}, []*mockRelease{{"releaseNameBar", []string{}}}, []*mockRelease{{"releaseNameFoo-error", []string{}}}},
+			installed: []bool{true, true, true},
+			wantAffected: exectest.Affected{
+				Upgraded: []*exectest.Release{
+					{Name: "releaseNameFoo", Flags: []string{}},
+				},
+				Deleted: []*exectest.Release{
+					{Name: "releaseNameBar", Flags: []string{}},
+				},
+				Failed: []*exectest.Release{
+					{Name: "releaseNameFoo-error", Flags: []string{}},
+				},
+			},
 		},
 	}
 	for i := range tests {
@@ -1289,33 +1104,33 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 				logger:      logger,
 				valsRuntime: valsRuntime,
 			}
-			helm := &mockHelmExec{
-				lists: map[listKey]string{},
+			helm := &exectest.Helm{
+				Lists: map[exectest.ListKey]string{},
 			}
 			//simulate the release is already installed
 			for i, release := range tt.releases {
 				if tt.installed != nil && tt.installed[i] {
-					helm.lists[listKey{filter: "^" + release.Name + "$"}] = release.Name
+					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$"}] = release.Name
 				}
 			}
 
 			affectedReleases := AffectedReleases{}
 			if err := state.SyncReleases(&affectedReleases, helm, []string{}, 1); err != nil {
-				if !testEq(affectedReleases.Failed, tt.wantAffected.failed) {
-					t.Errorf("HelmState.SynchAffectedRelease() error failed for [%s] = %v, want %v", tt.name, affectedReleases.Failed, tt.wantAffected.failed)
+				if !testEq(affectedReleases.Failed, tt.wantAffected.Failed) {
+					t.Errorf("HelmState.SynchAffectedRelease() error failed for [%s] = %v, want %v", tt.name, affectedReleases.Failed, tt.wantAffected.Failed)
 				} //else expected error
 			}
-			if !testEq(affectedReleases.Upgraded, tt.wantAffected.upgraded) {
-				t.Errorf("HelmState.SynchAffectedRelease() upgrade failed for [%s] = %v, want %v", tt.name, affectedReleases.Upgraded, tt.wantAffected.upgraded)
+			if !testEq(affectedReleases.Upgraded, tt.wantAffected.Upgraded) {
+				t.Errorf("HelmState.SynchAffectedRelease() upgrade failed for [%s] = %v, want %v", tt.name, affectedReleases.Upgraded, tt.wantAffected.Upgraded)
 			}
-			if !testEq(affectedReleases.Deleted, tt.wantAffected.deleted) {
-				t.Errorf("HelmState.SynchAffectedRelease() deleted failed for [%s] = %v, want %v", tt.name, affectedReleases.Deleted, tt.wantAffected.deleted)
+			if !testEq(affectedReleases.Deleted, tt.wantAffected.Deleted) {
+				t.Errorf("HelmState.SynchAffectedRelease() deleted failed for [%s] = %v, want %v", tt.name, affectedReleases.Deleted, tt.wantAffected.Deleted)
 			}
 		})
 	}
 }
 
-func testEq(a []*ReleaseSpec, b []*mockRelease) bool {
+func testEq(a []*ReleaseSpec, b []*exectest.Release) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -1327,7 +1142,7 @@ func testEq(a []*ReleaseSpec, b []*mockRelease) bool {
 	}
 
 	for i := range a {
-		if a[i].Name != b[i].name {
+		if a[i].Name != b[i].Name {
 			return false
 		}
 	}
@@ -1391,11 +1206,11 @@ func TestGetDeployedVersion(t *testing.T) {
 				logger:      logger,
 				valsRuntime: valsRuntime,
 			}
-			helm := &mockHelmExec{
-				lists: map[listKey]string{},
+			helm := &exectest.Helm{
+				Lists: map[exectest.ListKey]string{},
 			}
 			//simulate the helm.list call result
-			helm.lists[listKey{filter: "^" + tt.release.Name + "$"}] = tt.listResult
+			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$"}] = tt.listResult
 
 			affectedReleases := AffectedReleases{}
 			state.SyncReleases(&affectedReleases, helm, []string{}, 1)
@@ -1411,8 +1226,8 @@ func TestHelmState_DiffReleases(t *testing.T) {
 	tests := []struct {
 		name         string
 		releases     []ReleaseSpec
-		helm         *mockHelmExec
-		wantReleases []mockRelease
+		helm         *exectest.Helm
+		wantReleases []exectest.Release
 	}{
 		{
 			name: "normal release",
@@ -1422,8 +1237,8 @@ func TestHelmState_DiffReleases(t *testing.T) {
 					Chart: "foo",
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{}}},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{}}},
 		},
 		{
 			name: "with tiller args",
@@ -1434,8 +1249,8 @@ func TestHelmState_DiffReleases(t *testing.T) {
 					TillerNamespace: "tillerns",
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{"--tiller-namespace", "tillerns"}}},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns"}}},
 		},
 		{
 			name: "escaped values",
@@ -1455,8 +1270,10 @@ func TestHelmState_DiffReleases(t *testing.T) {
 					},
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}}},
+			helm: &exectest.Helm{},
+			wantReleases: []exectest.Release{
+				{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}},
+			},
 		},
 		{
 			name: "set single value from file",
@@ -1480,8 +1297,10 @@ func TestHelmState_DiffReleases(t *testing.T) {
 					},
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
+			helm: &exectest.Helm{},
+			wantReleases: []exectest.Release{
+				{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}},
+			},
 		},
 		{
 			name: "set single array value in an array",
@@ -1500,8 +1319,10 @@ func TestHelmState_DiffReleases(t *testing.T) {
 					},
 				},
 			},
-			helm:         &mockHelmExec{},
-			wantReleases: []mockRelease{{"releaseName", []string{"--set", "foo.bar[0]={A,B}"}}},
+			helm: &exectest.Helm{},
+			wantReleases: []exectest.Release{
+				{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}"}},
+			},
 		},
 	}
 	for i := range tests {
@@ -1516,8 +1337,8 @@ func TestHelmState_DiffReleases(t *testing.T) {
 			if errs != nil && len(errs) > 0 {
 				t.Errorf("unexpected error: %v", errs)
 			}
-			if !reflect.DeepEqual(tt.helm.diffed, tt.wantReleases) {
-				t.Errorf("HelmState.DiffReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.wantReleases)
+			if !reflect.DeepEqual(tt.helm.Diffed, tt.wantReleases) {
+				t.Errorf("HelmState.DiffReleases() for [%s] = %v, want %v", tt.name, tt.helm.Releases, tt.wantReleases)
 			}
 		})
 	}
@@ -1527,7 +1348,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 	tests := []struct {
 		name                    string
 		releases                []ReleaseSpec
-		helm                    *mockHelmExec
+		helm                    *exectest.Helm
 		expectedNumRemovedFiles int
 	}{
 		{
@@ -1538,7 +1359,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 					Chart: "foo",
 				},
 			},
-			helm:                    &mockHelmExec{},
+			helm:                    &exectest.Helm{},
 			expectedNumRemovedFiles: 0,
 		},
 		{
@@ -1554,7 +1375,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 					},
 				},
 			},
-			helm:                    &mockHelmExec{},
+			helm:                    &exectest.Helm{},
 			expectedNumRemovedFiles: 1,
 		},
 		{
@@ -1571,7 +1392,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 					},
 				},
 			},
-			helm:                    &mockHelmExec{},
+			helm:                    &exectest.Helm{},
 			expectedNumRemovedFiles: 2,
 		},
 	}
@@ -1611,7 +1432,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 	tests := []struct {
 		name                    string
 		releases                []ReleaseSpec
-		helm                    *mockHelmExec
+		helm                    *exectest.Helm
 		expectedNumRemovedFiles int
 	}{
 		{
@@ -1622,7 +1443,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 					Chart: "foo",
 				},
 			},
-			helm:                    &mockHelmExec{},
+			helm:                    &exectest.Helm{},
 			expectedNumRemovedFiles: 0,
 		},
 		{
@@ -1638,7 +1459,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 					},
 				},
 			},
-			helm:                    &mockHelmExec{},
+			helm:                    &exectest.Helm{},
 			expectedNumRemovedFiles: 1,
 		},
 		{
@@ -1655,7 +1476,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 					},
 				},
 			},
-			helm:                    &mockHelmExec{},
+			helm:                    &exectest.Helm{},
 			expectedNumRemovedFiles: 2,
 		},
 	}
@@ -1693,8 +1514,8 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 }
 
 func TestHelmState_UpdateDeps(t *testing.T) {
-	helm := &mockHelmExec{
-		updateDepsCallbacks: map[string]func(string) error{},
+	helm := &exectest.Helm{
+		UpdateDepsCallbacks: map[string]func(string) error{},
 	}
 
 	var generatedDir string
@@ -1704,7 +1525,7 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 		if err != nil {
 			return "", err
 		}
-		helm.updateDepsCallbacks[generatedDir] = func(chart string) error {
+		helm.UpdateDepsCallbacks[generatedDir] = func(chart string) error {
 			content := []byte(`dependencies:
 - name: envoy
   repository: https://kubernetes-charts.storage.googleapis.com
@@ -1763,8 +1584,8 @@ generated: 2019-05-16T15:42:45.50486+09:00
 
 	errs := state.UpdateDeps(helm)
 	want := []string{"/", "/examples", "/helmfile", "/src/published", generatedDir}
-	if !reflect.DeepEqual(helm.charts, want) {
-		t.Errorf("HelmState.UpdateDeps() = %v, want %v", helm.charts, want)
+	if !reflect.DeepEqual(helm.Charts, want) {
+		t.Errorf("HelmState.UpdateDeps() = %v, want %v", helm.Charts, want)
 	}
 	if len(errs) != 0 {
 		t.Errorf("HelmState.UpdateDeps() - no errors, but got %d: %v", len(errs), errs)
@@ -1833,8 +1654,8 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 	tests := []struct {
 		name     string
 		releases []ReleaseSpec
-		helm     *mockHelmExec
-		want     []mockRelease
+		helm     *exectest.Helm
+		want     []exectest.Release
 		wantErr  bool
 	}{
 		{
@@ -1844,8 +1665,10 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 					Name: "releaseA",
 				},
 			},
-			helm: &mockHelmExec{},
-			want: []mockRelease{{"releaseA", []string{}}},
+			helm: &exectest.Helm{},
+			want: []exectest.Release{
+				{Name: "releaseA", Flags: []string{}},
+			},
 		},
 		{
 			name: "happy path",
@@ -1854,7 +1677,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 					Name: "error",
 				},
 			},
-			helm:    &mockHelmExec{},
+			helm:    &exectest.Helm{},
 			wantErr: true,
 		},
 		{
@@ -1867,7 +1690,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 					},
 				},
 			},
-			helm:    &mockHelmExec{},
+			helm:    &exectest.Helm{},
 			wantErr: true,
 		},
 		{
@@ -1881,7 +1704,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 					Installed: boolValue(false),
 				},
 			},
-			helm:    &mockHelmExec{},
+			helm:    &exectest.Helm{},
 			wantErr: false,
 		},
 		{
@@ -1892,8 +1715,10 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 					TillerNamespace: "tillerns",
 				},
 			},
-			helm: &mockHelmExec{},
-			want: []mockRelease{{"releaseA", []string{"--tiller-namespace", "tillerns"}}},
+			helm: &exectest.Helm{},
+			want: []exectest.Release{
+				{Name: "releaseA", Flags: []string{"--tiller-namespace", "tillerns"}},
+			},
 		},
 	}
 	for i := range tests {
@@ -1920,8 +1745,8 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 				t.Errorf("ReleaseStatuses() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(tt.helm.releases, tt.want) {
-				t.Errorf("HelmState.ReleaseStatuses() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.want)
+			if !reflect.DeepEqual(tt.helm.Releases, tt.want) {
+				t.Errorf("HelmState.ReleaseStatuses() for [%s] = %v, want %v", tt.name, tt.helm.Releases, tt.want)
 			}
 		}
 		t.Run(tt.name, f)
@@ -1933,8 +1758,8 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 		name            string
 		cleanup         bool
 		releases        []ReleaseSpec
-		helm            *mockHelmExec
-		want            []mockRelease
+		helm            *exectest.Helm
+		want            []exectest.Release
 		wantErr         bool
 		tillerNamespace string
 	}{
@@ -1945,8 +1770,8 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 					Name: "releaseA",
 				},
 			},
-			helm: &mockHelmExec{},
-			want: []mockRelease{{"releaseA", []string{"--timeout", "1"}}},
+			helm: &exectest.Helm{},
+			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1"}}},
 		},
 		{
 			name:    "do cleanup",
@@ -1956,8 +1781,8 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 					Name: "releaseB",
 				},
 			},
-			helm: &mockHelmExec{},
-			want: []mockRelease{{"releaseB", []string{"--cleanup", "--timeout", "1"}}},
+			helm: &exectest.Helm{},
+			want: []exectest.Release{{Name: "releaseB", Flags: []string{"--cleanup", "--timeout", "1"}}},
 		},
 		{
 			name: "happy path",
@@ -1966,7 +1791,7 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 					Name: "error",
 				},
 			},
-			helm:    &mockHelmExec{},
+			helm:    &exectest.Helm{},
 			wantErr: true,
 		},
 		{
@@ -1977,8 +1802,8 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 					TillerNamespace: "tillerns",
 				},
 			},
-			helm: &mockHelmExec{},
-			want: []mockRelease{{"releaseA", []string{"--timeout", "1", "--tiller-namespace", "tillerns"}}},
+			helm: &exectest.Helm{},
+			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1", "--tiller-namespace", "tillerns"}}},
 		},
 	}
 	for i := range tests {
@@ -1993,8 +1818,8 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 				t.Errorf("TestReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(tt.helm.releases, tt.want) {
-				t.Errorf("HelmState.TestReleases() for [%s] = %v, want %v", tt.name, tt.helm.releases, tt.want)
+			if !reflect.DeepEqual(tt.helm.Releases, tt.want) {
+				t.Errorf("HelmState.TestReleases() for [%s] = %v, want %v", tt.name, tt.helm.Releases, tt.want)
 			}
 		}
 		t.Run(tt.name, f)
@@ -2053,7 +1878,7 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 func TestHelmState_Delete(t *testing.T) {
 	tests := []struct {
 		name            string
-		deleted         []mockRelease
+		deleted         []exectest.Release
 		wantErr         bool
 		desired         *bool
 		installed       bool
@@ -2069,7 +1894,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: true,
 			purge:     false,
-			deleted:   []mockRelease{{"releaseA", []string{}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "desired(default) and installed (purge=false)",
@@ -2077,7 +1902,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   nil,
 			installed: true,
 			purge:     false,
-			deleted:   []mockRelease{{"releaseA", []string{}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "desired(default) and installed (purge=false) but error",
@@ -2085,7 +1910,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   nil,
 			installed: true,
 			purge:     false,
-			deleted:   []mockRelease{{"releaseA", []string{}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "desired and installed (purge=true)",
@@ -2093,7 +1918,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: true,
 			purge:     true,
-			deleted:   []mockRelease{{"releaseA", []string{"--purge"}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
 		},
 		{
 			name:      "desired but not installed (purge=false)",
@@ -2101,7 +1926,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: false,
 			purge:     false,
-			deleted:   []mockRelease{},
+			deleted:   []exectest.Release{},
 		},
 		{
 			name:      "desired but not installed (purge=true)",
@@ -2109,7 +1934,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: false,
 			purge:     true,
-			deleted:   []mockRelease{},
+			deleted:   []exectest.Release{},
 		},
 		{
 			name:      "installed but filtered (purge=false)",
@@ -2117,7 +1942,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: true,
 			purge:     false,
-			deleted:   []mockRelease{},
+			deleted:   []exectest.Release{},
 		},
 		{
 			name:      "installed but filtered (purge=true)",
@@ -2125,7 +1950,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: true,
 			purge:     true,
-			deleted:   []mockRelease{},
+			deleted:   []exectest.Release{},
 		},
 		{
 			name:      "not installed, and filtered (purge=false)",
@@ -2133,7 +1958,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: false,
 			purge:     false,
-			deleted:   []mockRelease{},
+			deleted:   []exectest.Release{},
 		},
 		{
 			name:      "not installed, and filtered (purge=true)",
@@ -2141,7 +1966,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: false,
 			purge:     true,
-			deleted:   []mockRelease{},
+			deleted:   []exectest.Release{},
 		},
 		{
 			name:            "with tiller args",
@@ -2151,7 +1976,7 @@ func TestHelmState_Delete(t *testing.T) {
 			purge:           true,
 			tillerNamespace: "tillerns",
 			flags:           "--tiller-namespacetillerns",
-			deleted:         []mockRelease{{"releaseA", []string{"--purge", "--tiller-namespace", "tillerns"}}},
+			deleted:         []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--tiller-namespace", "tillerns"}}},
 		},
 		{
 			name:        "with kubecontext",
@@ -2161,7 +1986,7 @@ func TestHelmState_Delete(t *testing.T) {
 			purge:       true,
 			kubeContext: "ctx",
 			flags:       "--kube-contextctx",
-			deleted:     []mockRelease{{"releaseA", []string{"--purge", "--kube-context", "ctx"}}},
+			deleted:     []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--kube-context", "ctx"}}},
 		},
 		{
 			name:           "with default kubecontext",
@@ -2171,7 +1996,7 @@ func TestHelmState_Delete(t *testing.T) {
 			purge:          true,
 			defKubeContext: "defctx",
 			flags:          "--kube-contextdefctx",
-			deleted:        []mockRelease{{"releaseA", []string{"--purge", "--kube-context", "defctx"}}},
+			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--kube-context", "defctx"}}},
 		},
 		{
 			name:           "with non-default and default kubecontexts",
@@ -2182,7 +2007,7 @@ func TestHelmState_Delete(t *testing.T) {
 			kubeContext:    "ctx",
 			defKubeContext: "defctx",
 			flags:          "--kube-contextctx",
-			deleted:        []mockRelease{{"releaseA", []string{"--purge", "--kube-context", "ctx"}}},
+			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--kube-context", "ctx"}}},
 		},
 	}
 	for i := range tests {
@@ -2208,12 +2033,12 @@ func TestHelmState_Delete(t *testing.T) {
 				Releases: releases,
 				logger:   logger,
 			}
-			helm := &mockHelmExec{
-				lists:   map[listKey]string{},
-				deleted: []mockRelease{},
+			helm := &exectest.Helm{
+				Lists:   map[exectest.ListKey]string{},
+				Deleted: []exectest.Release{},
 			}
 			if tt.installed {
-				helm.lists[listKey{filter: "^" + name + "$", flags: tt.flags}] = name
+				helm.Lists[exectest.ListKey{Filter: "^" + name + "$", Flags: tt.flags}] = name
 			}
 			affectedReleases := AffectedReleases{}
 			errs := state.DeleteReleases(&affectedReleases, helm, 1, tt.purge)
@@ -2222,8 +2047,8 @@ func TestHelmState_Delete(t *testing.T) {
 					t.Errorf("DeleteReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 					return
 				}
-			} else if !(reflect.DeepEqual(tt.deleted, helm.deleted) && (len(affectedReleases.Deleted) == len(tt.deleted))) {
-				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, helm.deleted)
+			} else if !(reflect.DeepEqual(tt.deleted, helm.Deleted) && (len(affectedReleases.Deleted) == len(tt.deleted))) {
+				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, helm.Deleted)
 			}
 		}
 		t.Run(tt.name, f)

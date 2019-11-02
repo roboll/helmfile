@@ -76,10 +76,10 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 	}
 
 	if ld.namespace != "" {
-		if st.Namespace != "" {
+		if st.OverrideNamespace != "" {
 			return nil, errors.New("err: Cannot use option --namespace and set attribute namespace.")
 		}
-		st.Namespace = ld.namespace
+		st.OverrideNamespace = ld.namespace
 	}
 
 	return st, nil

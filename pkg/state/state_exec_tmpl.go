@@ -39,7 +39,7 @@ func (st *HelmState) mustLoadVals() map[string]interface{} {
 func (st *HelmState) valuesFileTemplateData() EnvironmentTemplateData {
 	return EnvironmentTemplateData{
 		Environment: st.Env,
-		Namespace:   st.Namespace,
+		Namespace:   st.OverrideNamespace,
 		Values:      st.mustLoadVals(),
 	}
 }

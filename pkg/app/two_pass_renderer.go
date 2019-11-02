@@ -31,12 +31,15 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environmen
 	yamlBuf, err := firstPassRenderer.RenderTemplateContentToBuffer(content)
 	if err != nil && r.logger != nil {
 		r.logger.Debugf("first-pass rendering input of \"%s\":\n%s", filename, prependLineNumbers(string(content)))
+		r.logger.Debugf("template syntax error: %v", err)
 		if yamlBuf == nil { // we have a template syntax error, let the second parse report
-			r.logger.Debugf("template syntax error: %v", err)
 			return firstPassEnv, nil
 		}
 	}
 	yamlData := yamlBuf.String()
+	if r.logger != nil {
+		r.logger.Debugf("first-pass rendering output of \"%s\":\n%s", filename, prependLineNumbers(yamlData))
+	}
 
 	// Work-around for https://github.com/golang/go/issues/24963
 	sanitized := strings.ReplaceAll(yamlData, "<no value>", "")

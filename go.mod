@@ -8,6 +8,7 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.2
 	github.com/Masterminds/sprig v2.22.0+incompatible
+	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/aws/aws-sdk-go v1.25.22 // indirect
 	github.com/go-test/deep v1.0.3
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
