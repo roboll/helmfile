@@ -26,7 +26,7 @@ jobs:
             - .
   image:
     docker:
-      - image: circleci/golang:1.13.3
+    - image: circleci/golang:1.13.3
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
@@ -40,6 +40,23 @@ jobs:
           make tools
           go mod vendor
           ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image
+
+  image_helm3:
+    docker:
+    - image: circleci/golang:1.13.3
+    working_directory: /home/circleci/workspace/helmfile
+    steps:
+    - checkout
+    - restore_cache:
+        keys:
+        - go-mod-cache-v1-{{ checksum "./go.sum" }}
+        - go-mod-cache-v1-
+    - setup_remote_docker
+    - run:
+        command: |
+          make tools
+          go mod vendor
+          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image/helm3
 
   test:
     environment:
@@ -103,7 +120,7 @@ jobs:
             export TERM=xterm
             make integration
 
-  integration_tests_helmv3:
+  integration_tests_helm3:
     machine:
       image: circleci/classic:201808-01
     environment:
@@ -166,7 +183,7 @@ jobs:
           docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
           make tools
           go mod vendor
-          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make push release
+          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make push push/helm3 release
 
 workflows:
   version: 2
@@ -174,11 +191,12 @@ workflows:
     jobs:
       - build
       - image
+      - image_helm3
       - test
       - integration_tests:
           requires:
             - build
-      - integration_tests_helmv3:
+      - integration_tests_helm3:
           requires:
             - build
       - release:
