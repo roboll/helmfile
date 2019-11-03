@@ -14,8 +14,8 @@ if [[ ! -d "${dir}" ]]; then dir="${PWD}"; fi
 
 test_ns="helmfile-tests-$(date +"%Y%m%d-%H%M%S")"
 helmfile="./helmfile --namespace=${test_ns}"
-helm="helm --kube-context=minikube"
-kubectl="kubectl --context=minikube --namespace=${test_ns}"
+helm="helm --kube-context=${KUBECONTEXT}"
+kubectl="kubectl --context=${KUBECONTEXT} --namespace=${test_ns}"
 
 # FUNCTIONS ----------------------------------------------------------------------------------------------------------
 
@@ -48,10 +48,11 @@ info "Using namespace: ${test_ns}"
 # helm v2
 if helm version --client 1>/dev/null 2>/dev/null; then
   info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
+  kubectl create clusterrolebinding tiller-full-access --clusterrole=cluster-admin --serviceaccount=kube-system:default
   ${helm} init --wait --override spec.template.spec.automountServiceAccountToken=true
 # helm v3
 else
-  info "Using Helm version: $(helm version --short | grep -o v.*$)"
+  info "Using Helm version: $(helm version --short | grep -o v.*$)" || true
 fi
 ${helm} plugin install https://github.com/databus23/helm-diff --version master
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
@@ -80,8 +81,12 @@ code=$?
 info "Syncing ${dir}/happypath.yaml"
 ${helmfile} -f ${dir}/happypath.yaml sync
 wait_deploy_ready httpbin-httpbin
-retry 5 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-httpbin)/status/200"
+kubectl port-forward --namespace=${test_ns} svc/httpbin-httpbin 8000 &
+pid=$!
+sleep 5
+retry 5 "curl --fail http://localhost:8000/status/200"
 [ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
+kill ${pid}
 
 info "Applying ${dir}/happypath.yaml"
 ${helmfile} -f ${dir}/happypath.yaml apply

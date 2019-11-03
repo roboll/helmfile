@@ -10,7 +10,7 @@ repositories:
     url: https://kubernetes-charts-incubator.storage.googleapis.com
 
 helmDefaults:
-  kubeContext: minikube
+  kubeContext: {{ requiredEnv "KUBECONTEXT" }}
 
 releases:
 
