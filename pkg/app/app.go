@@ -98,13 +98,13 @@ func Init(app *App) *App {
 }
 
 func (a *App) Deps(c DepsConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.Deps(c)
 	})
 }
 
 func (a *App) Repos(c ReposConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.Repos(c)
 	})
 }
@@ -116,68 +116,68 @@ func (a *App) reverse() *App {
 }
 
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.DeprecatedSyncCharts(c)
 	})
 }
 
 func (a *App) Diff(c DiffConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.Diff(c)
 	})
 }
 
 func (a *App) Template(c TemplateConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.Template(c)
 	})
 }
 
 func (a *App) Lint(c LintConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.Lint(c)
 	})
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.Sync(c)
 	})
 }
 
 func (a *App) Apply(c ApplyConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachState(func(run *Run) (bool, []error) {
 		return a.apply(run, c)
 	})
 }
 
 func (a *App) Status(c StatusesConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.Status(c)
 	})
 }
 
 func (a *App) Delete(c DeleteConfigProvider) error {
-	return a.reverse().ForEachState(func(run *Run) []error {
+	return a.reverse().ForEachStateFiltered(func(run *Run) []error {
 		return run.Delete(c)
 	}, true)
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
-	return a.reverse().ForEachState(func(run *Run) []error {
+	return a.reverse().ForEachStateFiltered(func(run *Run) []error {
 		return run.Destroy(c)
 	}, true)
 }
 
 func (a *App) Test(c TestConfigProvider) error {
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.Test(c)
 	})
 }
 
 func (a *App) PrintState(c StateConfigProvider) error {
 
-	return a.ForEachState(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) []error {
 		state, err := run.state.ToYaml()
 		if err != nil {
 			return []error{err}
@@ -191,7 +191,7 @@ func (a *App) ListReleases(c StateConfigProvider) error {
 	table := uitable.New()
 	table.AddRow("NAME", "NAMESPACE", "INSTALLED", "LABELS")
 
-	err := a.ForEachState(func(run *Run) []error {
+	err := a.ForEachStateFiltered(func(run *Run) []error {
 		//var releases m
 		for _, r := range run.state.Releases {
 			labels := ""
@@ -399,13 +399,27 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 	return nil
 }
 
-func (a *App) ForEachState(do func(*Run) []error, dagEnabled ...bool) error {
+func (a *App) ForEachStateFiltered(do func(*Run) []error, dagEnabled ...bool) error {
 	ctx := NewContext()
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) []error {
 		run := NewRun(st, helm, ctx)
 
 		return do(run)
 	}, dagEnabled...)
+
+	if err != nil && a.ErrorHandler != nil {
+		return a.ErrorHandler(err)
+	}
+
+	return err
+}
+
+func (a *App) ForEachState(do func(*Run) (bool, []error)) error {
+	ctx := NewContext()
+	err := a.visitStatesWithSelectorsAndRemoteSupport(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+		run := NewRun(st, helm, ctx)
+		return do(run)
+	})
 
 	if err != nil && a.ErrorHandler != nil {
 		return a.ErrorHandler(err)
@@ -644,7 +658,7 @@ func (a *App) findDesiredStateFiles(specifiedPath string) ([]string, error) {
 	return files, nil
 }
 
-func (a *App) apply(r *Run, c ApplyConfigProvider) []error {
+func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 	ctx := r.ctx
@@ -652,14 +666,14 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) []error {
 	affectedReleases := state.AffectedReleases{}
 	if !c.SkipDeps() {
 		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return errs
+			return false, errs
 		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return errs
+			return false, errs
 		}
 	}
 	if errs := st.PrepareReleases(helm, "apply"); errs != nil && len(errs) > 0 {
-		return errs
+		return false, errs
 	}
 
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
@@ -671,27 +685,51 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) []error {
 		Set:     c.Set(),
 	}
 
-	changedReleases, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false, diffOpts)
+	allReleases := st.Releases
 
-	deletingReleases, err := st.DetectReleasesToBeDeleted(helm, st.Releases)
-	if err != nil {
-		errs = append(errs, err)
+	var changedReleases []state.ReleaseSpec
+	var deletingReleases []state.ReleaseSpec
+	var planningErrs []error
+
+	// TODO Better way to detect diff on only filtered releases
+	{
+		if len(st.Selectors) > 0 {
+			releases, err := st.GetFilteredReleases()
+			if err != nil {
+				return false, []error{err}
+			}
+			if len(releases) == 0 {
+				return false, nil
+			}
+			st.Releases = releases
+		}
+
+		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false, diffOpts)
+
+		var err error
+		deletingReleases, err = st.DetectReleasesToBeDeleted(helm, st.Releases)
+		if err != nil {
+			planningErrs = append(planningErrs, err)
+		}
 	}
+
+	st.Releases = allReleases
 
 	fatalErrs := []error{}
 
-	noError := true
-	for _, e := range errs {
+	for _, e := range planningErrs {
 		switch err := e.(type) {
 		case *state.ReleaseError:
 			if err.Code != 2 {
-				noError = false
 				fatalErrs = append(fatalErrs, e)
 			}
 		default:
-			noError = false
 			fatalErrs = append(fatalErrs, e)
 		}
+	}
+
+	if len(fatalErrs) > 0 {
+		return false, fatalErrs
 	}
 
 	releasesToBeDeleted := map[string]state.ReleaseSpec{}
@@ -711,90 +749,90 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) []error {
 	}
 
 	// sync only when there are changes
-	if noError {
-		if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 {
-			// TODO better way to get the logger
-			logger := c.Logger()
-			logger.Infof("")
-			logger.Infof("No affected releases")
-		} else {
-			names := []string{}
-			for _, r := range releasesToBeUpdated {
-				names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
-			}
-			for _, r := range releasesToBeDeleted {
-				names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
-			}
-			// Make the output deterministic for testing purpose
-			sort.Strings(names)
+	if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 {
+		// TODO better way to get the logger
+		logger := c.Logger()
+		logger.Infof("")
+		logger.Infof("No affected releases")
+		return true, nil
+	}
 
-			infoMsg := fmt.Sprintf(`Affected releases are:
+	names := []string{}
+	for _, r := range releasesToBeUpdated {
+		names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
+	}
+	for _, r := range releasesToBeDeleted {
+		names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
+	}
+	// Make the output deterministic for testing purpose
+	sort.Strings(names)
+
+	infoMsg := fmt.Sprintf(`Affected releases are:
 %s
 `, strings.Join(names, "\n"))
-			confMsg := fmt.Sprintf(`%s
+	confMsg := fmt.Sprintf(`%s
 Do you really want to apply?
   Helmfile will apply all your changes, as shown above.
 
 `, infoMsg)
-			interactive := c.Interactive()
-			if !interactive {
-				a.Logger.Debug(infoMsg)
+	interactive := c.Interactive()
+	if !interactive {
+		a.Logger.Debug(infoMsg)
+	}
+
+	syncErrs := []error{}
+
+	if !interactive || interactive && r.askForConfirmation(confMsg) {
+		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
+		// We deleted releases by traversing the DAG in reverse order
+		if len(releasesToBeDeleted) > 0 {
+			_, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+				var rs []state.ReleaseSpec
+
+				for _, r := range subst.Releases {
+					if _, ok := releasesToBeDeleted[state.ReleaseToID(&r)]; ok {
+						rs = append(rs, r)
+					}
+				}
+
+				subst.Releases = rs
+
+				return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency())
+			}))
+
+			if deletionErrs != nil && len(deletionErrs) > 0 {
+				syncErrs = append(syncErrs, deletionErrs...)
 			}
-			if !interactive || interactive && r.askForConfirmation(confMsg) {
-				r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+		}
 
-				// We deleted releases by traversing the DAG in reverse order
-				if len(releasesToBeDeleted) > 0 {
-					_, errs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
-						var rs []state.ReleaseSpec
+		// We upgrade releases by traversing the DAG
+		if len(releasesToBeUpdated) > 0 {
+			_, updateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+				var rs []state.ReleaseSpec
 
-						for _, r := range subst.Releases {
-							if _, ok := releasesToBeDeleted[state.ReleaseToID(&r)]; ok {
-								rs = append(rs, r)
-							}
-						}
-
-						subst.Releases = rs
-
-						return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency())
-					}))
-
-					if errs != nil && len(errs) > 0 {
-						return errs
+				for _, r := range subst.Releases {
+					if _, ok := releasesToBeUpdated[state.ReleaseToID(&r)]; ok {
+						rs = append(rs, r)
 					}
 				}
 
-				// We upgrade releases by traversing the DAG
-				if len(releasesToBeUpdated) > 0 {
-					_, errs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
-						var rs []state.ReleaseSpec
+				subst.Releases = rs
 
-						for _, r := range subst.Releases {
-							if _, ok := releasesToBeUpdated[state.ReleaseToID(&r)]; ok {
-								rs = append(rs, r)
-							}
-						}
-
-						subst.Releases = rs
-
-						syncOpts := state.SyncOpts{
-							Set: c.Set(),
-						}
-						return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
-					}))
-
-					if errs != nil && len(errs) > 0 {
-						return errs
-					}
+				syncOpts := state.SyncOpts{
+					Set: c.Set(),
 				}
+				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
+			}))
 
-				return nil
+			if updateErrs != nil && len(updateErrs) > 0 {
+				syncErrs = append(syncErrs, updateErrs...)
 			}
 		}
 	}
 
 	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return fatalErrs
+	return true, syncErrs
 }
 
 func fileExistsAt(path string) bool {

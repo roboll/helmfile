@@ -2061,6 +2061,7 @@ func TestApply(t *testing.T) {
 		concurrency int
 		error       string
 		files       map[string]string
+		selectors   []string
 		lists       map[exectest.ListKey]string
 		diffs       map[exectest.DiffKey]error
 		upgraded    []exectest.Release
@@ -2361,6 +2362,22 @@ worker 1/1 finished
 worker 1/1 started
 getting deployed release version failed:unexpected list key: {^frontend-v3$ --kube-contextdefault}
 worker 1/1 finished
+
+UPDATED RELEASES:
+NAME             CHART                   VERSION
+front-proxy      stable/envoy                   
+logging          charts/fluent-bit              
+database         charts/mysql                   
+servicemesh      charts/istio                   
+anotherbackend   charts/anotherbackend          
+backend-v2       charts/backend                 
+frontend-v3      charts/frontend                
+
+
+DELETED RELEASES:
+NAME
+frontend-v1
+backend-v1
 `,
 		},
 		//
@@ -2487,6 +2504,13 @@ worker 1/1 finished
 worker 1/1 started
 getting deployed release version failed:unexpected list key: {^foo$ --kube-contextdefault}
 worker 1/1 finished
+
+UPDATED RELEASES:
+NAME   CHART      VERSION
+bar    mychart2          
+baz    mychart3          
+foo    mychart1          
+
 `,
 		},
 		//
@@ -2756,6 +2780,12 @@ worker 1/1 finished
 worker 1/1 started
 getting deployed release version failed:unexpected list key: {^bar$ --tiller-namespacetns2--kube-contextdefault}
 worker 1/1 finished
+
+UPDATED RELEASES:
+NAME   CHART      VERSION
+foo    mychart1          
+bar    mychart2          
+
 `,
 		},
 		//
@@ -2967,6 +2997,251 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 			},
 		},
 		//
+		// upgrades with selector
+		//
+		{
+			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
+			name: "upgrades with good selector",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+{{ $mark := "a" }}
+
+releases:
+- name: kubernetes-external-secrets
+  chart: incubator/raw
+  namespace: kube-system
+
+- name: external-secrets
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - kube-system/kubernetes-external-secrets
+
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - default/external-secrets
+`,
+			},
+			selectors: []string{"app=test"},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+			},
+			upgraded: []exectest.Release{
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+			},
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23: 
+
+merged environment: &{default map[] map[]}
+worker 1/1 started
+worker 1/1 finished
+worker 1/1 started
+worker 1/1 finished
+Affected releases are:
+  external-secrets (incubator/raw) UPDATED
+  my-release (incubator/raw) UPDATED
+
+processing 3 groups of releases in this order:
+GROUP RELEASES
+1     kube-system/kubernetes-external-secrets
+2     default/external-secrets
+3     default/my-release
+
+processing releases in group 1/3: kube-system/kubernetes-external-secrets
+0 release(s) matching app=test found in helmfile.yaml
+
+processing releases in group 2/3: default/external-secrets
+1 release(s) matching app=test found in helmfile.yaml
+
+worker 1/1 started
+worker 1/1 finished
+worker 1/1 started
+getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault}
+worker 1/1 finished
+processing releases in group 3/3: default/my-release
+1 release(s) matching app=test found in helmfile.yaml
+
+worker 1/1 started
+worker 1/1 finished
+worker 1/1 started
+getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault}
+worker 1/1 finished
+
+UPDATED RELEASES:
+NAME               CHART           VERSION
+external-secrets   incubator/raw          
+my-release         incubator/raw          
+
+`,
+		},
+		{
+			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
+			name: "upgrades with bad selector",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+{{ $mark := "a" }}
+
+releases:
+- name: kubernetes-external-secrets
+  chart: incubator/raw
+  namespace: kube-system
+
+- name: external-secrets
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - kube-system/kubernetes-external-secrets
+
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - default/external-secrets
+`,
+			},
+			selectors: []string{"app=test_non_existent"},
+			diffs:     map[exectest.DiffKey]error{},
+			upgraded:  []exectest.Release{},
+			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23: 
+
+merged environment: &{default map[] map[]}
+`,
+		},
+		//
 		// error cases
 		//
 		{
@@ -3099,6 +3374,10 @@ err: "foo" has dependency to inexistent release "bar"
 
 				if tc.ns != "" {
 					app.Namespace = tc.ns
+				}
+
+				if tc.selectors != nil {
+					app.Selectors = tc.selectors
 				}
 
 				applyErr := app.Apply(applyConfig{
