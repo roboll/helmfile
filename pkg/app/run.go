@@ -89,58 +89,6 @@ func (r *Run) Diff(c DiffConfigProvider) []error {
 	return errs
 }
 
-func (r *Run) Sync(c SyncConfigProvider) []error {
-	st := r.state
-	helm := r.helm
-	ctx := r.ctx
-
-	affectedReleases := state.AffectedReleases{}
-	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
-		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
-	}
-	if errs := st.PrepareReleases(helm, "sync"); errs != nil && len(errs) > 0 {
-		return errs
-	}
-
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-
-	opts := &state.SyncOpts{
-		Set: c.Set(),
-	}
-	errs := st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
-	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return errs
-}
-
-func (r *Run) Template(c TemplateConfigProvider) []error {
-	st := r.state
-	helm := r.helm
-	ctx := r.ctx
-
-	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
-		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
-	}
-	if errs := st.PrepareReleases(helm, "template"); errs != nil && len(errs) > 0 {
-		return errs
-	}
-
-	args := argparser.GetArgs(c.Args(), st)
-	opts := &state.TemplateOpts{
-		Set: c.Set(),
-	}
-	return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), opts)
-}
-
 func (r *Run) Test(c TestConfigProvider) []error {
 	cleanup := c.Cleanup()
 	timeout := c.Timeout()
