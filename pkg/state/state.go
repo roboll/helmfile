@@ -1258,11 +1258,10 @@ func MarkFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release
 	return filteredReleases, nil
 }
 
-// FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
-func (st *HelmState) FilterReleases() error {
+func (st *HelmState) GetFilteredReleases() ([]ReleaseSpec, error) {
 	filteredReleases, err := MarkFilteredReleases(st.Releases, st.Selectors)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var releases []ReleaseSpec
 	for _, r := range filteredReleases {
@@ -1270,8 +1269,17 @@ func (st *HelmState) FilterReleases() error {
 			releases = append(releases, r.ReleaseSpec)
 		}
 	}
+	return releases, nil
+}
+
+// FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
+func (st *HelmState) FilterReleases() error {
+	releases, err := st.GetFilteredReleases()
+	if err != nil {
+		return err
+	}
 	st.Releases = releases
-	st.logger.Debugf("%d release(s) matching %s found in %s\n", len(filteredReleases), strings.Join(st.Selectors, ","), st.FilePath)
+	st.logger.Debugf("%d release(s) matching %s found in %s\n", len(releases), strings.Join(st.Selectors, ","), st.FilePath)
 	return nil
 }
 
@@ -1852,9 +1860,9 @@ func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
 
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases
 func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
-	if ar.Upgraded != nil {
-		logger.Info("\nList of updated releases :")
-		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "RELEASE"},
+	if ar.Upgraded != nil && len(ar.Upgraded) > 0 {
+		logger.Info("\nUPDATED RELEASES:")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
 			prettytable.Column{Header: "VERSION", AlignRight: true},
 		)
@@ -1862,18 +1870,18 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		for _, release := range ar.Upgraded {
 			tbl.AddRow(release.Name, release.Chart, release.installedVersion)
 		}
-		tbl.Print()
+		logger.Info(tbl.String())
 	}
-	if ar.Deleted != nil {
-		logger.Info("\nList of deleted releases :")
-		logger.Info("RELEASE")
+	if ar.Deleted != nil && len(ar.Deleted) > 0 {
+		logger.Info("\nDELETED RELEASES:")
+		logger.Info("NAME")
 		for _, release := range ar.Deleted {
 			logger.Info(release.Name)
 		}
 	}
-	if ar.Failed != nil {
-		logger.Info("\nList of releases in error :")
-		logger.Info("RELEASE")
+	if ar.Failed != nil && len(ar.Failed) > 0 {
+		logger.Info("\nFAILED RELEASES:")
+		logger.Info("NAME")
 		for _, release := range ar.Failed {
 			logger.Info(release.Name)
 		}
