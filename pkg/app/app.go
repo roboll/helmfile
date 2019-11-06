@@ -128,8 +128,8 @@ func (a *App) Diff(c DiffConfigProvider) error {
 }
 
 func (a *App) Template(c TemplateConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Template(c)
+	return a.ForEachState(func(run *Run) (bool, []error) {
+		return a.template(run, c)
 	})
 }
 
@@ -140,8 +140,8 @@ func (a *App) Lint(c LintConfigProvider) error {
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Sync(c)
+	return a.ForEachState(func(run *Run) (bool, []error) {
+		return a.sync(run, c)
 	})
 }
 
@@ -898,6 +898,157 @@ Do you really want to delete?
 		}
 	}
 	affectedReleases.DisplayAffectedReleases(c.Logger())
+	return any, errs
+}
+
+func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
+	st := r.state
+	helm := r.helm
+	ctx := r.ctx
+
+	affectedReleases := state.AffectedReleases{}
+	if !c.SkipDeps() {
+		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
+			return false, errs
+		}
+		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
+			return false, errs
+		}
+	}
+	if errs := st.PrepareReleases(helm, "sync"); errs != nil && len(errs) > 0 {
+		return false, errs
+	}
+
+	var syncedReleases []state.ReleaseSpec
+
+	if len(st.Selectors) > 0 {
+		var err error
+		syncedReleases, err = st.GetFilteredReleases()
+		if err != nil {
+			return false, []error{err}
+		}
+		if len(syncedReleases) == 0 {
+			return false, nil
+		}
+	} else {
+		syncedReleases = st.Releases
+	}
+
+	releasesToBeSynced := map[string]state.ReleaseSpec{}
+	for _, r := range syncedReleases {
+		id := state.ReleaseToID(&r)
+		releasesToBeSynced[id] = r
+	}
+
+	names := make([]string, len(syncedReleases))
+	for i, r := range syncedReleases {
+		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
+	}
+
+	var errs []error
+	var any bool
+
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
+	if len(releasesToBeSynced) > 0 {
+		synced, syncErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			var rs []state.ReleaseSpec
+
+			for _, r := range subst.Releases {
+				if _, ok := releasesToBeSynced[state.ReleaseToID(&r)]; ok {
+					rs = append(rs, r)
+				}
+			}
+
+			subst.Releases = rs
+
+			opts := &state.SyncOpts{
+				Set: c.Set(),
+			}
+			return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
+		}))
+
+		any = any || synced
+
+		if syncErrs != nil && len(syncErrs) > 0 {
+			errs = append(errs, syncErrs...)
+		}
+	}
+	affectedReleases.DisplayAffectedReleases(c.Logger())
+	return any, errs
+}
+
+func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
+	st := r.state
+	helm := r.helm
+	ctx := r.ctx
+
+	if !c.SkipDeps() {
+		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
+			return false, errs
+		}
+		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
+			return false, errs
+		}
+	}
+	if errs := st.PrepareReleases(helm, "template"); errs != nil && len(errs) > 0 {
+		return false, errs
+	}
+
+	var templatedReleases []state.ReleaseSpec
+
+	if len(st.Selectors) > 0 {
+		var err error
+		templatedReleases, err = st.GetFilteredReleases()
+		if err != nil {
+			return false, []error{err}
+		}
+		if len(templatedReleases) == 0 {
+			return false, nil
+		}
+	} else {
+		templatedReleases = st.Releases
+	}
+
+	releasesToBeTemplated := map[string]state.ReleaseSpec{}
+	for _, r := range templatedReleases {
+		id := state.ReleaseToID(&r)
+		releasesToBeTemplated[id] = r
+	}
+
+	names := make([]string, len(templatedReleases))
+	for i, r := range templatedReleases {
+		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
+	}
+
+	var errs []error
+	var any bool
+
+	if len(releasesToBeTemplated) > 0 {
+		synced, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			var rs []state.ReleaseSpec
+
+			for _, r := range subst.Releases {
+				if _, ok := releasesToBeTemplated[state.ReleaseToID(&r)]; ok {
+					rs = append(rs, r)
+				}
+			}
+
+			subst.Releases = rs
+
+			args := argparser.GetArgs(c.Args(), st)
+			opts := &state.TemplateOpts{
+				Set: c.Set(),
+			}
+			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), opts)
+		}))
+
+		any = any || synced
+
+		if templateErrs != nil && len(templateErrs) > 0 {
+			errs = append(errs, templateErrs...)
+		}
+	}
 	return any, errs
 }
 
