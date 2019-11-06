@@ -158,15 +158,15 @@ func (a *App) Status(c StatusesConfigProvider) error {
 }
 
 func (a *App) Delete(c DeleteConfigProvider) error {
-	return a.reverse().ForEachStateFiltered(func(run *Run) []error {
-		return run.Delete(c)
-	}, true)
+	return a.reverse().ForEachState(func(run *Run) (bool, []error) {
+		return a.delete(run, c.Purge(), c)
+	})
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
-	return a.reverse().ForEachStateFiltered(func(run *Run) []error {
-		return run.Destroy(c)
-	}, true)
+	return a.reverse().ForEachState(func(run *Run) (bool, []error) {
+		return a.delete(run, true, c)
+	})
 }
 
 func (a *App) Test(c TestConfigProvider) error {
@@ -460,7 +460,7 @@ func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.Su
 
 	logger.Debugf("processing %d groups of releases in this order:\n%s", numBatches, printBatches(batches))
 
-	all := true
+	any := false
 
 	for i, batch := range batches {
 		var targets []state.ReleaseSpec
@@ -485,10 +485,10 @@ func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.Su
 			return false, errs
 		}
 
-		all = all && processed
+		any = any || processed
 	}
 
-	return all, nil
+	return any, nil
 }
 
 type Opts struct {
@@ -833,6 +833,78 @@ Do you really want to apply?
 
 	affectedReleases.DisplayAffectedReleases(c.Logger())
 	return true, syncErrs
+}
+
+func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error) {
+	st := r.state
+	helm := r.helm
+
+	affectedReleases := state.AffectedReleases{}
+
+	var deletingReleases []state.ReleaseSpec
+
+	if len(st.Selectors) > 0 {
+		var err error
+		deletingReleases, err = st.GetFilteredReleases()
+		if err != nil {
+			return false, []error{err}
+		}
+		if len(deletingReleases) == 0 {
+			return false, nil
+		}
+	} else {
+		deletingReleases = st.Releases
+	}
+
+	releasesToBeDeleted := map[string]state.ReleaseSpec{}
+	for _, r := range deletingReleases {
+		id := state.ReleaseToID(&r)
+		releasesToBeDeleted[id] = r
+	}
+
+	names := make([]string, len(deletingReleases))
+	for i, r := range deletingReleases {
+		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
+	}
+
+	var errs []error
+	var any bool
+
+	msg := fmt.Sprintf(`Affected releases are:
+%s
+
+Do you really want to delete?
+  Helmfile will delete all your releases, as shown above.
+
+`, strings.Join(names, "\n"))
+	interactive := c.Interactive()
+	if !interactive || interactive && r.askForConfirmation(msg) {
+		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
+		if len(releasesToBeDeleted) > 0 {
+			deleted, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+				var rs []state.ReleaseSpec
+
+				for _, r := range subst.Releases {
+					if _, ok := releasesToBeDeleted[state.ReleaseToID(&r)]; ok {
+						rs = append(rs, r)
+					}
+				}
+
+				subst.Releases = rs
+
+				return subst.DeleteReleases(&affectedReleases, helm, c.Concurrency(), purge)
+			}))
+
+			any = any || deleted
+
+			if deletionErrs != nil && len(deletionErrs) > 0 {
+				errs = append(errs, deletionErrs...)
+			}
+		}
+	}
+	affectedReleases.DisplayAffectedReleases(c.Logger())
+	return any, errs
 }
 
 func fileExistsAt(path string) bool {
