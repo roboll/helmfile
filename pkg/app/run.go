@@ -1,9 +1,6 @@
 package app
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
@@ -62,60 +59,6 @@ func (r *Run) Status(c StatusesConfigProvider) []error {
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	return r.state.ReleaseStatuses(r.helm, workers)
-}
-
-func (r *Run) Delete(c DeleteConfigProvider) []error {
-	affectedReleases := state.AffectedReleases{}
-	purge := c.Purge()
-
-	errs := []error{}
-
-	names := make([]string, len(r.state.Releases))
-	for i, r := range r.state.Releases {
-		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
-	}
-
-	msg := fmt.Sprintf(`Affected releases are:
-%s
-
-Do you really want to delete?
-  Helmfile will delete all your releases, as shown above.
-
-`, strings.Join(names, "\n"))
-	interactive := c.Interactive()
-	if !interactive || interactive && r.askForConfirmation(msg) {
-		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-
-		errs = r.state.DeleteReleases(&affectedReleases, r.helm, c.Concurrency(), purge)
-	}
-	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return errs
-}
-
-func (r *Run) Destroy(c DestroyConfigProvider) []error {
-	errs := []error{}
-	affectedReleases := state.AffectedReleases{}
-
-	names := make([]string, len(r.state.Releases))
-	for i, r := range r.state.Releases {
-		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
-	}
-
-	msg := fmt.Sprintf(`Affected releases are:
-%s
-
-Do you really want to delete?
-  Helmfile will delete all your releases, as shown above.
-
-`, strings.Join(names, "\n"))
-	interactive := c.Interactive()
-	if !interactive || interactive && r.askForConfirmation(msg) {
-		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-
-		errs = r.state.DeleteReleases(&affectedReleases, r.helm, c.Concurrency(), true)
-	}
-	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return errs
 }
 
 func (r *Run) Diff(c DiffConfigProvider) []error {
