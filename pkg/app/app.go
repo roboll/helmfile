@@ -399,13 +399,13 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 	return nil
 }
 
-func (a *App) ForEachStateFiltered(do func(*Run) []error, dagEnabled ...bool) error {
+func (a *App) ForEachStateFiltered(do func(*Run) []error) error {
 	ctx := NewContext()
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) []error {
 		run := NewRun(st, helm, ctx)
 
 		return do(run)
-	}, dagEnabled...)
+	})
 
 	if err != nil && a.ErrorHandler != nil {
 		return a.ErrorHandler(err)
@@ -572,14 +572,8 @@ func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) 
 	}
 }
 
-func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error, dagEnabled ...bool) error {
+func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
 	f := a.Wrap(converge)
-
-	if len(dagEnabled) > 0 && dagEnabled[0] {
-		return a.visitStatesWithSelectorsAndRemoteSupport(fileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
-			return withDAG(st, helm, a.Logger, a.Reverse, f)
-		})
-	}
 
 	return a.visitStatesWithSelectorsAndRemoteSupport(fileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		return f(st, helm)
