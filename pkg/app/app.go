@@ -451,7 +451,7 @@ func printBatches(batches [][]state.Release) string {
 }
 
 func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.SugaredLogger, reverse bool, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
-	batches, err := state.PlanReleases(templated.Releases, templated.Selectors, reverse)
+	batches, err := templated.PlanReleases(reverse)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -679,7 +679,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 		Set:     c.Set(),
 	}
 
-	allReleases := st.Releases
+	allReleases := st.GetReleasesWithOverrides()
 
 	var changedReleases []state.ReleaseSpec
 	var deletingReleases []state.ReleaseSpec
@@ -688,7 +688,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 	// TODO Better way to detect diff on only filtered releases
 	{
 		if len(st.Selectors) > 0 {
-			releases, err := st.GetFilteredReleases()
+			releases, err := st.GetSelectedReleasesWithOverrides()
 			if err != nil {
 				return false, []error{err}
 			}
@@ -835,19 +835,12 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 
 	affectedReleases := state.AffectedReleases{}
 
-	var toSync []state.ReleaseSpec
-
-	if len(st.Selectors) > 0 {
-		var err error
-		toSync, err = st.GetFilteredReleases()
-		if err != nil {
-			return false, []error{err}
-		}
-		if len(toSync) == 0 {
-			return false, nil
-		}
-	} else {
-		toSync = st.Releases
+	toSync, err := st.GetSelectedReleasesWithOverrides()
+	if err != nil {
+		return false, []error{err}
+	}
+	if len(toSync) == 0 {
+		return false, nil
 	}
 
 	toDelete, err := st.DetectReleasesToBeDeleted(helm, toSync)
@@ -925,7 +918,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	if len(st.Selectors) > 0 {
 		var err error
-		toSync, err = st.GetFilteredReleases()
+		toSync, err = st.GetSelectedReleasesWithOverrides()
 		if err != nil {
 			return false, []error{err}
 		}
@@ -1047,7 +1040,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 	if len(st.Selectors) > 0 {
 		var err error
-		templatedReleases, err = st.GetFilteredReleases()
+		templatedReleases, err = st.GetSelectedReleasesWithOverrides()
 		if err != nil {
 			return false, []error{err}
 		}

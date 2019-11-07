@@ -1226,7 +1226,31 @@ func (st *HelmState) Clean() []error {
 	return nil
 }
 
-func MarkFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release, error) {
+func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
+	var rs []ReleaseSpec
+	for _, r := range st.Releases {
+		var spec ReleaseSpec
+		spec = r
+		st.ApplyOverrides(&spec)
+		rs = append(rs, spec)
+	}
+	return rs
+}
+
+func (st *HelmState) SelectReleasesWithOverrides() ([]Release, error) {
+	rs, err := markFilteredReleases(st.GetReleasesWithOverrides(), st.Selectors)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rs {
+		spec := r.ReleaseSpec
+		st.ApplyOverrides(&spec)
+		r.ReleaseSpec = spec
+	}
+	return rs, nil
+}
+
+func markFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -1266,8 +1290,8 @@ func MarkFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release
 	return filteredReleases, nil
 }
 
-func (st *HelmState) GetFilteredReleases() ([]ReleaseSpec, error) {
-	filteredReleases, err := MarkFilteredReleases(st.Releases, st.Selectors)
+func (st *HelmState) GetSelectedReleasesWithOverrides() ([]ReleaseSpec, error) {
+	filteredReleases, err := st.SelectReleasesWithOverrides()
 	if err != nil {
 		return nil, err
 	}
@@ -1282,7 +1306,7 @@ func (st *HelmState) GetFilteredReleases() ([]ReleaseSpec, error) {
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
 func (st *HelmState) FilterReleases() error {
-	releases, err := st.GetFilteredReleases()
+	releases, err := st.GetSelectedReleasesWithOverrides()
 	if err != nil {
 		return err
 	}
