@@ -914,19 +914,12 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 		return false, errs
 	}
 
-	var toSync []state.ReleaseSpec
-
-	if len(st.Selectors) > 0 {
-		var err error
-		toSync, err = st.GetSelectedReleasesWithOverrides()
-		if err != nil {
-			return false, []error{err}
-		}
-		if len(toSync) == 0 {
-			return false, nil
-		}
-	} else {
-		toSync = st.Releases
+	toSync, err := st.GetSelectedReleasesWithOverrides()
+	if err != nil {
+		return false, []error{err}
+	}
+	if len(toSync) == 0 {
+		return false, nil
 	}
 
 	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSync)

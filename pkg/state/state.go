@@ -1242,11 +1242,6 @@ func (st *HelmState) SelectReleasesWithOverrides() ([]Release, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range rs {
-		spec := r.ReleaseSpec
-		st.ApplyOverrides(&spec)
-		r.ReleaseSpec = spec
-	}
 	return rs, nil
 }
 
