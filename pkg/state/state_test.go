@@ -1926,7 +1926,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: false,
 			purge:     false,
-			deleted:   []exectest.Release{},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "desired but not installed (purge=true)",
@@ -1934,7 +1934,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: false,
 			purge:     true,
-			deleted:   []exectest.Release{},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
 		},
 		{
 			name:      "installed but filtered (purge=false)",
@@ -1942,7 +1942,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: true,
 			purge:     false,
-			deleted:   []exectest.Release{},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "installed but filtered (purge=true)",
@@ -1950,7 +1950,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: true,
 			purge:     true,
-			deleted:   []exectest.Release{},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
 		},
 		{
 			name:      "not installed, and filtered (purge=false)",
@@ -1958,7 +1958,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: false,
 			purge:     false,
-			deleted:   []exectest.Release{},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "not installed, and filtered (purge=true)",
@@ -1966,7 +1966,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: false,
 			purge:     true,
-			deleted:   []exectest.Release{},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
 		},
 		{
 			name:            "with tiller args",

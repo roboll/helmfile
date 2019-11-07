@@ -381,7 +381,7 @@ func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helme
 	return false, nil
 }
 
-func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
+func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
 	detected := []ReleaseSpec{}
 	for i := range releases {
 		release := releases[i]
@@ -395,6 +395,23 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 				r := release
 				detected = append(detected, r)
 			}
+		}
+	}
+	return detected, nil
+}
+
+func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
+	detected := []ReleaseSpec{}
+	for i := range releases {
+		release := releases[i]
+
+		installed, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
+		if err != nil {
+			return nil, err
+		} else if installed {
+			// Otherwise `release` messed up(https://github.com/roboll/helmfile/issues/554)
+			r := release
+			detected = append(detected, r)
 		}
 	}
 	return detected, nil
@@ -462,6 +479,9 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					var args []string
 					if isHelm3() {
 						args = []string{}
+						if release.Namespace != "" {
+							args = append(args, "--namespace", release.Namespace)
+						}
 					} else {
 						args = []string{"--purge"}
 					}
@@ -1136,13 +1156,8 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
-// This function traverses the DAG of the releases in the reverse order, so that the releases that are NOT depended by any others are deleted first.
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool) []error {
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
-		if !release.Desired() {
-			return nil
-		}
-
 		st.ApplyOverrides(&release)
 
 		flags := []string{}
@@ -1155,20 +1170,13 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		}
 		context := st.createHelmContext(&release, workerIndex)
 
-		installed, err := st.isReleaseInstalled(context, helm, release)
-		if err != nil {
+		if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
+			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
+		} else {
+			affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
+			return nil
 		}
-		if installed {
-			if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
-				affectedReleases.Failed = append(affectedReleases.Failed, &release)
-				return err
-			} else {
-				affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
-				return nil
-			}
-		}
-		return nil
 	})
 }
 
@@ -1218,7 +1226,26 @@ func (st *HelmState) Clean() []error {
 	return nil
 }
 
-func MarkFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release, error) {
+func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
+	var rs []ReleaseSpec
+	for _, r := range st.Releases {
+		var spec ReleaseSpec
+		spec = r
+		st.ApplyOverrides(&spec)
+		rs = append(rs, spec)
+	}
+	return rs
+}
+
+func (st *HelmState) SelectReleasesWithOverrides() ([]Release, error) {
+	rs, err := markFilteredReleases(st.GetReleasesWithOverrides(), st.Selectors)
+	if err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
+func markFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -1258,8 +1285,8 @@ func MarkFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release
 	return filteredReleases, nil
 }
 
-func (st *HelmState) GetFilteredReleases() ([]ReleaseSpec, error) {
-	filteredReleases, err := MarkFilteredReleases(st.Releases, st.Selectors)
+func (st *HelmState) GetSelectedReleasesWithOverrides() ([]ReleaseSpec, error) {
+	filteredReleases, err := st.SelectReleasesWithOverrides()
 	if err != nil {
 		return nil, err
 	}
@@ -1274,7 +1301,7 @@ func (st *HelmState) GetFilteredReleases() ([]ReleaseSpec, error) {
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
 func (st *HelmState) FilterReleases() error {
-	releases, err := st.GetFilteredReleases()
+	releases, err := st.GetSelectedReleasesWithOverrides()
 	if err != nil {
 		return err
 	}

@@ -108,8 +108,8 @@ type PlanOpts struct {
 	Reverse bool
 }
 
-func PlanReleases(releases []ReleaseSpec, selectors []string, reverse bool) ([][]Release, error) {
-	marked, err := MarkFilteredReleases(releases, selectors)
+func (st *HelmState) PlanReleases(reverse bool) ([][]Release, error) {
+	marked, err := st.SelectReleasesWithOverrides()
 	if err != nil {
 		return nil, err
 	}
