@@ -1029,40 +1029,33 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		return false, errs
 	}
 
-	var templatedReleases []state.ReleaseSpec
-
-	if len(st.Selectors) > 0 {
-		var err error
-		templatedReleases, err = st.GetSelectedReleasesWithOverrides()
-		if err != nil {
-			return false, []error{err}
-		}
-		if len(templatedReleases) == 0 {
-			return false, nil
-		}
-	} else {
-		templatedReleases = st.Releases
+	toRender, err := st.GetSelectedReleasesWithOverrides()
+	if err != nil {
+		return false, []error{err}
+	}
+	if len(toRender) == 0 {
+		return false, nil
 	}
 
-	releasesToBeTemplated := map[string]state.ReleaseSpec{}
-	for _, r := range templatedReleases {
+	releasesToRender := map[string]state.ReleaseSpec{}
+	for _, r := range toRender {
 		id := state.ReleaseToID(&r)
-		releasesToBeTemplated[id] = r
+		releasesToRender[id] = r
 	}
 
-	names := make([]string, len(templatedReleases))
-	for i, r := range templatedReleases {
+	names := make([]string, len(toRender))
+	for i, r := range toRender {
 		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
 	}
 
 	var errs []error
 
-	if len(releasesToBeTemplated) > 0 {
+	if len(releasesToRender) > 0 {
 		_, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if _, ok := releasesToBeTemplated[state.ReleaseToID(&r)]; ok {
+				if _, ok := releasesToRender[state.ReleaseToID(&r)]; ok {
 					rs = append(rs, r)
 				}
 			}
