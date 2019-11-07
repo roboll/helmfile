@@ -701,7 +701,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false, diffOpts)
 
 		var err error
-		deletingReleases, err = st.DetectReleasesToBeDeleted(helm, st.Releases)
+		deletingReleases, err = st.DetectReleasesToBeDeletedForSync(helm, st.Releases)
 		if err != nil {
 			planningErrs = append(planningErrs, err)
 		}
@@ -835,34 +835,38 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 
 	affectedReleases := state.AffectedReleases{}
 
-	var deletingReleases []state.ReleaseSpec
+	var toSync []state.ReleaseSpec
 
 	if len(st.Selectors) > 0 {
 		var err error
-		deletingReleases, err = st.GetFilteredReleases()
+		toSync, err = st.GetFilteredReleases()
 		if err != nil {
 			return false, []error{err}
 		}
-		if len(deletingReleases) == 0 {
+		if len(toSync) == 0 {
 			return false, nil
 		}
 	} else {
-		deletingReleases = st.Releases
+		toSync = st.Releases
 	}
 
-	releasesToBeDeleted := map[string]state.ReleaseSpec{}
-	for _, r := range deletingReleases {
+	toDelete, err := st.DetectReleasesToBeDeleted(helm, toSync)
+	if err != nil {
+		return false, []error{err}
+	}
+
+	releasesToDelete := map[string]state.ReleaseSpec{}
+	for _, r := range toDelete {
 		id := state.ReleaseToID(&r)
-		releasesToBeDeleted[id] = r
+		releasesToDelete[id] = r
 	}
 
-	names := make([]string, len(deletingReleases))
-	for i, r := range deletingReleases {
+	names := make([]string, len(toSync))
+	for i, r := range toSync {
 		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
 	}
 
 	var errs []error
-	var any bool
 
 	msg := fmt.Sprintf(`Affected releases are:
 %s
@@ -875,12 +879,12 @@ Do you really want to delete?
 	if !interactive || interactive && r.askForConfirmation(msg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-		if len(releasesToBeDeleted) > 0 {
-			deleted, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		if len(releasesToDelete) > 0 {
+			_, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
-					if _, ok := releasesToBeDeleted[state.ReleaseToID(&r)]; ok {
+					if _, ok := releasesToDelete[state.ReleaseToID(&r)]; ok {
 						rs = append(rs, r)
 					}
 				}
@@ -890,15 +894,13 @@ Do you really want to delete?
 				return subst.DeleteReleases(&affectedReleases, helm, c.Concurrency(), purge)
 			}))
 
-			any = any || deleted
-
 			if deletionErrs != nil && len(deletionErrs) > 0 {
 				errs = append(errs, deletionErrs...)
 			}
 		}
 	}
 	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return any, errs
+	return true, errs
 }
 
 func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
@@ -919,43 +921,91 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 		return false, errs
 	}
 
-	var syncedReleases []state.ReleaseSpec
+	var toSync []state.ReleaseSpec
 
 	if len(st.Selectors) > 0 {
 		var err error
-		syncedReleases, err = st.GetFilteredReleases()
+		toSync, err = st.GetFilteredReleases()
 		if err != nil {
 			return false, []error{err}
 		}
-		if len(syncedReleases) == 0 {
+		if len(toSync) == 0 {
 			return false, nil
 		}
 	} else {
-		syncedReleases = st.Releases
+		toSync = st.Releases
 	}
 
-	releasesToBeSynced := map[string]state.ReleaseSpec{}
-	for _, r := range syncedReleases {
+	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSync)
+	if err != nil {
+		return false, []error{err}
+	}
+
+	releasesToDelete := map[string]state.ReleaseSpec{}
+	for _, r := range toDelete {
 		id := state.ReleaseToID(&r)
-		releasesToBeSynced[id] = r
+		releasesToDelete[id] = r
 	}
 
-	names := make([]string, len(syncedReleases))
-	for i, r := range syncedReleases {
-		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
+	var toUpdate []state.ReleaseSpec
+	for _, r := range toSync {
+		if _, deleted := releasesToDelete[state.ReleaseToID(&r)]; !deleted {
+			toUpdate = append(toUpdate, r)
+		}
 	}
+
+	releasesToUpdate := map[string]state.ReleaseSpec{}
+	for _, r := range toUpdate {
+		id := state.ReleaseToID(&r)
+		releasesToUpdate[id] = r
+	}
+
+	names := []string{}
+	for _, r := range releasesToUpdate {
+		names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
+	}
+	for _, r := range releasesToDelete {
+		names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
+	}
+	// Make the output deterministic for testing purpose
+	sort.Strings(names)
+
+	infoMsg := fmt.Sprintf(`Affected releases are:
+%s
+`, strings.Join(names, "\n"))
+
+	a.Logger.Info(infoMsg)
 
 	var errs []error
-	var any bool
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-	if len(releasesToBeSynced) > 0 {
-		synced, syncErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+	if len(releasesToDelete) > 0 {
+		_, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if _, ok := releasesToBeSynced[state.ReleaseToID(&r)]; ok {
+				if _, ok := releasesToDelete[state.ReleaseToID(&r)]; ok {
+					rs = append(rs, r)
+				}
+			}
+
+			subst.Releases = rs
+
+			return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency())
+		}))
+
+		if deletionErrs != nil && len(deletionErrs) > 0 {
+			errs = append(errs, deletionErrs...)
+		}
+	}
+
+	if len(releasesToUpdate) > 0 {
+		_, syncErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			var rs []state.ReleaseSpec
+
+			for _, r := range subst.Releases {
+				if _, ok := releasesToUpdate[state.ReleaseToID(&r)]; ok {
 					rs = append(rs, r)
 				}
 			}
@@ -968,14 +1018,12 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 			return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 		}))
 
-		any = any || synced
-
 		if syncErrs != nil && len(syncErrs) > 0 {
 			errs = append(errs, syncErrs...)
 		}
 	}
 	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return any, errs
+	return true, errs
 }
 
 func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
@@ -1022,10 +1070,9 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	}
 
 	var errs []error
-	var any bool
 
 	if len(releasesToBeTemplated) > 0 {
-		synced, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
@@ -1043,13 +1090,11 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), opts)
 		}))
 
-		any = any || synced
-
 		if templateErrs != nil && len(templateErrs) > 0 {
 			errs = append(errs, templateErrs...)
 		}
 	}
-	return any, errs
+	return true, errs
 }
 
 func fileExistsAt(path string) bool {
