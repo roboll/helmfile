@@ -53,7 +53,7 @@ if helm version --client 1>/dev/null 2>/dev/null; then
 else
   info "Using Helm version: $(helm version --short | grep -o v.*$)"
 fi
-${helm} plugin install https://github.com/databus23/helm-diff --version master
+${helm} plugin install https://github.com/databus23/helm-diff --version v3.0.0-rc.7
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
 $kubectl create namespace ${test_ns} || fail "Could not create namespace ${test_ns}"
 trap "{ $kubectl delete namespace ${test_ns}; }" EXIT # remove namespace whenever we exit this script
