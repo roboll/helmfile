@@ -19,8 +19,10 @@ type Interface interface {
 	TestRelease(context HelmContext, name string, flags ...string) error
 	List(context HelmContext, filter string, flags ...string) (string, error)
 	DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
+	IsHelm3() bool
 }
 
 type DependencyUpdater interface {
 	UpdateDeps(chart string) error
+	IsHelm3() bool
 }

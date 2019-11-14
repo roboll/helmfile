@@ -1994,6 +1994,9 @@ func (helm *mockHelmExec) Fetch(chart string, flags ...string) error {
 func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
 	return nil
 }
+func (helm *mockHelmExec) IsHelm3() bool {
+	return false
+}
 
 func TestTemplate_SingleStateFile(t *testing.T) {
 	files := map[string]string{
