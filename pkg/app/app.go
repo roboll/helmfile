@@ -657,7 +657,20 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 	helm := r.helm
 	ctx := r.ctx
 
-	affectedReleases := state.AffectedReleases{}
+	allReleases := st.GetReleasesWithOverrides()
+
+	toApply, err := st.GetSelectedReleasesWithOverrides()
+	if err != nil {
+		return false, []error{err}
+	}
+	if len(toApply) == 0 {
+		return false, nil
+	}
+
+	// Do build deps and prepare only on selected releases so that we won't waste time
+	// on running various helm commands on unnecessary releases
+	st.Releases = toApply
+
 	if !c.SkipDeps() {
 		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
 			return false, errs
@@ -679,25 +692,12 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 		Set:     c.Set(),
 	}
 
-	allReleases := st.GetReleasesWithOverrides()
-
 	var changedReleases []state.ReleaseSpec
 	var deletingReleases []state.ReleaseSpec
 	var planningErrs []error
 
 	// TODO Better way to detect diff on only filtered releases
 	{
-		if len(st.Selectors) > 0 {
-			releases, err := st.GetSelectedReleasesWithOverrides()
-			if err != nil {
-				return false, []error{err}
-			}
-			if len(releases) == 0 {
-				return false, nil
-			}
-			st.Releases = releases
-		}
-
 		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false, diffOpts)
 
 		var err error
@@ -706,8 +706,6 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 			planningErrs = append(planningErrs, err)
 		}
 	}
-
-	st.Releases = allReleases
 
 	fatalErrs := []error{}
 
@@ -776,6 +774,11 @@ Do you really want to apply?
 
 	syncErrs := []error{}
 
+	affectedReleases := state.AffectedReleases{}
+
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	st.Releases = allReleases
+
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
@@ -785,8 +788,8 @@ Do you really want to apply?
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
-					if _, ok := releasesToBeDeleted[state.ReleaseToID(&r)]; ok {
-						rs = append(rs, r)
+					if r2, ok := releasesToBeDeleted[state.ReleaseToID(&r)]; ok {
+						rs = append(rs, r2)
 					}
 				}
 
@@ -806,8 +809,8 @@ Do you really want to apply?
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
-					if _, ok := releasesToBeUpdated[state.ReleaseToID(&r)]; ok {
-						rs = append(rs, r)
+					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&r)]; ok {
+						rs = append(rs, r2)
 					}
 				}
 
@@ -901,7 +904,20 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	helm := r.helm
 	ctx := r.ctx
 
-	affectedReleases := state.AffectedReleases{}
+	allReleases := st.GetReleasesWithOverrides()
+
+	toSync, err := st.GetSelectedReleasesWithOverrides()
+	if err != nil {
+		return false, []error{err}
+	}
+	if len(toSync) == 0 {
+		return false, nil
+	}
+
+	// Do build deps and prepare only on selected releases so that we won't waste time
+	// on running various helm commands on unnecessary releases
+	st.Releases = toSync
+
 	if !c.SkipDeps() {
 		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
 			return false, errs
@@ -912,14 +928,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 	if errs := st.PrepareReleases(helm, "sync"); errs != nil && len(errs) > 0 {
 		return false, errs
-	}
-
-	toSync, err := st.GetSelectedReleasesWithOverrides()
-	if err != nil {
-		return false, []error{err}
-	}
-	if len(toSync) == 0 {
-		return false, nil
 	}
 
 	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSync)
@@ -966,13 +974,18 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	st.Releases = allReleases
+
+	affectedReleases := state.AffectedReleases{}
+
 	if len(releasesToDelete) > 0 {
 		_, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if _, ok := releasesToDelete[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r)
+				if r2, ok := releasesToDelete[state.ReleaseToID(&r)]; ok {
+					rs = append(rs, r2)
 				}
 			}
 
@@ -991,8 +1004,8 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if _, ok := releasesToUpdate[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r)
+				if r2, ok := releasesToUpdate[state.ReleaseToID(&r)]; ok {
+					rs = append(rs, r2)
 				}
 			}
 
@@ -1017,6 +1030,20 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	helm := r.helm
 	ctx := r.ctx
 
+	allReleases := st.GetReleasesWithOverrides()
+
+	toRender, err := st.GetSelectedReleasesWithOverrides()
+	if err != nil {
+		return false, []error{err}
+	}
+	if len(toRender) == 0 {
+		return false, nil
+	}
+
+	// Do build deps and prepare only on selected releases so that we won't waste time
+	// on running various helm commands on unnecessary releases
+	st.Releases = toRender
+
 	if !c.SkipDeps() {
 		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
 			return false, errs
@@ -1027,14 +1054,6 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	}
 	if errs := st.PrepareReleases(helm, "template"); errs != nil && len(errs) > 0 {
 		return false, errs
-	}
-
-	toRender, err := st.GetSelectedReleasesWithOverrides()
-	if err != nil {
-		return false, []error{err}
-	}
-	if len(toRender) == 0 {
-		return false, nil
 	}
 
 	releasesToRender := map[string]state.ReleaseSpec{}
@@ -1050,13 +1069,16 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 	var errs []error
 
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	st.Releases = allReleases
+
 	if len(releasesToRender) > 0 {
 		_, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if _, ok := releasesToRender[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r)
+				if r2, ok := releasesToRender[state.ReleaseToID(&r)]; ok {
+					rs = append(rs, r2)
 				}
 			}
 
