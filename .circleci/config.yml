@@ -136,7 +136,7 @@ jobs:
     - run:
         name: Install helm
         environment:
-          HELM_VERSION: v3.0.0-rc.2
+          HELM_VERSION: v3.0.0
         command: |
           HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
           curl -Lo ${HELM_FILENAME} "https://get.helm.sh/${HELM_FILENAME}"

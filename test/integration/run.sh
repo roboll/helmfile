@@ -46,7 +46,7 @@ function retry() {
 set -e
 info "Using namespace: ${test_ns}"
 # helm v2
-if helm version --client 1>/dev/null 2>/dev/null; then
+if helm version --client 2>/dev/null | grep '"v2\.'; then
   info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
   ${helm} init --wait --override spec.template.spec.automountServiceAccountToken=true
 # helm v3
