@@ -56,7 +56,7 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environmen
 	if err != nil && r.logger != nil {
 		switch err.(type) {
 		case *state.StateLoadError:
-			r.logger.Infof("could not deduce `environment:` block, configuring only .Environment.Name. error: %v", err)
+			r.logger.Debugf("could not deduce `environment:` block, configuring only .Environment.Name. error: %v", err)
 		}
 		r.logger.Debugf("error in first-pass rendering: result of \"%s\":\n%s", filename, prependLineNumbers(yamlBuf.String()))
 	}
