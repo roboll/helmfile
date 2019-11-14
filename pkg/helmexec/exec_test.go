@@ -32,10 +32,7 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
 
 func TestNewHelmExec(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
-	logger := NewLogger(buffer, "debug")
-	helm := New("helm", logger, "dev", &ShellRunner{
-		Logger: logger,
-	})
+	helm := MockExecer(NewLogger(buffer, "debug"), "dev")
 	if helm.kubeContext != "dev" {
 		t.Error("helmexec.New() - kubeContext")
 	}
@@ -48,11 +45,7 @@ func TestNewHelmExec(t *testing.T) {
 }
 
 func Test_SetExtraArgs(t *testing.T) {
-	buffer := bytes.NewBufferString("something")
-	logger := NewLogger(buffer, "debug")
-	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
-		Logger: logger,
-	})
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
 	helm.SetExtraArgs()
 	if len(helm.extra) != 0 {
 		t.Error("helmexec.SetExtraArgs() - passing no arguments should not change extra field")
@@ -68,11 +61,7 @@ func Test_SetExtraArgs(t *testing.T) {
 }
 
 func Test_SetHelmBinary(t *testing.T) {
-	buffer := bytes.NewBufferString("something")
-	logger := NewLogger(buffer, "debug")
-	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
-		Logger: logger,
-	})
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
 	if helm.helmBinary != "helm" {
 		t.Error("helmexec.command - default command is not helm")
 	}
