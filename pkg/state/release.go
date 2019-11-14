@@ -93,7 +93,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		result.Labels[key] = s.String()
 	}
 
-	if result.ValuesTemplate != nil && len(result.ValuesTemplate) > 0 {
+	if len(result.ValuesTemplate) > 0 {
 		for i, t := range result.ValuesTemplate {
 			switch ts := t.(type) {
 			case map[interface{}]interface{}:
@@ -117,7 +117,9 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 			}
 		}
 
-		result.Values = result.ValuesTemplate
+		var newvals []interface{}
+		newvals = append(newvals, result.ValuesTemplate...)
+		result.Values = append(newvals, result.Values...)
 	}
 
 	for i, t := range result.Values {
@@ -139,7 +141,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		result.Secrets[i] = s.String()
 	}
 
-	if result.SetValuesTemplate != nil && len(result.SetValuesTemplate) > 0 {
+	if len(result.SetValuesTemplate) > 0 {
 		for i, val := range result.SetValuesTemplate {
 			{
 				// name
@@ -178,7 +180,9 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 			}
 		}
 
-		result.SetValues = result.SetValuesTemplate
+		var newvals []SetValue
+		newvals = append(newvals, result.SetValuesTemplate...)
+		result.SetValues = append(newvals, result.SetValues...)
 	}
 
 	return result, nil

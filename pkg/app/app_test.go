@@ -3596,6 +3596,64 @@ myrelease4	         	true     	id:myrelease1
 	assert.Equal(t, expected, out)
 }
 
+func TestSetValuesTemplate(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: zipkin
+  chart: stable/zipkin
+  values:
+  - val2: "val2"
+  valuesTemplate:
+  - val1: '{{"{{ .Release.Name }}"}}'
+  set:
+  - name: "name"
+    value: "val"
+  setTemplate:
+  - name: name-{{"{{ .Release.Name }}"}}
+    value: val-{{"{{ .Release.Name }}"}}
+`,
+	}
+	expectedValues := []interface{}{
+		map[interface{}]interface{}{"val1": "zipkin"},
+		map[interface{}]interface{}{"val2": "val2"}}
+	expectedSetValues := []state.SetValue{
+		state.SetValue{Name: "name-zipkin", Value: "val-zipkin"},
+		state.SetValue{Name: "name", Value: "val"}}
+
+	app := appWithFs(&App{
+		KubeContext: "default",
+		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+		Env:         "default",
+	}, files)
+
+	var specs []state.ReleaseSpec
+	collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+		specs = append(specs, st.Releases...)
+		return nil
+	}
+
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", collectReleases,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(specs) != 1 {
+		t.Fatalf("expected 1 release; got %d releases", len(specs))
+	}
+	actualValues := specs[0].Values
+	actualSetValues := specs[0].SetValues
+
+	if !reflect.DeepEqual(expectedValues, actualValues) {
+		t.Errorf("expected values: %v; got values: %v", expectedValues, actualValues)
+	}
+	if !reflect.DeepEqual(expectedSetValues, actualSetValues) {
+		t.Errorf("expected set: %v; got set: %v", expectedValues, actualValues)
+	}
+}
+
 func location() string {
 	_, fn, line, _ := runtime.Caller(1)
 	return fmt.Sprintf("%s:%d", filepath.Base(fn), line)
