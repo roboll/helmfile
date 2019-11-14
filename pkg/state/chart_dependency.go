@@ -280,7 +280,7 @@ func (m *chartDependencyManager) lockFileName() string {
 }
 
 func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
-	if isHelm3() {
+	if shell.IsHelm3() {
 		return m.updateHelm3(shell, wd, unresolved)
 	}
 	return m.updateHelm2(shell, wd, unresolved)
@@ -330,7 +330,7 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 		return nil, err
 	}
 
-	if isHelm3() && originalLockFileContent != nil {
+	if shell.IsHelm3() && originalLockFileContent != nil {
 		if err := m.writeBytes(filepath.Join(wd, chartLockFile), originalLockFileContent); err != nil {
 			return nil, err
 		}
@@ -357,7 +357,7 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 	})
 
 	// Don't update lock file if no dependency updated.
-	if !isHelm3() && originalLockFileContent != nil {
+	if !shell.IsHelm3() && originalLockFileContent != nil {
 		originalLockedReqs := &ChartLockedRequirements{}
 		if err := yaml.Unmarshal(originalLockFileContent, originalLockedReqs); err != nil {
 			return nil, err

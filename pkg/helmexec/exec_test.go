@@ -20,7 +20,7 @@ type mockRunner struct {
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
-	return []byte{}, nil
+	return mock.output, mock.err
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
@@ -32,10 +32,7 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
 
 func TestNewHelmExec(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
-	logger := NewLogger(buffer, "debug")
-	helm := New("helm", logger, "dev", &ShellRunner{
-		Logger: logger,
-	})
+	helm := MockExecer(NewLogger(buffer, "debug"), "dev")
 	if helm.kubeContext != "dev" {
 		t.Error("helmexec.New() - kubeContext")
 	}
@@ -48,11 +45,7 @@ func TestNewHelmExec(t *testing.T) {
 }
 
 func Test_SetExtraArgs(t *testing.T) {
-	buffer := bytes.NewBufferString("something")
-	logger := NewLogger(buffer, "debug")
-	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
-		Logger: logger,
-	})
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
 	helm.SetExtraArgs()
 	if len(helm.extra) != 0 {
 		t.Error("helmexec.SetExtraArgs() - passing no arguments should not change extra field")
@@ -68,11 +61,7 @@ func Test_SetExtraArgs(t *testing.T) {
 }
 
 func Test_SetHelmBinary(t *testing.T) {
-	buffer := bytes.NewBufferString("something")
-	logger := NewLogger(buffer, "debug")
-	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &ShellRunner{
-		Logger: logger,
-	})
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
 	if helm.helmBinary != "helm" {
 		t.Error("helmexec.command - default command is not helm")
 	}
@@ -515,5 +504,19 @@ exec: helm template path/to/chart --name release --values file.yml --kube-contex
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.Template()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_IsHelm3(t *testing.T) {
+	helm2Runner := mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
+	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	if helm.IsHelm3() {
+		t.Error("helmexec.IsHelm3() - Detected Helm 3 with Helm 2 version")
+	}
+
+	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
+	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	if !helm.IsHelm3() {
+		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
 }

@@ -477,7 +477,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					relErr = newReleaseError(release, err)
 				} else {
 					var args []string
-					if isHelm3() {
+					if helm.IsHelm3() {
 						args = []string{}
 						if release.Namespace != "" {
 							args = append(args, "--namespace", release.Namespace)
@@ -577,7 +577,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						relErr = newReleaseError(release, err)
 					} else if installed {
 						var args []string
-						if isHelm3() {
+						if helm.IsHelm3() {
 							args = []string{}
 						} else {
 							args = []string{"--purge"}
@@ -646,7 +646,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 
 func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
 	flags := st.connectionFlags(release)
-	if isHelm3() && release.Namespace != "" {
+	if helm.IsHelm3() && release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
 	}
 	return helm.List(context, "^"+release.Name+"$", flags...)
@@ -1161,11 +1161,11 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		st.ApplyOverrides(&release)
 
 		flags := []string{}
-		if purge && !isHelm3() {
+		if purge && !helm.IsHelm3() {
 			flags = append(flags, "--purge")
 		}
 		flags = st.appendConnectionFlags(flags, &release)
-		if isHelm3() && release.Namespace != "" {
+		if helm.IsHelm3() && release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
 		context := st.createHelmContext(&release, workerIndex)
@@ -1192,7 +1192,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 			flags = append(flags, "--cleanup")
 		}
 		duration := strconv.Itoa(timeout)
-		if isHelm3() {
+		if helm.IsHelm3() {
 			duration += "s"
 		}
 		flags = append(flags, "--timeout", duration)
@@ -1200,10 +1200,6 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 
 		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
-}
-
-func isHelm3() bool {
-	return os.Getenv("HELMFILE_HELM3") != ""
 }
 
 // Clean will remove any generated secrets
@@ -1532,7 +1528,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	}
 	if timeout != 0 {
 		duration := strconv.Itoa(timeout)
-		if isHelm3() {
+		if helm.IsHelm3() {
 			duration += "s"
 		}
 		flags = append(flags, "--timeout", duration)

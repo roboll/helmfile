@@ -20,6 +20,7 @@ type decryptedSecret struct {
 
 type execer struct {
 	helmBinary           string
+	isHelm3              bool
 	runner               Runner
 	logger               *zap.SugaredLogger
 	kubeContext          string
@@ -45,15 +46,31 @@ func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 	return zap.New(core).Sugar()
 }
 
+func detectHelm3(helmBinary string, logger *zap.SugaredLogger, runner Runner) bool {
+	// Support explicit opt-in via environment variable
+	if os.Getenv("HELMFILE_HELM3") != "" {
+		return true
+	}
+
+	// Autodetect from `helm verison`
+	bytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil)
+	if err != nil {
+		panic(err)
+	}
+	return strings.HasPrefix(string(bytes), "v3.")
+}
+
 // New for running helm commands
 func New(helmBinary string, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	return &execer{
 		helmBinary:       helmBinary,
+		isHelm3:          detectHelm3(helmBinary, logger, runner),
 		logger:           logger,
 		kubeContext:      kubeContext,
 		runner:           runner,
 		decryptedSecrets: make(map[string]*decryptedSecret),
 	}
+
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {
@@ -126,7 +143,7 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
 	var args []string
-	if helm.isHelm3() {
+	if helm.IsHelm3() {
 		args = []string{"list", "--filter", filter}
 	} else {
 		args = []string{"list", filter}
@@ -139,7 +156,7 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	// of the release to exist.
 	//
 	// This fixes it by removing the header from the v3 output, so that the output is formatted the same as that of v2.
-	if helm.isHelm3() {
+	if helm.IsHelm3() {
 		lines := strings.Split(string(out), "\n")
 		lines = lines[1:]
 		out = []byte(strings.Join(lines, "\n"))
@@ -219,7 +236,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {
 	helm.logger.Infof("Templating release=%v, chart=%v", name, chart)
 	var args []string
-	if helm.isHelm3() {
+	if helm.IsHelm3() {
 		args = []string{"template", name, chart}
 	} else {
 		args = []string{"template", chart, "--name", name}
@@ -286,7 +303,7 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	preArgs := context.GetTillerlessArgs(helm.helmBinary)
 	env := context.getTillerlessEnv()
 	var args []string
-	if helm.isHelm3() {
+	if helm.IsHelm3() {
 		args = []string{"test", "run", name}
 	} else {
 		args = []string{"test", name}
@@ -323,6 +340,6 @@ func (helm *execer) write(out []byte) {
 	}
 }
 
-func (helm *execer) isHelm3() bool {
-	return os.Getenv("HELMFILE_HELM3") != ""
+func (helm *execer) IsHelm3() bool {
+	return helm.isHelm3
 }

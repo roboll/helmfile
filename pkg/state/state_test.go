@@ -145,6 +145,14 @@ func boolValue(v bool) *bool {
 	return &v
 }
 
+// Mocking the command-line runner
+
+type mockRunner struct{}
+
+func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
+	return []byte{}, nil
+}
+
 func TestHelmState_flagsForUpgrade(t *testing.T) {
 	enable := true
 	disable := false
@@ -524,9 +532,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				HelmDefaults:      tt.defaults,
 				valsRuntime:       valsRuntime,
 			}
-			helm := helmexec.New("helm", logger, "default", &helmexec.ShellRunner{
-				Logger: logger,
-			})
+			helm := helmexec.New("helm", logger, "default", &mockRunner{})
 			args, err := state.flagsForUpgrade(helm, tt.release, 0)
 			if err != nil {
 				t.Errorf("unexpected error flagsForUpgade: %v", err)

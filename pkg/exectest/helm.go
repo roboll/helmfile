@@ -157,6 +157,10 @@ func (helm *Helm) TemplateRelease(name, chart string, flags ...string) error {
 	return nil
 }
 
+func (helm *Helm) IsHelm3() bool {
+	return false
+}
+
 func (helm *Helm) sync(m *sync.Mutex, f func()) {
 	if m != nil {
 		m.Lock()
