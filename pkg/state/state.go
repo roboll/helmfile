@@ -101,6 +101,8 @@ type HelmSpec struct {
 	Force bool `yaml:"force"`
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic bool `yaml:"atomic"`
+	// CleanupOnFailure, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
+	CleanupOnFail bool `yaml:"cleanup-on-fail"`
 
 	TLS       bool   `yaml:"tls"`
 	TLSCACert string `yaml:"tlsCACert,omitempty"`
@@ -139,6 +141,8 @@ type ReleaseSpec struct {
 	Installed *bool `yaml:"installed,omitempty"`
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic *bool `yaml:"atomic,omitempty"`
+	// CleanupOnFailure, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
+	CleanupOnFail bool `yaml:"cleanup-on-fail"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
@@ -1520,6 +1524,10 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
 		flags = append(flags, "--wait")
+	}
+
+	if release.CleanupOnFail || st.HelmDefaults.CleanupOnFail {
+		flags = append(flags, "--cleanup-on-fail")
 	}
 
 	timeout := st.HelmDefaults.Timeout
