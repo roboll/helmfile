@@ -449,6 +449,58 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "cleanup-on-fail",
+			defaults: HelmSpec{
+				CleanupOnFail: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				CleanupOnFail:    &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--cleanup-on-fail",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "cleanup-on-fail-override-default",
+			defaults: HelmSpec{
+				CleanupOnFail: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				CleanupOnFail:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "cleanup-on-fail-from-default",
+			defaults: HelmSpec{
+				CleanupOnFail: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--cleanup-on-fail",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name:     "tiller",
 			defaults: HelmSpec{},
 			release: &ReleaseSpec{
