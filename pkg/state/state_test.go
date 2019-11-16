@@ -456,7 +456,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
-				CleanupOnFail:    true,
+				CleanupOnFail:    &enable,
 				Name:      "test-charts",
 				Namespace: "test-namespace",
 			},
@@ -474,7 +474,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
-				CleanupOnFail:    false,
+				CleanupOnFail:    &disable,
 				Name:      "test-charts",
 				Namespace: "test-namespace",
 			},
