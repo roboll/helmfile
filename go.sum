@@ -728,6 +728,8 @@ github.com/variantdev/vals v0.0.0-20191026125821-5d18b16cf30a h1:zrV+XXPXniLy9ZV
 github.com/variantdev/vals v0.0.0-20191026125821-5d18b16cf30a/go.mod h1:8CW8eonQlIJgAjF1fLfrkaBe16fGjwGf2PX52/Vualw=
 github.com/variantdev/vals v0.0.0-20191030045026-1fa6af1b5299 h1:91g7EEeE6dHdubLkS013s9vcZScrGDk/RqZEQwSkn4w=
 github.com/variantdev/vals v0.0.0-20191030045026-1fa6af1b5299/go.mod h1:8CW8eonQlIJgAjF1fLfrkaBe16fGjwGf2PX52/Vualw=
+github.com/variantdev/vals v0.0.0-20191117001227-ba4c7a29875a h1:Ce3KCr4PAC1qdEykv5iMnDrUjhN6pWDkdSTw/Lx11ts=
+github.com/variantdev/vals v0.0.0-20191117001227-ba4c7a29875a/go.mod h1:8CW8eonQlIJgAjF1fLfrkaBe16fGjwGf2PX52/Vualw=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 go.etcd.io/bbolt v1.3.2 h1:Z/90sZLPOeCy2PwprqkFa25PdkusRzaj9P8zm/KNyvk=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=

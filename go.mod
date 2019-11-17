@@ -27,7 +27,7 @@ require (
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.20.0
 	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363
-	github.com/variantdev/vals v0.0.0-20191030045026-1fa6af1b5299
+	github.com/variantdev/vals v0.0.0-20191117001227-ba4c7a29875a
 	go.mozilla.org/sops v0.0.0-20190912205235-14a22d7a7060 // indirect
 	go.opencensus.io v0.22.1 // indirect
 	go.uber.org/multierr v1.1.0

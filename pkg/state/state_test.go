@@ -15,7 +15,7 @@ import (
 )
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
-var valsRuntime, _ = vals.New(32)
+var valsRuntime, _ = vals.New(vals.Options{CacheSize: 32})
 
 func injectFs(st *HelmState, fs *testhelper.TestFs) *HelmState {
 	st.glob = fs.Glob

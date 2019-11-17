@@ -2018,7 +2018,7 @@ releases:
 	var buffer bytes.Buffer
 	logger := helmexec.NewLogger(&buffer, "debug")
 
-	valsRuntime, err := vals.New(32)
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 	if err != nil {
 		t.Errorf("unexpected error creating vals runtime: %v", err)
 	}
@@ -3360,7 +3360,7 @@ err: "foo" has dependency to inexistent release "bar"
 
 				logger := helmexec.NewLogger(logWriter, "debug")
 
-				valsRuntime, err := vals.New(32)
+				valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 				if err != nil {
 					t.Errorf("unexpected error creating vals runtime: %v", err)
 				}

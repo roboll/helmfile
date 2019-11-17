@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -17,11 +19,7 @@ import (
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/variantdev/vals"
-
 	"go.uber.org/zap"
-
-	"path/filepath"
-	"sort"
 )
 
 const (
@@ -89,7 +87,7 @@ func Init(app *App) *App {
 	app.directoryExistsAt = directoryExistsAt
 
 	var err error
-	app.valsRuntime, err = vals.New(valsCacheSize)
+	app.valsRuntime, err = vals.New(vals.Options{CacheSize: valsCacheSize})
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize vals runtime: %v", err))
 	}
