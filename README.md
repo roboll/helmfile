@@ -35,7 +35,7 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 ## Configuration
 
-**CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.79.1](https://github.com/roboll/helmfile/tree/v0.79.1).
+**CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.92.1](https://github.com/roboll/helmfile/tree/v0.92.1).
 
 The default helmfile is `helmfile.yaml`:
 
@@ -339,13 +339,13 @@ Iterate on the `helmfile.yaml` by referencing:
 
 ```
 NAME:
-   helmfile -
+   helmfile
 
 USAGE:
    helmfile [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.70.0
+   v0.92.1
 
 COMMANDS:
      deps      update charts based on the contents of requirements.yaml
@@ -360,15 +360,19 @@ COMMANDS:
      delete    DEPRECATED: delete releases from state file (helm delete)
      destroy   deletes and then purges releases
      test      test releases from state file (helm test)
+     build     output compiled helmfile state(s) as YAML
+     list      list releases defined in state file
+     help, h   Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --helm-binary value, -b value           path to helm binary
+   --helm-binary value, -b value           path to helm binary (default: "helm")
    --file helmfile.yaml, -f helmfile.yaml  load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
    --environment default, -e default       specify the environment name. defaults to default
    --state-values-set value                set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
    --state-values-file value               specify state values in a YAML file
    --quiet, -q                             Silence output. Equivalent to log-level warn
    --kube-context value                    Set kubectl context. Uses current context by default
+   --no-color                              Output without color
    --log-level value                       Set log level, default info
    --namespace value, -n value             Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
    --selector value, -l value              Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
