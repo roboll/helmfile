@@ -25,6 +25,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"get":            get,
 		"getOrNil":       getOrNil,
 		"tpl":            c.Tpl,
+		"basePath":       func() string { return c.basePath },
 	}
 	if c.preRender {
 		// disable potential side-effect template calls
