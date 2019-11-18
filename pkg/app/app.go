@@ -240,8 +240,8 @@ func (a *App) within(dir string, do func() error) error {
 	return appErr
 }
 
-func (a *App) visitStateFiles(fileOrDir string, do func(string, string) error) error {
-	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir)
+func (a *App) visitStateFiles(absFileOrDir string, do func(string, string) error) error {
+	desiredStateFiles, err := a.findDesiredStateFiles(absFileOrDir)
 	if err != nil {
 		return appError("", err)
 	}
@@ -299,17 +299,16 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 	return ld.Load(file, op)
 }
 
-func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+func (a *App) visitStates(absFileOrDir string, defOpts LoadOpts, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	noMatchInHelmfiles := true
-
-	err := a.visitStateFiles(fileOrDir, func(f, d string) error {
+	err := a.visitStateFiles(absFileOrDir, func(f, d string) error {
 		opts := defOpts.DeepCopy()
 
 		if opts.CalleePath == "" {
 			opts.CalleePath = f
 		}
-
-		st, err := a.loadDesiredStateFromYaml(f, opts)
+		absFile := filepath.Join(d, f)
+		st, err := a.loadDesiredStateFromYaml(absFile, opts)
 
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -414,7 +413,11 @@ func (a *App) ForEachStateFiltered(do func(*Run) []error) error {
 
 func (a *App) ForEachState(do func(*Run) (bool, []error)) error {
 	ctx := NewContext()
-	err := a.visitStatesWithSelectorsAndRemoteSupport(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+	absFileOrDir, err := a.abs(a.FileOrDir)
+	if err != nil && a.ErrorHandler != nil {
+		return err
+	}
+	err = a.visitStatesWithSelectorsAndRemoteSupport(absFileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		run := NewRun(st, helm, ctx)
 		return do(run)
 	})
@@ -493,7 +496,7 @@ type Opts struct {
 	DAGEnabled bool
 }
 
-func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+func (a *App) visitStatesWithSelectorsAndRemoteSupport(absFileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
 	opts := LoadOpts{
 		Selectors: a.Selectors,
 	}
@@ -532,7 +535,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 
 	a.remote = remote
 
-	return a.visitStates(fileOrDir, opts, converge)
+	return a.visitStates(absFileOrDir, opts, converge)
 }
 
 func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
