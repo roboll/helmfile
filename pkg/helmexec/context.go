@@ -11,12 +11,12 @@ type HelmContext struct {
 	WorkerIndex     int
 }
 
-func (context *HelmContext) GetTillerlessArgs(helmBinary string) []string {
-	if context.Tillerless {
+func (context *HelmContext) GetTillerlessArgs(helm *execer) []string {
+	if context.Tillerless && !helm.IsHelm3() {
 		if context.TillerNamespace != "" {
-			return []string{"tiller", "run", context.TillerNamespace, "--", helmBinary}
+			return []string{"tiller", "run", context.TillerNamespace, "--", helm.helmBinary}
 		} else {
-			return []string{"tiller", "run", "--", helmBinary}
+			return []string{"tiller", "run", "--", helm.helmBinary}
 		}
 	} else {
 		return []string{}
