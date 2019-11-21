@@ -122,7 +122,7 @@ func (helm *execer) UpdateDeps(chart string) error {
 
 func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
 	helm.logger.Infof("Upgrading release=%v, chart=%v", name, chart)
-	preArgs := context.GetTillerlessArgs(helm.helmBinary)
+	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", "--reset-values", name, chart), flags...), env)
 	helm.write(out)
@@ -131,7 +131,7 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 
 func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Getting status %v", name)
-	preArgs := context.GetTillerlessArgs(helm.helmBinary)
+	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env)
 	helm.write(out)
@@ -140,7 +140,7 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 
 func (helm *execer) List(context HelmContext, filter string, flags ...string) (string, error) {
 	helm.logger.Infof("Listing releases matching %v", filter)
-	preArgs := context.GetTillerlessArgs(helm.helmBinary)
+	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	var args []string
 	if helm.IsHelm3() {
@@ -187,7 +187,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		helm.decryptedSecretMutex.Unlock()
 
 		helm.logger.Infof("Decrypting secret %v", absPath)
-		preArgs := context.GetTillerlessArgs(helm.helmBinary)
+		preArgs := context.GetTillerlessArgs(helm)
 		env := context.getTillerlessEnv()
 		out, err := helm.exec(append(append(preArgs, "secrets", "dec", absPath), flags...), env)
 		helm.info(out)
@@ -249,7 +249,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 
 func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags ...string) error {
 	helm.logger.Infof("Comparing release=%v, chart=%v", name, chart)
-	preArgs := context.GetTillerlessArgs(helm.helmBinary)
+	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--reset-values", "--allow-unreleased", name, chart), flags...), env)
 	// Do our best to write STDOUT only when diff existed
@@ -291,7 +291,7 @@ func (helm *execer) Fetch(chart string, flags ...string) error {
 
 func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Deleting %v", name)
-	preArgs := context.GetTillerlessArgs(helm.helmBinary)
+	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env)
 	helm.write(out)
@@ -300,7 +300,7 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 
 func (helm *execer) TestRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Testing %v", name)
-	preArgs := context.GetTillerlessArgs(helm.helmBinary)
+	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	var args []string
 	if helm.IsHelm3() {
