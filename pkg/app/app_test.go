@@ -2159,8 +2159,8 @@ backend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
 			upgraded: []exectest.Release{
-				{Name: "front-proxy", Flags: []string{}},
 				{Name: "logging", Flags: []string{}},
+				{Name: "front-proxy", Flags: []string{}},
 				{Name: "database", Flags: []string{}},
 				{Name: "servicemesh", Flags: []string{}},
 				{Name: "anotherbackend", Flags: []string{}},
@@ -2314,7 +2314,7 @@ GROUP RELEASES
 2     backend-v1, backend-v2
 3     anotherbackend
 4     database, servicemesh
-5     front-proxy, logging
+5     logging, front-proxy
 
 processing releases in group 1/5: frontend-v1, frontend-v2, frontend-v3
 worker 1/1 started
@@ -2324,21 +2324,21 @@ worker 1/1 started
 worker 1/1 finished
 processing releases in group 3/5: anotherbackend
 processing releases in group 4/5: database, servicemesh
-processing releases in group 5/5: front-proxy, logging
+processing releases in group 5/5: logging, front-proxy
 processing 5 groups of releases in this order:
 GROUP RELEASES
-1     front-proxy, logging
+1     logging, front-proxy
 2     database, servicemesh
 3     anotherbackend
 4     backend-v1, backend-v2
 5     frontend-v1, frontend-v2, frontend-v3
 
-processing releases in group 1/5: front-proxy, logging
+processing releases in group 1/5: logging, front-proxy
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
-getting deployed release version failed:unexpected list key: {^front-proxy$ --kube-contextdefault}
 getting deployed release version failed:unexpected list key: {^logging$ --kube-contextdefault}
+getting deployed release version failed:unexpected list key: {^front-proxy$ --kube-contextdefault}
 worker 1/1 finished
 processing releases in group 2/5: database, servicemesh
 worker 1/1 started
@@ -2368,8 +2368,8 @@ worker 1/1 finished
 
 UPDATED RELEASES:
 NAME             CHART                   VERSION
-front-proxy      stable/envoy                   
 logging          charts/fluent-bit              
+front-proxy      stable/envoy                   
 database         charts/mysql                   
 servicemesh      charts/istio                   
 anotherbackend   charts/anotherbackend          
@@ -2439,8 +2439,8 @@ releases:
 			},
 			lists: map[exectest.ListKey]string{},
 			upgraded: []exectest.Release{
-				{Name: "bar", Flags: []string{}},
 				{Name: "baz", Flags: []string{}},
+				{Name: "bar", Flags: []string{}},
 				{Name: "foo", Flags: []string{}},
 			},
 			deleted:     []exectest.Release{},
@@ -2491,15 +2491,15 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     bar, baz
+1     baz, bar
 2     foo
 
-processing releases in group 1/2: bar, baz
+processing releases in group 1/2: baz, bar
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
-getting deployed release version failed:unexpected list key: {^bar$ --kube-contextdefault}
 getting deployed release version failed:unexpected list key: {^baz$ --kube-contextdefault}
+getting deployed release version failed:unexpected list key: {^bar$ --kube-contextdefault}
 worker 1/1 finished
 processing releases in group 2/2: foo
 worker 1/1 started
@@ -2510,8 +2510,8 @@ worker 1/1 finished
 
 UPDATED RELEASES:
 NAME   CHART      VERSION
-bar    mychart2          
 baz    mychart3          
+bar    mychart2          
 foo    mychart1          
 
 `,

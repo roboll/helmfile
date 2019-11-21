@@ -139,13 +139,15 @@ func SortedReleaseGroups(releases []Release, reverse bool) ([][]Release, error) 
 
 func GroupReleasesByDependency(releases []Release) ([][]Release, error) {
 	idToReleases := map[string][]Release{}
+	idToIndex := map[string]int{}
 
 	d := dag.New()
-	for _, r := range releases {
+	for i, r := range releases {
 
 		id := ReleaseToID(&r.ReleaseSpec)
 
 		idToReleases[id] = append(idToReleases[id], r)
+		idToIndex[id] = i
 
 		// Only compute dependencies from non-filtered releases
 		if !r.Filtered {
@@ -182,7 +184,13 @@ func GroupReleasesByDependency(releases []Release) ([][]Release, error) {
 		}
 
 		// Make the helmfile behavior deterministic for reproducibility and ease of testing
-		sort.Strings(idsInGroup)
+		// We try to keep the order of definitions to keep backward-compatibility
+		// See https://github.com/roboll/helmfile/issues/988
+		sort.Slice(idsInGroup, func(i, j int) bool {
+			ii := idToIndex[idsInGroup[i]]
+			ij := idToIndex[idsInGroup[j]]
+			return ii < ij
+		})
 
 		for _, id := range idsInGroup {
 			releases, ok := idToReleases[id]
