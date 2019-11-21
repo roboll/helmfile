@@ -126,7 +126,20 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 		)
 	}
 
-	return self, err
+	if err != nil {
+		return nil, err
+	}
+
+	for i, h := range self.Helmfiles {
+		if h.Path == f {
+			return nil, fmt.Errorf("%s contains a recursion into the same sub-helmfile at helmfiles[%d]", f, i)
+		}
+		if h.Path == "." {
+			return nil, fmt.Errorf("%s contains a recursion into the the directory containing this helmfile at helmfiles[%d]", f, i)
+		}
+	}
+
+	return self, nil
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
