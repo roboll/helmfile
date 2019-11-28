@@ -89,7 +89,7 @@ releases:
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	expectedOrder := []string{"a1.yaml", "a2.yaml", "b.yaml", "helmfile.yaml"}
+	expectedOrder := []string{"/path/to/helmfile.d/a1.yaml", "/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/b.yaml", "/path/to/helmfile.yaml"}
 	if !reflect.DeepEqual(actualOrder, expectedOrder) {
 		t.Errorf("unexpected order of processed state files: expected=%v, actual=%v", expectedOrder, actualOrder)
 	}
@@ -133,7 +133,7 @@ BAZ: 4
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	expectedOrder := []string{"helmfile.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml"}
+	expectedOrder := []string{"/path/to/helmfile.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml"}
 	actualOrder := fs.SuccessfulReads()
 	if !reflect.DeepEqual(actualOrder, expectedOrder) {
 		t.Errorf("unexpected order of processed state files: expected=%v, actual=%v", expectedOrder, actualOrder)
@@ -171,7 +171,7 @@ releases:
 		t.Fatal("expected error did not occur")
 	}
 
-	expected := "in ./helmfile.yaml: failed to read helmfile.yaml: environment values file matching \"env.*.yaml\" does not exist in \".\""
+	expected := "in ./helmfile.yaml: failed to read /path/to/helmfile.yaml: environment values file matching \"env.*.yaml\" does not exist in \"/path/to\""
 	if err.Error() != expected {
 		t.Errorf("unexpected error: expected=%s, got=%v", expected, err)
 	}
@@ -2011,8 +2011,8 @@ releases:
 
 	var helm = &mockHelmExec{}
 	var wantReleases = []mockTemplates{
-		{name: "myrelease1", chart: "mychart1", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
-		{name: "myrelease2", chart: "mychart2", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
+		{name: "myrelease1", chart: "mychart1", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/path/to/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{name: "myrelease2", chart: "mychart2", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/path/to/helmfile-[a-z0-9]{8}-myrelease2"}},
 	}
 
 	var buffer bytes.Buffer
@@ -2032,6 +2032,7 @@ releases:
 		helmExecer:  helm,
 		Namespace:   "testNamespace",
 		valsRuntime: valsRuntime,
+		FileOrDir:   "/path/to/",
 	}, files)
 	app.Template(configImpl{set: []string{"foo=a", "bar=b"}})
 
