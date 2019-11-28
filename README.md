@@ -770,7 +770,7 @@ For the following example, `helmfile [sync|apply]` installs releases in this ord
 
 Note that all the releases in a same group is installed concurrently. That is, myapp1 and myapp2 are installed concurrently.
 
-On `helmdile [delete|destroy]`, deleations happen in the reverse order.
+On `helmfile [delete|destroy]`, deletions happen in the reverse order.
 
 That is, `myapp1` and `myapp2` are deleted first, then `servicemesh`, and finally `logging`.
 
