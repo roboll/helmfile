@@ -2171,10 +2171,11 @@ backend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      
 			deleted: []exectest.Release{
 				{Name: "frontend-v1", Flags: []string{}},
 			},
-			log: `processing file "helmfile.yaml" in directory "."
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+			log: `processing file "helmfile.yaml" in directory "/path/to"
+changing working directory to "/path/to"
+first-pass rendering starting for "/path/to/helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "/path/to/helmfile.yaml.part.0":
  0: 
  1: releases:
  2: - name: database
@@ -2232,11 +2233,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
 54: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "/path/to/helmfile.yaml.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "/path/to/helmfile.yaml.part.0":
  0: 
  1: releases:
  2: - name: database
@@ -2382,6 +2383,7 @@ DELETED RELEASES:
 NAME
 frontend-v1
 backend-v1
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -2403,7 +2405,7 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: nil,
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: nil,
 			},
 			lists: map[exectest.ListKey]string{
 				exectest.ListKey{Filter: "^foo$", Flags: "--kube-contextdefault"}: ``,
@@ -2434,9 +2436,9 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "baz", Chart: "mychart3", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "baz", Chart: "/path/to/mychart3", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{},
 			upgraded: []exectest.Release{
@@ -2446,10 +2448,11 @@ releases:
 			},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+			log: `processing file "helmfile.yaml" in directory "/path/to"
+changing working directory to "/path/to"
+first-pass rendering starting for "/path/to/helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "/path/to/helmfile.yaml.part.0":
  0: 
  1: releases:
  2: - name: baz
@@ -2463,11 +2466,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
 10: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "/path/to/helmfile.yaml.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "/path/to/helmfile.yaml.part.0":
  0: 
  1: releases:
  2: - name: baz
@@ -2515,6 +2518,7 @@ bar    mychart2
 baz    mychart3          
 foo    mychart1          
 
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -2535,8 +2539,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{}},
@@ -2558,8 +2562,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{}},
@@ -2582,8 +2586,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{}},
@@ -2606,8 +2610,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{}},
@@ -2631,8 +2635,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{"--kube-context", "default", "--namespace", "ns2"}},
@@ -2656,8 +2660,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{"--kube-context", "default", "--namespace", "ns1"}},
@@ -2684,8 +2688,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{"--tiller-namespace", "tns2", "--kube-context", "default", "--namespace", "ns2"}},
@@ -2711,8 +2715,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{"--tiller-namespace", "tns1", "--kube-context", "default", "--namespace", "ns1"}},
@@ -2720,10 +2724,11 @@ releases:
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+			log: `processing file "helmfile.yaml" in directory "/path/to"
+changing working directory to "/path/to"
+first-pass rendering starting for "/path/to/helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "/path/to/helmfile.yaml.part.0":
  0: 
  1: releases:
  2: - name: bar
@@ -2739,11 +2744,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
 12: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "/path/to/helmfile.yaml.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "/path/to/helmfile.yaml.part.0":
  0: 
  1: releases:
  2: - name: bar
@@ -2790,6 +2795,7 @@ NAME   CHART      VERSION
 foo    mychart1          
 bar    mychart2          
 
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -2812,8 +2818,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				exectest.ListKey{Filter: "^foo$", Flags: "--kube-contextdefault"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -2880,8 +2886,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				exectest.ListKey{Filter: "^foo$", Flags: "--kube-contextdefault"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -2914,8 +2920,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				exectest.ListKey{Filter: "^foo$", Flags: "--kube-contextdefault"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -2948,8 +2954,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				exectest.ListKey{Filter: "^foo$", Flags: "--kube-contextdefault"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -2982,8 +2988,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "/path/to/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				exectest.ListKey{Filter: "^foo$", Flags: "--kube-contextdefault"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -3044,10 +3050,11 @@ releases:
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+			log: `processing file "helmfile.yaml" in directory "/path/to"
+changing working directory to "/path/to"
+first-pass rendering starting for "/path/to/helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "/path/to/helmfile.yaml.part.0":
  0: 
  1: 
  2: 
@@ -3074,11 +3081,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
 23: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "/path/to/helmfile.yaml.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "/path/to/helmfile.yaml.part.0":
  0: 
  1: 
  2: 
@@ -3120,10 +3127,10 @@ GROUP RELEASES
 3     default/my-release
 
 processing releases in group 1/3: kube-system/kubernetes-external-secrets
-0 release(s) matching app=test found in helmfile.yaml
+0 release(s) matching app=test found in /path/to/helmfile.yaml
 
 processing releases in group 2/3: default/external-secrets
-1 release(s) matching app=test found in helmfile.yaml
+1 release(s) matching app=test found in /path/to/helmfile.yaml
 
 worker 1/1 started
 worker 1/1 finished
@@ -3131,7 +3138,7 @@ worker 1/1 started
 getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault}
 worker 1/1 finished
 processing releases in group 3/3: default/my-release
-1 release(s) matching app=test found in helmfile.yaml
+1 release(s) matching app=test found in /path/to/helmfile.yaml
 
 worker 1/1 started
 worker 1/1 finished
@@ -3144,6 +3151,7 @@ NAME               CHART           VERSION
 external-secrets   incubator/raw          
 my-release         incubator/raw          
 
+changing working directory back to "/path/to"
 `,
 		},
 		{
@@ -3182,10 +3190,11 @@ releases:
 			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+			log: `processing file "helmfile.yaml" in directory "/path/to"
+changing working directory to "/path/to"
+first-pass rendering starting for "/path/to/helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "/path/to/helmfile.yaml.part.0":
  0: 
  1: 
  2: 
@@ -3212,11 +3221,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
 23: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "/path/to/helmfile.yaml.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "/path/to/helmfile.yaml.part.0":
  0: 
  1: 
  2: 
@@ -3243,6 +3252,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default map[] map[]}
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -3264,18 +3274,19 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "baz", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "baz", Chart: "/path/to/mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "/path/to/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
 			},
 			lists:       map[exectest.ListKey]string{},
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: "foo" has dependency to inexistent release "bar"`,
-			log: `processing file "helmfile.yaml" in directory "."
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+			error:       `in /path/to/helmfile.yaml: "foo" has dependency to inexistent release "bar"`,
+			log: `processing file "helmfile.yaml" in directory "/path/to"
+changing working directory to "/path/to"
+first-pass rendering starting for "/path/to/helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "/path/to/helmfile.yaml.part.0":
  0: 
  1: releases:
  2: - name: baz
@@ -3288,11 +3299,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
  9: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "/path/to/helmfile.yaml.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "/path/to/helmfile.yaml.part.0":
  0: 
  1: releases:
  2: - name: baz
@@ -3314,6 +3325,7 @@ Affected releases are:
   foo (mychart1) UPDATED
 
 err: "foo" has dependency to inexistent release "bar"
+changing working directory back to "/path/to"
 `,
 		},
 	}
@@ -3374,6 +3386,7 @@ err: "foo" has dependency to inexistent release "bar"
 					Logger:      logger,
 					helmExecer:  helm,
 					valsRuntime: valsRuntime,
+					FileOrDir:   "/path/to/",
 				}, tc.files)
 
 				if tc.ns != "" {
