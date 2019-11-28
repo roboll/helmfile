@@ -398,7 +398,8 @@ func (a *App) visitStates(absFileOrDir string, defOpts LoadOpts, converge func(*
 
 func (a *App) ForEachStateFiltered(do func(*Run) []error) error {
 	ctx := NewContext()
-	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) []error {
+	absFileOrDir, err := a.abs(a.FileOrDir)
+	err = a.VisitDesiredStatesWithReleasesFiltered(absFileOrDir, func(st *state.HelmState, helm helmexec.Interface) []error {
 		run := NewRun(st, helm, ctx)
 
 		return do(run)
@@ -573,10 +574,10 @@ func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) 
 	}
 }
 
-func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
+func (a *App) VisitDesiredStatesWithReleasesFiltered(absFileOrDir string, converge func(*state.HelmState, helmexec.Interface) []error) error {
 	f := a.Wrap(converge)
 
-	return a.visitStatesWithSelectorsAndRemoteSupport(fileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+	return a.visitStatesWithSelectorsAndRemoteSupport(absFileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		return f(st, helm)
 	})
 }

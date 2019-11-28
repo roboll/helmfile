@@ -3503,6 +3503,7 @@ releases:
 		Env:         "default",
 		Logger:      logger,
 		Namespace:   "testNamespace",
+		FileOrDir:   "/path/to/",
 	}, files)
 	out := captureStdout(func() {
 		err := app.PrintState(configImpl{})
@@ -3546,6 +3547,7 @@ releases:
 		Env:         "default",
 		Logger:      logger,
 		Namespace:   "testNamespace",
+		FileOrDir:   "/path/to/helmfile.d/",
 	}, files)
 	out := captureStdout(func() {
 		err := app.PrintState(configImpl{})
@@ -3595,6 +3597,7 @@ releases:
 		Env:         "default",
 		Logger:      logger,
 		Namespace:   "testNamespace",
+		FileOrDir:   "/path/to/helmfile.d/",
 	}, files)
 	out := captureStdout(func() {
 		err := app.ListReleases(configImpl{})
