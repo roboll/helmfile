@@ -74,7 +74,7 @@ helmDefaults:
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
   tillerless: false                  #dedicated default key for tillerless
   kubeContext: kube-context          #dedicated default key for kube-context (--kube-context)
-  cleanup-on-fail: false             #dedicated default key for helm flag --cleanup-on-fail
+  cleanupOnFail: false             #dedicated default key for helm flag --cleanup-on-fail
   # additional and global args passed to helm
   args:
     - "--set k=v"
@@ -159,7 +159,7 @@ releases:
     # restores previous state in case of failed release
     atomic: true
     # when true, cleans up any new resources created during a failed release
-    cleanup-on-fail: false
+    cleanupOnFail: false
     # name of the tiller namespace
     tillerNamespace: vault
     # if true, will use the helm-tiller plugin

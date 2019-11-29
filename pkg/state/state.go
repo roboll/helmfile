@@ -102,7 +102,7 @@ type HelmSpec struct {
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic bool `yaml:"atomic"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
-	CleanupOnFail bool `yaml:"cleanup-on-fail,omitempty"`
+	CleanupOnFail bool `yaml:"cleanupOnFail,omitempty"`
 
 	TLS       bool   `yaml:"tls"`
 	TLSCACert string `yaml:"tlsCACert,omitempty"`
@@ -142,7 +142,7 @@ type ReleaseSpec struct {
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic *bool `yaml:"atomic,omitempty"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
-	CleanupOnFail *bool `yaml:"cleanup-on-fail,omitempty"`
+	CleanupOnFail *bool `yaml:"cleanupOnFail,omitempty"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
