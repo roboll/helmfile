@@ -177,6 +177,42 @@ releases:
 	}
 }
 
+func TestVisitDesiredStatesWithReleasesFiltered_Issue1008_MissingNonDefaultEnvInBase(t *testing.T) {
+	files := map[string]string{
+		"/path/to/base.yaml": `
+helmDefaults:
+  wait: true
+`,
+		"/path/to/helmfile.yaml": `
+bases:
+- base.yaml
+environments:
+  test:
+releases:
+- name: zipkin
+  chart: stable/zipkin
+`,
+	}
+	fs := testhelper.NewTestFs(files)
+	app := &App{
+		KubeContext: "default",
+		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:   "",
+		Env:         "test",
+	}
+	app = injectFs(app, fs)
+	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+		return []error{}
+	}
+
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", noop,
+	)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestVisitDesiredStatesWithReleasesFiltered_MissingEnvValuesFileHandler(t *testing.T) {
 	testcases := []struct {
 		name        string
