@@ -116,10 +116,10 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 }
 
 // LoadEnvValues loads environment values files relative to the `baseDir`
-func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *environment.Environment) (*HelmState, error) {
+func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *environment.Environment, failOnMissingEnv bool) (*HelmState, error) {
 	state := *target
 
-	e, err := state.loadEnvValues(env, ctxEnv, c.readFile, c.glob)
+	e, err := state.loadEnvValues(env, failOnMissingEnv, ctxEnv, c.readFile, c.glob)
 	if err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
@@ -135,6 +135,7 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *envi
 }
 
 // Parses YAML into HelmState, while loading environment values files relative to the `baseDir`
+// evaluateBases=true means that this is NOT a base helmfile
 func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envName string, evaluateBases bool, envValues *environment.Environment) (*HelmState, error) {
 	state, err := c.Parse(content, baseDir, file)
 	if err != nil {
@@ -145,14 +146,14 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 		if len(state.Bases) > 0 {
 			return nil, errors.New("nested `base` helmfile is unsupported. please submit a feature request if you need this!")
 		}
+	} else {
+		state, err = c.loadBases(envValues, state, baseDir)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	state, err = c.loadBases(envValues, state, baseDir)
-	if err != nil {
-		return nil, err
-	}
-
-	state, err = c.LoadEnvValues(state, envName, envValues)
+	state, err = c.LoadEnvValues(state, envName, envValues, evaluateBases)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +183,7 @@ func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmSta
 	return layers[0], nil
 }
 
-func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment, readFile func(string) ([]byte, error), glob func(string) ([]string, error)) (*environment.Environment, error) {
+func (st *HelmState) loadEnvValues(name string, failOnMissingEnv bool, ctxEnv *environment.Environment, readFile func(string) ([]byte, error), glob func(string) ([]string, error)) (*environment.Environment, error) {
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
 	if ok {
@@ -210,7 +211,7 @@ func (st *HelmState) loadEnvValues(name string, ctxEnv *environment.Environment,
 				return nil, err
 			}
 		}
-	} else if ctxEnv == nil && name != DefaultEnv {
+	} else if ctxEnv == nil && name != DefaultEnv && failOnMissingEnv {
 		return nil, &UndefinedEnvError{msg: fmt.Sprintf("environment \"%s\" is not defined", name)}
 	}
 
