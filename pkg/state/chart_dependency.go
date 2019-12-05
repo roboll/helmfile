@@ -3,7 +3,9 @@ package state
 import (
 	"fmt"
 	"github.com/Masterminds/semver"
+	goversion "github.com/hashicorp/go-version"
 	"github.com/r3labs/diff"
+	"github.com/roboll/helmfile/pkg/app/version"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -50,6 +52,7 @@ type ChartRequirements struct {
 }
 
 type ChartLockedRequirements struct {
+	Version              string                    `yaml:"version"`
 	ResolvedDependencies []ResolvedChartDependency `yaml:"dependencies"`
 	Digest               string                    `yaml:"digest"`
 	Generated            string                    `yaml:"generated"`
@@ -374,6 +377,8 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 		}
 	}
 
+	lockedReqs.Version = version.Version
+
 	updatedLockFileContent, err = yaml.Marshal(lockedReqs)
 
 	if err != nil {
@@ -402,6 +407,25 @@ func (m *chartDependencyManager) Resolve(unresolved *UnresolvedDependencies) (*R
 	lockedReqs := &ChartLockedRequirements{}
 	if err := yaml.Unmarshal(updatedLockFileContent, lockedReqs); err != nil {
 		return nil, false, err
+	}
+
+	// Make sure go run main.go works and compatible with old lock files.
+	if version.Version != "" && lockedReqs.Version != "" {
+		lockedVersion, err := goversion.NewVersion(lockedReqs.Version)
+
+		if err != nil {
+			return nil, false, err
+		}
+
+		currentVersion, err := goversion.NewVersion(version.Version)
+
+		if err != nil {
+			return nil, false, err
+		}
+
+		if currentVersion.LessThan(lockedVersion) {
+			return nil, false, fmt.Errorf("the lockfile was created by Helmfile %s, which is newer than current %s; Please upgrade to Helmfile %s or greater", lockedVersion.Original(), currentVersion.Original(), lockedVersion.Original())
+		}
 	}
 
 	resolved := &ResolvedDependencies{deps: map[string][]ResolvedChartDependency{}}

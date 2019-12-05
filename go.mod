@@ -16,6 +16,7 @@ require (
 	github.com/gosuri/uitable v0.0.3
 	github.com/hashicorp/go-getter v1.3.0
 	github.com/hashicorp/go-retryablehttp v0.6.3 // indirect
+	github.com/hashicorp/go-version v1.2.0
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/roboll/helmfile/pkg/app/version"
 	"os"
 	"strings"
 
@@ -13,8 +14,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
-
-var Version string
 
 var logger *zap.SugaredLogger
 
@@ -45,7 +44,7 @@ func main() {
 	cliApp := cli.NewApp()
 	cliApp.Name = "helmfile"
 	cliApp.Usage = ""
-	cliApp.Version = Version
+	cliApp.Version = version.Version
 	cliApp.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "helm-binary, b",
