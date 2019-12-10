@@ -74,7 +74,7 @@ helmDefaults:
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
   tillerless: false                  #dedicated default key for tillerless
   kubeContext: kube-context          #dedicated default key for kube-context (--kube-context)
-  cleanupOnFail: false             #dedicated default key for helm flag --cleanup-on-fail
+  cleanupOnFail: false               #dedicated default key for helm flag --cleanup-on-fail
   # additional and global args passed to helm
   args:
     - "--set k=v"
@@ -92,6 +92,9 @@ helmDefaults:
   tlsCert: "path/to/cert.pem"
   # path to TLS key file (default "$HELM_HOME/key.pem")
   tlsKey: "path/to/key.pem"
+  # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+  historyMax: 10
+
 
 # The desired states of Helm releases.
 #
@@ -176,6 +179,8 @@ releases:
     # CAUTION: this doesn't work as expected for `tilerless: true`.
     # See https://github.com/roboll/helmfile/issues/642
     kubeContext: kube-context
+    # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+    historyMax: 10
 
   # Local chart example
   - name: grafana                            # name of this release
