@@ -302,12 +302,7 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	helm.logger.Infof("Testing %v", name)
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
-	var args []string
-	if helm.IsHelm3() {
-		args = []string{"test", "run", name}
-	} else {
-		args = []string{"test", name}
-	}
+	args := []string{"test", name}
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env)
 	helm.write(out)
 	return err
