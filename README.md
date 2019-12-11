@@ -334,7 +334,7 @@ Congratulations! You now have your first Prometheus deployment running inside yo
 
 Iterate on the `helmfile.yaml` by referencing:
 
-- [Configuration syntax](#configuration-syntax)
+- [Configuration](#configuration)
 - [CLI reference](#cli-reference).
 - [Helmfile Best Practices Guide](https://github.com/roboll/helmfile/blob/master/docs/writing-helmfile.md)
 
