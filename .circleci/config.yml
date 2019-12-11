@@ -204,4 +204,4 @@ workflows:
             branches:
               ignore: /.*/
             tags:
-              only: /v.*/
+              only: /v.*/更新
