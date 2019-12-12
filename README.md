@@ -735,7 +735,7 @@ or in the `releases` entries.
 `needs` controls the order of the installation/deletion of the release:
 
 ```yaml
-relesaes:
+releases:
 - name: somerelease
   needs:
   - [TILLER_NAMESPACE/][NAMESPACE/]anotherelease
