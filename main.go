@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/app/version"
 	"os"
 	"strings"
+
+	"github.com/roboll/helmfile/pkg/app/version"
 
 	"github.com/roboll/helmfile/pkg/app"
 	"github.com/roboll/helmfile/pkg/helmexec"
@@ -483,10 +484,10 @@ func NewUrfaveCliConfigImpl(c *cli.Context) (configImpl, error) {
 			ops := strings.Split(optsSet[i], ",")
 			for j := range ops {
 				op := strings.SplitN(ops[j], "=", 2)
-				k := strings.Split(op[0], ".")
+				k := maputil.ParseKey(op[0])
 				v := op[1]
 
-				set = maputil.Set(set, k, v)
+				maputil.Set(set, k, v)
 			}
 		}
 		conf.set = set
