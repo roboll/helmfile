@@ -8,6 +8,7 @@ import (
 type HelmContext struct {
 	Tillerless      bool
 	TillerNamespace string
+	HistoryMax      int
 	WorkerIndex     int
 }
 

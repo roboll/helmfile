@@ -103,6 +103,8 @@ type HelmSpec struct {
 	Atomic bool `yaml:"atomic"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
 	CleanupOnFail bool `yaml:"cleanupOnFail,omitempty"`
+	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+	HistoryMax *int `yaml:"historyMax,omitempty"`
 
 	TLS       bool   `yaml:"tls"`
 	TLSCACert string `yaml:"tlsCACert,omitempty"`
@@ -143,6 +145,8 @@ type ReleaseSpec struct {
 	Atomic *bool `yaml:"atomic,omitempty"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
 	CleanupOnFail *bool `yaml:"cleanupOnFail,omitempty"`
+	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+	HistoryMax *int `yaml:"historyMax,omitempty"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
@@ -1058,11 +1062,19 @@ func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helme
 	if spec.Tillerless != nil {
 		tillerless = *spec.Tillerless
 	}
+	historyMax := 10
+	if st.HelmDefaults.HistoryMax != nil {
+		historyMax = *st.HelmDefaults.HistoryMax
+	}
+	if spec.HistoryMax != nil {
+		historyMax = *spec.HistoryMax
+	}
 
 	return helmexec.HelmContext{
 		Tillerless:      tillerless,
 		TillerNamespace: namespace,
 		WorkerIndex:     workerIndex,
+		HistoryMax:      historyMax,
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -124,6 +125,13 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 	helm.logger.Infof("Upgrading release=%v, chart=%v", name, chart)
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
+
+	if helm.IsHelm3() {
+		flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
+	} else {
+		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
+	}
+
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", "--reset-values", name, chart), flags...), env)
 	helm.write(out)
 	return err
