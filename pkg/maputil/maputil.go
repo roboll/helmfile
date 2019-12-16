@@ -1,6 +1,9 @@
 package maputil
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func CastKeysToStrings(s interface{}) (map[string]interface{}, error) {
 	new := map[string]interface{}{}
@@ -60,32 +63,129 @@ func recursivelyStringifyMapKey(v interface{}) (interface{}, error) {
 	return casted_v, nil
 }
 
-func Set(m map[string]interface{}, key []string, value string) map[string]interface{} {
+type arg interface {
+	getMap(map[string]interface{}) map[string]interface{}
+	set(map[string]interface{}, string)
+}
+
+type keyArg struct {
+	key string
+}
+
+func (a keyArg) getMap(m map[string]interface{}) map[string]interface{} {
+	_, ok := m[a.key]
+	if !ok {
+		m[a.key] = map[string]interface{}{}
+	}
+	switch t := m[a.key].(type) {
+	case map[string]interface{}:
+		return t
+	default:
+		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
+	}
+}
+
+func (a keyArg) set(m map[string]interface{}, value string) {
+	m[a.key] = value
+}
+
+type indexedKeyArg struct {
+	key   string
+	index int
+}
+
+func (a indexedKeyArg) getArray(m map[string]interface{}) []interface{} {
+	_, ok := m[a.key]
+	if !ok {
+		m[a.key] = make([]interface{}, a.index+1)
+	}
+	switch t := m[a.key].(type) {
+	case []interface{}:
+		if len(t) <= a.index {
+			t2 := make([]interface{}, a.index+1)
+			copy(t, t2)
+			t = t2
+		}
+		return t
+	default:
+		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
+	}
+}
+
+func (a indexedKeyArg) getMap(m map[string]interface{}) map[string]interface{} {
+	t := a.getArray(m)
+	if t[a.index] == nil {
+		t[a.index] = map[string]interface{}{}
+	}
+	switch t := t[a.index].(type) {
+	case map[string]interface{}:
+		return t
+	default:
+		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
+	}
+}
+
+func (a indexedKeyArg) set(m map[string]interface{}, value string) {
+	t := a.getArray(m)
+	t[a.index] = value
+	m[a.key] = t
+}
+
+func getCursor(key string) arg {
+	key = strings.ReplaceAll(key, "[", " ")
+	key = strings.ReplaceAll(key, "]", " ")
+	k := key
+	idx := 0
+
+	n, err := fmt.Sscanf(key, "%s %d", &k, &idx)
+
+	if n == 2 && err == nil {
+		return indexedKeyArg{
+			key:   k,
+			index: idx,
+		}
+	}
+
+	return keyArg{
+		key: key,
+	}
+}
+
+func ParseKey(key string) []string {
+	r := []string{}
+	part := ""
+	escaped := false
+	for _, rune := range key {
+		split := false
+		switch {
+		case escaped == false && rune == '\\':
+			escaped = true
+			continue
+		case rune == '.':
+			split = escaped == false
+		}
+		escaped = false
+		if split {
+			r = append(r, part)
+			part = ""
+		} else {
+			part = part + string(rune)
+		}
+	}
+	if len(part) > 0 {
+		r = append(r, part)
+	}
+	return r
+}
+
+func Set(m map[string]interface{}, key []string, value string) {
 	if len(key) == 0 {
 		panic(fmt.Errorf("bug: unexpected length of key: %d", len(key)))
 	}
 
-	k := key[0]
-
-	if len(key) == 1 {
-		m[k] = value
-		return m
+	for len(key) > 1 {
+		m, key = getCursor(key[0]).getMap(m), key[1:]
 	}
 
-	remain := key[1:]
-
-	nested, ok := m[k]
-	if !ok {
-		nested = map[string]interface{}{}
-	}
-	switch t := nested.(type) {
-	case map[string]interface{}:
-		nested = Set(t, remain, value)
-	default:
-		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
-	}
-
-	m[k] = nested
-
-	return m
+	getCursor(key[0]).set(m, value)
 }
