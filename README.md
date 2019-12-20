@@ -94,6 +94,9 @@ helmDefaults:
   tlsKey: "path/to/key.pem"
   # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
   historyMax: 10
+  # list of api versions to pass to `helm diff` and `helm template` via the --api-versions flag
+  apiVersions:
+  - example/v1
 
 
 # The desired states of Helm releases.

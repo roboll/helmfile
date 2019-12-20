@@ -110,6 +110,8 @@ type HelmSpec struct {
 	TLSCACert string `yaml:"tlsCACert,omitempty"`
 	TLSKey    string `yaml:"tlsKey,omitempty"`
 	TLSCert   string `yaml:"tlsCert,omitempty"`
+
+	ApiVersions []string `yaml:"apiVersions,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -1590,6 +1592,8 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		return nil, err
 	}
 
+	flags = st.appendApiVersionsFlags(flags)
+
 	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
@@ -1615,11 +1619,23 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, err
 	}
 
+	flags = st.appendApiVersionsFlags(flags)
+
 	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
+}
+
+func (st *HelmState) appendApiVersionsFlags(flags []string) []string {
+	if len(st.HelmDefaults.ApiVersions) == 0 {
+		return flags
+	}
+	for _, a := range st.HelmDefaults.ApiVersions {
+		flags = append(flags, "--api-versions", a)
+	}
+	return flags
 }
 
 func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {

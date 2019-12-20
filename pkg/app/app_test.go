@@ -2092,6 +2092,65 @@ releases:
 	}
 }
 
+func TestTemplate_ApiVersions(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+helmDefaults:
+  apiVersions:
+  - helmfile.test/v1
+  - helmfile.test/v2
+releases:
+- name: myrelease1
+  chart: mychart1
+`,
+	}
+
+	var helm = &mockHelmExec{}
+	var wantReleases = []mockTemplates{
+		{name: "myrelease1", chart: "mychart1", flags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+	}
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Errorf("unexpected error creating vals runtime: %v", err)
+	}
+
+	app := appWithFs(&App{
+		glob:        filepath.Glob,
+		abs:         filepath.Abs,
+		KubeContext: "default",
+		Env:         "default",
+		Logger:      logger,
+		helmExecer:  helm,
+		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
+	}, files)
+	app.Template(configImpl{})
+
+	for i := range wantReleases {
+		if wantReleases[i].name != helm.templated[i].name {
+			t.Errorf("name = [%v], want %v", helm.templated[i].name, wantReleases[i].name)
+		}
+		if !strings.Contains(helm.templated[i].chart, wantReleases[i].chart) {
+			t.Errorf("chart = [%v], want %v", helm.templated[i].chart, wantReleases[i].chart)
+		}
+		for j := range wantReleases[i].flags {
+			if j == 7 {
+				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
+				if !matched {
+					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
+				}
+			} else if wantReleases[i].flags[j] != helm.templated[i].flags[j] {
+				t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
+			}
+		}
+
+	}
+}
+
 func TestApply(t *testing.T) {
 	testcases := []struct {
 		name        string
@@ -3350,6 +3409,26 @@ Affected releases are:
 
 err: "foo" has dependency to inexistent release "bar"
 `,
+		},
+		{
+			name: "pass apiVersions to helm diff",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+helmDefaults:
+  apiVersions:
+  - xxx/v1
+releases:
+- name: foo
+  chart: mychart1
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--api-versionsxxx/v1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			upgraded: []exectest.Release{
+				{Name: "foo", Flags: []string{"--kube-context", "default"}},
+			},
 		},
 	}
 
