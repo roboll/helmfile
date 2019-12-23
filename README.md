@@ -94,10 +94,6 @@ helmDefaults:
   tlsKey: "path/to/key.pem"
   # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
   historyMax: 10
-  # list of api versions to pass to `helm diff` and `helm template` via the --api-versions flag
-  apiVersions:
-  - example/v1
-
 
 # The desired states of Helm releases.
 #
@@ -270,6 +266,18 @@ bases:
 - environments.yaml
 - defaults.yaml
 - templates.yaml
+
+#
+# Advanced Configuration: API Capabilities
+#
+# Some helmfile tasks render releases locally without querying an actual cluster (diff, apply, template),
+# and in this case `.Capabilities.APIVersions` cannot be populated.
+# When a chart queries for a specific CRD, this can lead to unexpected results.
+# 
+# Configure a fixed list of api versions to pass to helm via the --api-versions flag:
+apiVersions:
+- example/v1
+
 ```
 
 ## Templating

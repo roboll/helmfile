@@ -47,6 +47,7 @@ type HelmState struct {
 	Repositories       []RepositorySpec  `yaml:"repositories,omitempty"`
 	Releases           []ReleaseSpec     `yaml:"releases,omitempty"`
 	Selectors          []string          `yaml:"-"`
+	ApiVersions        []string          `yaml:"apiVersions,omitempty"`
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
@@ -110,8 +111,6 @@ type HelmSpec struct {
 	TLSCACert string `yaml:"tlsCACert,omitempty"`
 	TLSKey    string `yaml:"tlsKey,omitempty"`
 	TLSCert   string `yaml:"tlsCert,omitempty"`
-
-	ApiVersions []string `yaml:"apiVersions,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -1629,10 +1628,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 }
 
 func (st *HelmState) appendApiVersionsFlags(flags []string) []string {
-	if len(st.HelmDefaults.ApiVersions) == 0 {
-		return flags
-	}
-	for _, a := range st.HelmDefaults.ApiVersions {
+	for _, a := range st.ApiVersions {
 		flags = append(flags, "--api-versions", a)
 	}
 	return flags

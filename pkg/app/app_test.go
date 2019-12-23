@@ -2095,10 +2095,9 @@ releases:
 func TestTemplate_ApiVersions(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
-helmDefaults:
-  apiVersions:
-  - helmfile.test/v1
-  - helmfile.test/v2
+apiVersions:
+- helmfile.test/v1
+- helmfile.test/v2
 releases:
 - name: myrelease1
   chart: mychart1
@@ -3415,9 +3414,8 @@ err: "foo" has dependency to inexistent release "bar"
 			loc:  location(),
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
-helmDefaults:
-  apiVersions:
-  - xxx/v1
+apiVersions:
+- xxx/v1
 releases:
 - name: foo
   chart: mychart1
