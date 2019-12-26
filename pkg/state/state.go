@@ -47,6 +47,7 @@ type HelmState struct {
 	Repositories       []RepositorySpec  `yaml:"repositories,omitempty"`
 	Releases           []ReleaseSpec     `yaml:"releases,omitempty"`
 	Selectors          []string          `yaml:"-"`
+	ApiVersions        []string          `yaml:"apiVersions,omitempty"`
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
@@ -1590,6 +1591,8 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		return nil, err
 	}
 
+	flags = st.appendApiVersionsFlags(flags)
+
 	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
@@ -1615,11 +1618,20 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, err
 	}
 
+	flags = st.appendApiVersionsFlags(flags)
+
 	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
 	}
 	return append(flags, common...), nil
+}
+
+func (st *HelmState) appendApiVersionsFlags(flags []string) []string {
+	for _, a := range st.ApiVersions {
+		flags = append(flags, "--api-versions", a)
+	}
+	return flags
 }
 
 func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {
