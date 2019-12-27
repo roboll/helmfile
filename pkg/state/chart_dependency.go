@@ -291,7 +291,7 @@ func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd str
 
 func (m *chartDependencyManager) updateHelm3(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
 	// Generate `Chart.yaml` of the temporary local chart
-	chartMetaContent := fmt.Sprintf("name: %s\nversion: 1.0.0\n", m.Name)
+	chartMetaContent := fmt.Sprintf("name: %s\nversion: 1.0.0\napiVersion: v2\n", m.Name)
 
 	// Generate `requirements.yaml` of the temporary local chart from the helmfile state
 	reqsContent, err := yaml.Marshal(unresolved.ToChartRequirements())
