@@ -658,6 +658,7 @@ func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.In
 	if helm.IsHelm3() && release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
 	}
+	flags = append(flags, "--deployed", "--failed", "--pending")
 	return helm.List(context, "^"+release.Name+"$", flags...)
 }
 

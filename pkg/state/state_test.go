@@ -1168,7 +1168,7 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 			//simulate the release is already installed
 			for i, release := range tt.releases {
 				if tt.installed != nil && tt.installed[i] {
-					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$"}] = release.Name
+					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--deployed--failed--pending"}] = release.Name
 				}
 			}
 
@@ -1268,7 +1268,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				Lists: map[exectest.ListKey]string{},
 			}
 			//simulate the helm.list call result
-			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$"}] = tt.listResult
+			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$", Flags: "--deployed--failed--pending"}] = tt.listResult
 
 			affectedReleases := AffectedReleases{}
 			state.SyncReleases(&affectedReleases, helm, []string{}, 1)
