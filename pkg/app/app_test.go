@@ -3409,25 +3409,6 @@ Affected releases are:
 err: "foo" has dependency to inexistent release "bar"
 `,
 		},
-		{
-			name: "pass apiVersions to helm diff",
-			loc:  location(),
-			files: map[string]string{
-				"/path/to/helmfile.yaml": `
-apiVersions:
-- xxx/v1
-releases:
-- name: foo
-  chart: mychart1
-`,
-			},
-			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--api-versionsxxx/v1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-			},
-			upgraded: []exectest.Release{
-				{Name: "foo", Flags: []string{"--kube-context", "default"}},
-			},
-		},
 	}
 
 	for i := range testcases {
