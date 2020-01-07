@@ -1619,8 +1619,6 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, err
 	}
 
-	flags = st.appendApiVersionsFlags(flags)
-
 	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, err
