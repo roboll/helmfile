@@ -32,7 +32,7 @@ Now, you get `1` when there is no `eventApi.replicas` defined in environment val
 
 ## Release Template / Conventional Directory Structure
 
-Introducing helmfile into a large-scale project that involes dozens of releases often results in a lot of repetitions in `helmfile.yaml` files.
+Introducing helmfile into a large-scale project that involves dozens of releases often results in a lot of repetitions in `helmfile.yaml` files.
 
 The example below shows repetitions in `namespace`, `chart`, `values`, and `secrets`:
 
