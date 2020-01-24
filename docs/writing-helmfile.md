@@ -228,7 +228,7 @@ A work-around is to treat the state file as a go template and use `readFile` tem
 ```yaml
 templates:
   metricbeat: &metricbeat
-  - name: metricbeat
+    name: metricbeat
     chart: stable/metricbeat
 ```
 
