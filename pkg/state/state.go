@@ -1421,6 +1421,11 @@ func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
 	errs := []error{}
 
 	for _, release := range st.Releases {
+		if len(release.Chart) == 0 {
+			errs = append(errs, errors.New("chart is required for: "+release.Name))
+			continue
+		}
+
 		if isLocalChart(release.Chart) {
 			if err := helm.BuildDeps(release.Name, normalizeChart(st.basePath, release.Chart)); err != nil {
 				errs = append(errs, err)
