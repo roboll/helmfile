@@ -168,6 +168,11 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 }
 
 func (a *App) Test(c TestConfigProvider) error {
+	if c.Cleanup() && a.helmExecer.IsHelm3() {
+		a.Logger.Warnf("warn: requested cleanup will not be applied. " +
+			"To clean up test resources with Helm 3, you have to remove them manually " +
+			"or set helm.sh/hook-delete-policy\n")
+	}
 	return a.ForEachStateFiltered(func(run *Run) []error {
 		return run.Test(c)
 	})

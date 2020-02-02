@@ -1206,7 +1206,10 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 
 		flags := []string{}
-		if cleanup {
+		if helm.IsHelm3() && release.Namespace != "" {
+			flags = append(flags, "--namespace", release.Namespace)
+		}
+		if cleanup && !helm.IsHelm3() {
 			flags = append(flags, "--cleanup")
 		}
 		duration := strconv.Itoa(timeout)
