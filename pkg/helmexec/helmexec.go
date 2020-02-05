@@ -10,7 +10,7 @@ type Interface interface {
 	BuildDeps(name, chart string) error
 	UpdateDeps(chart string) error
 	SyncRelease(context HelmContext, name, chart string, flags ...string) error
-	DiffRelease(context HelmContext, name, chart string, flags ...string) error
+	DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error
 	TemplateRelease(name, chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
 	Lint(name, chart string, flags ...string) error

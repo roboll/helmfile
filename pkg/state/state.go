@@ -1094,7 +1094,7 @@ type DiffOpt interface{ Apply(*DiffOpts) }
 
 // DiffReleases wrapper for executing helm diff on the releases
 // It returns releases that had any changes
-func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
+func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, suppressDiff bool, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -1124,7 +1124,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 			for prep := range jobQueue {
 				flags := prep.flags
 				release := prep.release
-				if err := helm.DiffRelease(st.createHelmContext(release, workerIndex), release.Name, normalizeChart(st.basePath, release.Chart), flags...); err != nil {
+				if err := helm.DiffRelease(st.createHelmContext(release, workerIndex), release.Name, normalizeChart(st.basePath, release.Chart), suppressDiff, flags...); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood

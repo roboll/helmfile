@@ -1895,6 +1895,7 @@ type applyConfig struct {
 	set             []string
 	skipDeps        bool
 	suppressSecrets bool
+	suppressDiff    bool
 	noColor         bool
 	context         int
 	concurrency     int
@@ -1920,6 +1921,10 @@ func (a applyConfig) SkipDeps() bool {
 
 func (a applyConfig) SuppressSecrets() bool {
 	return a.suppressSecrets
+}
+
+func (a applyConfig) SuppressDiff() bool {
+	return a.suppressDiff
 }
 
 func (a applyConfig) NoColor() bool {

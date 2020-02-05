@@ -41,6 +41,7 @@ type ApplyConfigProvider interface {
 	SkipDeps() bool
 
 	SuppressSecrets() bool
+	SuppressDiff() bool
 
 	NoColor() bool
 	Context() int
@@ -69,6 +70,7 @@ type DiffConfigProvider interface {
 	SkipDeps() bool
 
 	SuppressSecrets() bool
+	SuppressDiff() bool
 
 	DetailedExitcode() bool
 	NoColor() bool
