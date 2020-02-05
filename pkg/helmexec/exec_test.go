@@ -246,7 +246,7 @@ func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DiffRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait")
+	helm.DiffRelease(HelmContext{}, "release", "chart", false, "--timeout 10", "--wait")
 	expected := `Comparing release=release, chart=chart
 exec: helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev
 exec: helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev: 
@@ -256,7 +256,7 @@ exec: helm diff upgrade --reset-values --allow-unreleased release chart --timeou
 	}
 
 	buffer.Reset()
-	helm.DiffRelease(HelmContext{}, "release", "chart")
+	helm.DiffRelease(HelmContext{}, "release", "chart", false)
 	expected = `Comparing release=release, chart=chart
 exec: helm diff upgrade --reset-values --allow-unreleased release chart --kube-context dev
 exec: helm diff upgrade --reset-values --allow-unreleased release chart --kube-context dev: 
@@ -270,7 +270,7 @@ func Test_DiffReleaseTillerless(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", "--timeout 10", "--wait")
+	helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", false, "--timeout 10", "--wait")
 	expected := `Comparing release=release, chart=chart
 exec: helm tiller run -- helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev
 exec: helm tiller run -- helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --kube-context dev: 
