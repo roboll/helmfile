@@ -339,6 +339,10 @@ func main() {
 					Usage: "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases",
 				},
 				cli.BoolFlag{
+					Name:  "suppress-diff",
+					Usage: "suppress diff in the output. Usable in new installs",
+				},
+				cli.BoolFlag{
 					Name:  "skip-deps",
 					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
@@ -536,6 +540,10 @@ func (c configImpl) DetailedExitcode() bool {
 
 func (c configImpl) SuppressSecrets() bool {
 	return c.c.Bool("suppress-secrets")
+}
+
+func (c configImpl) SuppressDiff() bool {
+	return c.c.Bool("suppress-diff")
 }
 
 // DeleteConfig

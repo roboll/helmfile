@@ -255,7 +255,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	return err
 }
 
-func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags ...string) error {
+func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	helm.logger.Infof("Comparing release=%v, chart=%v", name, chart)
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
@@ -273,11 +273,13 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, flags .
 		switch e := err.(type) {
 		case ExitError:
 			if e.ExitStatus() == 2 {
-				helm.write(out)
+				if !(suppressDiff) {
+					helm.write(out)
+				}
 				return err
 			}
 		}
-	} else {
+	} else if !(suppressDiff) {
 		helm.write(out)
 	}
 	return err

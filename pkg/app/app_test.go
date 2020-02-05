@@ -1895,6 +1895,7 @@ type applyConfig struct {
 	set             []string
 	skipDeps        bool
 	suppressSecrets bool
+	suppressDiff    bool
 	noColor         bool
 	context         int
 	concurrency     int
@@ -1920,6 +1921,10 @@ func (a applyConfig) SkipDeps() bool {
 
 func (a applyConfig) SuppressSecrets() bool {
 	return a.suppressSecrets
+}
+
+func (a applyConfig) SuppressDiff() bool {
+	return a.suppressDiff
 }
 
 func (a applyConfig) NoColor() bool {
@@ -2004,7 +2009,7 @@ func (helm *mockHelmExec) UpdateRepo() error {
 func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
 	return nil
 }
-func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {

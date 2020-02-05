@@ -701,7 +701,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 
 	// TODO Better way to detect diff on only filtered releases
 	{
-		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), false, diffOpts)
+		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), c.SuppressDiff(), false, diffOpts)
 
 		var err error
 		deletingReleases, err = st.DetectReleasesToBeDeletedForSync(helm, st.Releases)
