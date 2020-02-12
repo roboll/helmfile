@@ -1167,6 +1167,9 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		}
 
 		flags := []string{}
+		if helm.IsHelm3() && release.Namespace != "" {
+			flags = append(flags, "--namespace", release.Namespace)
+		}
 		flags = st.appendConnectionFlags(flags, &release)
 
 		return helm.ReleaseStatus(st.createHelmContext(&release, workerIndex), release.Name, flags...)
