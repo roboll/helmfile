@@ -17,5 +17,6 @@ information to this file.
 | [transit](https://transit.app/) | production | [Blog post](https://medium.com/@naseem_60378/helmfile-its-like-a-helm-for-your-helm-74a908581599). | Montreal, Canada | March 2019 |
 | [uniqkey](https://uniqkey.eu/) | production | [Wiki Page](https://ocd-scm.github.io/ocd-meta/) | Copenhagen, Denmark | April 2019 |
 | [bitsofinfo](https://github.com/bitsofinfo/helmfile-deploy) | production | Used with [helmfile-deploy](https://github.com/bitsofinfo/helmfile-deploy) to manage releases for dozens of apps | USA | July 2019 |
-| [kloeckner-i](https://www.kloeckner-i.com/) | production | We are deploying our standard tools via helmfile to all our clusters.  | Berlin, Germany | September 2019 |
+| [kloeckner-i](https://www.kloeckner-i.com/) | production | We are deploying our standard tools via helmfile to all our clusters.  | Berlin, Germany | September 2019 | 
+| [American Express](https://www.americanexpress.com) | proof-of-concept | Orchestration of both internal cluster workloads and local developer environments. | London, GB | January 2020 | 
 <!-- TABLE_END -->
