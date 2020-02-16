@@ -4,7 +4,7 @@ jobs:
 
   build:
     docker:
-      - image: circleci/golang:1.13.4
+      - image: circleci/golang:1.13.7
     environment:
       GOPATH: /go
     working_directory: /home/circleci/workspace/helmfile
@@ -26,7 +26,7 @@ jobs:
             - .
   image:
     docker:
-    - image: circleci/golang:1.13.4
+    - image: circleci/golang:1.13.7
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
@@ -43,7 +43,7 @@ jobs:
 
   image_helm3:
     docker:
-    - image: circleci/golang:1.13.4
+    - image: circleci/golang:1.13.7
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
@@ -62,7 +62,7 @@ jobs:
     environment:
       GOPATH: /go
     docker:
-      - image: circleci/golang:1.13.4
+      - image: circleci/golang:1.13.7
     working_directory: /home/circleci/workspace/helmfile
     steps:
       - checkout
@@ -91,7 +91,7 @@ jobs:
       - run:
           name: Install helm
           environment:
-            HELM_VERSION: v2.15.2
+            HELM_VERSION: v2.16.1
           command: |
             HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
             curl -Lo ${HELM_FILENAME} "https://kubernetes-helm.storage.googleapis.com/${HELM_FILENAME}"
@@ -169,7 +169,7 @@ jobs:
 
   release:
     docker:
-      - image: circleci/golang:1.13.4
+      - image: circleci/golang:1.13.7
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout

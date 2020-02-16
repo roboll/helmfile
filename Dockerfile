@@ -1,4 +1,4 @@
-FROM golang:1.13.6-alpine3.11 as builder
+FROM golang:1.13.7-alpine3.11 as builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -11,10 +11,10 @@ FROM alpine:3.11
 
 RUN apk add --no-cache ca-certificates git bash curl jq
 
-ARG HELM_VERSION=v2.15.2
+ARG HELM_VERSION=v2.16.1
 ARG HELM_LOCATION="https://kubernetes-helm.storage.googleapis.com"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
-ARG HELM_SHA256="a9d2db920bd4b3d824729bbe1ff3fa57ad27760487581af6e5d3156d1b3c2511"
+ARG HELM_SHA256="7eebaaa2da4734242bbcdced62cc32ba8c7164a18792c8acdf16c77abffce202"
 RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
     echo Verifying ${HELM_FILENAME}... && \
     sha256sum ${HELM_FILENAME} | grep -q "${HELM_SHA256}" && \
