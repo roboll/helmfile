@@ -33,6 +33,10 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 **Patch**: JSON/Strategic-Merge Patch Kubernetes resources before `helm-install`ing, without forking upstream charts (See [#673](https://github.com/roboll/helmfile/pull/673))
 
+## Environment Variables
+
+`HELMFILE_HELM3`: set to `1` to enable Helm 3 mode
+
 ## Configuration
 
 **CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.92.1](https://github.com/roboll/helmfile/tree/v0.92.1).
