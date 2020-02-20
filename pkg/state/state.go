@@ -1166,6 +1166,8 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 			return nil
 		}
 
+		st.ApplyOverrides(&release)
+
 		flags := []string{}
 		if helm.IsHelm3() && release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
