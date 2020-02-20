@@ -39,6 +39,4 @@ RUN helm plugin install https://github.com/databus23/helm-diff --version v3.0.0-
 
 COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 
-ENV HELMFILE_HELM3="1"
-
 CMD ["/usr/local/bin/helmfile"]
