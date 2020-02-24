@@ -244,7 +244,7 @@ environments:
     values:
     - environment/production/values.yaml
     - myChartVer: 1.0.0
-    ## `secrets.yaml` is decrypted by `helm-secrets` and available via `{{ .Environment.Secrets.KEY }}`
+    ## `secrets.yaml` is decrypted by `helm-secrets` and available via `{{ .Environment.Values.KEY }}`
     secrets:
     - environment/production/secrets.yaml
     # Instructs helmfile to fail when unable to find a environment values file listed under `environments.NAME.values`.
