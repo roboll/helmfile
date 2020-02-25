@@ -649,9 +649,15 @@ func (a *App) findDesiredStateFiles(specifiedPath string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	sort.Slice(files, func(i, j int) bool {
-		return files[i] < files[j]
-	})
+	if a.Reverse {
+		sort.Slice(files, func(i, j int) bool {
+			return files[j] < files[i]
+		})
+	} else {
+		sort.Slice(files, func(i, j int) bool {
+			return files[i] < files[j]
+		})
+	}
 	return files, nil
 }
 
