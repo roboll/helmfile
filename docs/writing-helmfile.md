@@ -216,7 +216,7 @@ Helmfile overrides the `releases` array with the latest layer so the resulting s
 
 ```yaml
 releases:
-# metricbeat release disappeared! but that's how helmfiel works
+# metricbeat release disappeared! but that's how helmfile works
 - name: myapp
   chart: mychart
 ```
