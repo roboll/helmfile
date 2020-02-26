@@ -77,6 +77,9 @@ ${helmfile} -f ${dir}/happypath.yaml template
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile template: ${code}"
 
+info "Applying ${dir}/happypath.yaml"
+bash -c "${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode; code="'$?'"; echo Code: "'$code'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile apply"
+
 info "Syncing ${dir}/happypath.yaml"
 ${helmfile} -f ${dir}/happypath.yaml sync
 wait_deploy_ready httpbin-httpbin
@@ -84,9 +87,9 @@ retry 5 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-htt
 [ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
 
 info "Applying ${dir}/happypath.yaml"
-${helmfile} -f ${dir}/happypath.yaml apply
+${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode
 code=$?
-[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
+[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
 
 info "Locking dependencies"
 ${helmfile} -f ${dir}/happypath.yaml deps
