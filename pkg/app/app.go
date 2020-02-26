@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"text/tabwriter"
 
@@ -39,8 +40,6 @@ type App struct {
 	Set         map[string]interface{}
 
 	FileOrDir string
-
-	ErrorHandler func(error) error
 
 	readFile          func(string) ([]byte, error)
 	fileExists        func(string) (bool, error)
@@ -144,9 +143,31 @@ func (a *App) Sync(c SyncConfigProvider) error {
 }
 
 func (a *App) Apply(c ApplyConfigProvider) error {
-	return a.ForEachState(func(run *Run) (bool, []error) {
-		return a.apply(run, c)
+	var any bool
+
+	mut := &sync.Mutex{}
+
+	err := a.ForEachState(func(run *Run) (bool, []error) {
+		matched, updated, errs := a.apply(run, c)
+
+		mut.Lock()
+		any = any || updated
+		mut.Unlock()
+
+		return matched, errs
 	})
+
+	if err != nil {
+		return err
+	}
+
+	if c.DetailedExitcode() && any {
+		code := 2
+
+		return &Error{msg: "", Errors: nil, code: &code}
+	}
+
+	return nil
 }
 
 func (a *App) Status(c StatusesConfigProvider) error {
@@ -410,10 +431,6 @@ func (a *App) ForEachStateFiltered(do func(*Run) []error) error {
 		return do(run)
 	})
 
-	if err != nil && a.ErrorHandler != nil {
-		return a.ErrorHandler(err)
-	}
-
 	return err
 }
 
@@ -423,10 +440,6 @@ func (a *App) ForEachState(do func(*Run) (bool, []error)) error {
 		run := NewRun(st, helm, ctx)
 		return do(run)
 	})
-
-	if err != nil && a.ErrorHandler != nil {
-		return a.ErrorHandler(err)
-	}
 
 	return err
 }
@@ -661,7 +674,7 @@ func (a *App) findDesiredStateFiles(specifiedPath string) ([]string, error) {
 	return files, nil
 }
 
-func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
+func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 	ctx := r.ctx
@@ -670,10 +683,10 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 
 	toApply, err := st.GetSelectedReleasesWithOverrides()
 	if err != nil {
-		return false, []error{err}
+		return false, false, []error{err}
 	}
 	if len(toApply) == 0 {
-		return false, nil
+		return false, false, nil
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
@@ -682,14 +695,14 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 
 	if !c.SkipDeps() {
 		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return false, errs
+			return false, false, errs
 		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return false, errs
+			return false, false, errs
 		}
 	}
 	if errs := st.PrepareReleases(helm, "apply"); errs != nil && len(errs) > 0 {
-		return false, errs
+		return false, false, errs
 	}
 
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
@@ -730,7 +743,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 	}
 
 	if len(fatalErrs) > 0 {
-		return false, fatalErrs
+		return false, false, fatalErrs
 	}
 
 	releasesToBeDeleted := map[string]state.ReleaseSpec{}
@@ -755,7 +768,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, []error) {
 		logger := c.Logger()
 		logger.Infof("")
 		logger.Infof("No affected releases")
-		return true, nil
+		return true, false, nil
 	}
 
 	names := []string{}
@@ -838,7 +851,7 @@ Do you really want to apply?
 	}
 
 	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return true, syncErrs
+	return true, true, syncErrs
 }
 
 func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error) {
@@ -1133,6 +1146,8 @@ type Error struct {
 	msg string
 
 	Errors []error
+
+	code *int
 }
 
 func (e *Error) Error() string {
@@ -1165,6 +1180,10 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Code() int {
+	if e.code != nil {
+		return *e.code
+	}
+
 	allDiff := false
 	anyNonZero := false
 	for _, err := range e.Errors {
@@ -1195,7 +1214,7 @@ func (e *Error) Code() int {
 }
 
 func appError(msg string, err error) error {
-	return &Error{msg, []error{err}}
+	return &Error{msg: msg, Errors: []error{err}}
 }
 
 func (c context) clean(errs []error) error {

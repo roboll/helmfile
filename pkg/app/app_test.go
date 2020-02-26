@@ -1890,17 +1890,18 @@ func (c configImpl) Concurrency() int {
 }
 
 type applyConfig struct {
-	args            string
-	values          []string
-	set             []string
-	skipDeps        bool
-	suppressSecrets bool
-	suppressDiff    bool
-	noColor         bool
-	context         int
-	concurrency     int
-	interactive     bool
-	logger          *zap.SugaredLogger
+	args             string
+	values           []string
+	set              []string
+	skipDeps         bool
+	suppressSecrets  bool
+	suppressDiff     bool
+	noColor          bool
+	context          int
+	concurrency      int
+	detailedExitcode bool
+	interactive      bool
+	logger           *zap.SugaredLogger
 }
 
 func (a applyConfig) Args() string {
@@ -1937,6 +1938,10 @@ func (a applyConfig) Context() int {
 
 func (a applyConfig) Concurrency() int {
 	return a.concurrency
+}
+
+func (a applyConfig) DetailedExitcode() bool {
+	return a.detailedExitcode
 }
 
 func (a applyConfig) Interactive() bool {

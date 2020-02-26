@@ -43,6 +43,8 @@ type ApplyConfigProvider interface {
 	SuppressSecrets() bool
 	SuppressDiff() bool
 
+	DetailedExitcode() bool
+
 	NoColor() bool
 	Context() int
 

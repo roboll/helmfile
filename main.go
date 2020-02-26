@@ -329,6 +329,10 @@ func main() {
 					Value: 0,
 					Usage: "output NUM lines of context around changes",
 				},
+				cli.BoolFlag{
+					Name:  "detailed-exitcode",
+					Usage: "return a non-zero exit code 2 instead of 0 when there were changes detected AND the changes are synced successfully",
+				},
 				cli.StringFlag{
 					Name:  "args",
 					Value: "",
@@ -625,11 +629,11 @@ func action(do func(*app.App, configImpl) error) func(*cli.Context) error {
 
 		a := app.New(conf)
 
-		a.ErrorHandler = func(err error) error {
+		if err := do(a, conf); err != nil {
 			return toCliError(implCtx, err)
 		}
 
-		return do(a, conf)
+		return nil
 	}
 }
 
