@@ -48,6 +48,8 @@ type ApplyConfigProvider interface {
 	NoColor() bool
 	Context() int
 
+	RetainValuesFiles() bool
+
 	concurrencyConfig
 	interactive
 	loggingConfig
