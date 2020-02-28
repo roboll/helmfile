@@ -113,6 +113,15 @@ exec: helm repo add myRepo https://repo.example.com/ --username example_user --p
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
+
+	buffer.Reset()
+	helm.AddRepo("", "https://repo.example.com/", "", "", "", "", "")
+	expected = `empty field name
+
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
 }
 
 func Test_UpdateRepo(t *testing.T) {
