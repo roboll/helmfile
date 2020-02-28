@@ -1890,18 +1890,19 @@ func (c configImpl) Concurrency() int {
 }
 
 type applyConfig struct {
-	args             string
-	values           []string
-	set              []string
-	skipDeps         bool
-	suppressSecrets  bool
-	suppressDiff     bool
-	noColor          bool
-	context          int
-	concurrency      int
-	detailedExitcode bool
-	interactive      bool
-	logger           *zap.SugaredLogger
+	args              string
+	values            []string
+	retainValuesFiles bool
+	set               []string
+	skipDeps          bool
+	suppressSecrets   bool
+	suppressDiff      bool
+	noColor           bool
+	context           int
+	concurrency       int
+	detailedExitcode  bool
+	interactive       bool
+	logger            *zap.SugaredLogger
 }
 
 func (a applyConfig) Args() string {
@@ -1950,6 +1951,10 @@ func (a applyConfig) Interactive() bool {
 
 func (a applyConfig) Logger() *zap.SugaredLogger {
 	return a.logger
+}
+
+func (a applyConfig) RetainValuesFiles() bool {
+	return a.retainValuesFiles
 }
 
 // Mocking the command-line runner

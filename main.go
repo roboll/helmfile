@@ -339,6 +339,10 @@ func main() {
 					Usage: "pass args to helm exec",
 				},
 				cli.BoolFlag{
+					Name:  "retain-values-files",
+					Usage: "Stop cleaning up values files passed to Helm. Together with --log-level=debug, you can manually rerun helm commands as Helmfile did for debugging purpose",
+				},
+				cli.BoolFlag{
 					Name:  "suppress-secrets",
 					Usage: "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases",
 				},
@@ -540,6 +544,10 @@ func (c configImpl) SkipDeps() bool {
 
 func (c configImpl) DetailedExitcode() bool {
 	return c.c.Bool("detailed-exitcode")
+}
+
+func (c configImpl) RetainValuesFiles() bool {
+	return c.c.Bool("retain-values-files")
 }
 
 func (c configImpl) SuppressSecrets() bool {

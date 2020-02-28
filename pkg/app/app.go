@@ -155,7 +155,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		mut.Unlock()
 
 		return matched, errs
-	})
+	}, c.RetainValuesFiles())
 
 	if err != nil {
 		return err
@@ -343,7 +343,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 			sig := <-sigs
 
 			errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
-			_ = context{a, st}.clean(errs)
+			_ = context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}.clean(errs)
 			// See http://tldp.org/LDP/abs/html/exitcodes.html
 			switch sig {
 			case syscall.SIGINT:
@@ -353,7 +353,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 			}
 		}()
 
-		ctx := context{a, st}
+		ctx := context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}
 
 		helm := a.helmExecer
 
@@ -409,7 +409,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		processed, errs := converge(templated, helm)
 		noMatchInHelmfiles = noMatchInHelmfiles && !processed
 
-		return context{a, templated}.clean(errs)
+		return context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
 	})
 
 	if err != nil {
@@ -434,12 +434,12 @@ func (a *App) ForEachStateFiltered(do func(*Run) []error) error {
 	return err
 }
 
-func (a *App) ForEachState(do func(*Run) (bool, []error)) error {
+func (a *App) ForEachState(do func(*Run) (bool, []error), retainValues ...bool) error {
 	ctx := NewContext()
 	err := a.visitStatesWithSelectorsAndRemoteSupport(a.FileOrDir, func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		run := NewRun(st, helm, ctx)
 		return do(run)
-	})
+	}, retainValues...)
 
 	return err
 }
@@ -511,9 +511,13 @@ type Opts struct {
 	DAGEnabled bool
 }
 
-func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) error {
+func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converge func(*state.HelmState, helmexec.Interface) (bool, []error), retainValues ...bool) error {
 	opts := LoadOpts{
 		Selectors: a.Selectors,
+	}
+
+	if len(retainValues) > 0 {
+		opts.RetainValuesFiles = retainValues[0]
 	}
 
 	envvals := []interface{}{}
@@ -1222,9 +1226,11 @@ func (c context) clean(errs []error) error {
 		errs = []error{}
 	}
 
-	cleanErrs := c.st.Clean()
-	if cleanErrs != nil {
-		errs = append(errs, cleanErrs...)
+	if !c.retainValues {
+		cleanErrs := c.st.Clean()
+		if cleanErrs != nil {
+			errs = append(errs, cleanErrs...)
+		}
 	}
 
 	return c.wrapErrs(errs...)
@@ -1233,6 +1239,8 @@ func (c context) clean(errs []error) error {
 type context struct {
 	app *App
 	st  *state.HelmState
+
+	retainValues bool
 }
 
 func (c context) wrapErrs(errs ...error) error {
