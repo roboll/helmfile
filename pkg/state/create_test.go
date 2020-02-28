@@ -46,7 +46,7 @@ func TestReadFromYaml(t *testing.T) {
 	}
 }
 
-func TestReadFromYaml_InexistentEnv(t *testing.T) {
+func TestReadFromYaml_NonexistentEnv(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`releases:
 - name: myrelease

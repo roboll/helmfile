@@ -3379,7 +3379,7 @@ releases:
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: "foo" has dependency to inexistent release "bar"`,
+			error:       `in ./helmfile.yaml: "foo" depends on nonexistent release "bar"`,
 			log: `processing file "helmfile.yaml" in directory "."
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
@@ -3421,7 +3421,7 @@ Affected releases are:
   baz (mychart3) UPDATED
   foo (mychart1) UPDATED
 
-err: "foo" has dependency to inexistent release "bar"
+err: "foo" depends on nonexistent release "bar"
 `,
 		},
 	}
