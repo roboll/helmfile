@@ -84,6 +84,10 @@ func (helm *execer) SetHelmBinary(bin string) {
 
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error {
 	var args []string
+	if name == "" && repository != "" {
+		helm.logger.Infof("empty field name\n")
+		return fmt.Errorf("empty field name")
+	}
 	args = append(args, "repo", "add", name, repository)
 	if certfile != "" && keyfile != "" {
 		args = append(args, "--cert-file", certfile, "--key-file", keyfile)
