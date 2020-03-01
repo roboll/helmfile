@@ -160,7 +160,7 @@ func GroupReleasesByDependency(releases []Release) ([][]Release, error) {
 			for _, n := range r.Needs {
 				if _, ok := idToReleases[n]; !ok {
 					id := ReleaseToID(&r.ReleaseSpec)
-					return nil, fmt.Errorf("%q has dependency to inexistent release %q", id, n)
+					return nil, fmt.Errorf("%q depends on nonexistent release %q", id, n)
 				}
 			}
 		}
