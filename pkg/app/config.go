@@ -125,6 +125,7 @@ type TemplateConfigProvider interface {
 
 	Values() []string
 	Set() []string
+	Validate() bool
 	SkipDeps() bool
 	OutputDir() string
 

@@ -237,6 +237,10 @@ func main() {
 					Usage: "maximum number of concurrent downloads of release charts",
 				},
 				cli.BoolFlag{
+					Name:  "validate",
+					Usage: "validate your manifests against the Kubernetes cluster you are currently pointing at",
+				},
+				cli.BoolFlag{
 					Name:  "skip-deps",
 					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
@@ -526,6 +530,10 @@ func (c configImpl) Args() string {
 
 func (c configImpl) OutputDir() string {
 	return c.c.String("output-dir")
+}
+
+func (c configImpl) Validate() bool {
+	return c.c.Bool("validate")
 }
 
 func (c configImpl) Concurrency() int {

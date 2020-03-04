@@ -1877,6 +1877,10 @@ func (c configImpl) Args() string {
 	return "some args"
 }
 
+func (c configImpl) Validate() bool {
+	return true
+}
+
 func (c configImpl) SkipDeps() bool {
 	return true
 }
@@ -1894,6 +1898,7 @@ type applyConfig struct {
 	values            []string
 	retainValuesFiles bool
 	set               []string
+	validate          bool
 	skipDeps          bool
 	suppressSecrets   bool
 	suppressDiff      bool
@@ -1915,6 +1920,10 @@ func (a applyConfig) Values() []string {
 
 func (a applyConfig) Set() []string {
 	return a.set
+}
+
+func (a applyConfig) Validate() bool {
+	return a.validate
 }
 
 func (a applyConfig) SkipDeps() bool {
