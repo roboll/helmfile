@@ -760,7 +760,7 @@ func (o *TemplateOpts) Apply(opts *TemplateOpts) {
 }
 
 // TemplateReleases wrapper for executing helm template on the releases
-func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int, opt ...TemplateOpt) []error {
+func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int, validate bool, opt ...TemplateOpt) []error {
 	opts := &TemplateOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -830,6 +830,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			flags = append(flags, "--output-dir", releaseOutputDir)
 			st.logger.Debugf("Generating templates to : %s\n", releaseOutputDir)
 			os.Mkdir(releaseOutputDir, 0755)
+		}
+
+		if validate {
+			flags = append(flags, "--validate")
 		}
 
 		if len(errs) == 0 {

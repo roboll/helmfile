@@ -1114,7 +1114,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			opts := &state.TemplateOpts{
 				Set: c.Set(),
 			}
-			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), opts)
+			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 		}))
 
 		if templateErrs != nil && len(templateErrs) > 0 {
