@@ -78,21 +78,16 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 		func(id int) {
 			for release := range releases {
 				err := do(release, id)
-				st.logger.Debugf("sending result for release: %s\n", release.Name)
+				st.logger.Debugf("release %q processed", release.Name)
 				results <- result{release: release, err: err}
-				st.logger.Debugf("sent result for release: %s\n", release.Name)
 			}
 		},
 		func() {
-			for i := range inputs {
-				st.logger.Debugf("receiving result %d", i)
+			for range inputs {
 				r := <-results
 				if r.err != nil {
 					errs = append(errs, fmt.Errorf("release \"%s\" failed: %v", r.release.Name, r.err))
-				} else {
-					st.logger.Debugf("received result for release \"%s\"", r.release.Name)
 				}
-				st.logger.Debugf("received result for %d", i)
 			}
 		},
 	)
