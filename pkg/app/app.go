@@ -214,7 +214,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 
 func (a *App) ListReleases(c StateConfigProvider) error {
 	table := uitable.New()
-	table.AddRow("NAME", "NAMESPACE", "INSTALLED", "LABELS")
+	table.AddRow("NAME", "NAMESPACE", "ENABLED", "LABELS")
 
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) []error {
 		//var releases m

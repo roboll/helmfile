@@ -3823,11 +3823,11 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := `NAME      	NAMESPACE	INSTALLED	LABELS       
-myrelease1	         	false    	id:myrelease1
-myrelease2	         	true     	             
-myrelease3	         	true     	             
-myrelease4	         	true     	id:myrelease1
+	expected := `NAME      	NAMESPACE	ENABLED	LABELS       
+myrelease1	         	false  	id:myrelease1
+myrelease2	         	true   	             
+myrelease3	         	true   	             
+myrelease4	         	true   	id:myrelease1
 `
 	assert.Equal(t, expected, out)
 }
