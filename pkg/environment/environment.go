@@ -58,7 +58,7 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 	}
 	copy := e.DeepCopy()
 	if other != nil {
-		if err := mergo.Merge(&copy, other, mergo.WithOverride); err != nil {
+		if err := mergo.Merge(&copy, other, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
 			return nil, err
 		}
 	}
