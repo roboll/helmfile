@@ -6,7 +6,7 @@ import (
 	"text/template"
 )
 
-func (c *Context) stringTemplate() *template.Template {
+func (c *Context) newTemplate() *template.Template {
 	funcMap := sprig.TxtFuncMap()
 	for name, f := range c.createFuncMap() {
 		funcMap[name] = f
@@ -21,7 +21,7 @@ func (c *Context) stringTemplate() *template.Template {
 }
 
 func (c *Context) RenderTemplateToBuffer(s string, data ...interface{}) (*bytes.Buffer, error) {
-	var t, parseErr = c.stringTemplate().Parse(s)
+	var t, parseErr = c.newTemplate().Parse(s)
 	if parseErr != nil {
 		return nil, parseErr
 	}
