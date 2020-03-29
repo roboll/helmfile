@@ -4,20 +4,24 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/roboll/helmfile/pkg/helmexec"
 	"path/filepath"
 	"sort"
 
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/pkg/environment"
-	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 )
 
+const (
+	DefaultHelmBinary = "helm"
+)
+
 type desiredStateLoader struct {
-	KubeContext string
-	Reverse     bool
+	overrideKubeContext string
+	overrideHelmBinary  string
 
 	env       string
 	namespace string
@@ -26,9 +30,9 @@ type desiredStateLoader struct {
 	fileExists func(string) (bool, error)
 	abs        func(string) (string, error)
 	glob       func(string) ([]string, error)
+	getHelm    func(*state.HelmState) helmexec.Interface
 
 	logger      *zap.SugaredLogger
-	helm        helmexec.Interface
 	valsRuntime vals.Evaluator
 }
 
@@ -60,7 +64,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		return nil, err
 	}
 
-	if ld.Reverse {
+	if opts.Reverse {
 		rev := func(i, j int) bool {
 			return j < i
 		}
@@ -68,11 +72,15 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		sort.Slice(st.Helmfiles, rev)
 	}
 
-	if ld.KubeContext != "" {
+	if ld.overrideKubeContext != "" {
 		if st.HelmDefaults.KubeContext != "" {
 			return nil, errors.New("err: Cannot use option --kube-context and set attribute helmDefaults.kubeContext.")
 		}
-		st.HelmDefaults.KubeContext = ld.KubeContext
+		st.HelmDefaults.KubeContext = ld.overrideKubeContext
+	}
+
+	if ld.overrideHelmBinary != DefaultHelmBinary || st.DefaultHelmBinary == "" {
+		st.DefaultHelmBinary = ld.overrideHelmBinary
 	}
 
 	if ld.namespace != "" {
@@ -143,7 +151,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.helm, a.valsRuntime)
+	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.valsRuntime, a.getHelm)
 	c.LoadFile = a.loadFile
 	return c
 }

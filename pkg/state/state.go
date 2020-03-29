@@ -33,6 +33,8 @@ type HelmState struct {
 	basePath string
 	FilePath string
 
+	DefaultHelmBinary string `yaml:"helmBinary,omitempty"`
+
 	// DefaultValues is the default values to be overrode by environment values and command-line overrides
 	DefaultValues []interface{} `yaml:"values,omitempty"`
 
@@ -63,7 +65,6 @@ type HelmState struct {
 	tempDir    func(string, string) (string, error)
 
 	runner      helmexec.Runner
-	helm        helmexec.Interface
 	valsRuntime vals.Evaluator
 }
 

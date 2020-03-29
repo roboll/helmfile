@@ -71,7 +71,6 @@ func New(helmBinary string, logger *zap.SugaredLogger, kubeContext string, runne
 		runner:           runner,
 		decryptedSecrets: make(map[string]*decryptedSecret),
 	}
-
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {
