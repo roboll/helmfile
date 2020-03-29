@@ -13,6 +13,8 @@ type LoadOpts struct {
 
 	// CalleePath is the absolute path to the file being loaded
 	CalleePath string
+
+	Reverse bool
 }
 
 func (o LoadOpts) DeepCopy() LoadOpts {

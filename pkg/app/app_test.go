@@ -44,6 +44,16 @@ func injectFs(app *App, fs *testhelper.TestFs) *App {
 	return app
 }
 
+func expectNoCallsToHelm(app *App) {
+	if app.helms != nil {
+		panic("invalid call to expectNoCallsToHelm")
+	}
+
+	app.helms = map[helmKey]helmexec.Interface{
+		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): &noCallHelmExec{},
+	}
+}
+
 func TestVisitDesiredStatesWithReleasesFiltered_ReleaseOrder(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
@@ -70,14 +80,18 @@ releases:
 	fs := testhelper.NewTestFs(files)
 	fs.GlobFixtures["/path/to/helmfile.d/a*.yaml"] = []string{"/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/a1.yaml"}
 	app := &App{
-		KubeContext: "default",
-		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-		Namespace:   "",
-		Env:         "default",
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "default",
 	}
+
+	expectNoCallsToHelm(app)
+
 	app = injectFs(app, fs)
 	actualOrder := []string{}
-	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+	noop := func(st *state.HelmState) []error {
 		actualOrder = append(actualOrder, st.FilePath)
 		return []error{}
 	}
@@ -116,13 +130,17 @@ BAZ: 4
 	fs := testhelper.NewTestFs(files)
 	fs.GlobFixtures["/path/to/env.*.yaml"] = []string{"/path/to/env.2.yaml", "/path/to/env.1.yaml"}
 	app := &App{
-		KubeContext: "default",
-		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-		Namespace:   "",
-		Env:         "default",
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "default",
 	}
+
+	expectNoCallsToHelm(app)
+
 	app = injectFs(app, fs)
-	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+	noop := func(st *state.HelmState) []error {
 		return []error{}
 	}
 
@@ -154,13 +172,17 @@ releases:
 	}
 	fs := testhelper.NewTestFs(files)
 	app := &App{
-		KubeContext: "default",
-		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-		Namespace:   "",
-		Env:         "default",
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "default",
 	}
+
+	expectNoCallsToHelm(app)
+
 	app = injectFs(app, fs)
-	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+	noop := func(st *state.HelmState) []error {
 		return []error{}
 	}
 
@@ -195,13 +217,17 @@ releases:
 	}
 	fs := testhelper.NewTestFs(files)
 	app := &App{
-		KubeContext: "default",
-		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-		Namespace:   "",
-		Env:         "test",
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "test",
 	}
+
+	expectNoCallsToHelm(app)
+
 	app = injectFs(app, fs)
-	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+	noop := func(st *state.HelmState) []error {
 		return []error{}
 	}
 
@@ -243,13 +269,17 @@ releases:
 			}
 			fs := testhelper.NewTestFs(files)
 			app := &App{
-				KubeContext: "default",
-				Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-				Namespace:   "",
-				Env:         "default",
+				OverrideHelmBinary:  DefaultHelmBinary,
+				OverrideKubeContext: "default",
+				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+				Namespace:           "",
+				Env:                 "default",
 			}
+
+			expectNoCallsToHelm(app)
+
 			app = injectFs(app, fs)
-			noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+			noop := func(st *state.HelmState) []error {
 				return []error{}
 			}
 
@@ -305,14 +335,18 @@ releases:
 		fs := testhelper.NewTestFs(files)
 		fs.GlobFixtures["/path/to/helmfile.d/a*.yaml"] = []string{"/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/a1.yaml"}
 		app := &App{
-			KubeContext: "default",
-			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			Selectors:   []string{fmt.Sprintf("name=%s", testcase.name)},
-			Namespace:   "",
-			Env:         "default",
+			OverrideHelmBinary:  DefaultHelmBinary,
+			OverrideKubeContext: "default",
+			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Selectors:           []string{fmt.Sprintf("name=%s", testcase.name)},
+			Namespace:           "",
+			Env:                 "default",
 		}
+
+		expectNoCallsToHelm(app)
+
 		app = injectFs(app, fs)
-		noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+		noop := func(st *state.HelmState) []error {
 			return []error{}
 		}
 
@@ -346,7 +380,7 @@ releases:
   chart: stable/zipkin
 `,
 	}
-	noop := func(st *state.HelmState, helm helmexec.Interface) []error {
+	noop := func(st *state.HelmState) []error {
 		return []error{}
 	}
 
@@ -361,12 +395,16 @@ releases:
 
 	for _, testcase := range testcases {
 		app := appWithFs(&App{
-			KubeContext: "default",
-			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			Namespace:   "",
-			Selectors:   []string{},
-			Env:         testcase.name,
+			OverrideHelmBinary:  DefaultHelmBinary,
+			OverrideKubeContext: "default",
+			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Namespace:           "",
+			Selectors:           []string{},
+			Env:                 testcase.name,
 		}, files)
+
+		expectNoCallsToHelm(app)
+
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", noop,
 		)
@@ -452,7 +490,7 @@ releases:
 		t.Run(testcase.label, func(t *testing.T) {
 			actual := []string{}
 
-			collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+			collectReleases := func(st *state.HelmState) []error {
 				for _, r := range st.Releases {
 					actual = append(actual, r.Name)
 				}
@@ -460,12 +498,15 @@ releases:
 			}
 
 			app := appWithFs(&App{
-				KubeContext: "default",
-				Logger:      helmexec.NewLogger(&ctxLogger{label: testcase.label}, "debug"),
-				Namespace:   "",
-				Selectors:   []string{testcase.label},
-				Env:         "default",
+				OverrideHelmBinary:  DefaultHelmBinary,
+				OverrideKubeContext: "default",
+				Logger:              helmexec.NewLogger(&ctxLogger{label: testcase.label}, "debug"),
+				Namespace:           "",
+				Selectors:           []string{testcase.label},
+				Env:                 "default",
 			}, files)
+
+			expectNoCallsToHelm(app)
 
 			err := app.VisitDesiredStatesWithReleasesFiltered(
 				"helmfile.yaml", collectReleases,
@@ -688,7 +729,7 @@ func runFilterSubHelmFilesTests(testcases []struct {
 	for _, testcase := range testcases {
 		actual := []string{}
 
-		collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+		collectReleases := func(st *state.HelmState) []error {
 			for _, r := range st.Releases {
 				actual = append(actual, r.Name)
 			}
@@ -696,12 +737,15 @@ func runFilterSubHelmFilesTests(testcases []struct {
 		}
 
 		app := appWithFs(&App{
-			KubeContext: "default",
-			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			Namespace:   "",
-			Selectors:   []string{testcase.label},
-			Env:         "default",
+			OverrideHelmBinary:  DefaultHelmBinary,
+			OverrideKubeContext: "default",
+			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Namespace:           "",
+			Selectors:           []string{testcase.label},
+			Env:                 "default",
 		}, files)
+
+		expectNoCallsToHelm(app)
 
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", collectReleases,
@@ -777,16 +821,19 @@ tillerNs: INLINE_TILLER_NS_2
 	}
 
 	app := appWithFs(&App{
-		KubeContext: "default",
-		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-		Namespace:   "",
-		Selectors:   []string{},
-		Env:         "default",
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Selectors:           []string{},
+		Env:                 "default",
 	}, files)
+
+	expectNoCallsToHelm(app)
 
 	processed := []state.ReleaseSpec{}
 
-	collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+	collectReleases := func(st *state.HelmState) []error {
 		for _, r := range st.Releases {
 			processed = append(processed, r)
 		}
@@ -875,22 +922,26 @@ releases:
 	for _, testcase := range testcases {
 		actual := []string{}
 
-		collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+		collectReleases := func(st *state.HelmState) []error {
 			for _, r := range st.Releases {
 				actual = append(actual, r.Name)
 			}
 			return []error{}
 		}
 		app := appWithFs(&App{
-			KubeContext: "default",
-			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			Reverse:     testcase.reverse,
-			Namespace:   "",
-			Selectors:   []string{},
-			Env:         "default",
+			OverrideHelmBinary:  DefaultHelmBinary,
+			OverrideKubeContext: "default",
+			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Namespace:           "",
+			Selectors:           []string{},
+			Env:                 "default",
 		}, files)
+
+		expectNoCallsToHelm(app)
+
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", collectReleases,
+			SetReverse(testcase.reverse),
 		)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -932,22 +983,25 @@ bar: "bar1"
 	for _, testcase := range testcases {
 		actual := []string{}
 
-		collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+		collectReleases := func(st *state.HelmState) []error {
 			for _, r := range st.Releases {
 				actual = append(actual, r.Name)
 			}
 			return []error{}
 		}
 		app := appWithFs(&App{
-			KubeContext: "default",
-			Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-			Reverse:     false,
-			Namespace:   "",
-			Selectors:   []string{},
-			Env:         "default",
-			ValuesFiles: []string{"overrides.yaml"},
-			Set:         map[string]interface{}{"bar": "bar2", "baz": "baz1"},
+			OverrideHelmBinary:  DefaultHelmBinary,
+			OverrideKubeContext: "default",
+			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Namespace:           "",
+			Selectors:           []string{},
+			Env:                 "default",
+			ValuesFiles:         []string{"overrides.yaml"},
+			Set:                 map[string]interface{}{"bar": "bar2", "baz": "baz1"},
 		}, files)
+
+		expectNoCallsToHelm(app)
+
 		err := app.VisitDesiredStatesWithReleasesFiltered(
 			"helmfile.yaml", collectReleases,
 		)
@@ -1049,22 +1103,25 @@ x:
 
 			actual := []state.ReleaseSpec{}
 
-			collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+			collectReleases := func(st *state.HelmState) []error {
 				for _, r := range st.Releases {
 					actual = append(actual, r)
 				}
 				return []error{}
 			}
 			app := appWithFs(&App{
-				KubeContext: "default",
-				Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-				Reverse:     false,
-				Namespace:   "",
-				Selectors:   []string{},
-				Env:         testcase.env,
-				ValuesFiles: []string{"overrides.yaml"},
-				Set:         map[string]interface{}{"x": map[string]interface{}{"hoge": "hoge_set", "fuga": "fuga_set"}},
+				OverrideHelmBinary:  DefaultHelmBinary,
+				OverrideKubeContext: "default",
+				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+				Namespace:           "",
+				Selectors:           []string{},
+				Env:                 testcase.env,
+				ValuesFiles:         []string{"overrides.yaml"},
+				Set:                 map[string]interface{}{"x": map[string]interface{}{"hoge": "hoge_set", "fuga": "fuga_set"}},
 			}, files)
+
+			expectNoCallsToHelm(app)
+
 			err := app.VisitDesiredStatesWithReleasesFiltered(
 				"helmfile.yaml", collectReleases,
 			)
@@ -1098,20 +1155,23 @@ releases:
 
 	actual := []state.ReleaseSpec{}
 
-	collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+	collectReleases := func(st *state.HelmState) []error {
 		for _, r := range st.Releases {
 			actual = append(actual, r)
 		}
 		return []error{}
 	}
 	app := appWithFs(&App{
-		KubeContext: "default",
-		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-		Reverse:     false,
-		Namespace:   "",
-		Env:         "default",
-		Selectors:   []string{},
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "default",
+		Selectors:           []string{},
 	}, files)
+
+	expectNoCallsToHelm(app)
+
 	err := app.VisitDesiredStatesWithReleasesFiltered(
 		"helmfile.yaml", collectReleases,
 	)
@@ -1150,20 +1210,23 @@ releases:
 
 			actual := []state.ReleaseSpec{}
 
-			collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+			collectReleases := func(st *state.HelmState) []error {
 				for _, r := range st.Releases {
 					actual = append(actual, r)
 				}
 				return []error{}
 			}
 			app := appWithFs(&App{
-				KubeContext: "default",
-				Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-				Reverse:     false,
-				Namespace:   "",
-				Selectors:   []string{},
-				Env:         "default",
+				OverrideHelmBinary:  DefaultHelmBinary,
+				OverrideKubeContext: "default",
+				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+				Namespace:           "",
+				Selectors:           []string{},
+				Env:                 "default",
 			}, files)
+
+			expectNoCallsToHelm(app)
+
 			err := app.VisitDesiredStatesWithReleasesFiltered(
 				"helmfile.yaml", collectReleases,
 			)
@@ -1200,13 +1263,17 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 		return yamlContent, nil
 	}
 	app := &App{
-		readFile:    readFile,
-		glob:        filepath.Glob,
-		abs:         filepath.Abs,
-		KubeContext: "default",
-		Env:         "default",
-		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		readFile:            readFile,
+		glob:                filepath.Glob,
+		abs:                 filepath.Abs,
+		Env:                 "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 	}
+
+	expectNoCallsToHelm(app)
+
 	_, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1257,15 +1324,19 @@ helmDefaults:
 `,
 	})
 	app := &App{
-		readFile:     testFs.ReadFile,
-		glob:         testFs.Glob,
-		abs:          testFs.Abs,
-		fileExistsAt: testFs.FileExistsAt,
-		fileExists:   testFs.FileExists,
-		KubeContext:  "default",
-		Env:          "default",
-		Logger:       helmexec.NewLogger(os.Stderr, "debug"),
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		readFile:            testFs.ReadFile,
+		glob:                testFs.Glob,
+		abs:                 testFs.Abs,
+		fileExistsAt:        testFs.FileExistsAt,
+		fileExists:          testFs.FileExists,
+		Env:                 "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 	}
+
+	expectNoCallsToHelm(app)
+
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1342,13 +1413,17 @@ helmDefaults:
 `,
 	})
 	app := &App{
-		readFile:   testFs.ReadFile,
-		fileExists: testFs.FileExists,
-		glob:       testFs.Glob,
-		abs:        testFs.Abs,
-		Env:        "default",
-		Logger:     helmexec.NewLogger(os.Stderr, "debug"),
+		OverrideHelmBinary: DefaultHelmBinary,
+		readFile:           testFs.ReadFile,
+		fileExists:         testFs.FileExists,
+		glob:               testFs.Glob,
+		abs:                testFs.Abs,
+		Env:                "default",
+		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
+
+	expectNoCallsToHelm(app)
+
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1416,13 +1491,17 @@ foo: FOO
 `,
 	})
 	app := &App{
-		readFile:   testFs.ReadFile,
-		fileExists: testFs.FileExists,
-		glob:       testFs.Glob,
-		abs:        testFs.Abs,
-		Env:        "default",
-		Logger:     helmexec.NewLogger(os.Stderr, "debug"),
+		OverrideHelmBinary: DefaultHelmBinary,
+		readFile:           testFs.ReadFile,
+		fileExists:         testFs.FileExists,
+		glob:               testFs.Glob,
+		abs:                testFs.Abs,
+		Env:                "default",
+		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
+
+	expectNoCallsToHelm(app)
+
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1477,13 +1556,17 @@ foo: FOO
 `,
 	})
 	app := &App{
-		readFile:   testFs.ReadFile,
-		fileExists: testFs.FileExists,
-		glob:       testFs.Glob,
-		abs:        testFs.Abs,
-		Env:        "default",
-		Logger:     helmexec.NewLogger(os.Stderr, "debug"),
+		OverrideHelmBinary: DefaultHelmBinary,
+		readFile:           testFs.ReadFile,
+		fileExists:         testFs.FileExists,
+		glob:               testFs.Glob,
+		abs:                testFs.Abs,
+		Env:                "default",
+		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
+
+	expectNoCallsToHelm(app)
+
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1556,13 +1639,17 @@ helmDefaults:
 `,
 	})
 	app := &App{
-		readFile:   testFs.ReadFile,
-		fileExists: testFs.FileExists,
-		glob:       testFs.Glob,
-		abs:        testFs.Abs,
-		Env:        "test",
-		Logger:     helmexec.NewLogger(os.Stderr, "debug"),
+		OverrideHelmBinary: DefaultHelmBinary,
+		readFile:           testFs.ReadFile,
+		fileExists:         testFs.FileExists,
+		glob:               testFs.Glob,
+		abs:                testFs.Abs,
+		Env:                "test",
+		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
+
+	expectNoCallsToHelm(app)
+
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1627,14 +1714,17 @@ releases:
 `,
 	})
 	app := &App{
-		readFile: testFs.ReadFile,
-		glob:     testFs.Glob,
-		abs:      testFs.Abs,
-		Env:      "default",
-		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
-		Reverse:  true,
+		OverrideHelmBinary: DefaultHelmBinary,
+		readFile:           testFs.ReadFile,
+		glob:               testFs.Glob,
+		abs:                testFs.Abs,
+		Env:                "default",
+		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
-	st, err := app.loadDesiredStateFromYaml(yamlFile)
+
+	expectNoCallsToHelm(app)
+
+	st, err := app.loadDesiredStateFromYaml(yamlFile, LoadOpts{Reverse: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1681,14 +1771,17 @@ releases:
 		"/path/to/2.yaml": `bar: ["BAR"]`,
 	})
 	app := &App{
-		readFile: testFs.ReadFile,
-		glob:     testFs.Glob,
-		abs:      testFs.Abs,
-		Env:      "default",
-		Logger:   helmexec.NewLogger(os.Stderr, "debug"),
-		Reverse:  true,
+		OverrideHelmBinary: DefaultHelmBinary,
+		readFile:           testFs.ReadFile,
+		glob:               testFs.Glob,
+		abs:                testFs.Abs,
+		Env:                "default",
+		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
-	st, err := app.loadDesiredStateFromYaml(statePath)
+
+	expectNoCallsToHelm(app)
+
+	st, err := app.loadDesiredStateFromYaml(statePath, LoadOpts{Reverse: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1734,19 +1827,23 @@ releases:
 			"/path/to/2.yaml": `bar: ["BAR"]`,
 		})
 		app := &App{
-			readFile: testFs.ReadFile,
-			glob:     testFs.Glob,
-			abs:      testFs.Abs,
-			Env:      "default",
-			Logger:   helmexec.NewLogger(os.Stderr, "debug"),
-			Reverse:  true,
+			OverrideHelmBinary: DefaultHelmBinary,
+			readFile:           testFs.ReadFile,
+			glob:               testFs.Glob,
+			abs:                testFs.Abs,
+			Env:                "default",
+			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 		}
 		opts := LoadOpts{
 			CalleePath: statePath,
 			Environment: state.SubhelmfileEnvironmentSpec{
 				OverrideValues: []interface{}{tc.overrideValues},
 			},
+			Reverse: true,
 		}
+
+		expectNoCallsToHelm(app)
+
 		st, err := app.loadDesiredStateFromYaml(statePath, opts)
 
 		if err != nil {
@@ -1842,14 +1939,17 @@ services:
 `,
 		})
 		app := &App{
-			readFile: testFs.ReadFile,
-			glob:     testFs.Glob,
-			abs:      testFs.Abs,
-			Env:      "default",
-			Logger:   helmexec.NewLogger(os.Stderr, "debug"),
-			Reverse:  true,
+			OverrideHelmBinary: DefaultHelmBinary,
+			readFile:           testFs.ReadFile,
+			glob:               testFs.Glob,
+			abs:                testFs.Abs,
+			Env:                "default",
+			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 		}
-		st, err := app.loadDesiredStateFromYaml(statePath)
+
+		expectNoCallsToHelm(app)
+
+		st, err := app.loadDesiredStateFromYaml(statePath, LoadOpts{Reverse: true})
 
 		if err != nil {
 			t.Fatalf("unexpected error at %d: %v", i, err)
@@ -2084,15 +2184,19 @@ releases:
 	}
 
 	app := appWithFs(&App{
-		glob:        filepath.Glob,
-		abs:         filepath.Abs,
-		KubeContext: "default",
-		Env:         "default",
-		Logger:      logger,
-		helmExecer:  helm,
+		OverrideHelmBinary:  DefaultHelmBinary,
+		glob:                filepath.Glob,
+		abs:                 filepath.Abs,
+		OverrideKubeContext: "default",
+		Env:                 "default",
+		Logger:              logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey("helm", "default"): helm,
+		},
 		Namespace:   "testNamespace",
 		valsRuntime: valsRuntime,
 	}, files)
+
 	app.Template(configImpl{set: []string{"foo=a", "bar=b"}})
 
 	for i := range wantReleases {
@@ -2142,15 +2246,19 @@ releases:
 	}
 
 	app := appWithFs(&App{
-		glob:        filepath.Glob,
-		abs:         filepath.Abs,
-		KubeContext: "default",
-		Env:         "default",
-		Logger:      logger,
-		helmExecer:  helm,
+		OverrideHelmBinary:  DefaultHelmBinary,
+		glob:                filepath.Glob,
+		abs:                 filepath.Abs,
+		OverrideKubeContext: "default",
+		Env:                 "default",
+		Logger:              logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey("helm", "default"): helm,
+		},
 		Namespace:   "testNamespace",
 		valsRuntime: valsRuntime,
 	}, files)
+
 	app.Template(configImpl{})
 
 	for i := range wantReleases {
@@ -3484,12 +3592,15 @@ err: "foo" depends on nonexistent release "bar"
 				}
 
 				app := appWithFs(&App{
-					glob:        filepath.Glob,
-					abs:         filepath.Abs,
-					KubeContext: "default",
-					Env:         "default",
-					Logger:      logger,
-					helmExecer:  helm,
+					OverrideHelmBinary:  DefaultHelmBinary,
+					glob:                filepath.Glob,
+					abs:                 filepath.Abs,
+					OverrideKubeContext: "default",
+					Env:                 "default",
+					Logger:              logger,
+					helms: map[helmKey]helmexec.Interface{
+						createHelmKey("helm", "default"): helm,
+					},
 					valsRuntime: valsRuntime,
 				}, tc.files)
 
@@ -3601,13 +3712,15 @@ releases:
 	logger := helmexec.NewLogger(&buffer, "debug")
 
 	app := appWithFs(&App{
-		glob:        filepath.Glob,
-		abs:         filepath.Abs,
-		KubeContext: "default",
-		Env:         "default",
-		Logger:      logger,
-		Namespace:   "testNamespace",
+		OverrideHelmBinary:  DefaultHelmBinary,
+		glob:                filepath.Glob,
+		abs:                 filepath.Abs,
+		OverrideKubeContext: "default",
+		Env:                 "default",
+		Logger:              logger,
+		Namespace:           "testNamespace",
 	}, files)
+
 	out := captureStdout(func() {
 		err := app.PrintState(configImpl{})
 		assert.NilError(t, err)
@@ -3644,12 +3757,13 @@ releases:
 	logger := helmexec.NewLogger(&buffer, "debug")
 
 	app := appWithFs(&App{
-		glob:        filepath.Glob,
-		abs:         filepath.Abs,
-		KubeContext: "default",
-		Env:         "default",
-		Logger:      logger,
-		Namespace:   "testNamespace",
+		OverrideHelmBinary:  DefaultHelmBinary,
+		glob:                filepath.Glob,
+		abs:                 filepath.Abs,
+		OverrideKubeContext: "default",
+		Env:                 "default",
+		Logger:              logger,
+		Namespace:           "testNamespace",
 	}, files)
 	out := captureStdout(func() {
 		err := app.PrintState(configImpl{})
@@ -3693,13 +3807,17 @@ releases:
 	logger := helmexec.NewLogger(&buffer, "debug")
 
 	app := appWithFs(&App{
-		glob:        filepath.Glob,
-		abs:         filepath.Abs,
-		KubeContext: "default",
-		Env:         "default",
-		Logger:      logger,
-		Namespace:   "testNamespace",
+		OverrideHelmBinary:  DefaultHelmBinary,
+		glob:                filepath.Glob,
+		abs:                 filepath.Abs,
+		OverrideKubeContext: "default",
+		Env:                 "default",
+		Logger:              logger,
+		Namespace:           "testNamespace",
 	}, files)
+
+	expectNoCallsToHelm(app)
+
 	out := captureStdout(func() {
 		err := app.ListReleases(configImpl{})
 		assert.NilError(t, err)
@@ -3740,13 +3858,14 @@ releases:
 		state.SetValue{Name: "name", Value: "val"}}
 
 	app := appWithFs(&App{
-		KubeContext: "default",
-		Logger:      helmexec.NewLogger(os.Stderr, "debug"),
-		Env:         "default",
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Env:                 "default",
 	}, files)
 
 	var specs []state.ReleaseSpec
-	collectReleases := func(st *state.HelmState, helm helmexec.Interface) []error {
+	collectReleases := func(st *state.HelmState) []error {
 		specs = append(specs, st.Releases...)
 		return nil
 	}

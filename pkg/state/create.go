@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/roboll/helmfile/pkg/helmexec"
 	"io"
 	"os"
 
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/pkg/environment"
-	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/maputil"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
@@ -39,15 +39,16 @@ type StateCreator struct {
 	fileExists  func(string) (bool, error)
 	abs         func(string) (string, error)
 	glob        func(string) ([]string, error)
-	helm        helmexec.Interface
 	valsRuntime vals.Evaluator
 
 	Strict bool
 
 	LoadFile func(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
+
+	getHelm func(*HelmState) helmexec.Interface
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), helm helmexec.Interface, valsRuntime vals.Evaluator) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface) *StateCreator {
 	return &StateCreator{
 		logger:      logger,
 		readFile:    readFile,
@@ -55,8 +56,8 @@ func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error)
 		abs:         abs,
 		glob:        glob,
 		Strict:      true,
-		helm:        helm,
 		valsRuntime: valsRuntime,
+		getHelm:     getHelm,
 	}
 }
 
@@ -66,7 +67,6 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	state.FilePath = file
 	state.basePath = baseDir
-	state.helm = c.helm
 
 	decoder := yaml.NewDecoder(bytes.NewReader(content))
 	if !c.Strict {
@@ -119,7 +119,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *environment.Environment, failOnMissingEnv bool) (*HelmState, error) {
 	state := *target
 
-	e, err := state.loadEnvValues(env, failOnMissingEnv, ctxEnv, c.readFile, c.glob)
+	e, err := c.loadEnvValues(&state, env, failOnMissingEnv, ctxEnv, c.readFile, c.glob)
 	if err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
@@ -183,7 +183,7 @@ func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmSta
 	return layers[0], nil
 }
 
-func (st *HelmState) loadEnvValues(name string, failOnMissingEnv bool, ctxEnv *environment.Environment, readFile func(string) ([]byte, error), glob func(string) ([]string, error)) (*environment.Environment, error) {
+func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv *environment.Environment, readFile func(string) ([]byte, error), glob func(string) ([]string, error)) (*environment.Environment, error) {
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
 	if ok {
@@ -207,7 +207,7 @@ func (st *HelmState) loadEnvValues(name string, failOnMissingEnv bool, ctxEnv *e
 
 				envSecretFiles = append(envSecretFiles, resolved...)
 			}
-			if err = st.scatterGatherEnvSecretFiles(envSecretFiles, envVals, readFile); err != nil {
+			if err = c.scatterGatherEnvSecretFiles(st, envSecretFiles, envVals, readFile); err != nil {
 				return nil, err
 			}
 		}
@@ -230,7 +230,7 @@ func (st *HelmState) loadEnvValues(name string, failOnMissingEnv bool, ctxEnv *e
 	return newEnv, nil
 }
 
-func (st *HelmState) scatterGatherEnvSecretFiles(envSecretFiles []string, envVals map[string]interface{}, readFile func(string) ([]byte, error)) error {
+func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals map[string]interface{}, readFile func(string) ([]byte, error)) error {
 	var errs []error
 
 	inputs := envSecretFiles
@@ -244,7 +244,6 @@ func (st *HelmState) scatterGatherEnvSecretFiles(envSecretFiles []string, envVal
 
 	secrets := make(chan string, inputsSize)
 	results := make(chan secretResult, inputsSize)
-	helm := st.helm
 
 	st.scatterGather(0, inputsSize,
 		func() {
@@ -257,7 +256,7 @@ func (st *HelmState) scatterGatherEnvSecretFiles(envSecretFiles []string, envVal
 			for path := range secrets {
 				release := &ReleaseSpec{}
 				flags := st.appendConnectionFlags([]string{}, release)
-				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), path, flags...)
+				decFile, err := c.getHelm(st).DecryptSecret(st.createHelmContext(release, 0), path, flags...)
 				if err != nil {
 					results <- secretResult{nil, err, path}
 					continue
