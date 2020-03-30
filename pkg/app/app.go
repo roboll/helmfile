@@ -98,44 +98,100 @@ func Init(app *App) *App {
 }
 
 func (a *App) Deps(c DepsConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Deps(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			errs = run.Deps(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) Repos(c ReposConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Repos(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			errs = run.Repos(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.DeprecatedSyncCharts(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			errs = run.DeprecatedSyncCharts(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) Diff(c DiffConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Diff(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			errs = run.Diff(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) Template(c TemplateConfigProvider) error {
-	return a.ForEachState(func(run *Run) (bool, []error) {
-		return a.template(run, c)
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err := run.withPreparedCharts(true, func() {
+			ok, errs = a.template(run, c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) Lint(c LintConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Lint(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		err := run.withPreparedCharts(true, func() {
+			errs = run.Lint(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
-	return a.ForEachState(func(run *Run) (bool, []error) {
-		return a.sync(run, c)
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			ok, errs = a.sync(run, c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
@@ -148,14 +204,22 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles()))
 
-	err := a.ForEachState(func(run *Run) (bool, []error) {
-		matched, updated, errs := a.apply(run, c)
+	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			matched, updated, es := a.apply(run, c)
 
-		mut.Lock()
-		any = any || updated
-		mut.Unlock()
+			mut.Lock()
+			any = any || updated
+			mut.Unlock()
 
-		return matched, errs
+			ok, errs = matched, es
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	}, opts...)
 
 	if err != nil {
@@ -172,43 +236,85 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 }
 
 func (a *App) Status(c StatusesConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Status(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			errs = run.Status(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) Delete(c DeleteConfigProvider) error {
-	return a.ForEachState(func(run *Run) (bool, []error) {
-		return a.delete(run, c.Purge(), c)
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			ok, errs = a.delete(run, c.Purge(), c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	}, SetReverse(true))
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
-	return a.ForEachState(func(run *Run) (bool, []error) {
-		return a.delete(run, true, c)
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			ok, errs = a.delete(run, true, c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	}, SetReverse(true))
 }
 
 func (a *App) Test(c TestConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
 		if c.Cleanup() && run.helm.IsHelm3() {
 			a.Logger.Warnf("warn: requested cleanup will not be applied. " +
 				"To clean up test resources with Helm 3, you have to remove them manually " +
 				"or set helm.sh/hook-delete-policy\n")
 		}
 
-		return run.Test(c)
+		err := run.withPreparedCharts(false, func() {
+			errs = run.Test(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) PrintState(c StateConfigProvider) error {
-	return a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) []error {
-		state, err := st.ToYaml()
+	return a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) (errs []error) {
+		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, func() {
+			state, err := st.ToYaml()
+			if err != nil {
+				errs = []error{err}
+				return
+			}
+			fmt.Printf("---\n#  Source: %s\n\n%+v", st.FilePath, state)
+
+			errs = []error{}
+		})
+
 		if err != nil {
-			return []error{err}
+			errs = append(errs, err)
 		}
-		fmt.Printf("---\n#  Source: %s\n\n%+v", st.FilePath, state)
-		return []error{}
+
+		return
 	})
 }
 
@@ -217,16 +323,26 @@ func (a *App) ListReleases(c StateConfigProvider) error {
 	table.AddRow("NAME", "NAMESPACE", "ENABLED", "LABELS")
 
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) []error {
-		//var releases m
-		for _, r := range st.Releases {
-			labels := ""
-			for k, v := range r.Labels {
-				labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
+		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, func() {
+
+			//var releases m
+			for _, r := range st.Releases {
+				labels := ""
+				for k, v := range r.Labels {
+					labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
+				}
+				installed := r.Installed == nil || *r.Installed
+				table.AddRow(r.Name, r.Namespace, fmt.Sprintf("%t", installed), strings.Trim(labels, ","))
 			}
-			installed := r.Installed == nil || *r.Installed
-			table.AddRow(r.Name, r.Namespace, fmt.Sprintf("%t", installed), strings.Trim(labels, ","))
+		})
+
+		var errs []error
+
+		if err != nil {
+			errs = append(errs, err)
 		}
-		return []error{}
+
+		return errs
 	})
 	fmt.Println(table.String())
 	return err

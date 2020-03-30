@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go v1.25.22 // indirect
 	github.com/go-test/deep v1.0.3
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/google/go-cmp v0.3.1
+	github.com/google/go-cmp v0.4.0
 	github.com/gosuri/uitable v0.0.3
 	github.com/hashicorp/go-getter v1.3.0
 	github.com/hashicorp/go-retryablehttp v0.6.3 // indirect
@@ -27,6 +27,7 @@ require (
 	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.20.0
+	github.com/variantdev/chartify v0.3.0
 	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363
 	github.com/variantdev/vals v0.2.0
 	go.mozilla.org/sops v0.0.0-20190912205235-14a22d7a7060 // indirect
@@ -44,6 +45,5 @@ require (
 	google.golang.org/grpc v1.24.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v2 v2.2.4
-	gopkg.in/yaml.v3 v3.0.0-20191026110619-0b21df46bc1d // indirect
 	gotest.tools v2.2.0+incompatible
 )
