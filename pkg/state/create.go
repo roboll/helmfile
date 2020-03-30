@@ -16,6 +16,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	DefaultHelmBinary = "helm"
+)
+
 type StateLoadError struct {
 	msg   string
 	Cause error
@@ -46,9 +50,11 @@ type StateCreator struct {
 	LoadFile func(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
 
 	getHelm func(*HelmState) helmexec.Interface
+
+	overrideHelmBinary string
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string) *StateCreator {
 	return &StateCreator{
 		logger:      logger,
 		readFile:    readFile,
@@ -58,6 +64,8 @@ func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error)
 		Strict:      true,
 		valsRuntime: valsRuntime,
 		getHelm:     getHelm,
+
+		overrideHelmBinary: overrideHelmBinary,
 	}
 }
 
@@ -102,6 +110,13 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	if state.DeprecatedContext != "" && state.HelmDefaults.KubeContext == "" {
 		state.HelmDefaults.KubeContext = state.DeprecatedContext
+	}
+
+	if c.overrideHelmBinary != "" && c.overrideHelmBinary != DefaultHelmBinary {
+		state.DefaultHelmBinary = c.overrideHelmBinary
+	} else if state.DefaultHelmBinary == "" {
+		// Let `helmfile --helm-binary ""` not break this helmfile run
+		state.DefaultHelmBinary = DefaultHelmBinary
 	}
 
 	state.logger = c.logger
