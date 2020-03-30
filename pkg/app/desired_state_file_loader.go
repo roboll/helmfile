@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DefaultHelmBinary = "helm"
+	DefaultHelmBinary = state.DefaultHelmBinary
 )
 
 type desiredStateLoader struct {
@@ -77,10 +77,6 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, errors.New("err: Cannot use option --kube-context and set attribute helmDefaults.kubeContext.")
 		}
 		st.HelmDefaults.KubeContext = ld.overrideKubeContext
-	}
-
-	if ld.overrideHelmBinary != DefaultHelmBinary || st.DefaultHelmBinary == "" {
-		st.DefaultHelmBinary = ld.overrideHelmBinary
 	}
 
 	if ld.namespace != "" {
@@ -151,7 +147,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.valsRuntime, a.getHelm)
+	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.valsRuntime, a.getHelm, a.overrideHelmBinary)
 	c.LoadFile = a.loadFile
 	return c
 }
