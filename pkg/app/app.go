@@ -116,9 +116,42 @@ func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 }
 
 func (a *App) Diff(c DiffConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Diff(c)
+	var deferredErrs []error
+
+	err := a.ForEachStateFiltered(func(run *Run) []error {
+		var criticalErrs []error
+
+		errs := run.Diff(c)
+
+		for i := range errs {
+			switch e := errs[i].(type) {
+			case *state.ReleaseError:
+				switch e.Code {
+				case 2:
+					// See https://github.com/roboll/helmfile/issues/874
+					deferredErrs = append(deferredErrs, e)
+				default:
+					criticalErrs = append(criticalErrs, e)
+				}
+			default:
+				criticalErrs = append(criticalErrs, e)
+			}
+		}
+
+		return criticalErrs
 	})
+
+	if err != nil {
+		return err
+	}
+
+	if len(deferredErrs) > 0 {
+		// We take the first release error w/ exit status 2 (although all the defered errs should have exit status 2)
+		// to just let helmfile itself to exit with 2
+		return deferredErrs[0]
+	}
+
+	return nil
 }
 
 func (a *App) Template(c TemplateConfigProvider) error {
