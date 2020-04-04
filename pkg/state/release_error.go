@@ -13,9 +13,19 @@ type ReleaseError struct {
 }
 
 func (e *ReleaseError) Error() string {
-	return fmt.Sprintf("failed processing release %s: %v", e.Name, e.err.Error())
+	return e.err.Error()
 }
 
-func newReleaseError(release *ReleaseSpec, err error) *ReleaseError {
-	return &ReleaseError{release, err, ReleaseErrorCodeFailure}
+func NewReleaseError(release *ReleaseSpec, err error, code int) *ReleaseError {
+	return &ReleaseError{
+		ReleaseSpec: release,
+		err:         err,
+		Code:        code,
+	}
+}
+
+func newReleaseFailedError(release *ReleaseSpec, err error) *ReleaseError {
+	wrappedErr := fmt.Errorf("failed processing release %s: %v", release.Name, err.Error())
+
+	return NewReleaseError(release, wrappedErr, ReleaseErrorCodeFailure)
 }

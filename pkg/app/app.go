@@ -148,7 +148,13 @@ func (a *App) Diff(c DiffConfigProvider) error {
 	if len(deferredErrs) > 0 {
 		// We take the first release error w/ exit status 2 (although all the defered errs should have exit status 2)
 		// to just let helmfile itself to exit with 2
-		return deferredErrs[0]
+		// See https://github.com/roboll/helmfile/issues/749
+		code := 2
+		e := &Error{
+			msg:  "Identified at least on change",
+			code: &code,
+		}
+		return e
 	}
 
 	return nil
@@ -1299,7 +1305,7 @@ func (e *Error) Code() int {
 	panic(fmt.Sprintf("[bug] assertion error: unexpected state: unable to handle errors: %v", e.Errors))
 }
 
-func appError(msg string, err error) error {
+func appError(msg string, err error) *Error {
 	return &Error{msg: msg, Errors: []error{err}}
 }
 
