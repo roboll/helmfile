@@ -1,0 +1,7 @@
+addons:
+  mychart:
+    skip: true
+    name: mychart
+    namespace: kube-system
+    chart: stable/mychart
+    version: 1.0.0
