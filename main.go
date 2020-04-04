@@ -192,6 +192,10 @@ func main() {
 					Usage: "return a non-zero exit code when there are changes",
 				},
 				cli.BoolFlag{
+					Name:  "include-tests",
+					Usage: "enable the diffing of the helm test hooks",
+				},
+				cli.BoolFlag{
 					Name:  "suppress-secrets",
 					Usage: "suppress secrets in the output. highly recommended to specify on CI/CD use-cases",
 				},
@@ -345,6 +349,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "retain-values-files",
 					Usage: "Stop cleaning up values files passed to Helm. Together with --log-level=debug, you can manually rerun helm commands as Helmfile did for debugging purpose",
+				},
+				cli.BoolFlag{
+					Name:  "include-tests",
+					Usage: "enable the diffing of the helm test hooks",
 				},
 				cli.BoolFlag{
 					Name:  "suppress-secrets",
@@ -556,6 +564,10 @@ func (c configImpl) DetailedExitcode() bool {
 
 func (c configImpl) RetainValuesFiles() bool {
 	return c.c.Bool("retain-values-files")
+}
+
+func (c configImpl) IncludeTests() bool {
+	return c.c.Bool("include-tests")
 }
 
 func (c configImpl) SuppressSecrets() bool {

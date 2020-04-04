@@ -40,6 +40,8 @@ type ApplyConfigProvider interface {
 	Set() []string
 	SkipDeps() bool
 
+	IncludeTests() bool
+
 	SuppressSecrets() bool
 	SuppressDiff() bool
 
@@ -72,6 +74,8 @@ type DiffConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+
+	IncludeTests() bool
 
 	SuppressSecrets() bool
 	SuppressDiff() bool

@@ -85,7 +85,7 @@ func (r *Run) Diff(c DiffConfigProvider) []error {
 		NoColor: c.NoColor(),
 		Set:     c.Set(),
 	}
-	_, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), c.DetailedExitcode(), c.SuppressSecrets(), c.SuppressDiff(), true, opts)
+	_, errs := st.DiffReleases(helm, c.Values(), c.Concurrency(), c.DetailedExitcode(), c.IncludeTests(), c.SuppressSecrets(), c.SuppressDiff(), true, opts)
 
 	return errs
 }
