@@ -2000,7 +2000,7 @@ type applyConfig struct {
 	set               []string
 	validate          bool
 	skipDeps          bool
-	includeTests	  bool
+	includeTests      bool
 	suppressSecrets   bool
 	suppressDiff      bool
 	noColor           bool
@@ -2030,7 +2030,6 @@ func (a applyConfig) Validate() bool {
 func (a applyConfig) SkipDeps() bool {
 	return a.skipDeps
 }
-
 
 func (a applyConfig) IncludeTests() bool {
 	return a.includeTests
