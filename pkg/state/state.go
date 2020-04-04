@@ -330,7 +330,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 				flags, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
 				mut.Unlock()
 				if flagsErr != nil {
-					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseError(release, flagsErr)}}
+					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseFailedError(release, flagsErr)}}
 					continue
 				}
 
@@ -338,14 +338,14 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 				for _, value := range additionalValues {
 					valfile, err := filepath.Abs(value)
 					if err != nil {
-						errs = append(errs, newReleaseError(release, err))
+						errs = append(errs, newReleaseFailedError(release, err))
 					}
 
 					ok, err := st.fileExists(valfile)
 					if err != nil {
-						errs = append(errs, newReleaseError(release, err))
+						errs = append(errs, newReleaseFailedError(release, err))
 					} else if !ok {
-						errs = append(errs, newReleaseError(release, fmt.Errorf("file does not exist: %s", valfile)))
+						errs = append(errs, newReleaseFailedError(release, fmt.Errorf("file does not exist: %s", valfile)))
 					}
 					flags = append(flags, "--values", valfile)
 				}
@@ -484,7 +484,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 				context := st.createHelmContext(release, workerIndex)
 
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
-					relErr = newReleaseError(release, err)
+					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
 					if helm.IsHelm3() {
@@ -499,7 +499,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					m.Lock()
 					if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
-						relErr = newReleaseError(release, err)
+						relErr = newReleaseFailedError(release, err)
 					} else {
 						affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 					}
@@ -580,11 +580,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				context := st.createHelmContext(release, workerIndex)
 
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
-					relErr = newReleaseError(release, err)
+					relErr = newReleaseFailedError(release, err)
 				} else if !release.Desired() {
 					installed, err := st.isReleaseInstalled(context, helm, *release)
 					if err != nil {
-						relErr = newReleaseError(release, err)
+						relErr = newReleaseFailedError(release, err)
 					} else if installed {
 						var args []string
 						if helm.IsHelm3() {
@@ -596,7 +596,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						m.Lock()
 						if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
-							relErr = newReleaseError(release, err)
+							relErr = newReleaseFailedError(release, err)
 						} else {
 							affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 						}
@@ -606,7 +606,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					m.Lock()
 					affectedReleases.Failed = append(affectedReleases.Failed, release)
 					m.Unlock()
-					relErr = newReleaseError(release, err)
+					relErr = newReleaseFailedError(release, err)
 				} else {
 					m.Lock()
 					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
@@ -1035,7 +1035,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				if len(errs) > 0 {
 					rsErrs := make([]*ReleaseError, len(errs))
 					for i, e := range errs {
-						rsErrs[i] = newReleaseError(release, e)
+						rsErrs[i] = newReleaseFailedError(release, e)
 					}
 					results <- diffPrepareResult{errors: rsErrs}
 				} else {
@@ -1344,7 +1344,7 @@ func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand st
 		release := st.Releases[i]
 
 		if _, err := st.triggerPrepareEvent(&release, helmfileCommand); err != nil {
-			errs = append(errs, newReleaseError(&release, err))
+			errs = append(errs, newReleaseFailedError(&release, err))
 			continue
 		}
 	}
