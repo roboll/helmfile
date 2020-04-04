@@ -207,6 +207,12 @@ func (ld *desiredStateLoader) renderAndLoad(env, overrodeEnv *environment.Enviro
 			return nil, err
 		}
 
+		for i, r := range currentState.Releases {
+			if r.Chart == "" {
+				return nil, fmt.Errorf("error during %s parsing: encountered empty chart while reading release %q at index %d", id, r.Name, i)
+			}
+		}
+
 		if finalState == nil {
 			finalState = currentState
 		} else {
