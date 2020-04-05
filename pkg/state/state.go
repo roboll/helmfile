@@ -951,7 +951,7 @@ type diffPrepareResult struct {
 	errors  []*ReleaseError
 }
 
-func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, suppressSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
+func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, includeTests, suppressSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -1012,6 +1012,10 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				if detailedExitCode {
 					flags = append(flags, "--detailed-exitcode")
+				}
+
+				if includeTests {
+					flags = append(flags, "--include-tests")
 				}
 
 				if suppressSecrets {
@@ -1099,13 +1103,13 @@ type DiffOpt interface{ Apply(*DiffOpts) }
 
 // DiffReleases wrapper for executing helm diff on the releases
 // It returns releases that had any changes
-func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, suppressSecrets bool, suppressDiff bool, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
+func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, includeTests, suppressSecrets, suppressDiff, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
 	}
 
-	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, suppressSecrets, opts)
+	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppressSecrets, opts)
 	if len(prepErrs) > 0 {
 		return []ReleaseSpec{}, prepErrs
 	}
