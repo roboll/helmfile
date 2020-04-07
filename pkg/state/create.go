@@ -235,7 +235,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	if ctxEnv != nil {
 		intEnv := *ctxEnv
 
-		if err := mergo.Merge(&intEnv, newEnv, mergo.WithOverride); err != nil {
+		if err := mergo.Merge(&intEnv, newEnv, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
 			return nil, fmt.Errorf("error while merging environment values for \"%s\": %v", name, err)
 		}
 
@@ -303,7 +303,7 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 				if result.err != nil {
 					errs = append(errs, result.err)
 				} else {
-					if err := mergo.Merge(&envVals, &result.result, mergo.WithOverride); err != nil {
+					if err := mergo.Merge(&envVals, &result.result, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
 						errs = append(errs, fmt.Errorf("failed to load environment secrets file \"%s\": %v", result.path, err))
 					}
 				}
