@@ -250,3 +250,81 @@ func Test_renderTemplateToString(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderTemplate_Required(t *testing.T) {
+	tests := []struct {
+		name    string
+		s       string
+		data    map[string]interface{}
+		want    string
+		wantErr bool
+	}{
+		{
+			name: ".foo is existed",
+			s:    `{{ required ".foo.bar is required" .foo }}`,
+			data: map[string]interface{}{
+				"foo": "bar",
+			},
+			want:    "bar",
+			wantErr: false,
+		},
+		{
+			name: ".foo.bar is existed",
+			s:    `{{ required "foo.bar is required" .foo.bar }}`,
+			data: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "FOO_BAR",
+				},
+			},
+			want:    "FOO_BAR",
+			wantErr: false,
+		},
+		{
+			name: ".foo.bar is existed but value is nil",
+			s:    `{{ required "foo.bar is required" .foo.bar }}`,
+			data: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": nil,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: ".foo.bar is existed but value is empty string",
+			s:    `{{ required "foo.bar is required" .foo.bar }}`,
+			data: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: ".foo is nil",
+			s:    `{{ required "foo is required" .foo }}`,
+			data: map[string]interface{}{
+				"foo": nil,
+			},
+			wantErr: true,
+		},
+		{
+			name: ".foo is a empty string",
+			s:    `{{ required "foo is required" .foo }}`,
+			data: map[string]interface{}{
+				"foo": "",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		got, err := renderTemplateToString(tt.s, tt.data)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("renderTemplateToString() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
+			return
+		}
+		if got != tt.want {
+			t.Errorf("renderTemplateToString() for %s = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
