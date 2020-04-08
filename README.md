@@ -37,7 +37,7 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 **CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.92.1](https://github.com/roboll/helmfile/tree/v0.92.1).
 
-The default helmfile is `helmfile.yaml`:
+The default name for a helmfile is `helmfile.yaml`:
 
 ```yaml
 # Chart repositories used from within this state file
@@ -69,7 +69,8 @@ repositories:
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
-#default values to set for args along with dedicated keys that can be set by contributers, cli args take precedence over these
+# Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these. 
+# Non set values correspond to helm default flags with the similar name.
 helmDefaults:
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
   tillerless: false                  #dedicated default key for tillerless
@@ -78,22 +79,26 @@ helmDefaults:
   # additional and global args passed to helm
   args:
     - "--set k=v"
-  # defaults for verify, wait, force, timeout and recreatePods under releases[]
-  verify: true
-  wait: true
-  timeout: 600
-  recreatePods: true
-  force: true
+  # verify the chart before upgrading (only works with packaged charts not directories)
+  verify: true        # (default false)
+  # wait for k8s resources via --wait. (default false)
+  wait: true          # (default false) 
+  # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness)
+  timeout: 600        # (default 300)
+  # performs pods restart for the resource if applicable
+  recreatePods: true  # (default false)
+  # forces resource update through delete/recreate if needed
+  force: true         # (default true)
   # enable TLS for request to Tiller
-  tls: true
+  tls: true           # (default true)
   # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
   tlsCACert: "path/to/ca.pem"
   # path to TLS certificate file (default "$HELM_HOME/cert.pem")
   tlsCert: "path/to/cert.pem"
   # path to TLS key file (default "$HELM_HOME/key.pem")
-  tlsKey: "path/to/key.pem"
-  # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
-  historyMax: 10
+  tlsKey: "path/to/key.pem"   # (default "")
+  # limit the maximum number of revisions saved per release. Use 0 for no limit. 
+  historyMax: 10      # (default 10)
 
 # The desired states of Helm releases.
 #
@@ -102,7 +107,7 @@ releases:
   # Published chart example
   - name: vault                            # name of this release
     namespace: vault                       # target namespace
-    labels:                                  # Arbitrary key value pairs for filtering releases
+    labels:                                # Arbitrary key value pairs for filtering releases
       foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
@@ -145,26 +150,22 @@ releases:
       value: {{ .Namespace }}
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
-      - vault_secret.yaml
-    # verify the chart before upgrading (only works with packaged charts not directories)
-    verify: true
-    # wait for k8s resources via --wait. Defaults to `false`
-    wait: true
-    # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
-    timeout: 60
-    # performs pods restart for the resource if applicable
-    recreatePods: true
-    # forces resource update through delete/recreate if needed
-    force: true
-    # set `false` to uninstall on sync
+      - vault_secret.yaml    
+    # Override helmDefaults options for verify, wait, timeout, recreatePods and force. 
+    verify: true          # (default false)    
+    wait: true            # (default false)
+    timeout: 60           # (default 300)
+    recreatePods: true    # (default false)
+    force: true           # (default true)
+    # set `false` to uninstall this release on sync. 
     installed: true
     # restores previous state in case of failed release
-    atomic: true
+    atomic: true          # (default false)
     # when true, cleans up any new resources created during a failed release
-    cleanupOnFail: false
-    # name of the tiller namespace
-    tillerNamespace: vault
-    # if true, will use the helm-tiller plugin
+    cleanupOnFail: false  # (default false)
+    # name of the tiller namespace 
+    tillerNamespace: vault  # (default "")  
+    # if true, will use the helm-tiller plugin (default false)
     tillerless: false
     # enable TLS for request to Tiller
     tls: true
@@ -177,6 +178,7 @@ releases:
     # --kube-context to be passed to helm commands
     # CAUTION: this doesn't work as expected for `tilerless: true`.
     # See https://github.com/roboll/helmfile/issues/642
+    # (default "")
     kubeContext: kube-context
     # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
     historyMax: 10
