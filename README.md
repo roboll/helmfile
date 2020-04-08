@@ -77,29 +77,29 @@ helmDefaults:
   tillerless: false                  #dedicated default key for tillerless
   kubeContext: kube-context          #dedicated default key for kube-context (--kube-context)
   cleanupOnFail: false               #dedicated default key for helm flag --cleanup-on-fail
-  # additional and global args passed to helm
+  # additional and global args passed to helm (default "")
   args:
-    - "--set k=v"     # (default "")
-  # verify the chart before upgrading (only works with packaged charts not directories)
-  verify: true        # (default false)
+    - "--set k=v"
+  # verify the chart before upgrading (only works with packaged charts not directories) (default false)
+  verify: true
   # wait for k8s resources via --wait. (default false)
-  wait: true          # (default false) 
-  # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness)
-  timeout: 600        # (default 300)
-  # performs pods restart for the resource if applicable
-  recreatePods: true  # (default false)
-  # forces resource update through delete/recreate if needed
-  force: false        # (default false)
-  # enable TLS for request to Tiller
-  tls: true           # (default false)
+  wait: true
+  # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
+  timeout: 600
+  # performs pods restart for the resource if applicable (default false)
+  recreatePods: true
+  # forces resource update through delete/recreate if needed (default false)
+  force: false
+  # enable TLS for request to Tiller (default false)
+  tls: true        
   # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
   tlsCACert: "path/to/ca.pem"
   # path to TLS certificate file (default "$HELM_HOME/cert.pem")
   tlsCert: "path/to/cert.pem"
   # path to TLS key file (default "$HELM_HOME/key.pem")
   tlsKey: "path/to/key.pem"
-  # limit the maximum number of revisions saved per release. Use 0 for no limit. 
-  historyMax: 10      # (default 10)
+  # limit the maximum number of revisions saved per release. Use 0 for no limit. (default 10) 
+  historyMax: 10
 
 # The desired states of Helm releases.
 #
@@ -153,23 +153,23 @@ releases:
     secrets:
       - vault_secret.yaml    
     # Override helmDefaults options for verify, wait, timeout, recreatePods and force. 
-    verify: true          # (default false)    
-    wait: true            # (default false)
-    timeout: 60           # (default 300)
-    recreatePods: true    # (default false)
-    force: false          # (default false)
-    # set `false` to uninstall this release on sync. 
+    verify: true              
+    wait: true            
+    timeout: 60           
+    recreatePods: true    
+    force: false          
+    # set `false` to uninstall this release on sync.  (default true)
     installed: true
-    # restores previous state in case of failed release
-    atomic: true          # (default false)
-    # when true, cleans up any new resources created during a failed release
-    cleanupOnFail: false  # (default false)
-    # name of the tiller namespace 
-    tillerNamespace: vault  # (default "")  
+    # restores previous state in case of failed release (default false)
+    atomic: true          
+    # when true, cleans up any new resources created during a failed release (default false)
+    cleanupOnFail: false  
+    # name of the tiller namespace (default "") 
+    tillerNamespace: vault  
     # if true, will use the helm-tiller plugin (default false)
     tillerless: false
-    # enable TLS for request to Tiller
-    tls: true               # (default false)  
+    # enable TLS for request to Tiller (default false)
+    tls: true
     # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
     tlsCACert: "path/to/ca.pem"
     # path to TLS certificate file (default "$HELM_HOME/cert.pem")
@@ -179,7 +179,7 @@ releases:
     # --kube-context to be passed to helm commands
     # CAUTION: this doesn't work as expected for `tilerless: true`.
     # See https://github.com/roboll/helmfile/issues/642
-    # (defaults to "", which means the standard kubeconfig, either ~/kubeconfig or the file pointed by $KUBECONFIG)
+    # (default "", which means the standard kubeconfig, either ~/kubeconfig or the file pointed by $KUBECONFIG environment variable)
     kubeContext: kube-context
     # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
     historyMax: 10
