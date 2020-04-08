@@ -88,7 +88,7 @@ helmDefaults:
   # performs pods restart for the resource if applicable
   recreatePods: true  # (default false)
   # forces resource update through delete/recreate if needed
-  force: true         # (default true)
+  force: false        # (default false)
   # enable TLS for request to Tiller
   tls: true           # (default true)
   # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
@@ -156,7 +156,7 @@ releases:
     wait: true            # (default false)
     timeout: 60           # (default 300)
     recreatePods: true    # (default false)
-    force: true           # (default true)
+    force: false          # (default false)
     # set `false` to uninstall this release on sync. 
     installed: true
     # restores previous state in case of failed release
