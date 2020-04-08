@@ -91,7 +91,7 @@ helmDefaults:
   # forces resource update through delete/recreate if needed
   force: false        # (default false)
   # enable TLS for request to Tiller
-  tls: true           # (default true)
+  tls: true           # (default false)
   # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
   tlsCACert: "path/to/ca.pem"
   # path to TLS certificate file (default "$HELM_HOME/cert.pem")
@@ -169,7 +169,7 @@ releases:
     # if true, will use the helm-tiller plugin (default false)
     tillerless: false
     # enable TLS for request to Tiller
-    tls: true
+    tls: true               # (default false)  
     # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
     tlsCACert: "path/to/ca.pem"
     # path to TLS certificate file (default "$HELM_HOME/cert.pem")
