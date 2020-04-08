@@ -70,7 +70,8 @@ repositories:
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
 # Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these. 
-# Non set values correspond to helm default flags with the similar name.
+# In other words, unset values results in no flags passed to helm.
+# See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
 helmDefaults:
   tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
   tillerless: false                  #dedicated default key for tillerless
@@ -78,7 +79,7 @@ helmDefaults:
   cleanupOnFail: false               #dedicated default key for helm flag --cleanup-on-fail
   # additional and global args passed to helm
   args:
-    - "--set k=v"
+    - "--set k=v"     # (default "")
   # verify the chart before upgrading (only works with packaged charts not directories)
   verify: true        # (default false)
   # wait for k8s resources via --wait. (default false)
@@ -96,7 +97,7 @@ helmDefaults:
   # path to TLS certificate file (default "$HELM_HOME/cert.pem")
   tlsCert: "path/to/cert.pem"
   # path to TLS key file (default "$HELM_HOME/key.pem")
-  tlsKey: "path/to/key.pem"   # (default "")
+  tlsKey: "path/to/key.pem"
   # limit the maximum number of revisions saved per release. Use 0 for no limit. 
   historyMax: 10      # (default 10)
 
@@ -178,7 +179,7 @@ releases:
     # --kube-context to be passed to helm commands
     # CAUTION: this doesn't work as expected for `tilerless: true`.
     # See https://github.com/roboll/helmfile/issues/642
-    # (default "")
+    # (defaults to "", which means the standard kubeconfig, either ~/kubeconfig or the file pointed by $KUBECONFIG)
     kubeContext: kube-context
     # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
     historyMax: 10
