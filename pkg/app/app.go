@@ -116,12 +116,20 @@ func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 }
 
 func (a *App) Diff(c DiffConfigProvider) error {
-	var deferredErrs []error
+	var allDiffDetectedErrs []error
 
-	err := a.ForEachStateFiltered(func(run *Run) []error {
+	var affectedAny bool
+
+	err := a.ForEachState(func(run *Run) (bool, []error) {
 		var criticalErrs []error
 
-		errs := run.Diff(c)
+		msg, matched, affected, errs := run.Diff(c)
+
+		if msg != nil {
+			a.Logger.Info(*msg)
+		}
+
+		affectedAny = affectedAny || affected
 
 		for i := range errs {
 			switch e := errs[i].(type) {
@@ -129,7 +137,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 				switch e.Code {
 				case 2:
 					// See https://github.com/roboll/helmfile/issues/874
-					deferredErrs = append(deferredErrs, e)
+					allDiffDetectedErrs = append(allDiffDetectedErrs, e)
 				default:
 					criticalErrs = append(criticalErrs, e)
 				}
@@ -138,14 +146,14 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			}
 		}
 
-		return criticalErrs
+		return matched, criticalErrs
 	})
 
 	if err != nil {
 		return err
 	}
 
-	if len(deferredErrs) > 0 {
+	if c.DetailedExitcode() && (len(allDiffDetectedErrs) > 0 || affectedAny) {
 		// We take the first release error w/ exit status 2 (although all the defered errs should have exit status 2)
 		// to just let helmfile itself to exit with 2
 		// See https://github.com/roboll/helmfile/issues/749
@@ -806,84 +814,28 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		Set:     c.Set(),
 	}
 
-	var changedReleases []state.ReleaseSpec
-	var deletingReleases []state.ReleaseSpec
-	var planningErrs []error
+	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
+	if len(errs) > 0 {
+		return false, false, errs
+	}
 
-	// TODO Better way to detect diff on only filtered releases
-	{
-		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.IncludeTests(), c.SuppressSecrets(), c.SuppressDiff(), false, diffOpts)
-
-		var err error
-		deletingReleases, err = st.DetectReleasesToBeDeletedForSync(helm, st.Releases)
-		if err != nil {
-			planningErrs = append(planningErrs, err)
+	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
+		if infoMsg != nil {
+			logger := c.Logger()
+			logger.Infof("")
+			logger.Infof(*infoMsg)
 		}
-	}
-
-	fatalErrs := []error{}
-
-	for _, e := range planningErrs {
-		switch err := e.(type) {
-		case *state.ReleaseError:
-			if err.Code != 2 {
-				fatalErrs = append(fatalErrs, e)
-			}
-		default:
-			fatalErrs = append(fatalErrs, e)
-		}
-	}
-
-	if len(fatalErrs) > 0 {
-		return false, false, fatalErrs
-	}
-
-	releasesToBeDeleted := map[string]state.ReleaseSpec{}
-	for _, r := range deletingReleases {
-		id := state.ReleaseToID(&r)
-		releasesToBeDeleted[id] = r
-	}
-
-	releasesToBeUpdated := map[string]state.ReleaseSpec{}
-	for _, r := range changedReleases {
-		id := state.ReleaseToID(&r)
-
-		// If `helm-diff` detected changes but it is not being `helm delete`ed, we should run `helm upgrade`
-		if _, ok := releasesToBeDeleted[id]; !ok {
-			releasesToBeUpdated[id] = r
-		}
-	}
-
-	// sync only when there are changes
-	if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 {
-		// TODO better way to get the logger
-		logger := c.Logger()
-		logger.Infof("")
-		logger.Infof("No affected releases")
 		return true, false, nil
 	}
 
-	names := []string{}
-	for _, r := range releasesToBeUpdated {
-		names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
-	}
-	for _, r := range releasesToBeDeleted {
-		names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
-	}
-	// Make the output deterministic for testing purpose
-	sort.Strings(names)
-
-	infoMsg := fmt.Sprintf(`Affected releases are:
-%s
-`, strings.Join(names, "\n"))
 	confMsg := fmt.Sprintf(`%s
 Do you really want to apply?
   Helmfile will apply all your changes, as shown above.
 
-`, infoMsg)
+`, *infoMsg)
 	interactive := c.Interactive()
 	if !interactive {
-		a.Logger.Debug(infoMsg)
+		a.Logger.Debug(*infoMsg)
 	}
 
 	syncErrs := []error{}

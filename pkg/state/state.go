@@ -1327,6 +1327,15 @@ func (st *HelmState) GetSelectedReleasesWithOverrides() ([]ReleaseSpec, error) {
 			releases = append(releases, r.ReleaseSpec)
 		}
 	}
+
+	var extra string
+
+	if len(st.Selectors) > 0 {
+		extra = " matching " + strings.Join(st.Selectors, ",")
+	}
+
+	st.logger.Debugf("%d release(s)%s found in %s\n", len(releases), extra, st.FilePath)
+
 	return releases, nil
 }
 
@@ -1337,7 +1346,6 @@ func (st *HelmState) FilterReleases() error {
 		return err
 	}
 	st.Releases = releases
-	st.logger.Debugf("%d release(s) matching %s found in %s\n", len(releases), strings.Join(st.Selectors, ","), st.FilePath)
 	return nil
 }
 
