@@ -26,6 +26,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"get":            get,
 		"getOrNil":       getOrNil,
 		"tpl":            c.Tpl,
+		"required":       Required,
 	}
 	if c.preRender {
 		// disable potential side-effect template calls
@@ -241,4 +242,16 @@ func RequiredEnv(name string) (string, error) {
 	}
 
 	return "", fmt.Errorf("required env var `%s` is not set", name)
+}
+
+func Required(warn string, val interface{}) (interface{}, error) {
+	if val == nil {
+		return nil, fmt.Errorf(warn)
+	} else if _, ok := val.(string); ok {
+		if val == "" {
+			return nil, fmt.Errorf(warn)
+		}
+	}
+
+	return val, nil
 }
