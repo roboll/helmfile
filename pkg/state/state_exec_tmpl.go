@@ -13,10 +13,10 @@ import (
 func (st *HelmState) Values() (map[string]interface{}, error) {
 	vals := map[string]interface{}{}
 
-	if err := mergo.Merge(&vals, st.Env.Defaults, mergo.WithOverride); err != nil {
+	if err := mergo.Merge(&vals, st.Env.Defaults, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
 		return nil, err
 	}
-	if err := mergo.Merge(&vals, st.Env.Values, mergo.WithOverride); err != nil {
+	if err := mergo.Merge(&vals, st.Env.Values, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
 		return nil, err
 	}
 
