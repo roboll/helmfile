@@ -2524,6 +2524,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 54: 
 
 merged environment: &{default map[] map[]}
+10 release(s) found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
@@ -2711,6 +2713,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 10: 
 
 merged environment: &{default map[] map[]}
+3 release(s) found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
@@ -2989,6 +2993,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 12: 
 
 merged environment: &{default map[] map[]}
+2 release(s) found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
@@ -3335,6 +3341,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default map[] map[]}
+2 release(s) matching app=test found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
@@ -3473,6 +3481,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default map[] map[]}
+0 release(s) matching app=test_non_existent found in helmfile.yaml
+
 `,
 		},
 		//
@@ -3535,6 +3545,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
  9: 
 
 merged environment: &{default map[] map[]}
+2 release(s) found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
