@@ -20,6 +20,7 @@ RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
     sha256sum ${HELM_FILENAME} | grep -q "${HELM_SHA256}" && \
     echo Extracting ${HELM_FILENAME}... && \
     tar zxvf ${HELM_FILENAME} && mv /linux-amd64/helm /usr/local/bin/ && \
+    mv /linux-amd64/tiller /usr/local/bin/ && \
     rm ${HELM_FILENAME} && rm -r /linux-amd64
 
 # using the install documentation found at https://kubernetes.io/docs/tasks/tools/install-kubectl/
