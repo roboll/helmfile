@@ -591,6 +591,9 @@ func (c configImpl) Cleanup() bool {
 }
 
 func (c configImpl) Timeout() int {
+	if !c.c.IsSet("timeout") {
+		return state.EmptyTimeout
+	}
 	return c.c.Int("timeout")
 }
 
