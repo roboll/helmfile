@@ -116,15 +116,13 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 		r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, *finalEnv)
 	}
 
-	vals := map[string]interface{}{}
+	vals, err := finalEnv.GetMergedValues()
+	if err != nil {
+		return nil, err
+	}
+
 	if prestate != nil {
 		prestate.Env = *finalEnv
-		vals, err = prestate.Values()
-		if err != nil {
-			return nil, err
-		}
-	}
-	if prestate != nil {
 		r.logger.Debugf("vals:\n%v\ndefaultVals:%v", vals, prestate.DefaultValues)
 	}
 
