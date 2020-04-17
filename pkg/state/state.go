@@ -28,6 +28,13 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	// EmptyTimeout represents the `--timeout` value passed to helm commands not being specified via helmfile flags.
+	// This is used by an interim solution to make the urfave/cli command report to the helmfile internal about that the
+	// --timeout flag is missingl
+	EmptyTimeout = -1
+)
+
 // HelmState structure for the helmfile
 type HelmState struct {
 	basePath string
@@ -1226,11 +1233,17 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		if cleanup && !helm.IsHelm3() {
 			flags = append(flags, "--cleanup")
 		}
-		duration := strconv.Itoa(timeout)
-		if helm.IsHelm3() {
-			duration += "s"
+
+		if timeout == EmptyTimeout {
+			flags = append(flags, st.timeoutFlags(helm, &release)...)
+		} else {
+			duration := strconv.Itoa(timeout)
+			if helm.IsHelm3() {
+				duration += "s"
+			}
+			flags = append(flags, "--timeout", duration)
 		}
-		flags = append(flags, "--timeout", duration)
+
 		flags = st.appendConnectionFlags(flags, &release)
 
 		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
@@ -1552,6 +1565,24 @@ func (st *HelmState) connectionFlags(release *ReleaseSpec) []string {
 	return flags
 }
 
+func (st *HelmState) timeoutFlags(helm helmexec.Interface, release *ReleaseSpec) []string {
+	var flags []string
+
+	timeout := st.HelmDefaults.Timeout
+	if release.Timeout != nil {
+		timeout = *release.Timeout
+	}
+	if timeout != 0 {
+		duration := strconv.Itoa(timeout)
+		if helm.IsHelm3() {
+			duration += "s"
+		}
+		flags = append(flags, "--timeout", duration)
+	}
+
+	return flags
+}
+
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
 	flags := []string{}
 	if release.Version != "" {
@@ -1570,17 +1601,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--wait")
 	}
 
-	timeout := st.HelmDefaults.Timeout
-	if release.Timeout != nil {
-		timeout = *release.Timeout
-	}
-	if timeout != 0 {
-		duration := strconv.Itoa(timeout)
-		if helm.IsHelm3() {
-			duration += "s"
-		}
-		flags = append(flags, "--timeout", duration)
-	}
+	flags = append(flags, st.timeoutFlags(helm, release)...)
 
 	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
 		flags = append(flags, "--force")
