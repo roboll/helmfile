@@ -287,10 +287,14 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		return []error{}
 	})
 
+	if err != nil {
+		return err
+	}
+
 	if c.Output() == "json" {
-		FormatAsJson(releases)
+		err = FormatAsJson(releases)
 	} else {
-		FormatAsTable(releases)
+		err = FormatAsTable(releases)
 	}
 
 	return err

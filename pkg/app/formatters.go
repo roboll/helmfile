@@ -7,7 +7,7 @@ import (
 	"github.com/gosuri/uitable"
 )
 
-func FormatAsTable(releases []*HelmRelease) {
+func FormatAsTable(releases []*HelmRelease) error {
 	table := uitable.New()
 	table.AddRow("NAME", "NAMESPACE", "ENABLED", "LABELS")
 
@@ -16,14 +16,18 @@ func FormatAsTable(releases []*HelmRelease) {
 	}
 
 	fmt.Println(table.String())
+
+	return nil
 }
 
-func FormatAsJson(releases []*HelmRelease) {
+func FormatAsJson(releases []*HelmRelease) error {
 	output, err := json.Marshal(releases)
 
 	if err != nil {
-		fmt.Errorf("error generating json: %v", err)
+		return fmt.Errorf("error generating json: %v", err)
 	}
 
 	fmt.Println(string(output))
+
+	return nil
 }
