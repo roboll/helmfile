@@ -475,7 +475,7 @@ func main() {
 				cli.StringFlag{
 					Name:  "output",
 					Value: "",
-					Usage: "output release lists as a json string",
+					Usage: "output releases list as a json string",
 				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
