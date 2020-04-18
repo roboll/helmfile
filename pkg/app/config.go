@@ -156,3 +156,7 @@ type loggingConfig interface {
 type interactive interface {
 	Interactive() bool
 }
+
+type ListConfigProvider interface {
+	Output() string
+}

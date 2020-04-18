@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	"github.com/gosuri/uitable"
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/remote"
@@ -58,6 +57,13 @@ type App struct {
 
 	helms      map[helmKey]helmexec.Interface
 	helmsMutex sync.Mutex
+}
+
+type HelmRelease struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Enabled   bool   `json:"enabled"`
+	Labels    string `json:"labels"`
 }
 
 func New(conf ConfigProvider) *App {
@@ -259,9 +265,8 @@ func (a *App) PrintState(c StateConfigProvider) error {
 	})
 }
 
-func (a *App) ListReleases(c StateConfigProvider) error {
-	table := uitable.New()
-	table.AddRow("NAME", "NAMESPACE", "ENABLED", "LABELS")
+func (a *App) ListReleases(c ListConfigProvider) error {
+	var releases []*HelmRelease
 
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) []error {
 		//var releases m
@@ -270,12 +275,24 @@ func (a *App) ListReleases(c StateConfigProvider) error {
 			for k, v := range r.Labels {
 				labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
 			}
+			labels = strings.Trim(labels, ",")
 			installed := r.Installed == nil || *r.Installed
-			table.AddRow(r.Name, r.Namespace, fmt.Sprintf("%t", installed), strings.Trim(labels, ","))
+			releases = append(releases, &HelmRelease{
+				Name:      r.Name,
+				Namespace: r.Namespace,
+				Enabled:   installed,
+				Labels:    labels,
+			})
 		}
 		return []error{}
 	})
-	fmt.Println(table.String())
+
+	if c.Output() == "json" {
+		FormatAsJson(releases)
+	} else {
+		FormatAsTable(releases)
+	}
+
 	return err
 }
 

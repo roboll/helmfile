@@ -471,7 +471,13 @@ func main() {
 		{
 			Name:  "list",
 			Usage: "list releases defined in state file",
-			Flags: []cli.Flag{},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "output",
+					Value: "",
+					Usage: "output release lists as a json string",
+				},
+			},
 			Action: action(func(run *app.App, c configImpl) error {
 				return run.ListReleases(c)
 			}),
@@ -595,6 +601,12 @@ func (c configImpl) Timeout() int {
 		return state.EmptyTimeout
 	}
 	return c.c.Int("timeout")
+}
+
+// ListConfig
+
+func (c configImpl) Output() string {
+	return c.c.String("output")
 }
 
 // GlobalConfig
