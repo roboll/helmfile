@@ -1,11 +1,12 @@
 package app
 
 import (
-	"gotest.tools/assert"
-	is "gotest.tools/assert/cmp"
-	"gotest.tools/env"
 	"os"
 	"testing"
+
+	"gotest.tools/v3/assert"
+	is "gotest.tools/v3/assert/cmp"
+	"gotest.tools/v3/env"
 )
 
 func TestIsExplicitSelectorInheritanceEnabled(t *testing.T) {
