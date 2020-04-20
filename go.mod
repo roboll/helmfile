@@ -1,17 +1,15 @@
 module github.com/roboll/helmfile
 
-go 1.13
+go 1.14
 
 require (
-	cloud.google.com/go v0.47.0 // indirect
 	github.com/Azure/azure-sdk-for-go v35.0.0+incompatible // indirect
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.2
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/go-test/deep v1.0.3
-	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/google/go-cmp v0.3.1
+	github.com/google/go-cmp v0.4.0
 	github.com/gosuri/uitable v0.0.3
 	github.com/hashicorp/go-getter v1.3.0
 	github.com/hashicorp/go-retryablehttp v0.6.3 // indirect
@@ -27,16 +25,12 @@ require (
 	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363
 	github.com/variantdev/vals v0.4.0
 	go.mozilla.org/sops v0.0.0-20190912205235-14a22d7a7060 // indirect
-	go.opencensus.io v0.22.1 // indirect
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20191029031824-8986dd9e96cf // indirect
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	google.golang.org/api v0.13.0 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
-	google.golang.org/genproto v0.0.0-20191028173616-919d9bdd9fe6 // indirect
-	google.golang.org/grpc v1.24.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v2 v2.2.4
 	gotest.tools v2.2.0+incompatible
