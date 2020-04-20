@@ -33,5 +33,5 @@ require (
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/square/go-jose.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v2 v2.2.4
-	gotest.tools v2.2.0+incompatible
+	gotest.tools/v3 v3.0.3-0.20200410202438-4e4a41b7851a
 )
