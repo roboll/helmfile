@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/roboll/helmfile/pkg/exectest"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
@@ -24,7 +24,7 @@ import (
 	"github.com/variantdev/vals"
 
 	"go.uber.org/zap"
-	"gotest.tools/env"
+	"gotest.tools/v3/env"
 )
 
 func appWithFs(app *App, files map[string]string) *App {
