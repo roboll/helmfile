@@ -9,8 +9,8 @@ import (
 	"github.com/roboll/helmfile/pkg/testhelper"
 	"go.uber.org/zap"
 
-	. "gotest.tools/assert"
-	"gotest.tools/assert/cmp"
+	. "gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 )
 
 func createFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {
