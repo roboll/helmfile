@@ -156,6 +156,8 @@ type ReleaseSpec struct {
 	CleanupOnFail *bool `yaml:"cleanupOnFail,omitempty"`
 	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	HistoryMax *int `yaml:"historyMax,omitempty"`
+	// Condition, when set, evaluate the mapping specified in this string to a boolean which decides whether or not to process the release
+	Condition string `yaml:"condition,omitempty"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
@@ -1282,14 +1284,18 @@ func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
 }
 
 func (st *HelmState) SelectReleasesWithOverrides() ([]Release, error) {
-	rs, err := markFilteredReleases(st.GetReleasesWithOverrides(), st.Selectors)
+	values, err := st.Values()
+	if err != nil {
+		return nil, err
+	}
+	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, values)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]interface{}) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -1309,19 +1315,29 @@ func markFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release
 		// Strip off just the last portion for the name stable/newrelic would give newrelic
 		chartSplit := strings.Split(r.Chart, "/")
 		r.Labels["chart"] = chartSplit[len(chartSplit)-1]
-		var matched bool
+		var filterMatch bool
 		for _, f := range filters {
 			if r.Labels == nil {
 				r.Labels = map[string]string{}
 			}
 			if f.Match(r) {
-				matched = true
+				filterMatch = true
 				break
+			}
+		}
+		var conditionMatch bool
+		if len(r.Condition) > 0 {
+			conditionSplit := strings.Split(r.Condition, ".")
+			if len(conditionSplit) != 2 {
+				return nil, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
+			}
+			if values[conditionSplit[0]].(map[string]interface{})["enabled"] == true {
+				conditionMatch = true
 			}
 		}
 		res := Release{
 			ReleaseSpec: r,
-			Filtered:    len(filters) > 0 && !matched,
+			Filtered:    (len(filters) > 0 && !filterMatch) || (len(r.Condition) > 0 && !conditionMatch),
 		}
 		filteredReleases = append(filteredReleases, res)
 	}

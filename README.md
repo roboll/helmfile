@@ -112,6 +112,7 @@ releases:
       foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
+    condition: vault.enabled               # The values lookup key for filtering releases. Corresponds to the boolean value of `vault.enabled`, where `vault` is an arbitrary value
     missingFileHandler: Warn # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
     # Values files used for rendering the chart
     values:
@@ -247,6 +248,9 @@ environments:
     values:
     - environment/production/values.yaml
     - myChartVer: 1.0.0
+    # disable vault release processing
+    - vault:
+        enabled: false
     ## `secrets.yaml` is decrypted by `helm-secrets` and available via `{{ .Environment.Values.KEY }}`
     secrets:
     - environment/production/secrets.yaml
