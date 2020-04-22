@@ -618,11 +618,9 @@ environments:
   production:
 
 releases:
-
-{{ if eq .Environment.Name "production" }}
 - name: newrelic-agent
+  installed: {{ eq .Environment.Name "production" | toYaml }}
   # snip
-{{ end }}
 - name: myapp
   # snip
 ```
@@ -688,12 +686,10 @@ releases:
 - name: myapp-{{ .Values.releaseName }} # release name will be one of `dev` or `prod` depending on selected environment
   values:
   - values.yaml.gotmpl
-
-{{ if eq (.Values.releaseName "prod" ) }}
-# this release would be installed only if selected environment is `production`
 - name: production-specific-release
+  # this release would be installed only if selected environment is `production`
+  installed: {{ eq .Values.releaseName "prod" | toYaml }}
   ...
-{{ end }}
 ```
 
 ### Note
