@@ -975,7 +975,7 @@ like rollback, history, and so on? This section is for you!
 The combination of `hooks` and [helmify-kustomize](https://gist.github.com/mumoshu/f9d0bd98e0eb77f636f79fc2fb130690)
 enables you to integrate [kustomize](https://github.com/kubernetes-sigs/kustomize) into Helmfile.
 
-That is, you can use `kustommize` to build a local helm chart from a kustomize overlay.
+That is, you can use `kustomize` to build a local helm chart from a kustomize overlay.
 
 Let's assume you have a kustomize project named `foo-kustomize` like this:
 
