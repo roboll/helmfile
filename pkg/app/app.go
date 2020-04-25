@@ -16,15 +16,11 @@ import (
 
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/plugins"
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-)
-
-const (
-	// cache size for improving performance of ref+.* secrets rendering
-	valsCacheSize = 512
 )
 
 type App struct {
@@ -95,7 +91,7 @@ func Init(app *App) *App {
 	app.directoryExistsAt = directoryExistsAt
 
 	var err error
-	app.valsRuntime, err = vals.New(vals.Options{CacheSize: valsCacheSize})
+	app.valsRuntime, err = plugins.ValsInstance()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize vals runtime: %v", err))
 	}
