@@ -1639,10 +1639,14 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--cleanup-on-fail")
 	}
 
-	if helm.IsVersionAtLeast(3, 2) &&
-		(release.CreateNamespace != nil && *release.CreateNamespace ||
-			release.CreateNamespace == nil && (st.HelmDefaults.CreateNamespace == nil || *st.HelmDefaults.CreateNamespace)) {
-		flags = append(flags, "--create-namespace")
+	if release.CreateNamespace != nil && *release.CreateNamespace ||
+		release.CreateNamespace == nil && (st.HelmDefaults.CreateNamespace == nil || *st.HelmDefaults.CreateNamespace) {
+		if helm.IsVersionAtLeast(3, 2) {
+			flags = append(flags, "--create-namespace")
+		} else if release.CreateNamespace != nil || st.HelmDefaults.CreateNamespace != nil {
+			// createNamespace was set explicitly, but not running supported version of helm - error
+			return nil, fmt.Errorf("releases[].createNamespace requires Helm 3.2.0 or greater")
+		}
 	}
 
 	flags = st.appendConnectionFlags(flags, release)
