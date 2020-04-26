@@ -528,4 +528,45 @@ func Test_IsHelm3(t *testing.T) {
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
+
+	os.Setenv("HELMFILE_HELM3", "1")
+	helm2Runner = mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
+	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	if !helm.IsHelm3() {
+		t.Error("helmexec.IsHelm3() - Helm3 not detected when HELMFILE_HELM3 is set")
+	}
+	os.Setenv("HELMFILE_HELM3", "")
+}
+
+func Test_GetVersion(t *testing.T) {
+	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
+	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	ver := helm.GetVersion()
+	if ver.Major != 2 || ver.Minor != 16 || ver.Patch != 1 {
+		t.Error(fmt.Sprintf("helmexec.GetVersion - did not detect correct Helm2 version; it was: %+v", ver))
+	}
+
+	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a\n")}
+	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	ver = helm.GetVersion()
+	if ver.Major != 3 || ver.Minor != 2 || ver.Patch != 4 {
+		t.Error(fmt.Sprintf("helmexec.GetVersion - did not detect correct Helm3 version; it was: %+v", ver))
+	}
+}
+
+func Test_IsVersionAtLeast(t *testing.T) {
+	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
+	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	if !helm.IsVersionAtLeast(2, 1) {
+		t.Error("helmexec.IsVersionAtLeast - 2.16.1 not atleast 2.1")
+	}
+
+	if helm.IsVersionAtLeast(2, 19) {
+		t.Error("helmexec.IsVersionAtLeast - 2.16.1 is atleast 2.19")
+	}
+
+	if helm.IsVersionAtLeast(3, 2) {
+		t.Error("helmexec.IsVersionAtLeast - 2.16.1 is atleast 3.2")
+	}
+
 }

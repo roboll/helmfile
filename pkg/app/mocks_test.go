@@ -82,3 +82,13 @@ func (helm *noCallHelmExec) IsHelm3() bool {
 	helm.doPanic()
 	return false
 }
+
+func (helm *noCallHelmExec) GetVersion() helmexec.Version {
+	helm.doPanic()
+	return helmexec.Version{}
+}
+
+func (helm *noCallHelmExec) IsVersionAtLeast(major int, minor int) bool {
+	helm.doPanic()
+	return false
+}

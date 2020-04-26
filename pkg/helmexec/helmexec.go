@@ -1,5 +1,12 @@
 package helmexec
 
+// Version represents the version of helm
+type Version struct {
+	Major int
+	Minor int
+	Patch int
+}
+
 // Interface for executing helm commands
 type Interface interface {
 	SetExtraArgs(args ...string)
@@ -20,6 +27,8 @@ type Interface interface {
 	List(context HelmContext, filter string, flags ...string) (string, error)
 	DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
 	IsHelm3() bool
+	GetVersion() Version
+	IsVersionAtLeast(major int, minor int) bool
 }
 
 type DependencyUpdater interface {
