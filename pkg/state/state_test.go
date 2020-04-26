@@ -167,6 +167,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 		defaults HelmSpec
 		release  *ReleaseSpec
 		want     []string
+		wantErr  string
 	}{
 		{
 			name: "no-options",
@@ -669,6 +670,26 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--namespace", "test-namespace",
 			},
 		},
+		{
+			name: "create-namespace-unsupported",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: &helmexec.Version{
+				Major: 2,
+				Minor: 16,
+				Patch: 0,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			wantErr: "releases[].createNamespace requires Helm 3.2.0 or greater",
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -685,8 +706,11 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			}
 
 			args, err := state.flagsForUpgrade(helm, tt.release, 0)
-			if err != nil {
+			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
+			}
+			if tt.wantErr != "" && (err == nil || err.Error() != tt.wantErr) {
+				t.Errorf("expected error '%v'; got '%v'", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(args, tt.want) {
 				t.Errorf("flagsForUpgrade returned = %v, want %v", args, tt.want)
