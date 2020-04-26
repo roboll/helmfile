@@ -30,6 +30,7 @@ type Helm struct {
 	Diffed               []Release
 	FailOnUnexpectedDiff bool
 	FailOnUnexpectedList bool
+	Version              *helmexec.Version
 
 	UpdateDepsCallbacks map[string]func(string) error
 
@@ -159,6 +160,22 @@ func (helm *Helm) TemplateRelease(name, chart string, flags ...string) error {
 
 func (helm *Helm) IsHelm3() bool {
 	return false
+}
+
+func (helm *Helm) GetVersion() helmexec.Version {
+	if helm.Version != nil {
+		return *helm.Version
+	}
+
+	return helmexec.Version{}
+}
+
+func (helm *Helm) IsVersionAtLeast(major int, minor int) bool {
+	if helm.Version == nil {
+		return false
+	}
+
+	return helm.Version.Major >= major && minor >= helm.Version.Minor
 }
 
 func (helm *Helm) sync(m *sync.Mutex, f func()) {

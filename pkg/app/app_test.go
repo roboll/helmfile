@@ -2168,6 +2168,14 @@ func (helm *mockHelmExec) IsHelm3() bool {
 	return false
 }
 
+func (helm *mockHelmExec) GetVersion() helmexec.Version {
+	return helmexec.Version{}
+}
+
+func (helm *mockHelmExec) IsVersionAtLeast(major int, minor int) bool {
+	return false
+}
+
 func TestTemplate_SingleStateFile(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `

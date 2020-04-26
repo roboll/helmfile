@@ -114,6 +114,8 @@ type HelmSpec struct {
 	CleanupOnFail bool `yaml:"cleanupOnFail,omitempty"`
 	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	HistoryMax *int `yaml:"historyMax,omitempty"`
+	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install/upgrade (ignored for helm2)
+	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
 
 	TLS       bool   `yaml:"tls"`
 	TLSCACert string `yaml:"tlsCACert,omitempty"`
@@ -158,6 +160,8 @@ type ReleaseSpec struct {
 	HistoryMax *int `yaml:"historyMax,omitempty"`
 	// Condition, when set, evaluate the mapping specified in this string to a boolean which decides whether or not to process the release
 	Condition string `yaml:"condition,omitempty"`
+	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install (ignored for helm2)
+	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
@@ -1633,6 +1637,12 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	if release.CleanupOnFail != nil && *release.CleanupOnFail || release.CleanupOnFail == nil && st.HelmDefaults.CleanupOnFail {
 		flags = append(flags, "--cleanup-on-fail")
+	}
+
+	if helm.IsVersionAtLeast(3, 2) &&
+		(release.CreateNamespace != nil && *release.CreateNamespace ||
+			release.CreateNamespace == nil && (st.HelmDefaults.CreateNamespace == nil || *st.HelmDefaults.CreateNamespace)) {
+		flags = append(flags, "--create-namespace")
 	}
 
 	flags = st.appendConnectionFlags(flags, release)

@@ -69,7 +69,7 @@ repositories:
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
-# Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these. 
+# Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these.
 # In other words, unset values results in no flags passed to helm.
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
 helmDefaults:
@@ -91,15 +91,18 @@ helmDefaults:
   # forces resource update through delete/recreate if needed (default false)
   force: false
   # enable TLS for request to Tiller (default false)
-  tls: true        
+  tls: true
   # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
   tlsCACert: "path/to/ca.pem"
   # path to TLS certificate file (default "$HELM_HOME/cert.pem")
   tlsCert: "path/to/cert.pem"
   # path to TLS key file (default "$HELM_HOME/key.pem")
   tlsKey: "path/to/key.pem"
-  # limit the maximum number of revisions saved per release. Use 0 for no limit. (default 10) 
+  # limit the maximum number of revisions saved per release. Use 0 for no limit. (default 10)
   historyMax: 10
+  # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
+  createNamespace: true
+
 
 # The desired states of Helm releases.
 #
@@ -108,6 +111,7 @@ releases:
   # Published chart example
   - name: vault                            # name of this release
     namespace: vault                       # target namespace
+    createNamespace: true                  # helm 3.2+ automatically create release namespace (default true)
     labels:                                # Arbitrary key value pairs for filtering releases
       foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
@@ -152,21 +156,21 @@ releases:
       value: {{ .Namespace }}
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
-      - vault_secret.yaml    
-    # Override helmDefaults options for verify, wait, timeout, recreatePods and force. 
-    verify: true              
-    wait: true            
-    timeout: 60           
-    recreatePods: true    
-    force: false          
+      - vault_secret.yaml
+    # Override helmDefaults options for verify, wait, timeout, recreatePods and force.
+    verify: true
+    wait: true
+    timeout: 60
+    recreatePods: true
+    force: false
     # set `false` to uninstall this release on sync.  (default true)
     installed: true
     # restores previous state in case of failed release (default false)
-    atomic: true          
+    atomic: true
     # when true, cleans up any new resources created during a failed release (default false)
-    cleanupOnFail: false  
-    # name of the tiller namespace (default "") 
-    tillerNamespace: vault  
+    cleanupOnFail: false
+    # name of the tiller namespace (default "")
+    tillerNamespace: vault
     # if true, will use the helm-tiller plugin (default false)
     tillerless: false
     # enable TLS for request to Tiller (default false)
@@ -280,7 +284,7 @@ bases:
 # 'helmfile template' renders releases locally without querying an actual cluster,
 # and in this case `.Capabilities.APIVersions` cannot be populated.
 # When a chart queries for a specific CRD, this can lead to unexpected results.
-# 
+#
 # Configure a fixed list of api versions to pass to 'helm template' via the --api-versions flag:
 apiVersions:
 - example/v1

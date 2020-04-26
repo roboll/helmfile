@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,7 +22,7 @@ type decryptedSecret struct {
 
 type execer struct {
 	helmBinary           string
-	isHelm3              bool
+	version              Version
 	runner               Runner
 	logger               *zap.SugaredLogger
 	kubeContext          string
@@ -47,25 +48,62 @@ func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 	return zap.New(core).Sugar()
 }
 
-func detectHelm3(helmBinary string, logger *zap.SugaredLogger, runner Runner) bool {
-	// Support explicit opt-in via environment variable
-	if os.Getenv("HELMFILE_HELM3") != "" {
-		return true
-	}
+func getHelmVersion(helmBinary string, logger *zap.SugaredLogger, runner Runner) Version {
 
 	// Autodetect from `helm verison`
 	bytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil)
 	if err != nil {
 		panic(err)
 	}
-	return strings.HasPrefix(string(bytes), "v3.")
+
+	if bytes == nil || len(bytes) == 0 {
+		return Version{}
+	}
+
+	re := regexp.MustCompile("v(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)")
+	matches := re.FindStringSubmatch(string(bytes))
+
+	result := make(map[string]string)
+	for i, name := range re.SubexpNames() {
+		result[name] = matches[i]
+	}
+
+	major, err := strconv.Atoi(result["major"])
+	if err != nil {
+		panic(err)
+	}
+
+	minor, err := strconv.Atoi(result["minor"])
+	if err != nil {
+		panic(err)
+	}
+
+	patch, err := strconv.Atoi(result["patch"])
+	if err != nil {
+		panic(err)
+	}
+
+	// Support explicit helm3 opt-in via environment variable
+	if os.Getenv("HELMFILE_HELM3") != "" && major < 3 {
+		return Version{
+			Major: 3,
+			Minor: 0,
+			Patch: 0,
+		}
+	}
+
+	return Version{
+		Major: major,
+		Minor: minor,
+		Patch: patch,
+	}
 }
 
 // New for running helm commands
 func New(helmBinary string, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	return &execer{
 		helmBinary:       helmBinary,
-		isHelm3:          detectHelm3(helmBinary, logger, runner),
+		version:          getHelmVersion(helmBinary, logger, runner),
 		logger:           logger,
 		kubeContext:      kubeContext,
 		runner:           runner,
@@ -349,5 +387,13 @@ func (helm *execer) write(out []byte) {
 }
 
 func (helm *execer) IsHelm3() bool {
-	return helm.isHelm3
+	return helm.version.Major == 3
+}
+
+func (helm *execer) GetVersion() Version {
+	return helm.version
+}
+
+func (helm *execer) IsVersionAtLeast(major int, minor int) bool {
+	return helm.version.Major >= major && helm.version.Minor >= minor
 }
