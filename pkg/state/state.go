@@ -975,6 +975,9 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		if !st.Releases[i].Desired() {
 			continue
 		}
+		if st.Releases[i].Installed != nil && !*(st.Releases[i].Installed) {
+			continue
+		}
 		releases = append(releases, &st.Releases[i])
 	}
 
@@ -1388,6 +1391,10 @@ func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand st
 	for i := range st.Releases {
 		release := st.Releases[i]
 
+		if release.Installed != nil && !*release.Installed {
+			continue
+		}
+
 		if _, err := st.triggerPrepareEvent(&release, helmfileCommand); err != nil {
 			errs = append(errs, newReleaseFailedError(&release, err))
 			continue
@@ -1481,6 +1488,10 @@ func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
 	for _, release := range st.Releases {
 		if len(release.Chart) == 0 {
 			errs = append(errs, errors.New("chart is required for: "+release.Name))
+			continue
+		}
+
+		if release.Installed != nil && !*release.Installed {
 			continue
 		}
 
