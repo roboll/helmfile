@@ -19,7 +19,7 @@ func (ctx Context) SyncReposOnce(st *state.HelmState, helm state.RepoUpdater) []
 
 	hasInstalled := false
 	for _, release := range st.Releases {
-		hasInstalled = hasInstalled && (release.Installed == nil || *release.Installed)
+		hasInstalled = hasInstalled || release.Installed == nil || *release.Installed
 	}
 
 	if !hasInstalled {
