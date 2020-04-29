@@ -5,6 +5,15 @@ import "github.com/roboll/helmfile/pkg/helmexec"
 type noCallHelmExec struct {
 }
 
+type versionOnlyHelmExec struct {
+	*noCallHelmExec
+	isHelm3 bool
+}
+
+func (helm *versionOnlyHelmExec) IsHelm3() bool {
+	return helm.isHelm3
+}
+
 func (helm *noCallHelmExec) doPanic() {
 	panic("unexpected call to helm")
 }

@@ -682,7 +682,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 	return a.visitStates(fileOrDir, opts, converge)
 }
 
-func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error) (bool, []error) {
+func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, converge func(st *state.HelmState) []error) (bool, []error) {
 	if len(st.Selectors) > 0 {
 		err := st.FilterReleases()
 		if err != nil {
@@ -696,11 +696,15 @@ func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmSt
 
 	releaseNameCounts := map[Key]int{}
 	for _, r := range st.Releases {
-		tillerNamespace := st.HelmDefaults.TillerNamespace
-		if r.TillerNamespace != "" {
-			tillerNamespace = r.TillerNamespace
+		namespace := r.Namespace
+		if !helm.IsHelm3() {
+			if r.TillerNamespace != "" {
+				namespace = r.TillerNamespace
+			} else {
+				namespace = st.HelmDefaults.TillerNamespace
+			}
 		}
-		releaseNameCounts[Key{tillerNamespace, r.Name}]++
+		releaseNameCounts[Key{namespace, r.Name}]++
 	}
 	for name, c := range releaseNameCounts {
 		if c > 1 {
@@ -717,7 +721,7 @@ func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmSt
 
 func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 	return func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
-		return processFilteredReleases(st, func(st *state.HelmState) []error {
+		return processFilteredReleases(st, helm, func(st *state.HelmState) []error {
 			return converge(st, helm)
 		})
 	}
@@ -725,7 +729,7 @@ func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) 
 
 func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState) []error, o ...LoadOption) error {
 	return a.visitStatesWithSelectorsAndRemoteSupport(fileOrDir, func(st *state.HelmState) (bool, []error) {
-		return processFilteredReleases(st, converge)
+		return processFilteredReleases(st, a.getHelm(st), converge)
 	}, o...)
 }
 
