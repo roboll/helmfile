@@ -475,9 +475,44 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		}
 		st.Selectors = opts.Selectors
 
-		noMatchInHelmfiles, err = a.reverseOrder(d, f, st, opts, defOpts, converge, !opts.Reverse)
-		if err != nil {
-			return err
+		visitSubHelmfiles := func() error {
+			if len(st.Helmfiles) > 0 {
+				noMatchInSubHelmfiles := true
+				for i, m := range st.Helmfiles {
+					optsForNestedState := LoadOpts{
+						CalleePath:        filepath.Join(d, f),
+						Environment:       m.Environment,
+						Reverse:           defOpts.Reverse,
+						RetainValuesFiles: defOpts.RetainValuesFiles,
+					}
+					//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
+					if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
+						optsForNestedState.Selectors = opts.Selectors
+					} else {
+						optsForNestedState.Selectors = m.Selectors
+					}
+
+					if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
+						switch err.(type) {
+						case *NoMatchingHelmfileError:
+
+						default:
+							return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+						}
+					} else {
+						noMatchInSubHelmfiles = false
+					}
+				}
+				noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
+			}
+			return nil
+		}
+
+		if !opts.Reverse {
+			err = visitSubHelmfiles()
+			if err != nil {
+				return err
+			}
 		}
 
 		templated, tmplErr := st.ExecuteTemplates()
@@ -488,9 +523,11 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		processed, errs := converge(templated)
 		noMatchInHelmfiles = noMatchInHelmfiles && !processed
 
-		_, err = a.reverseOrder(d, f, st, opts, defOpts, converge, opts.Reverse)
-		if err != nil {
-			return err
+		if opts.Reverse {
+			err = visitSubHelmfiles()
+			if err != nil {
+				return err
+			}
 		}
 
 		return context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
@@ -505,41 +542,6 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 	}
 
 	return nil
-}
-
-// apply reverse order in destroy action
-func (a *App) reverseOrder(d, f string, st *state.HelmState, opts, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error), needReverse bool) (bool, error) {
-	noMatchInHelmfiles := true
-	if len(st.Helmfiles) > 0 && needReverse {
-		noMatchInSubHelmfiles := true
-		for i, m := range st.Helmfiles {
-			optsForNestedState := LoadOpts{
-				CalleePath:        filepath.Join(d, f),
-				Environment:       m.Environment,
-				Reverse:           defOpts.Reverse,
-				RetainValuesFiles: defOpts.RetainValuesFiles,
-			}
-			//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
-			if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
-				optsForNestedState.Selectors = opts.Selectors
-			} else {
-				optsForNestedState.Selectors = m.Selectors
-			}
-
-			if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
-				switch err.(type) {
-				case *NoMatchingHelmfileError:
-
-				default:
-					return noMatchInSubHelmfiles, appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
-				}
-			} else {
-				noMatchInSubHelmfiles = false
-			}
-		}
-		noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
-	}
-	return noMatchInHelmfiles, nil
 }
 
 func (a *App) ForEachStateFiltered(do func(*Run) []error) error {
