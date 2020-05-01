@@ -475,34 +475,44 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		}
 		st.Selectors = opts.Selectors
 
-		if len(st.Helmfiles) > 0 {
-			noMatchInSubHelmfiles := true
-			for i, m := range st.Helmfiles {
-				optsForNestedState := LoadOpts{
-					CalleePath:        filepath.Join(d, f),
-					Environment:       m.Environment,
-					Reverse:           defOpts.Reverse,
-					RetainValuesFiles: defOpts.RetainValuesFiles,
-				}
-				//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
-				if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
-					optsForNestedState.Selectors = opts.Selectors
-				} else {
-					optsForNestedState.Selectors = m.Selectors
-				}
-
-				if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
-					switch err.(type) {
-					case *NoMatchingHelmfileError:
-
-					default:
-						return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+		visitSubHelmfiles := func() error {
+			if len(st.Helmfiles) > 0 {
+				noMatchInSubHelmfiles := true
+				for i, m := range st.Helmfiles {
+					optsForNestedState := LoadOpts{
+						CalleePath:        filepath.Join(d, f),
+						Environment:       m.Environment,
+						Reverse:           defOpts.Reverse,
+						RetainValuesFiles: defOpts.RetainValuesFiles,
 					}
-				} else {
-					noMatchInSubHelmfiles = false
+					//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
+					if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
+						optsForNestedState.Selectors = opts.Selectors
+					} else {
+						optsForNestedState.Selectors = m.Selectors
+					}
+
+					if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
+						switch err.(type) {
+						case *NoMatchingHelmfileError:
+
+						default:
+							return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+						}
+					} else {
+						noMatchInSubHelmfiles = false
+					}
 				}
+				noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
 			}
-			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
+			return nil
+		}
+
+		if !opts.Reverse {
+			err = visitSubHelmfiles()
+			if err != nil {
+				return err
+			}
 		}
 
 		templated, tmplErr := st.ExecuteTemplates()
@@ -512,6 +522,13 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 
 		processed, errs := converge(templated)
 		noMatchInHelmfiles = noMatchInHelmfiles && !processed
+
+		if opts.Reverse {
+			err = visitSubHelmfiles()
+			if err != nil {
+				return err
+			}
+		}
 
 		return context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
 	})
