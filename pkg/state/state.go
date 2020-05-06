@@ -73,6 +73,11 @@ type HelmState struct {
 
 	runner      helmexec.Runner
 	valsRuntime vals.Evaluator
+
+	// If set to "Error", return an error when a subhelmfile points to a
+	// non-existent path. The default behavior is to print a warning. Note the
+	// differing default compared to other MissingFileHandlers.
+	MissingFileHandler string `yaml:"missingFileHandler"`
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options
@@ -1790,6 +1795,11 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 			return nil, err
 		}
 		if len(matches) == 0 {
+			err := fmt.Errorf("no matches for path: %s", hf.Path)
+			if st.MissingFileHandler == "Error" {
+				return nil, err
+			}
+			fmt.Println(err)
 			continue
 		}
 		for _, match := range matches {
