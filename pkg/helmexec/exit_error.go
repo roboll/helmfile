@@ -2,13 +2,12 @@ package helmexec
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
 func newExitError(helmCmdPath string, exitStatus int, errorMessage string) ExitError {
 	return ExitError{
-		Message: fmt.Sprintf("%s exited with status %d:\n%s", filepath.Base(helmCmdPath), exitStatus, indent(strings.TrimSpace(errorMessage))),
+		Message: fmt.Sprintf("the following cmd exited with status %d:\n%s\n\n%s", exitStatus, indent(strings.TrimSpace(helmCmdPath)), indent(strings.TrimSpace(errorMessage))),
 		Code:    exitStatus,
 	}
 }
