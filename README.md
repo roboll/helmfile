@@ -327,6 +327,10 @@ releases:
         value: {{ env "SCHEME" | default "https" }}
 ```
 
+### Note
+
+If you wish to treat your enviroment variables as strings always, even if they are boolean or numeric values you can use `{{ env "ENV_NAME" | quote }}` or `"{{ env "ENV_NAME" }}"`. These approaches also work with `requiredEnv`.
+
 ## installation
 
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
