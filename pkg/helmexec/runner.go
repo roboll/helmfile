@@ -64,7 +64,8 @@ func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
 			// so that helmfile could return its own exit code accordingly
 			waitStatus := ee.Sys().(syscall.WaitStatus)
 			exitStatus := waitStatus.ExitStatus()
-			err = newExitError(c.Path, exitStatus, string(e))
+			cmd := fmt.Sprintf("%s %s", c.Path, strings.Join(c.Args, " "))
+			err = newExitError(cmd, exitStatus, string(e))
 		default:
 			panic(fmt.Sprintf("unexpected error: %v", err))
 		}
