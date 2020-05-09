@@ -1163,6 +1163,9 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	releasesToRender := map[string]state.ReleaseSpec{}
 	for _, r := range toRender {
 		id := state.ReleaseToID(&r)
+		if r.Installed != nil && !*r.Installed {
+			continue
+		}
 		releasesToRender[id] = r
 	}
 
