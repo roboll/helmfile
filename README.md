@@ -535,7 +535,7 @@ In addition to built-in ones, the following custom template functions are availa
 You can reference a template of values file in your `helmfile.yaml` like below:
 
 ```yaml
-releases
+releases:
 - name: myapp
   chart: mychart
   values:
