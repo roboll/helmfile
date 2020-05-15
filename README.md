@@ -69,7 +69,7 @@ repositories:
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
-# Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these. 
+# Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these.
 # In other words, unset values results in no flags passed to helm.
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
 helmDefaults:
@@ -91,15 +91,18 @@ helmDefaults:
   # forces resource update through delete/recreate if needed (default false)
   force: false
   # enable TLS for request to Tiller (default false)
-  tls: true        
+  tls: true
   # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
   tlsCACert: "path/to/ca.pem"
   # path to TLS certificate file (default "$HELM_HOME/cert.pem")
   tlsCert: "path/to/cert.pem"
   # path to TLS key file (default "$HELM_HOME/key.pem")
   tlsKey: "path/to/key.pem"
-  # limit the maximum number of revisions saved per release. Use 0 for no limit. (default 10) 
+  # limit the maximum number of revisions saved per release. Use 0 for no limit. (default 10)
   historyMax: 10
+  # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
+  createNamespace: true
+
 
 # The desired states of Helm releases.
 #
@@ -108,10 +111,12 @@ releases:
   # Published chart example
   - name: vault                            # name of this release
     namespace: vault                       # target namespace
+    createNamespace: true                  # helm 3.2+ automatically create release namespace (default true)
     labels:                                # Arbitrary key value pairs for filtering releases
       foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
+    condition: vault.enabled               # The values lookup key for filtering releases. Corresponds to the boolean value of `vault.enabled`, where `vault` is an arbitrary value
     missingFileHandler: Warn # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
     # Values files used for rendering the chart
     values:
@@ -151,21 +156,21 @@ releases:
       value: {{ .Namespace }}
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
-      - vault_secret.yaml    
-    # Override helmDefaults options for verify, wait, timeout, recreatePods and force. 
-    verify: true              
-    wait: true            
-    timeout: 60           
-    recreatePods: true    
-    force: false          
+      - vault_secret.yaml
+    # Override helmDefaults options for verify, wait, timeout, recreatePods and force.
+    verify: true
+    wait: true
+    timeout: 60
+    recreatePods: true
+    force: false
     # set `false` to uninstall this release on sync.  (default true)
     installed: true
     # restores previous state in case of failed release (default false)
-    atomic: true          
+    atomic: true
     # when true, cleans up any new resources created during a failed release (default false)
-    cleanupOnFail: false  
-    # name of the tiller namespace (default "") 
-    tillerNamespace: vault  
+    cleanupOnFail: false
+    # name of the tiller namespace (default "")
+    tillerNamespace: vault
     # if true, will use the helm-tiller plugin (default false)
     tillerless: false
     # enable TLS for request to Tiller (default false)
@@ -219,6 +224,9 @@ helmfiles:
   # The nested-state file is locally checked-out along with the remote directory containing it.
   # Therefore all the local paths in the file are resolved relative to the file
   path: git::https://github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=0.40.0
+# If set to "Error", return an error when a subhelmfile points to a
+# non-existent path. The default behavior is to print a warning and continue.
+missingFileHandler: Error
 
 #
 # Advanced Configuration: Environments
@@ -247,6 +255,9 @@ environments:
     values:
     - environment/production/values.yaml
     - myChartVer: 1.0.0
+    # disable vault release processing
+    - vault:
+        enabled: false
     ## `secrets.yaml` is decrypted by `helm-secrets` and available via `{{ .Environment.Values.KEY }}`
     secrets:
     - environment/production/secrets.yaml
@@ -276,7 +287,7 @@ bases:
 # 'helmfile template' renders releases locally without querying an actual cluster,
 # and in this case `.Capabilities.APIVersions` cannot be populated.
 # When a chart queries for a specific CRD, this can lead to unexpected results.
-# 
+#
 # Configure a fixed list of api versions to pass to 'helm template' via the --api-versions flag:
 apiVersions:
 - example/v1
@@ -318,6 +329,10 @@ releases:
       - name: proxy.scheme
         value: {{ env "SCHEME" | default "https" }}
 ```
+
+### Note
+
+If you wish to treat your enviroment variables as strings always, even if they are boolean or numeric values you can use `{{ env "ENV_NAME" | quote }}` or `"{{ env "ENV_NAME" }}"`. These approaches also work with `requiredEnv`.
 
 ## installation
 
@@ -523,7 +538,7 @@ In addition to built-in ones, the following custom template functions are availa
 You can reference a template of values file in your `helmfile.yaml` like below:
 
 ```yaml
-releases
+releases:
 - name: myapp
   chart: mychart
   values:
@@ -618,11 +633,9 @@ environments:
   production:
 
 releases:
-
-{{ if eq .Environment.Name "production" }}
 - name: newrelic-agent
+  installed: {{ eq .Environment.Name "production" | toYaml }}
   # snip
-{{ end }}
 - name: myapp
   # snip
 ```
@@ -688,12 +701,10 @@ releases:
 - name: myapp-{{ .Values.releaseName }} # release name will be one of `dev` or `prod` depending on selected environment
   values:
   - values.yaml.gotmpl
-
-{{ if eq (.Values.releaseName "prod" ) }}
-# this release would be installed only if selected environment is `production`
 - name: production-specific-release
+  # this release would be installed only if selected environment is `production`
+  installed: {{ eq .Values.releaseName "prod" | toYaml }}
   ...
-{{ end }}
 ```
 
 ### Note
@@ -979,7 +990,7 @@ like rollback, history, and so on? This section is for you!
 The combination of `hooks` and [helmify-kustomize](https://gist.github.com/mumoshu/f9d0bd98e0eb77f636f79fc2fb130690)
 enables you to integrate [kustomize](https://github.com/kubernetes-sigs/kustomize) into Helmfile.
 
-That is, you can use `kustommize` to build a local helm chart from a kustomize overlay.
+That is, you can use `kustomize` to build a local helm chart from a kustomize overlay.
 
 Let's assume you have a kustomize project named `foo-kustomize` like this:
 

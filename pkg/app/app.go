@@ -16,15 +16,11 @@ import (
 
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/plugins"
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-)
-
-const (
-	// cache size for improving performance of ref+.* secrets rendering
-	valsCacheSize = 512
 )
 
 type App struct {
@@ -95,7 +91,7 @@ func Init(app *App) *App {
 	app.directoryExistsAt = directoryExistsAt
 
 	var err error
-	app.valsRuntime, err = vals.New(vals.Options{CacheSize: valsCacheSize})
+	app.valsRuntime, err = plugins.ValsInstance()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize vals runtime: %v", err))
 	}
@@ -479,34 +475,44 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		}
 		st.Selectors = opts.Selectors
 
-		if len(st.Helmfiles) > 0 {
-			noMatchInSubHelmfiles := true
-			for i, m := range st.Helmfiles {
-				optsForNestedState := LoadOpts{
-					CalleePath:        filepath.Join(d, f),
-					Environment:       m.Environment,
-					Reverse:           defOpts.Reverse,
-					RetainValuesFiles: defOpts.RetainValuesFiles,
-				}
-				//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
-				if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
-					optsForNestedState.Selectors = opts.Selectors
-				} else {
-					optsForNestedState.Selectors = m.Selectors
-				}
-
-				if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
-					switch err.(type) {
-					case *NoMatchingHelmfileError:
-
-					default:
-						return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+		visitSubHelmfiles := func() error {
+			if len(st.Helmfiles) > 0 {
+				noMatchInSubHelmfiles := true
+				for i, m := range st.Helmfiles {
+					optsForNestedState := LoadOpts{
+						CalleePath:        filepath.Join(d, f),
+						Environment:       m.Environment,
+						Reverse:           defOpts.Reverse,
+						RetainValuesFiles: defOpts.RetainValuesFiles,
 					}
-				} else {
-					noMatchInSubHelmfiles = false
+					//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
+					if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
+						optsForNestedState.Selectors = opts.Selectors
+					} else {
+						optsForNestedState.Selectors = m.Selectors
+					}
+
+					if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
+						switch err.(type) {
+						case *NoMatchingHelmfileError:
+
+						default:
+							return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+						}
+					} else {
+						noMatchInSubHelmfiles = false
+					}
 				}
+				noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
 			}
-			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
+			return nil
+		}
+
+		if !opts.Reverse {
+			err = visitSubHelmfiles()
+			if err != nil {
+				return err
+			}
 		}
 
 		templated, tmplErr := st.ExecuteTemplates()
@@ -516,6 +522,13 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 
 		processed, errs := converge(templated)
 		noMatchInHelmfiles = noMatchInHelmfiles && !processed
+
+		if opts.Reverse {
+			err = visitSubHelmfiles()
+			if err != nil {
+				return err
+			}
+		}
 
 		return context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
 	})
@@ -686,7 +699,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 	return a.visitStates(fileOrDir, opts, converge)
 }
 
-func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error) (bool, []error) {
+func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, converge func(st *state.HelmState) []error) (bool, []error) {
 	if len(st.Selectors) > 0 {
 		err := st.FilterReleases()
 		if err != nil {
@@ -700,11 +713,15 @@ func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmSt
 
 	releaseNameCounts := map[Key]int{}
 	for _, r := range st.Releases {
-		tillerNamespace := st.HelmDefaults.TillerNamespace
-		if r.TillerNamespace != "" {
-			tillerNamespace = r.TillerNamespace
+		namespace := r.Namespace
+		if !helm.IsHelm3() {
+			if r.TillerNamespace != "" {
+				namespace = r.TillerNamespace
+			} else {
+				namespace = st.HelmDefaults.TillerNamespace
+			}
 		}
-		releaseNameCounts[Key{tillerNamespace, r.Name}]++
+		releaseNameCounts[Key{namespace, r.Name}]++
 	}
 	for name, c := range releaseNameCounts {
 		if c > 1 {
@@ -721,7 +738,7 @@ func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmSt
 
 func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 	return func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
-		return processFilteredReleases(st, func(st *state.HelmState) []error {
+		return processFilteredReleases(st, helm, func(st *state.HelmState) []error {
 			return converge(st, helm)
 		})
 	}
@@ -729,7 +746,7 @@ func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) 
 
 func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState) []error, o ...LoadOption) error {
 	return a.visitStatesWithSelectorsAndRemoteSupport(fileOrDir, func(st *state.HelmState) (bool, []error) {
-		return processFilteredReleases(st, converge)
+		return processFilteredReleases(st, a.getHelm(st), converge)
 	}, o...)
 }
 
@@ -1146,6 +1163,9 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	releasesToRender := map[string]state.ReleaseSpec{}
 	for _, r := range toRender {
 		id := state.ReleaseToID(&r)
+		if r.Installed != nil && !*r.Installed {
+			continue
+		}
 		releasesToRender[id] = r
 	}
 

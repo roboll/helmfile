@@ -73,6 +73,11 @@ type HelmState struct {
 
 	runner      helmexec.Runner
 	valsRuntime vals.Evaluator
+
+	// If set to "Error", return an error when a subhelmfile points to a
+	// non-existent path. The default behavior is to print a warning. Note the
+	// differing default compared to other MissingFileHandlers.
+	MissingFileHandler string `yaml:"missingFileHandler"`
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options
@@ -114,6 +119,8 @@ type HelmSpec struct {
 	CleanupOnFail bool `yaml:"cleanupOnFail,omitempty"`
 	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	HistoryMax *int `yaml:"historyMax,omitempty"`
+	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install/upgrade (ignored for helm2)
+	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
 
 	TLS       bool   `yaml:"tls"`
 	TLSCACert string `yaml:"tlsCACert,omitempty"`
@@ -156,6 +163,10 @@ type ReleaseSpec struct {
 	CleanupOnFail *bool `yaml:"cleanupOnFail,omitempty"`
 	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	HistoryMax *int `yaml:"historyMax,omitempty"`
+	// Condition, when set, evaluate the mapping specified in this string to a boolean which decides whether or not to process the release
+	Condition string `yaml:"condition,omitempty"`
+	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install (ignored for helm2)
+	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
@@ -969,6 +980,9 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		if !st.Releases[i].Desired() {
 			continue
 		}
+		if st.Releases[i].Installed != nil && !*(st.Releases[i].Installed) {
+			continue
+		}
 		releases = append(releases, &st.Releases[i])
 	}
 
@@ -1282,14 +1296,18 @@ func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
 }
 
 func (st *HelmState) SelectReleasesWithOverrides() ([]Release, error) {
-	rs, err := markFilteredReleases(st.GetReleasesWithOverrides(), st.Selectors)
+	values, err := st.Values()
+	if err != nil {
+		return nil, err
+	}
+	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, values)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]interface{}) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -1309,19 +1327,29 @@ func markFilteredReleases(releases []ReleaseSpec, selectors []string) ([]Release
 		// Strip off just the last portion for the name stable/newrelic would give newrelic
 		chartSplit := strings.Split(r.Chart, "/")
 		r.Labels["chart"] = chartSplit[len(chartSplit)-1]
-		var matched bool
+		var filterMatch bool
 		for _, f := range filters {
 			if r.Labels == nil {
 				r.Labels = map[string]string{}
 			}
 			if f.Match(r) {
-				matched = true
+				filterMatch = true
 				break
+			}
+		}
+		var conditionMatch bool
+		if len(r.Condition) > 0 {
+			conditionSplit := strings.Split(r.Condition, ".")
+			if len(conditionSplit) != 2 {
+				return nil, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
+			}
+			if values[conditionSplit[0]].(map[string]interface{})["enabled"] == true {
+				conditionMatch = true
 			}
 		}
 		res := Release{
 			ReleaseSpec: r,
-			Filtered:    len(filters) > 0 && !matched,
+			Filtered:    (len(filters) > 0 && !filterMatch) || (len(r.Condition) > 0 && !conditionMatch),
 		}
 		filteredReleases = append(filteredReleases, res)
 	}
@@ -1367,6 +1395,10 @@ func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand st
 
 	for i := range st.Releases {
 		release := st.Releases[i]
+
+		if release.Installed != nil && !*release.Installed {
+			continue
+		}
 
 		if _, err := st.triggerPrepareEvent(&release, helmfileCommand); err != nil {
 			errs = append(errs, newReleaseFailedError(&release, err))
@@ -1461,6 +1493,10 @@ func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
 	for _, release := range st.Releases {
 		if len(release.Chart) == 0 {
 			errs = append(errs, errors.New("chart is required for: "+release.Name))
+			continue
+		}
+
+		if release.Installed != nil && !*release.Installed {
 			continue
 		}
 
@@ -1619,6 +1655,16 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--cleanup-on-fail")
 	}
 
+	if release.CreateNamespace != nil && *release.CreateNamespace ||
+		release.CreateNamespace == nil && (st.HelmDefaults.CreateNamespace == nil || *st.HelmDefaults.CreateNamespace) {
+		if helm.IsVersionAtLeast(3, 2) {
+			flags = append(flags, "--create-namespace")
+		} else if release.CreateNamespace != nil || st.HelmDefaults.CreateNamespace != nil {
+			// createNamespace was set explicitly, but not running supported version of helm - error
+			return nil, fmt.Errorf("releases[].createNamespace requires Helm 3.2.0 or greater")
+		}
+	}
+
 	flags = st.appendConnectionFlags(flags, release)
 
 	var err error
@@ -1760,6 +1806,11 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 			return nil, err
 		}
 		if len(matches) == 0 {
+			err := fmt.Errorf("no matches for path: %s", hf.Path)
+			if st.MissingFileHandler == "Error" {
+				return nil, err
+			}
+			fmt.Println(err)
 			continue
 		}
 		for _, match := range matches {
