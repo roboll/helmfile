@@ -173,7 +173,9 @@ func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBas
 }
 
 func (ld *desiredStateLoader) renderAndLoad(env, overrodeEnv *environment.Environment, baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
-	parts := bytes.Split(content, []byte("\n---\n"))
+	// Allows part-splitting to work with CLRF-ed content
+	normalizedContent := bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
+	parts := bytes.Split(normalizedContent, []byte("\n---\n"))
 
 	var finalState *state.HelmState
 
