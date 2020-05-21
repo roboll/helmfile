@@ -532,6 +532,7 @@ In addition to built-in ones, the following custom template functions are availa
 - `fromYaml` reads a golang string and generates a map
 - `setValueAtPath PATH NEW_VALUE` traverses a golang map, replaces the value at the PATH with NEW_VALUE
 - `toYaml` marshals a map into a string
+- `get` returns the value of the specified key if present in the `.Values` object, otherwise will return the default value defined in the function
 
 ### Values Files Templates
 
@@ -671,7 +672,7 @@ releaseName: prod
 `values.yaml.gotmpl`
 
 ```yaml
-domain: {{ .Values | getOrNil "my.domain" | default "dev.example.com" }}
+domain: {{ .Values | get "my.domain" "dev.example.com" }}
 ```
 
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
