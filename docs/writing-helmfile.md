@@ -146,7 +146,7 @@ bases:
 - environments.yaml
 
 releases:
-- name: metricbaet
+- name: metricbeat
   chart: stable/metricbeat
 - name: myapp
   chart: mychart
@@ -173,7 +173,7 @@ environments:
 releases:
 - name: myapp
   chart: mychart
-- name: metricbaet
+- name: metricbeat
   chart: stable/metricbeat
 ```
 
@@ -186,7 +186,7 @@ environments:
   production:
 
 releases:
-- name: metricbaet
+- name: metricbeat
   chart: stable/metricbeat
 - name: myapp
   chart: mychart
@@ -204,7 +204,7 @@ Helmfile doesn't merge arrays across layers. That is, the below example doesn't 
 
 ```yaml
 releases:
-- name: metricbaet
+- name: metricbeat
   chart: stable/metricbeat
 ---
 releases:
