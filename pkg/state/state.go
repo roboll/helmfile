@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/variantdev/chartify"
 	"io"
 	"io/ioutil"
 	"os"
@@ -699,8 +700,20 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 	}
 }
 
-// downloadCharts will download and untar charts for Lint and Template
-func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string) (map[string]string, []error) {
+// PrepareCharts creates temporary directories of charts.
+//
+// Each resulting "chart" can be one of the followings:
+//
+// (1) local chart
+// (2) temporary local chart generated from kustomization or manifests
+// (3) remote chart
+//
+// When running `helmfile lint` or `helmfile template`, PrepareCharts will download and untar charts for linting and templating.
+//
+// Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
+//
+// If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
+func PrepareCharts(helm helmexec.Interface, st *HelmState, dir string, concurrency int, helmfileCommand string, forceDownload bool) (map[string]string, []error) {
 	temp := make(map[string]string, len(st.Releases))
 	type downloadResults struct {
 		releaseName string
@@ -710,6 +723,12 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 
 	jobQueue := make(chan *ReleaseSpec, len(st.Releases))
 	results := make(chan *downloadResults, len(st.Releases))
+
+	var helm3 bool
+
+	if helm != nil {
+		helm3 = helm.IsHelm3()
+	}
 
 	st.scatterGather(
 		concurrency,
@@ -722,8 +741,24 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 		},
 		func(_ int) {
 			for release := range jobQueue {
-				chartPath := ""
-				if pathExists(normalizeChart(st.basePath, release.Chart)) {
+				var chartPath string
+
+				if shouldChartify, opts := st.PrepareChartify(release); shouldChartify {
+					c := chartify.New(
+						chartify.HelmBin(st.DefaultHelmBinary),
+						chartify.UseHelm3(helm3),
+					)
+
+					out, err := c.Chartify(release.Name, release.Chart, chartify.WithChartifyOpts(opts))
+					if err != nil {
+						errs = append(errs, err)
+					} else {
+						// TODO Chartify
+						chartPath = out
+					}
+				} else if !forceDownload {
+					chartPath = release.Chart
+				} else if pathExists(normalizeChart(st.basePath, release.Chart)) {
 					chartPath = normalizeChart(st.basePath, release.Chart)
 				} else {
 					fetchFlags := []string{}
@@ -751,6 +786,7 @@ func (st *HelmState) downloadCharts(helm helmexec.Interface, dir string, concurr
 						chartPath = filepath.Dir(fullChartPath)
 					}
 				}
+
 				results <- &downloadResults{release.Name, chartPath}
 			}
 		},
@@ -789,20 +825,6 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 	helm.SetExtraArgs()
 
 	errs := []error{}
-	// Create tmp directory and bail immediately if it fails
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		errs = append(errs, err)
-		return errs
-	}
-	defer os.RemoveAll(dir)
-
-	temp, errs := st.downloadCharts(helm, dir, workerLimit, "template")
-
-	if errs != nil {
-		errs = append(errs, err)
-		return errs
-	}
 
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
@@ -856,7 +878,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 		}
 
 		if len(errs) == 0 {
-			if err := helm.TemplateRelease(release.Name, temp[release.Name], flags...); err != nil {
+			if err := helm.TemplateRelease(release.Name, release.Chart, flags...); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -894,19 +916,6 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 	helm.SetExtraArgs()
 
 	errs := []error{}
-	// Create tmp directory and bail immediately if it fails
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		errs = append(errs, err)
-		return errs
-	}
-	defer os.RemoveAll(dir)
-
-	temp, errs := st.downloadCharts(helm, dir, workerLimit, "lint")
-	if errs != nil {
-		errs = append(errs, err)
-		return errs
-	}
 
 	if len(args) > 0 {
 		helm.SetExtraArgs(args...)
@@ -942,7 +951,7 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 		}
 
 		if len(errs) == 0 {
-			if err := helm.Lint(release.Name, temp[release.Name], flags...); err != nil {
+			if err := helm.Lint(release.Name, release.Chart, flags...); err != nil {
 				errs = append(errs, err)
 			}
 		}

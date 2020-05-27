@@ -38,9 +38,7 @@ func (st *HelmState) scatterGather(concurrency int, items int, produceInputs fun
 
 	for w := 1; w <= concurrency; w++ {
 		go func(id int) {
-			st.logger.Debugf("worker %d/%d started", id, concurrency)
 			receiveInputsAndProduceIntermediates(id)
-			st.logger.Debugf("worker %d/%d finished", id, concurrency)
 			waitGroup.Done()
 		}(w)
 	}

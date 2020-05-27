@@ -5,6 +5,8 @@ import (
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
+	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 )
@@ -13,6 +15,8 @@ type Run struct {
 	state *state.HelmState
 	helm  helmexec.Interface
 	ctx   Context
+
+	ReleaseToChart map[string]string
 
 	Ask func(string) bool
 }
@@ -26,6 +30,37 @@ func (r *Run) askForConfirmation(msg string) bool {
 		return r.Ask(msg)
 	}
 	return AskForConfirmation(msg)
+}
+
+func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
+	if r.ReleaseToChart != nil {
+		panic("Run.PrepareCharts can be called only once")
+	}
+
+	// Create tmp directory and bail immediately if it fails
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+
+	releaseToChart, errs := state.PrepareCharts(r.helm, r.state, dir, 2, "template", forceDownload)
+
+	if len(errs) > 0 {
+		return fmt.Errorf("%v", errs)
+	}
+
+	for i := range r.state.Releases {
+		rel := &r.state.Releases[i]
+
+		rel.Chart = releaseToChart[rel.Name]
+	}
+
+	r.ReleaseToChart = releaseToChart
+
+	f()
+
+	return nil
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {

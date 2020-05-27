@@ -1,5 +1,10 @@
 package state
 
+import (
+	"github.com/variantdev/chartify"
+	"strings"
+)
+
 type Dependency struct {
 	Chart   string `yaml:"chart"`
 	Version string `yaml:"version"`
@@ -7,49 +12,73 @@ type Dependency struct {
 }
 
 func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) ([]string, error) {
+	for _, adopt := range release.Adopt {
+		flags = append(flags, "--adopt", adopt)
+	}
+
+	return flags, nil
+}
+
+func (st *HelmState) PrepareChartify(release *ReleaseSpec) (bool, *chartify.ChartifyOpts) {
+	var opts chartify.ChartifyOpts
+
+	var shouldRun bool
+
 	for _, d := range release.Dependencies {
 		var dep string
+
 		if d.Alias != "" {
 			dep += d.Alias + "="
+		} else {
+			a := strings.Split(d.Chart, "/")
+
+			chart := a[len(a)-1]
+
+			dep += chart + "="
 		}
+
 		dep += d.Chart
+
 		if d.Version != "" {
 			dep += ":" + d.Version
 		}
-		flags = append(flags, "--dependency", dep)
-	}
 
-	for _, adopt := range release.Adopt {
-		flags = append(flags, "--adopt", adopt)
+		opts.AdhocChartDependencies = append(opts.AdhocChartDependencies, dep)
+
+		shouldRun = true
 	}
 
 	jsonPatches := release.JSONPatches
 	if len(jsonPatches) > 0 {
 		generatedFiles, err := st.generateTemporaryValuesFiles(jsonPatches, release.MissingFileHandler)
 		if err != nil {
-			return nil, err
+			return false, nil
 		}
 
 		for _, f := range generatedFiles {
-			flags = append(flags, "--json-patch", f)
+			opts.JsonPatches = append(opts.JsonPatches, f)
 		}
 
 		release.generatedValues = append(release.generatedValues, generatedFiles...)
+
+		shouldRun = true
 	}
 
 	strategicMergePatches := release.StrategicMergePatches
 	if len(strategicMergePatches) > 0 {
 		generatedFiles, err := st.generateTemporaryValuesFiles(strategicMergePatches, release.MissingFileHandler)
 		if err != nil {
-			return nil, err
+			return false, nil
 		}
 
 		for _, f := range generatedFiles {
-			flags = append(flags, "--strategic-merge-patch", f)
+			opts.StrategicMergePatches = append(opts.StrategicMergePatches, f)
 		}
 
 		release.generatedValues = append(release.generatedValues, generatedFiles...)
+
+		shouldRun = true
 	}
 
-	return flags, nil
+	return shouldRun, &opts
 }
