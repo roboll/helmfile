@@ -148,9 +148,9 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 	err := a.ForEachState(func(run *Run) (bool, []error) {
 		var criticalErrs []error
-    
+
 		var msg *string
-    
+
 		var matched, affected bool
 
 		var errs []error
@@ -162,8 +162,8 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		if msg != nil {
 			a.Logger.Info(*msg)
 		}
-    
-    if err != nil {
+
+		if err != nil {
 			errs = append(errs, err)
 		}
 
@@ -398,7 +398,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 
 		if err != nil {
 			errs = append(errs, err)
-    }
+		}
 
 		return errs
 	})

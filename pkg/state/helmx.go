@@ -1,6 +1,6 @@
 package state
 
-import(
+import (
 	"github.com/variantdev/chartify"
 	"strings"
 )
