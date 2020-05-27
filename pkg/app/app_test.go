@@ -2715,10 +2715,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 10 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   anotherbackend (charts/anotherbackend) UPDATED
   backend-v1 (charts/backend) DELETED
@@ -2739,11 +2735,7 @@ GROUP RELEASES
 5     logging, front-proxy
 
 processing releases in group 1/5: frontend-v1, frontend-v2, frontend-v3
-worker 1/1 started
-worker 1/1 finished
 processing releases in group 2/5: backend-v1, backend-v2
-worker 1/1 started
-worker 1/1 finished
 processing releases in group 3/5: anotherbackend
 processing releases in group 4/5: database, servicemesh
 processing releases in group 5/5: logging, front-proxy
@@ -2756,37 +2748,17 @@ GROUP RELEASES
 5     frontend-v1, frontend-v2, frontend-v3
 
 processing releases in group 1/5: logging, front-proxy
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^logging$ --kube-contextdefault--deployed--failed--pending}
 getting deployed release version failed:unexpected list key: {^front-proxy$ --kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 processing releases in group 2/5: database, servicemesh
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^database$ --kube-contextdefault--deployed--failed--pending}
 getting deployed release version failed:unexpected list key: {^servicemesh$ --kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 processing releases in group 3/5: anotherbackend
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^anotherbackend$ --kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 processing releases in group 4/5: backend-v1, backend-v2
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^backend-v2$ --kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 processing releases in group 5/5: frontend-v1, frontend-v2, frontend-v3
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^frontend-v3$ --kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 
 UPDATED RELEASES:
 NAME             CHART                   VERSION
@@ -2904,10 +2876,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 3 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   bar (mychart2) UPDATED
   baz (mychart3) UPDATED
@@ -2919,18 +2887,10 @@ GROUP RELEASES
 2     foo
 
 processing releases in group 1/2: baz, bar
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^baz$ --kube-contextdefault--deployed--failed--pending}
 getting deployed release version failed:unexpected list key: {^bar$ --kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 processing releases in group 2/2: foo
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^foo$ --kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 
 UPDATED RELEASES:
 NAME   CHART      VERSION
@@ -3184,10 +3144,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   bar (mychart2) UPDATED
   foo (mychart1) UPDATED
@@ -3198,17 +3154,9 @@ GROUP RELEASES
 2     tns2/ns2/bar
 
 processing releases in group 1/2: tns1/ns1/foo
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^foo$ --tiller-namespacetns1--kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 processing releases in group 2/2: tns2/ns2/bar
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^bar$ --tiller-namespacetns2--kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 
 UPDATED RELEASES:
 NAME   CHART      VERSION
@@ -3532,10 +3480,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
@@ -3552,19 +3496,11 @@ processing releases in group 1/3: kube-system/kubernetes-external-secrets
 processing releases in group 2/3: default/external-secrets
 1 release(s) matching app=test found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 processing releases in group 3/3: default/my-release
 1 release(s) matching app=test found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
 getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
-worker 1/1 finished
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
@@ -3736,10 +3672,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   baz (mychart3) UPDATED
   foo (mychart1) UPDATED

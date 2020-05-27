@@ -324,10 +324,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 10 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   anotherbackend (charts/anotherbackend) UPDATED
   backend-v1 (charts/backend) DELETED
@@ -440,10 +436,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 3 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   bar (mychart2) UPDATED
   baz (mychart3) UPDATED
@@ -687,10 +679,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   bar (mychart2) UPDATED
   foo (mychart1) UPDATED
@@ -1001,10 +989,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
