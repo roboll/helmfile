@@ -1,4 +1,4 @@
-FROM golang:1.13.7-alpine3.11 as builder
+FROM golang:1.14.2-alpine3.11 as builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -20,6 +20,7 @@ RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
     sha256sum ${HELM_FILENAME} | grep -q "${HELM_SHA256}" && \
     echo Extracting ${HELM_FILENAME}... && \
     tar zxvf ${HELM_FILENAME} && mv /linux-amd64/helm /usr/local/bin/ && \
+    mv /linux-amd64/tiller /usr/local/bin/ && \
     rm ${HELM_FILENAME} && rm -r /linux-amd64
 
 # using the install documentation found at https://kubernetes.io/docs/tasks/tools/install-kubectl/
@@ -27,7 +28,7 @@ RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
 # we should be able to install using apk add.
 ENV KUBECTL_VERSION="v1.14.5"
 ENV KUBECTL_SHA256="26681319de56820a8467c9407e9203d5b15fb010ffc75ac5b99c9945ad0bd28c"
-RUN curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
+RUN curl --retry 3 -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
     sha256sum kubectl | grep ${KUBECTL_SHA256} && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/kubectl

@@ -284,6 +284,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 54: 
 
 merged environment: &{default map[] map[]}
+10 release(s) found in helmfile.yaml
+
 processing 5 groups of releases in this order:
 GROUP RELEASES
 1     frontend-v3, frontend-v2, frontend-v1

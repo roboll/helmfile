@@ -133,3 +133,47 @@ func TestTpl(t *testing.T) {
 		t.Errorf("unexpected result: expected=%v, actual=%v", expected, actual)
 	}
 }
+
+func TestRequired(t *testing.T) {
+	type args struct {
+		warn string
+		val  interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{
+		{
+			name:    "required val is nil",
+			args:    args{warn: "This value is required", val: nil},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "required val is empty string",
+			args:    args{warn: "This value is required", val: ""},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "required val is existed",
+			args:    args{warn: "This value is required", val: "foo"},
+			want:    "foo",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Required(tt.args.warn, tt.args.val)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Required() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Required() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

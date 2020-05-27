@@ -14,18 +14,13 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	"github.com/gosuri/uitable"
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/plugins"
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-)
-
-const (
-	// cache size for improving performance of ref+.* secrets rendering
-	valsCacheSize = 512
 )
 
 type App struct {
@@ -60,6 +55,13 @@ type App struct {
 	helmsMutex sync.Mutex
 }
 
+type HelmRelease struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Enabled   bool   `json:"enabled"`
+	Labels    string `json:"labels"`
+}
+
 func New(conf ConfigProvider) *App {
 	return Init(&App{
 		OverrideKubeContext: conf.KubeContext(),
@@ -89,7 +91,7 @@ func Init(app *App) *App {
 	app.directoryExistsAt = directoryExistsAt
 
 	var err error
-	app.valsRuntime, err = vals.New(vals.Options{CacheSize: valsCacheSize})
+	app.valsRuntime, err = plugins.ValsInstance()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize vals runtime: %v", err))
 	}
@@ -140,17 +142,68 @@ func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 }
 
 func (a *App) Diff(c DiffConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+	var allDiffDetectedErrs []error
+
+	var affectedAny bool
+
+	err := a.ForEachState(func(run *Run) (bool, []error) {
+		var criticalErrs []error
+    
+		var msg *string
+    
+		var matched, affected bool
+
+		var errs []error
+
 		err := run.withPreparedCharts(false, func() {
-			errs = run.Diff(c)
+			msg, matched, affected, errs = run.Diff(c)
 		})
 
-		if err != nil {
+		if msg != nil {
+			a.Logger.Info(*msg)
+		}
+    
+    if err != nil {
 			errs = append(errs, err)
 		}
 
-		return
+		affectedAny = affectedAny || affected
+
+		for i := range errs {
+			switch e := errs[i].(type) {
+			case *state.ReleaseError:
+				switch e.Code {
+				case 2:
+					// See https://github.com/roboll/helmfile/issues/874
+					allDiffDetectedErrs = append(allDiffDetectedErrs, e)
+				default:
+					criticalErrs = append(criticalErrs, e)
+				}
+			default:
+				criticalErrs = append(criticalErrs, e)
+			}
+		}
+
+		return matched, criticalErrs
 	})
+
+	if err != nil {
+		return err
+	}
+
+	if c.DetailedExitcode() && (len(allDiffDetectedErrs) > 0 || affectedAny) {
+		// We take the first release error w/ exit status 2 (although all the defered errs should have exit status 2)
+		// to just let helmfile itself to exit with 2
+		// See https://github.com/roboll/helmfile/issues/749
+		code := 2
+		e := &Error{
+			msg:  "Identified at least on change",
+			code: &code,
+		}
+		return e
+	}
+
+	return nil
 }
 
 func (a *App) Template(c TemplateConfigProvider) error {
@@ -318,9 +371,8 @@ func (a *App) PrintState(c StateConfigProvider) error {
 	})
 }
 
-func (a *App) ListReleases(c StateConfigProvider) error {
-	table := uitable.New()
-	table.AddRow("NAME", "NAMESPACE", "ENABLED", "LABELS")
+func (a *App) ListReleases(c ListConfigProvider) error {
+	var releases []*HelmRelease
 
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) []error {
 		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, func() {
@@ -331,8 +383,14 @@ func (a *App) ListReleases(c StateConfigProvider) error {
 				for k, v := range r.Labels {
 					labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
 				}
+				labels = strings.Trim(labels, ",")
 				installed := r.Installed == nil || *r.Installed
-				table.AddRow(r.Name, r.Namespace, fmt.Sprintf("%t", installed), strings.Trim(labels, ","))
+				releases = append(releases, &HelmRelease{
+					Name:      r.Name,
+					Namespace: r.Namespace,
+					Enabled:   installed,
+					Labels:    labels,
+				})
 			}
 		})
 
@@ -340,11 +398,21 @@ func (a *App) ListReleases(c StateConfigProvider) error {
 
 		if err != nil {
 			errs = append(errs, err)
-		}
+    }
 
 		return errs
 	})
-	fmt.Println(table.String())
+
+	if err != nil {
+		return err
+	}
+
+	if c.Output() == "json" {
+		err = FormatAsJson(releases)
+	} else {
+		err = FormatAsTable(releases)
+	}
+
 	return err
 }
 
@@ -527,34 +595,44 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		}
 		st.Selectors = opts.Selectors
 
-		if len(st.Helmfiles) > 0 {
-			noMatchInSubHelmfiles := true
-			for i, m := range st.Helmfiles {
-				optsForNestedState := LoadOpts{
-					CalleePath:        filepath.Join(d, f),
-					Environment:       m.Environment,
-					Reverse:           defOpts.Reverse,
-					RetainValuesFiles: defOpts.RetainValuesFiles,
-				}
-				//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
-				if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
-					optsForNestedState.Selectors = opts.Selectors
-				} else {
-					optsForNestedState.Selectors = m.Selectors
-				}
-
-				if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
-					switch err.(type) {
-					case *NoMatchingHelmfileError:
-
-					default:
-						return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+		visitSubHelmfiles := func() error {
+			if len(st.Helmfiles) > 0 {
+				noMatchInSubHelmfiles := true
+				for i, m := range st.Helmfiles {
+					optsForNestedState := LoadOpts{
+						CalleePath:        filepath.Join(d, f),
+						Environment:       m.Environment,
+						Reverse:           defOpts.Reverse,
+						RetainValuesFiles: defOpts.RetainValuesFiles,
 					}
-				} else {
-					noMatchInSubHelmfiles = false
+					//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
+					if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
+						optsForNestedState.Selectors = opts.Selectors
+					} else {
+						optsForNestedState.Selectors = m.Selectors
+					}
+
+					if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
+						switch err.(type) {
+						case *NoMatchingHelmfileError:
+
+						default:
+							return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+						}
+					} else {
+						noMatchInSubHelmfiles = false
+					}
 				}
+				noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
 			}
-			noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
+			return nil
+		}
+
+		if !opts.Reverse {
+			err = visitSubHelmfiles()
+			if err != nil {
+				return err
+			}
 		}
 
 		templated, tmplErr := st.ExecuteTemplates()
@@ -564,6 +642,13 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 
 		processed, errs := converge(templated)
 		noMatchInHelmfiles = noMatchInHelmfiles && !processed
+
+		if opts.Reverse {
+			err = visitSubHelmfiles()
+			if err != nil {
+				return err
+			}
+		}
 
 		return context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
 	})
@@ -734,7 +819,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 	return a.visitStates(fileOrDir, opts, converge)
 }
 
-func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error) (bool, []error) {
+func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, converge func(st *state.HelmState) []error) (bool, []error) {
 	if len(st.Selectors) > 0 {
 		err := st.FilterReleases()
 		if err != nil {
@@ -748,11 +833,15 @@ func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmSt
 
 	releaseNameCounts := map[Key]int{}
 	for _, r := range st.Releases {
-		tillerNamespace := st.HelmDefaults.TillerNamespace
-		if r.TillerNamespace != "" {
-			tillerNamespace = r.TillerNamespace
+		namespace := r.Namespace
+		if !helm.IsHelm3() {
+			if r.TillerNamespace != "" {
+				namespace = r.TillerNamespace
+			} else {
+				namespace = st.HelmDefaults.TillerNamespace
+			}
 		}
-		releaseNameCounts[Key{tillerNamespace, r.Name}]++
+		releaseNameCounts[Key{namespace, r.Name}]++
 	}
 	for name, c := range releaseNameCounts {
 		if c > 1 {
@@ -769,7 +858,7 @@ func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmSt
 
 func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 	return func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
-		return processFilteredReleases(st, func(st *state.HelmState) []error {
+		return processFilteredReleases(st, helm, func(st *state.HelmState) []error {
 			return converge(st, helm)
 		})
 	}
@@ -777,7 +866,7 @@ func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) 
 
 func (a *App) VisitDesiredStatesWithReleasesFiltered(fileOrDir string, converge func(*state.HelmState) []error, o ...LoadOption) error {
 	return a.visitStatesWithSelectorsAndRemoteSupport(fileOrDir, func(st *state.HelmState) (bool, []error) {
-		return processFilteredReleases(st, converge)
+		return processFilteredReleases(st, a.getHelm(st), converge)
 	}, o...)
 }
 
@@ -883,84 +972,28 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		Set:     c.Set(),
 	}
 
-	var changedReleases []state.ReleaseSpec
-	var deletingReleases []state.ReleaseSpec
-	var planningErrs []error
+	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
+	if len(errs) > 0 {
+		return false, false, errs
+	}
 
-	// TODO Better way to detect diff on only filtered releases
-	{
-		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.SuppressSecrets(), c.SuppressDiff(), false, diffOpts)
-
-		var err error
-		deletingReleases, err = st.DetectReleasesToBeDeletedForSync(helm, st.Releases)
-		if err != nil {
-			planningErrs = append(planningErrs, err)
+	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
+		if infoMsg != nil {
+			logger := c.Logger()
+			logger.Infof("")
+			logger.Infof(*infoMsg)
 		}
-	}
-
-	fatalErrs := []error{}
-
-	for _, e := range planningErrs {
-		switch err := e.(type) {
-		case *state.ReleaseError:
-			if err.Code != 2 {
-				fatalErrs = append(fatalErrs, e)
-			}
-		default:
-			fatalErrs = append(fatalErrs, e)
-		}
-	}
-
-	if len(fatalErrs) > 0 {
-		return false, false, fatalErrs
-	}
-
-	releasesToBeDeleted := map[string]state.ReleaseSpec{}
-	for _, r := range deletingReleases {
-		id := state.ReleaseToID(&r)
-		releasesToBeDeleted[id] = r
-	}
-
-	releasesToBeUpdated := map[string]state.ReleaseSpec{}
-	for _, r := range changedReleases {
-		id := state.ReleaseToID(&r)
-
-		// If `helm-diff` detected changes but it is not being `helm delete`ed, we should run `helm upgrade`
-		if _, ok := releasesToBeDeleted[id]; !ok {
-			releasesToBeUpdated[id] = r
-		}
-	}
-
-	// sync only when there are changes
-	if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 {
-		// TODO better way to get the logger
-		logger := c.Logger()
-		logger.Infof("")
-		logger.Infof("No affected releases")
 		return true, false, nil
 	}
 
-	names := []string{}
-	for _, r := range releasesToBeUpdated {
-		names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
-	}
-	for _, r := range releasesToBeDeleted {
-		names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
-	}
-	// Make the output deterministic for testing purpose
-	sort.Strings(names)
-
-	infoMsg := fmt.Sprintf(`Affected releases are:
-%s
-`, strings.Join(names, "\n"))
 	confMsg := fmt.Sprintf(`%s
 Do you really want to apply?
   Helmfile will apply all your changes, as shown above.
 
-`, infoMsg)
+`, *infoMsg)
 	interactive := c.Interactive()
 	if !interactive {
-		a.Logger.Debug(infoMsg)
+		a.Logger.Debug(*infoMsg)
 	}
 
 	syncErrs := []error{}
@@ -1250,6 +1283,9 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	releasesToRender := map[string]state.ReleaseSpec{}
 	for _, r := range toRender {
 		id := state.ReleaseToID(&r)
+		if r.Installed != nil && !*r.Installed {
+			continue
+		}
 		releasesToRender[id] = r
 	}
 
@@ -1382,7 +1418,7 @@ func (e *Error) Code() int {
 	panic(fmt.Sprintf("[bug] assertion error: unexpected state: unable to handle errors: %v", e.Errors))
 }
 
-func appError(msg string, err error) error {
+func appError(msg string, err error) *Error {
 	return &Error{msg: msg, Errors: []error{err}}
 }
 

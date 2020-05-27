@@ -17,15 +17,18 @@ type Values = map[string]interface{}
 
 func (c *Context) createFuncMap() template.FuncMap {
 	funcMap := template.FuncMap{
-		"exec":           c.Exec,
-		"readFile":       c.ReadFile,
-		"toYaml":         ToYaml,
-		"fromYaml":       FromYaml,
-		"setValueAtPath": SetValueAtPath,
-		"requiredEnv":    RequiredEnv,
-		"get":            get,
-		"getOrNil":       getOrNil,
-		"tpl":            c.Tpl,
+		"exec":             c.Exec,
+		"readFile":         c.ReadFile,
+		"toYaml":           ToYaml,
+		"fromYaml":         FromYaml,
+		"setValueAtPath":   SetValueAtPath,
+		"requiredEnv":      RequiredEnv,
+		"get":              get,
+		"getOrNil":         getOrNil,
+		"tpl":              c.Tpl,
+		"required":         Required,
+		"fetchSecretValue": fetchSecretValue,
+		"expandSecretRefs": fetchSecretValues,
 	}
 	if c.preRender {
 		// disable potential side-effect template calls
@@ -241,4 +244,16 @@ func RequiredEnv(name string) (string, error) {
 	}
 
 	return "", fmt.Errorf("required env var `%s` is not set", name)
+}
+
+func Required(warn string, val interface{}) (interface{}, error) {
+	if val == nil {
+		return nil, fmt.Errorf(warn)
+	} else if _, ok := val.(string); ok {
+		if val == "" {
+			return nil, fmt.Errorf(warn)
+		}
+	}
+
+	return val, nil
 }

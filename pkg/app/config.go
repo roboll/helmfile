@@ -40,6 +40,8 @@ type ApplyConfigProvider interface {
 	Set() []string
 	SkipDeps() bool
 
+	IncludeTests() bool
+
 	SuppressSecrets() bool
 	SuppressDiff() bool
 
@@ -72,6 +74,8 @@ type DiffConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+
+	IncludeTests() bool
 
 	SuppressSecrets() bool
 	SuppressDiff() bool
@@ -151,4 +155,8 @@ type loggingConfig interface {
 
 type interactive interface {
 	Interactive() bool
+}
+
+type ListConfigProvider interface {
+	Output() string
 }

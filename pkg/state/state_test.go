@@ -163,9 +163,11 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		version  *helmexec.Version
 		defaults HelmSpec
 		release  *ReleaseSpec
 		want     []string
+		wantErr  string
 	}{
 		{
 			name: "no-options",
@@ -573,6 +575,121 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--tls-ca-cert", "ca.pem",
 			},
 		},
+		{
+			name: "create-namespace-default-helm3.2",
+			defaults: HelmSpec{
+				Verify: false,
+			},
+			version: &helmexec.Version{
+				Major: 3,
+				Minor: 2,
+				Patch: 0,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--create-namespace",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "create-namespace-disabled-helm3.2",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: &helmexec.Version{
+				Major: 3,
+				Minor: 2,
+				Patch: 0,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "create-namespace-release-override-enabled-helm3.2",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: &helmexec.Version{
+				Major: 3,
+				Minor: 2,
+				Patch: 0,
+			},
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &enable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--create-namespace",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "create-namespace-release-override-disabled-helm3.2",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: &helmexec.Version{
+				Major: 3,
+				Minor: 2,
+				Patch: 0,
+			},
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "create-namespace-unsupported",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: &helmexec.Version{
+				Major: 2,
+				Minor: 16,
+				Patch: 0,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			wantErr: "releases[].createNamespace requires Helm 3.2.0 or greater",
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -584,10 +701,16 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				HelmDefaults:      tt.defaults,
 				valsRuntime:       valsRuntime,
 			}
-			helm := helmexec.New("helm", logger, "default", &mockRunner{})
+			helm := &exectest.Helm{
+				Version: tt.version,
+			}
+
 			args, err := state.flagsForUpgrade(helm, tt.release, 0)
-			if err != nil {
-				t.Errorf("unexpected error flagsForUpgade: %v", err)
+			if err != nil && tt.wantErr == "" {
+				t.Errorf("unexpected error flagsForUpgrade: %v", err)
+			}
+			if tt.wantErr != "" && (err == nil || err.Error() != tt.wantErr) {
+				t.Errorf("expected error '%v'; got '%v'", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(args, tt.want) {
 				t.Errorf("flagsForUpgrade returned = %v, want %v", args, tt.want)
@@ -1391,7 +1514,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				logger:      logger,
 				valsRuntime: valsRuntime,
 			}
-			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false)
+			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false)
 			if errs != nil && len(errs) > 0 {
 				t.Errorf("unexpected error: %v", errs)
 			}
@@ -1556,7 +1679,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 `,
 			})
 			state = injectFs(state, testfs)
-			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false); errs != nil && len(errs) > 0 {
+			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false); errs != nil && len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
 

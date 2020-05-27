@@ -17,6 +17,15 @@ func NewContext() Context {
 func (ctx Context) SyncReposOnce(st *state.HelmState, helm state.RepoUpdater) []error {
 	var errs []error
 
+	hasInstalled := false
+	for _, release := range st.Releases {
+		hasInstalled = hasInstalled || release.Installed == nil || *release.Installed
+	}
+
+	if !hasInstalled {
+		return errs
+	}
+
 	allUpdated := true
 	for _, r := range st.Repositories {
 		_, exists := ctx.updatedRepos[r.Name]

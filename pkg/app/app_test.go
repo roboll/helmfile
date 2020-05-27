@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/roboll/helmfile/pkg/exectest"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
@@ -24,7 +24,7 @@ import (
 	"github.com/variantdev/vals"
 
 	"go.uber.org/zap"
-	"gotest.tools/env"
+	"gotest.tools/v3/env"
 )
 
 func appWithFs(app *App, files map[string]string) *App {
@@ -45,12 +45,16 @@ func injectFs(app *App, fs *testhelper.TestFs) *App {
 }
 
 func expectNoCallsToHelm(app *App) {
+	expectNoCallsToHelmVersion(app, false)
+}
+
+func expectNoCallsToHelmVersion(app *App, isHelm3 bool) {
 	if app.helms != nil {
 		panic("invalid call to expectNoCallsToHelm")
 	}
 
 	app.helms = map[helmKey]helmexec.Interface{
-		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): &noCallHelmExec{},
+		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): &versionOnlyHelmExec{isHelm3: isHelm3},
 	}
 }
 
@@ -1243,6 +1247,178 @@ releases:
 	}
 }
 
+// See https://github.com/roboll/helmfile/issues/1213
+func TestVisitDesiredStatesWithReleases_DuplicateReleasesHelm2(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  namespace: foo
+  chart: charts/foo
+- name: foo
+  namespace: bar
+  chart: charts/foo
+`,
+	}
+
+	actual := []state.ReleaseSpec{}
+
+	collectReleases := func(st *state.HelmState) []error {
+		for _, r := range st.Releases {
+			actual = append(actual, r)
+		}
+		return []error{}
+	}
+	app := appWithFs(&App{
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "default",
+	}, files)
+
+	expectNoCallsToHelmVersion(app, false)
+
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", collectReleases,
+	)
+
+	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in \"\": there were 2 releases named \"foo\" matching specified selector"
+	if err == nil {
+		t.Errorf("error expected but not happened")
+	} else if err.Error() != expected {
+		t.Errorf("unexpected error message: expected=\"%s\", actual=\"%s\"", expected, err.Error())
+	}
+}
+
+// See https://github.com/roboll/helmfile/issues/1213
+func TestVisitDesiredStatesWithReleases_NoDuplicateReleasesHelm2(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  namespace: foo
+  tillerNamespace: tns1
+  chart: charts/foo
+- name: foo
+  namespace: bar
+  tillerNamespace: tns2
+  chart: charts/foo
+`,
+	}
+
+	actual := []state.ReleaseSpec{}
+
+	collectReleases := func(st *state.HelmState) []error {
+		for _, r := range st.Releases {
+			actual = append(actual, r)
+		}
+		return []error{}
+	}
+	app := appWithFs(&App{
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "default",
+	}, files)
+
+	expectNoCallsToHelmVersion(app, false)
+
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", collectReleases,
+	)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// See https://github.com/roboll/helmfile/issues/1213
+func TestVisitDesiredStatesWithReleases_NoDuplicateReleasesHelm3(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  namespace: foo
+  chart: charts/foo
+- name: foo
+  namespace: bar
+  chart: charts/foo
+`,
+	}
+
+	actual := []state.ReleaseSpec{}
+
+	collectReleases := func(st *state.HelmState) []error {
+		for _, r := range st.Releases {
+			actual = append(actual, r)
+		}
+		return []error{}
+	}
+	app := appWithFs(&App{
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "default",
+	}, files)
+
+	expectNoCallsToHelmVersion(app, true)
+
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", collectReleases,
+	)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// See https://github.com/roboll/helmfile/issues/1213
+func TestVisitDesiredStatesWithReleases_DuplicateReleasesHelm3(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  namespace: foo
+  chart: charts/foo
+- name: foo
+  namespace: foo
+  chart: charts/foo
+`,
+	}
+
+	actual := []state.ReleaseSpec{}
+
+	collectReleases := func(st *state.HelmState) []error {
+		for _, r := range st.Releases {
+			actual = append(actual, r)
+		}
+		return []error{}
+	}
+	app := appWithFs(&App{
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "default",
+	}, files)
+
+	expectNoCallsToHelmVersion(app, true)
+
+	err := app.VisitDesiredStatesWithReleasesFiltered(
+		"helmfile.yaml", collectReleases,
+	)
+
+	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in \"foo\": there were 2 releases named \"foo\" matching specified selector"
+	if err == nil {
+		t.Errorf("error expected but not happened")
+	} else if err.Error() != expected {
+		t.Errorf("unexpected error message: expected=\"%s\", actual=\"%s\"", expected, err.Error())
+	}
+}
+
 func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`releases:
@@ -1962,7 +2138,8 @@ services:
 }
 
 type configImpl struct {
-	set []string
+	set    []string
+	output string
 }
 
 func (c configImpl) Set() []string {
@@ -1993,6 +2170,10 @@ func (c configImpl) Concurrency() int {
 	return 1
 }
 
+func (c configImpl) Output() string {
+	return c.output
+}
+
 type applyConfig struct {
 	args              string
 	values            []string
@@ -2000,6 +2181,7 @@ type applyConfig struct {
 	set               []string
 	validate          bool
 	skipDeps          bool
+	includeTests      bool
 	suppressSecrets   bool
 	suppressDiff      bool
 	noColor           bool
@@ -2028,6 +2210,10 @@ func (a applyConfig) Validate() bool {
 
 func (a applyConfig) SkipDeps() bool {
 	return a.skipDeps
+}
+
+func (a applyConfig) IncludeTests() bool {
+	return a.includeTests
 }
 
 func (a applyConfig) SuppressSecrets() bool {
@@ -2155,6 +2341,14 @@ func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) IsHelm3() bool {
+	return false
+}
+
+func (helm *mockHelmExec) GetVersion() helmexec.Version {
+	return helmexec.Version{}
+}
+
+func (helm *mockHelmExec) IsVersionAtLeast(major int, minor int) bool {
 	return false
 }
 
@@ -2519,6 +2713,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 54: 
 
 merged environment: &{default map[] map[]}
+10 release(s) found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
@@ -2706,6 +2902,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 10: 
 
 merged environment: &{default map[] map[]}
+3 release(s) found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
@@ -2984,6 +3182,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 12: 
 
 merged environment: &{default map[] map[]}
+2 release(s) found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
@@ -3330,6 +3530,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default map[] map[]}
+2 release(s) matching app=test found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
@@ -3468,6 +3670,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default map[] map[]}
+0 release(s) matching app=test_non_existent found in helmfile.yaml
+
 `,
 		},
 		//
@@ -3530,6 +3734,8 @@ second-pass rendering result of "helmfile.yaml.part.0":
  9: 
 
 merged environment: &{default map[] map[]}
+2 release(s) found in helmfile.yaml
+
 worker 1/1 started
 worker 1/1 finished
 worker 1/1 started
@@ -3721,6 +3927,8 @@ releases:
 		Namespace:           "testNamespace",
 	}, files)
 
+	expectNoCallsToHelm(app)
+
 	out := captureStdout(func() {
 		err := app.PrintState(configImpl{})
 		assert.NilError(t, err)
@@ -3765,6 +3973,9 @@ releases:
 		Logger:              logger,
 		Namespace:           "testNamespace",
 	}, files)
+
+	expectNoCallsToHelm(app)
+
 	out := captureStdout(func() {
 		err := app.PrintState(configImpl{})
 		assert.NilError(t, err)
@@ -3832,6 +4043,63 @@ myrelease4	         	true   	id:myrelease1
 	assert.Equal(t, expected, out)
 }
 
+func TestListWithJsonOutput(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+  installed: no
+  labels:
+    id: myrelease1
+- name: myrelease2
+  chart: mychart1
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: myrelease3
+  chart: mychart1
+  installed: yes
+- name: myrelease4
+  chart: mychart1
+  labels:
+    id: myrelease1
+`,
+	}
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:  DefaultHelmBinary,
+		glob:                filepath.Glob,
+		abs:                 filepath.Abs,
+		OverrideKubeContext: "default",
+		Env:                 "default",
+		Logger:              logger,
+		Namespace:           "testNamespace",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	out := captureStdout(func() {
+		err := app.ListReleases(configImpl{
+			output: "json",
+		})
+		assert.NilError(t, err)
+	})
+
+	expected := "[" +
+		"{\"name\":\"myrelease1\",\"namespace\":\"\",\"enabled\":false,\"labels\":\"id:myrelease1\"}," +
+		"{\"name\":\"myrelease2\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"\"}," +
+		"{\"name\":\"myrelease3\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"\"}," +
+		"{\"name\":\"myrelease4\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"id:myrelease1\"}" +
+		"]\n"
+	assert.Equal(t, expected, out)
+}
+
 func TestSetValuesTemplate(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
@@ -3863,6 +4131,8 @@ releases:
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 		Env:                 "default",
 	}, files)
+
+	expectNoCallsToHelm(app)
 
 	var specs []state.ReleaseSpec
 	collectReleases := func(st *state.HelmState) []error {
