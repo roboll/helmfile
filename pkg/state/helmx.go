@@ -1,6 +1,7 @@
 package state
 
 import (
+	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/variantdev/chartify"
 	"strings"
 )
@@ -19,10 +20,14 @@ func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) ([]s
 	return flags, nil
 }
 
-func (st *HelmState) PrepareChartify(release *ReleaseSpec) (bool, *chartify.ChartifyOpts) {
+func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) (bool, *chartify.ChartifyOpts, error) {
 	var opts chartify.ChartifyOpts
 
 	var shouldRun bool
+
+	opts.EnableKustomizeAlphaPlugins = true
+
+	opts.ChartVersion = release.Version
 
 	for _, d := range release.Dependencies {
 		var dep string
@@ -52,7 +57,7 @@ func (st *HelmState) PrepareChartify(release *ReleaseSpec) (bool, *chartify.Char
 	if len(jsonPatches) > 0 {
 		generatedFiles, err := st.generateTemporaryValuesFiles(jsonPatches, release.MissingFileHandler)
 		if err != nil {
-			return false, nil
+			return false, nil, err
 		}
 
 		for _, f := range generatedFiles {
@@ -68,7 +73,7 @@ func (st *HelmState) PrepareChartify(release *ReleaseSpec) (bool, *chartify.Char
 	if len(strategicMergePatches) > 0 {
 		generatedFiles, err := st.generateTemporaryValuesFiles(strategicMergePatches, release.MissingFileHandler)
 		if err != nil {
-			return false, nil
+			return false, nil, err
 		}
 
 		for _, f := range generatedFiles {
@@ -80,5 +85,14 @@ func (st *HelmState) PrepareChartify(release *ReleaseSpec) (bool, *chartify.Char
 		shouldRun = true
 	}
 
-	return shouldRun, &opts
+	if shouldRun {
+		generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
+		if err != nil {
+			return false, nil, err
+		}
+
+		opts.ValuesFiles = generatedFiles
+	}
+
+	return shouldRun, &opts, nil
 }

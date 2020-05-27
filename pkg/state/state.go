@@ -718,6 +718,7 @@ func PrepareCharts(helm helmexec.Interface, st *HelmState, dir string, concurren
 	type downloadResults struct {
 		releaseName string
 		chartPath   string
+		err         error
 	}
 	errs := []error{}
 
@@ -739,11 +740,17 @@ func PrepareCharts(helm helmexec.Interface, st *HelmState, dir string, concurren
 			}
 			close(jobQueue)
 		},
-		func(_ int) {
+		func(workerIndex int) {
 			for release := range jobQueue {
 				var chartPath string
 
-				if shouldChartify, opts := st.PrepareChartify(release); shouldChartify {
+				shouldChartify, opts, err := st.PrepareChartify(helm, release, workerIndex)
+				if err != nil {
+					results <- &downloadResults{err: err}
+					return
+				}
+
+				if shouldChartify {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
 						chartify.UseHelm3(helm3),
@@ -787,12 +794,18 @@ func PrepareCharts(helm helmexec.Interface, st *HelmState, dir string, concurren
 					}
 				}
 
-				results <- &downloadResults{release.Name, chartPath}
+				results <- &downloadResults{releaseName: release.Name, chartPath: chartPath}
 			}
 		},
 		func() {
 			for i := 0; i < len(st.Releases); i++ {
 				downloadRes := <-results
+
+				if downloadRes.err != nil {
+					errs = append(errs, downloadRes.err)
+
+					return
+				}
 				temp[downloadRes.releaseName] = downloadRes.chartPath
 			}
 		},
@@ -1886,12 +1899,7 @@ func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingF
 	return generatedFiles, nil
 }
 
-func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
-	flags := []string{}
-	if release.Namespace != "" {
-		flags = append(flags, "--namespace", release.Namespace)
-	}
-
+func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string, error) {
 	values := []interface{}{}
 	for _, v := range release.Values {
 		switch typedValue := v.(type) {
@@ -1918,11 +1926,13 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 		return nil, err
 	}
 
-	for _, f := range generatedFiles {
-		flags = append(flags, "--values", f)
-	}
-
 	release.generatedValues = append(release.generatedValues, generatedFiles...)
+
+	return generatedFiles, nil
+}
+
+func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+	var generatedFiles []string
 
 	for _, value := range release.Secrets {
 		paths, skip, err := st.storage().resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value)
@@ -1944,9 +1954,45 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 			return nil, err
 		}
 
-		release.generatedValues = append(release.generatedValues, valfile)
-		flags = append(flags, "--values", valfile)
+		generatedFiles = append(generatedFiles, valfile)
 	}
+
+	release.generatedValues = append(release.generatedValues, generatedFiles...)
+
+	return generatedFiles, nil
+}
+
+func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+	valuesFiles, err := st.generateVanillaValuesFiles(release)
+	if err != nil {
+		return nil, err
+	}
+
+	secretValuesFiles, err := st.generateSecretValuesFiles(helm, release, workerIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	files := append(valuesFiles, secretValuesFiles...)
+
+	return files, nil
+}
+
+func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+	flags := []string{}
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
+	}
+
+	generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range generatedFiles {
+		flags = append(flags, "--values", f)
+	}
+
 	if len(release.SetValues) > 0 {
 		for _, set := range release.SetValues {
 			if set.Value != "" {
