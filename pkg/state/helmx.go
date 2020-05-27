@@ -3,6 +3,8 @@ package state
 import (
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/variantdev/chartify"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -28,6 +30,13 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	opts.EnableKustomizeAlphaPlugins = true
 
 	opts.ChartVersion = release.Version
+
+	dir := filepath.Join(st.basePath, release.Chart)
+	if stat, _ := os.Stat(dir); stat != nil && stat.IsDir() {
+		if exists, err := st.fileExists(filepath.Join(dir, "Chart.yaml")); err == nil && !exists {
+			shouldRun = true
+		}
+	}
 
 	for _, d := range release.Dependencies {
 		var dep string
