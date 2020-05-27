@@ -89,3 +89,49 @@ At this point, Helmfile can generate a complete kustomization from the base kust
 which can be included in the temporary chart.
 
 After all, Helmfile just installs the temporary chart like standard charts, which allows you to manage everything with Helmfile regardless of each app is declared using a Helm chart or a kustomization.
+
+Please also see [test/advanced/helmfile.yaml](https://github.com/roboll/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of kustomization support and more.
+
+## Adhoc Customization of Helm charts
+
+You can add/update any Kubernetes resource field rendered from a Helm chart by specifying `releases[].strategicMergePatches`:
+
+```
+repositories:
+- name: incubator
+  url: https://kubernetes-charts-incubator.storage.googleapis.com
+
+releases:
+- name: raw1
+  chart: incubator/raw
+  values:
+  - resources:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: raw1
+        namespace: default
+      data:
+        foo: FOO
+  strategicMergePatches:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: raw1
+        namespace: default
+      data:
+        bar: BAR
+```
+
+Running `helmfile template` on the above example results in a ConfigMap called `raw` whose `data` is:
+
+```yaml
+foo: FOO
+bar: BAR
+```
+
+Please note that the second `data` field `bar` is coming from the strategic-merge patch defined in the above helmfile.yaml.
+
+There's also `releases[].jsonPatches` that works similarly to `strategicMergePatches` but has additional capability to remove fields.
+
+Please also see [test/advanced/helmfile.yaml](https://github.com/roboll/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of patching support and more.
