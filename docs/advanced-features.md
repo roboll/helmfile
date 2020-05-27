@@ -62,6 +62,29 @@ Followed by the below steps:
 - Running `kustomize edit set namesuffix $NAMESUFFIX` with the namesuffix specified in your values.yaml
 - Running `kustomize edit set namespace $NS` with the namespace specified in your values.yaml
 
+A `values.yaml` file for kustomization would look like the below:
+
+```yaml
+images:
+# kustomize edit set image mysql=eu.gcr.io/my-project/mysql@canary
+- name: mysql
+  newName: eu.gcr.io/my-project/mysql
+  newTag: canary
+# kustomize edit set image myapp=my-registry/my-app@sha256:24a0c4b4a4c0eb97a1aabb8e29f18e917d05abfe1b7a7c07857230879ce7d3d3
+- name: myapp
+  digest: sha256:24a0c4b4a4c0eb97a1aabb8e29f18e917d05abfe1b7a7c07857230879ce7d3d3
+  newName: my-registry/my-app
+
+# kustomize edit set nameprefix foo-
+namePrefix: foo-
+
+# kustomize edit set namesuffix -bar
+nameSuffix: -bar
+
+# kustomize edit set namespace myapp
+namespace: myapp
+```
+
 At this point, Helmfile can generate a complete kustomization from the base kustomization you specified in `releases[].chart` of your helmfile.yaml and `values.yaml`,
 which can be included in the temporary chart.
 
