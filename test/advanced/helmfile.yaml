@@ -9,6 +9,7 @@ releases:
   - namePrefix: kustomapp-
 - name: raw1
   chart: incubator/raw
+  version: 0.1.0
   values:
   - resources:
     - apiVersion: v1
