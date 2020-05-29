@@ -31,6 +31,8 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	opts.ChartVersion = release.Version
 
+	opts.Namespace = release.Namespace
+
 	dir := filepath.Join(st.basePath, release.Chart)
 	if stat, _ := os.Stat(dir); stat != nil && stat.IsDir() {
 		if exists, err := st.fileExists(filepath.Join(dir, "Chart.yaml")); err == nil && !exists {
