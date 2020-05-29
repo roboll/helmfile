@@ -23,7 +23,7 @@ require (
 	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.20.0
-	github.com/variantdev/chartify v0.3.2
+	github.com/variantdev/chartify v0.3.3
 	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363
 	github.com/variantdev/vals v0.4.1-0.20200501114609-9cebe482281c
 	go.mozilla.org/sops v0.0.0-20190912205235-14a22d7a7060 // indirect
