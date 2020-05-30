@@ -101,13 +101,11 @@ func Init(app *App) *App {
 
 func (a *App) Deps(c DepsConfigProvider) error {
 	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
-		err := run.withPreparedCharts(false, func() {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipRepos(), func() {
 			errs = run.Deps(c)
 		})
 
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, prepErrs...)
 
 		return
 	})
@@ -155,7 +153,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		var errs []error
 
-		err := run.withPreparedCharts(false, func() {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), func() {
 			msg, matched, affected, errs = run.Diff(c)
 		})
 
@@ -163,9 +161,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			a.Logger.Info(*msg)
 		}
 
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, prepErrs...)
 
 		affectedAny = affectedAny || affected
 
@@ -208,13 +204,11 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 func (a *App) Template(c TemplateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts(true, func() {
+		prepErrs := run.withReposAndPreparedCharts(true, c.SkipDeps(), func() {
 			ok, errs = a.template(run, c)
 		})
 
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, prepErrs...)
 
 		return
 	})
@@ -222,13 +216,11 @@ func (a *App) Template(c TemplateConfigProvider) error {
 
 func (a *App) Lint(c LintConfigProvider) error {
 	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
-		err := run.withPreparedCharts(true, func() {
+		prepErrs := run.withReposAndPreparedCharts(true, c.SkipDeps(), func() {
 			errs = run.Lint(c)
 		})
 
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, prepErrs...)
 
 		return
 	})
@@ -236,13 +228,11 @@ func (a *App) Lint(c LintConfigProvider) error {
 
 func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts(false, func() {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), func() {
 			ok, errs = a.sync(run, c)
 		})
 
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, prepErrs...)
 
 		return
 	})
@@ -258,7 +248,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts(false, func() {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), func() {
 			matched, updated, es := a.apply(run, c)
 
 			mut.Lock()
@@ -268,9 +258,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			ok, errs = matched, es
 		})
 
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, prepErrs...)
 
 		return
 	}, opts...)
@@ -935,7 +923,6 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -952,9 +939,6 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st.Releases = toApply
 
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return false, false, errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return false, false, errs
 		}
@@ -1126,7 +1110,6 @@ Do you really want to delete?
 func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -1143,9 +1126,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st.Releases = toSync
 
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return false, errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return false, errs
 		}
@@ -1252,7 +1232,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -1269,9 +1248,6 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	st.Releases = toRender
 
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return false, errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return false, errs
 		}
