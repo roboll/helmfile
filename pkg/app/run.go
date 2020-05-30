@@ -32,6 +32,21 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
+func (r *Run) withReposAndPreparedCharts(forceDownload bool, skipRepos bool, f func()) []error {
+	if !skipRepos {
+		ctx := r.ctx
+		if errs := ctx.SyncReposOnce(r.state, r.helm); errs != nil && len(errs) > 0 {
+			return errs
+		}
+	}
+
+	if err := r.withPreparedCharts(forceDownload, f); err != nil {
+		return []error{err}
+	}
+
+	return nil
+}
+
 func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
@@ -66,12 +81,6 @@ func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
 func (r *Run) Deps(c DepsConfigProvider) []error {
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-	if !c.SkipRepos() {
-		if errs := r.ctx.SyncReposOnce(r.state, r.helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
-	}
-
 	return r.state.UpdateDeps(r.helm)
 }
 
@@ -102,7 +111,6 @@ func (r *Run) Status(c StatusesConfigProvider) []error {
 func (r *Run) Diff(c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -120,9 +128,6 @@ func (r *Run) Diff(c DiffConfigProvider) (*string, bool, bool, []error) {
 	st.Releases = toDiff
 
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return nil, false, false, errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return nil, false, false, errs
 		}
@@ -175,15 +180,11 @@ func (r *Run) Test(c TestConfigProvider) []error {
 func (r *Run) Lint(c LintConfigProvider) []error {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	values := c.Values()
 	args := argparser.GetArgs(c.Args(), st)
 	workers := c.Concurrency()
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return errs
 		}
