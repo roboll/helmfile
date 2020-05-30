@@ -55,7 +55,7 @@ else
   helm_major_version=3
   info "Using Helm version: $(helm version --short | grep -o v.*$)"
 fi
-info "Using Kustomize version: $(kustomize version --short | grep -o v.*$)"
+info "Using Kustomize version: $(kustomize version --short | grep -o 'v[^ ]+')"
 ${helm} plugin install https://github.com/databus23/helm-diff --version v3.0.0-rc.7
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
 $kubectl create namespace ${test_ns} || fail "Could not create namespace ${test_ns}"
