@@ -25,3 +25,18 @@ releases:
     values:
       - mysecret: {{ .Environment.Values.mysecret }}
       - values.yaml
+
+  - name: helmx
+    chart: ./charts/helmx
+    namespace: helmx-system
+    jsonPatches:
+      - target:
+          version: v1
+          kind: ConfigMap
+          name: release-name
+        patch:
+          - op: add
+            path: /metadata
+            value:
+              annotations:
+                foo: bar

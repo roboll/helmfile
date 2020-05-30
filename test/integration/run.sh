@@ -47,12 +47,15 @@ set -e
 info "Using namespace: ${test_ns}"
 # helm v2
 if helm version --client 2>/dev/null | grep '"v2\.'; then
+  helm_major_version=2
   info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
   ${helm} init --wait --override spec.template.spec.automountServiceAccountToken=true
 # helm v3
 else
+  helm_major_version=3
   info "Using Helm version: $(helm version --short | grep -o v.*$)"
 fi
+info "Using Kustomize version: $(kustomize version --short | grep -o v.*$)"
 ${helm} plugin install https://github.com/databus23/helm-diff --version v3.0.0-rc.7
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
 $kubectl create namespace ${test_ns} || fail "Could not create namespace ${test_ns}"
@@ -73,9 +76,18 @@ info "Diffing ${dir}/happypath.yaml with limited context"
 bash -c "${helmfile} -f ${dir}/happypath.yaml diff --context 3 --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
 info "Templating ${dir}/happypath.yaml"
-${helmfile} -f ${dir}/happypath.yaml template
+rm -rf ${dir}/tmp
+${helmfile} -f ${dir}/happypath.yaml --debug template --output-dir tmp
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile template: ${code}"
+for output in $(ls -d ${dir}/tmp/*); do
+    for release_dir in $(ls -d ${output}/*); do
+        release_name=$(basename ${release_dir})
+        golden_dir=${dir}/templates-golden/v${helm_major_version}/${release_name}
+        info "Comparing template result ${release_dir} with ${golden_dir}"
+        diff -u ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
+    done
+done
 
 info "Applying ${dir}/happypath.yaml"
 bash -c "${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode; code="'$?'"; echo Code: "'$code'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile apply"

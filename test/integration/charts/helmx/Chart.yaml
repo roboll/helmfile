@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Chart for testing helmx features
+name: helmx
+version: 0.1.0

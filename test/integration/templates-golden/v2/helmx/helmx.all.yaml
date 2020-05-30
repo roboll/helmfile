@@ -1,0 +1,16 @@
+---
+# Source: helmx/templates/helmx.all.yaml
+apiVersion: v1
+data:
+  namespace: helmx-system
+kind: ConfigMap
+metadata:
+  name: release-namespace
+---
+apiVersion: v1
+data:
+  name: helmx
+kind: ConfigMap
+metadata:
+  annotations:
+    foo: bar

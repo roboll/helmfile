@@ -1,0 +1,21 @@
+---
+# Source: httpbin/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin-httpbin
+  labels:
+    app: httpbin
+    chart: httpbin-0.1.0
+    release: httpbin
+    heritage: Helm
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: httpbin
+  selector:
+    app: httpbin
+    release: httpbin
