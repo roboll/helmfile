@@ -25,6 +25,8 @@ func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) ([]s
 func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) (bool, *chartify.ChartifyOpts, error) {
 	var opts chartify.ChartifyOpts
 
+	opts.WorkaroundOutputDirIssue = true
+
 	var shouldRun bool
 
 	opts.EnableKustomizeAlphaPlugins = true
