@@ -6,7 +6,7 @@ metadata:
   labels:
     app: raw
     chart: raw-0.2.3
-    heritage: Helm
+    heritage: Tiller
     release: raw
   name: common-secret
 stringData:

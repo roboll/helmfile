@@ -8,7 +8,7 @@ metadata:
     app: httpbin
     chart: httpbin-0.1.0
     release: httpbin
-    heritage: Helm
+    heritage: Tiller
 spec:
   type: LoadBalancer
   ports:
