@@ -91,7 +91,7 @@ jobs:
       - run:
           command: |
             cp ~/build/helmfile ~/project/helmfile
-            cp ~/build/local-helm-diff ~/project/local-helm-diff
+            cp ~/build/diff-yamls ~/project/diff-yamls
       - run:
           name: Install helm
           environment:
@@ -149,7 +149,7 @@ jobs:
     - run:
         command: |
           cp ~/build/helmfile ~/project/helmfile
-          cp ~/build/local-helm-diff ~/project/local-helm-diff
+          cp ~/build/diff-yamls ~/project/diff-yamls
     - run:
         name: Install helm
         environment:

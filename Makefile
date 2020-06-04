@@ -18,7 +18,7 @@ check:
 .PHONY: check
 
 build-test-tools:
-	go build test/local-helm-diff.go
+	go build test/diff-yamls.go
 .PHONY: build-test-tools
 
 test:

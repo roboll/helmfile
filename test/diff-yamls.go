@@ -22,7 +22,7 @@ const (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "local-helm-diff dir-with-yamls/ dir-with-yamls/",
+		Use:   "diff-yamls dir-with-yamls/ dir-with-yamls/",
 		Short: "Print any diff between the given directories",
 		Long: `Similar to the 'diff' command, but file contents
 are compared after being parsed as a set of Kubernetes manifests.`,

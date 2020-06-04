@@ -86,7 +86,7 @@ for output in $(ls -d ${dir}/tmp/*); do
         release_name=$(basename ${release_dir})
         golden_dir=${dir}/templates-golden/v${helm_major_version}/${release_name}
         info "Comparing template output ${release_dir}/templates with ${golden_dir}"
-        ./local-helm-diff ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
+        ./diff-yamls ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
     done
 done
 
