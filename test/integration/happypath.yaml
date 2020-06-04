@@ -36,7 +36,6 @@ releases:
           name: release-name
         patch:
           - op: add
-            path: /metadata
+            path: /metadata/annotations
             value:
-              annotations:
-                foo: bar
+              foo: bar
