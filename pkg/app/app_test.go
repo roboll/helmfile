@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/roboll/helmfile/pkg/remote"
 	"io"
 	"log"
 	"os"
@@ -1505,11 +1506,13 @@ helmDefaults:
 		readFile:            testFs.ReadFile,
 		glob:                testFs.Glob,
 		abs:                 testFs.Abs,
+		directoryExistsAt:   testFs.DirectoryExistsAt,
 		fileExistsAt:        testFs.FileExistsAt,
 		fileExists:          testFs.FileExists,
 		Env:                 "default",
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 	}
+	app.remote = remote.NewRemote(app.Logger, "", app.readFile, app.directoryExistsAt, app.fileExistsAt)
 
 	expectNoCallsToHelm(app)
 
