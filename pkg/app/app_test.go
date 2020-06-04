@@ -1600,6 +1600,7 @@ helmDefaults:
 		Env:                "default",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
 
 	expectNoCallsToHelm(app)
 
@@ -1678,6 +1679,7 @@ foo: FOO
 		Env:                "default",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
 
 	expectNoCallsToHelm(app)
 
@@ -1743,6 +1745,7 @@ foo: FOO
 		Env:                "default",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
 
 	expectNoCallsToHelm(app)
 
@@ -1826,6 +1829,7 @@ helmDefaults:
 		Env:                "test",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
 
 	expectNoCallsToHelm(app)
 
@@ -1900,6 +1904,7 @@ releases:
 		Env:                "default",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
 
 	expectNoCallsToHelm(app)
 
@@ -1958,6 +1963,7 @@ releases:
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
 
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
 	expectNoCallsToHelm(app)
 
 	st, err := app.loadDesiredStateFromYaml(statePath, LoadOpts{Reverse: true})
@@ -2013,6 +2019,8 @@ releases:
 			Env:                "default",
 			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 		}
+		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+
 		opts := LoadOpts{
 			CalleePath: statePath,
 			Environment: state.SubhelmfileEnvironmentSpec{
@@ -2125,6 +2133,7 @@ services:
 			Env:                "default",
 			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 		}
+		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
 
 		expectNoCallsToHelm(app)
 
