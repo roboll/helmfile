@@ -22,12 +22,12 @@ type EnvironmentValuesLoader struct {
 	remote *remote.Remote
 }
 
-func NewEnvironmentValuesLoader(storage *Storage, readFile func(string) ([]byte, error), logger *zap.SugaredLogger, rmt *remote.Remote) *EnvironmentValuesLoader {
+func NewEnvironmentValuesLoader(storage *Storage, readFile func(string) ([]byte, error), logger *zap.SugaredLogger, remote *remote.Remote) *EnvironmentValuesLoader {
 	return &EnvironmentValuesLoader{
 		storage:  storage,
 		readFile: readFile,
 		logger:   logger,
-		remote:   rmt,
+		remote:   remote,
 	}
 }
 
