@@ -81,11 +81,12 @@ ${helmfile} -f ${dir}/happypath.yaml --debug template --output-dir tmp
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile template: ${code}"
 for output in $(ls -d ${dir}/tmp/*); do
+    # e.g. test/integration/tmp/happypath-877c0dd4-helmx/helmx
     for release_dir in $(ls -d ${output}/*); do
         release_name=$(basename ${release_dir})
         golden_dir=${dir}/templates-golden/v${helm_major_version}/${release_name}
-        info "Comparing template result ${release_dir} with ${golden_dir}"
-        diff -u ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
+        info "Comparing template output ${release_dir}/templates with ${golden_dir}"
+        ./local-helm-diff ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
     done
 done
 

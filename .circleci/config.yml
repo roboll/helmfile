@@ -16,6 +16,7 @@ jobs:
           - go-mod-cache-v1-
       - run: go env
       - run: make build
+      - run: make build-test-tools
       - save_cache:
           key: go-mod-cache-v1-{{ checksum "./go.sum" }}
           paths:
@@ -87,7 +88,10 @@ jobs:
       - run: mkdir ~/build
       - attach_workspace:
           at: ~/build
-      - run: cp ~/build/helmfile ~/project/helmfile
+      - run:
+          command: |
+            cp ~/build/helmfile ~/project/helmfile
+            cp ~/build/local-helm-diff ~/project/local-helm-diff
       - run:
           name: Install helm
           environment:
@@ -142,7 +146,10 @@ jobs:
     - run: mkdir ~/build
     - attach_workspace:
         at: ~/build
-    - run: cp ~/build/helmfile ~/project/helmfile
+    - run:
+        command: |
+          cp ~/build/helmfile ~/project/helmfile
+          cp ~/build/local-helm-diff ~/project/local-helm-diff
     - run:
         name: Install helm
         environment:
