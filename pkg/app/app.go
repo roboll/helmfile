@@ -487,6 +487,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		namespace:  a.Namespace,
 		logger:     a.Logger,
 		abs:        a.abs,
+		remote:     a.remote,
 
 		overrideKubeContext: a.OverrideKubeContext,
 		overrideHelmBinary:  a.OverrideHelmBinary,
