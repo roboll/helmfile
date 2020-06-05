@@ -5,19 +5,55 @@ import (
 	"strings"
 )
 
-func newExitError(helmCmdPath string, exitStatus int, errorMessage string) ExitError {
+func newExitError(path string, args []string, exitStatus int, err error, stderr, combined string) ExitError {
+	var out string
+
+	out += fmt.Sprintf("PATH:\n%s", Indent(path, "  "))
+
+	out += "\n\nARGS:"
+	for i, a := range args {
+		out += fmt.Sprintf("\n%s", Indent(fmt.Sprintf("%d: %s (%d bytes)", i, a, len(a)), "  "))
+	}
+
+	out += fmt.Sprintf("\n\nERROR:\n%s", Indent(err.Error(), "  "))
+
+	out += fmt.Sprintf("\n\nEXIT STATUS\n%s", Indent(fmt.Sprintf("%d", exitStatus), "  "))
+
+	if len(stderr) > 0 {
+		out += fmt.Sprintf("\n\nSTDERR:\n%s", Indent(stderr, "  "))
+	}
+
+	if len(combined) > 0 {
+		out += fmt.Sprintf("\n\nCOMBINED OUTPUT:\n%s", Indent(combined, "  "))
+	}
+
 	return ExitError{
-		Message: fmt.Sprintf("the following cmd exited with status %d:\n%s\n\n%s", exitStatus, indent(strings.TrimSpace(helmCmdPath)), indent(strings.TrimSpace(errorMessage))),
+		Message: fmt.Sprintf("command %q exited with non-zero status:\n\n%s", path, out),
 		Code:    exitStatus,
 	}
 }
 
-func indent(text string) string {
+// indents a block of text with an indent string
+func Indent(text, indent string) string {
+	var b strings.Builder
+
+	b.Grow(len(text) * 2)
+
 	lines := strings.Split(text, "\n")
-	for i := range lines {
-		lines[i] = "  " + lines[i]
+
+	last := len(lines) - 1
+
+	for i, j := range lines {
+		if i > 0 && i < last && j != "" {
+			b.WriteString("\n")
+		}
+
+		if j != "" {
+			b.WriteString(indent + j)
+		}
 	}
-	return strings.Join(lines, "\n")
+
+	return b.String()
 }
 
 // ExitError is created whenever your shell command exits with a non-zero exit status
