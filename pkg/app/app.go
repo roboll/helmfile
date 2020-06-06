@@ -193,7 +193,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		// See https://github.com/roboll/helmfile/issues/749
 		code := 2
 		e := &Error{
-			msg:  "Identified at least on change",
+			msg:  "Identified at least one change",
 			code: &code,
 		}
 		return e
