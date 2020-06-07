@@ -17,7 +17,7 @@ That is, the following example let `helmfile` fail when you have no `eventApi.re
 In case it isn't a mistake and you do want to allow missing keys, use the `get` template function:
 
 ```
-{{ .Values | get "eventApi.replicas" }}
+{{ .Values | get "eventApi.replicas" nil }}
 ```
 
 This result in printing `<no value` in your template, that may or may not result in a failure.
