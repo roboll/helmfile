@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"go.uber.org/zap"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -33,10 +34,10 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
-	return combinedOutput(preparedCmd, shell.Logger)
+	return Output(preparedCmd)
 }
 
-func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
+func Output(c *exec.Cmd) ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("exec: Stdout already set")
 	}
@@ -45,12 +46,10 @@ func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	c.Stdout = &stdout
-	c.Stderr = &stderr
+	var combined bytes.Buffer
+	c.Stdout = io.MultiWriter(&stdout, &combined)
+	c.Stderr = io.MultiWriter(&stderr, &combined)
 	err := c.Run()
-
-	o := stdout.Bytes()
-	e := stderr.Bytes()
 
 	if err != nil {
 		// TrimSpace is necessary, because otherwise helmfile prints the redundant new-lines after each error like:
@@ -64,14 +63,13 @@ func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
 			// so that helmfile could return its own exit code accordingly
 			waitStatus := ee.Sys().(syscall.WaitStatus)
 			exitStatus := waitStatus.ExitStatus()
-			cmd := fmt.Sprintf("%s %s", c.Path, strings.Join(c.Args, " "))
-			err = newExitError(cmd, exitStatus, string(e))
+			err = newExitError(c.Path, c.Args, exitStatus, ee, stderr.String(), combined.String())
 		default:
 			panic(fmt.Sprintf("unexpected error: %v", err))
 		}
 	}
 
-	return o, err
+	return stdout.Bytes(), err
 }
 
 func mergeEnv(orig []string, new map[string]string) []string {

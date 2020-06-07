@@ -100,20 +100,42 @@ func Init(app *App) *App {
 }
 
 func (a *App) Deps(c DepsConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Deps(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipRepos(), func() {
+			errs = run.Deps(c)
+		})
+
+		errs = append(errs, prepErrs...)
+
+		return
 	})
 }
 
 func (a *App) Repos(c ReposConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Repos(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			errs = run.Repos(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.DeprecatedSyncCharts(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			errs = run.DeprecatedSyncCharts(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
@@ -125,11 +147,21 @@ func (a *App) Diff(c DiffConfigProvider) error {
 	err := a.ForEachState(func(run *Run) (bool, []error) {
 		var criticalErrs []error
 
-		msg, matched, affected, errs := run.Diff(c)
+		var msg *string
+
+		var matched, affected bool
+
+		var errs []error
+
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), func() {
+			msg, matched, affected, errs = run.Diff(c)
+		})
 
 		if msg != nil {
 			a.Logger.Info(*msg)
 		}
+
+		errs = append(errs, prepErrs...)
 
 		affectedAny = affectedAny || affected
 
@@ -161,7 +193,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		// See https://github.com/roboll/helmfile/issues/749
 		code := 2
 		e := &Error{
-			msg:  "Identified at least on change",
+			msg:  "Identified at least one change",
 			code: &code,
 		}
 		return e
@@ -171,20 +203,38 @@ func (a *App) Diff(c DiffConfigProvider) error {
 }
 
 func (a *App) Template(c TemplateConfigProvider) error {
-	return a.ForEachState(func(run *Run) (bool, []error) {
-		return a.template(run, c)
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		prepErrs := run.withReposAndPreparedCharts(true, c.SkipDeps(), func() {
+			ok, errs = a.template(run, c)
+		})
+
+		errs = append(errs, prepErrs...)
+
+		return
 	})
 }
 
 func (a *App) Lint(c LintConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Lint(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		prepErrs := run.withReposAndPreparedCharts(true, c.SkipDeps(), func() {
+			errs = run.Lint(c)
+		})
+
+		errs = append(errs, prepErrs...)
+
+		return
 	})
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
-	return a.ForEachState(func(run *Run) (bool, []error) {
-		return a.sync(run, c)
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), func() {
+			ok, errs = a.sync(run, c)
+		})
+
+		errs = append(errs, prepErrs...)
+
+		return
 	})
 }
 
@@ -197,14 +247,20 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles()))
 
-	err := a.ForEachState(func(run *Run) (bool, []error) {
-		matched, updated, errs := a.apply(run, c)
+	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), func() {
+			matched, updated, es := a.apply(run, c)
 
-		mut.Lock()
-		any = any || updated
-		mut.Unlock()
+			mut.Lock()
+			any = any || updated
+			mut.Unlock()
 
-		return matched, errs
+			ok, errs = matched, es
+		})
+
+		errs = append(errs, prepErrs...)
+
+		return
 	}, opts...)
 
 	if err != nil {
@@ -221,43 +277,85 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 }
 
 func (a *App) Status(c StatusesConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
-		return run.Status(c)
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			errs = run.Status(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) Delete(c DeleteConfigProvider) error {
-	return a.ForEachState(func(run *Run) (bool, []error) {
-		return a.delete(run, c.Purge(), c)
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			ok, errs = a.delete(run, c.Purge(), c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	}, SetReverse(true))
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
-	return a.ForEachState(func(run *Run) (bool, []error) {
-		return a.delete(run, true, c)
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err := run.withPreparedCharts(false, func() {
+			ok, errs = a.delete(run, true, c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	}, SetReverse(true))
 }
 
 func (a *App) Test(c TestConfigProvider) error {
-	return a.ForEachStateFiltered(func(run *Run) []error {
+	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
 		if c.Cleanup() && run.helm.IsHelm3() {
 			a.Logger.Warnf("warn: requested cleanup will not be applied. " +
 				"To clean up test resources with Helm 3, you have to remove them manually " +
 				"or set helm.sh/hook-delete-policy\n")
 		}
 
-		return run.Test(c)
+		err := run.withPreparedCharts(false, func() {
+			errs = run.Test(c)
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return
 	})
 }
 
 func (a *App) PrintState(c StateConfigProvider) error {
-	return a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) []error {
-		state, err := st.ToYaml()
+	return a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) (errs []error) {
+		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, func() {
+			state, err := st.ToYaml()
+			if err != nil {
+				errs = []error{err}
+				return
+			}
+			fmt.Printf("---\n#  Source: %s\n\n%+v", st.FilePath, state)
+
+			errs = []error{}
+		})
+
 		if err != nil {
-			return []error{err}
+			errs = append(errs, err)
 		}
-		fmt.Printf("---\n#  Source: %s\n\n%+v", st.FilePath, state)
-		return []error{}
+
+		return
 	})
 }
 
@@ -265,22 +363,32 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 	var releases []*HelmRelease
 
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) []error {
-		//var releases m
-		for _, r := range st.Releases {
-			labels := ""
-			for k, v := range r.Labels {
-				labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
+		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, func() {
+
+			//var releases m
+			for _, r := range st.Releases {
+				labels := ""
+				for k, v := range r.Labels {
+					labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
+				}
+				labels = strings.Trim(labels, ",")
+				installed := r.Installed == nil || *r.Installed
+				releases = append(releases, &HelmRelease{
+					Name:      r.Name,
+					Namespace: r.Namespace,
+					Enabled:   installed,
+					Labels:    labels,
+				})
 			}
-			labels = strings.Trim(labels, ",")
-			installed := r.Installed == nil || *r.Installed
-			releases = append(releases, &HelmRelease{
-				Name:      r.Name,
-				Namespace: r.Namespace,
-				Enabled:   installed,
-				Labels:    labels,
-			})
+		})
+
+		var errs []error
+
+		if err != nil {
+			errs = append(errs, err)
 		}
-		return []error{}
+
+		return errs
 	})
 
 	if err != nil {
@@ -815,7 +923,6 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -832,9 +939,6 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st.Releases = toApply
 
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return false, false, errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return false, false, errs
 		}
@@ -1006,7 +1110,6 @@ Do you really want to delete?
 func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -1023,9 +1126,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st.Releases = toSync
 
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return false, errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return false, errs
 		}
@@ -1132,7 +1232,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -1149,9 +1248,6 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	st.Releases = toRender
 
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return false, errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return false, errs
 		}

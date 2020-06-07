@@ -5,6 +5,8 @@ import (
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
+	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 )
@@ -13,6 +15,8 @@ type Run struct {
 	state *state.HelmState
 	helm  helmexec.Interface
 	ctx   Context
+
+	ReleaseToChart map[string]string
 
 	Ask func(string) bool
 }
@@ -28,14 +32,54 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-func (r *Run) Deps(c DepsConfigProvider) []error {
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-
-	if !c.SkipRepos() {
-		if errs := r.ctx.SyncReposOnce(r.state, r.helm); errs != nil && len(errs) > 0 {
+func (r *Run) withReposAndPreparedCharts(forceDownload bool, skipRepos bool, f func()) []error {
+	if !skipRepos {
+		ctx := r.ctx
+		if errs := ctx.SyncReposOnce(r.state, r.helm); errs != nil && len(errs) > 0 {
 			return errs
 		}
 	}
+
+	if err := r.withPreparedCharts(forceDownload, f); err != nil {
+		return []error{err}
+	}
+
+	return nil
+}
+
+func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
+	if r.ReleaseToChart != nil {
+		panic("Run.PrepareCharts can be called only once")
+	}
+
+	// Create tmp directory and bail immediately if it fails
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+
+	releaseToChart, errs := state.PrepareCharts(r.helm, r.state, dir, 2, "template", forceDownload)
+
+	if len(errs) > 0 {
+		return fmt.Errorf("%v", errs)
+	}
+
+	for i := range r.state.Releases {
+		rel := &r.state.Releases[i]
+
+		rel.Chart = releaseToChart[rel.Name]
+	}
+
+	r.ReleaseToChart = releaseToChart
+
+	f()
+
+	return nil
+}
+
+func (r *Run) Deps(c DepsConfigProvider) []error {
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	return r.state.UpdateDeps(r.helm)
 }
@@ -67,7 +111,6 @@ func (r *Run) Status(c StatusesConfigProvider) []error {
 func (r *Run) Diff(c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -85,9 +128,6 @@ func (r *Run) Diff(c DiffConfigProvider) (*string, bool, bool, []error) {
 	st.Releases = toDiff
 
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return nil, false, false, errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return nil, false, false, errs
 		}
@@ -140,15 +180,11 @@ func (r *Run) Test(c TestConfigProvider) []error {
 func (r *Run) Lint(c LintConfigProvider) []error {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	values := c.Values()
 	args := argparser.GetArgs(c.Args(), st)
 	workers := c.Concurrency()
 	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
 		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
 			return errs
 		}

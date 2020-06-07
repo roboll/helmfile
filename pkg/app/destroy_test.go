@@ -295,30 +295,20 @@ GROUP RELEASES
 5     front-proxy, logging
 
 processing releases in group 1/5: frontend-v3, frontend-v2, frontend-v1
-worker 1/1 started
 release "frontend-v3" processed
 release "frontend-v2" processed
 release "frontend-v1" processed
-worker 1/1 finished
 processing releases in group 2/5: backend-v2, backend-v1
-worker 1/1 started
 release "backend-v2" processed
 release "backend-v1" processed
-worker 1/1 finished
 processing releases in group 3/5: anotherbackend
-worker 1/1 started
 release "anotherbackend" processed
-worker 1/1 finished
 processing releases in group 4/5: database, servicemesh
-worker 1/1 started
 release "database" processed
 release "servicemesh" processed
-worker 1/1 finished
 processing releases in group 5/5: front-proxy, logging
-worker 1/1 started
 release "front-proxy" processed
 release "logging" processed
-worker 1/1 finished
 
 DELETED RELEASES:
 NAME
