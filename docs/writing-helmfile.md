@@ -14,10 +14,10 @@ That is, the following example let `helmfile` fail when you have no `eventApi.re
 {{ .Values.eventApi.replicas | default 1 }}
 ```
 
-In case it isn't a mistake and you do want to allow missing keys, use the `getOrNil` template function:
+In case it isn't a mistake and you do want to allow missing keys, use the `get` template function:
 
 ```
-{{ .Values | getOrNil "eventApi.replicas" }}
+{{ .Values | get "eventApi.replicas" nil }}
 ```
 
 This result in printing `<no value` in your template, that may or may not result in a failure.
@@ -25,7 +25,7 @@ This result in printing `<no value` in your template, that may or may not result
 If you want a kind of default values that is used when a missing key was referenced, use `default` like:
 
 ```
-{{ .Values | getOrNil "eventApi.replicas" | default 1 }}
+{{ .Values | get "eventApi.replicas" 1 }}
 ```
 
 Now, you get `1` when there is no `eventApi.replicas` defined in environment values.
