@@ -59,6 +59,10 @@ func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
 	}
 	defer os.RemoveAll(dir)
 
+	if _, err = r.state.TriggerGlobalPrepareEvent("template"); err != nil {
+		return err
+	}
+
 	releaseToChart, errs := state.PrepareCharts(r.helm, r.state, dir, 2, "template", forceDownload)
 
 	if len(errs) > 0 {
@@ -75,7 +79,9 @@ func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
 
 	f()
 
-	return nil
+	_, err = r.state.TriggerGlobalCleanupEvent("template")
+
+	return err
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {
