@@ -487,6 +487,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		namespace:  a.Namespace,
 		logger:     a.Logger,
 		abs:        a.abs,
+		remote:     a.remote,
 
 		overrideKubeContext: a.OverrideKubeContext,
 		overrideHelmBinary:  a.OverrideHelmBinary,
@@ -791,18 +792,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		return err
 	}
 
-	getter := &remote.GoGetter{Logger: a.Logger}
-
-	remote := &remote.Remote{
-		Logger:     a.Logger,
-		Home:       dir,
-		Getter:     getter,
-		ReadFile:   a.readFile,
-		DirExists:  a.directoryExistsAt,
-		FileExists: a.fileExistsAt,
-	}
-
-	a.remote = remote
+	a.remote = remote.NewRemote(a.Logger, dir, a.readFile, a.directoryExistsAt, a.fileExistsAt)
 
 	return a.visitStates(fileOrDir, opts, converge)
 }

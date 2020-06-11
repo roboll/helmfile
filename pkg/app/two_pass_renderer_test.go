@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/roboll/helmfile/pkg/remote"
 	"os"
 	"strings"
 	"testing"
@@ -14,6 +15,8 @@ import (
 
 func makeLoader(files map[string]string, env string) (*desiredStateLoader, *testhelper.TestFs) {
 	testfs := testhelper.NewTestFs(files)
+	logger := helmexec.NewLogger(os.Stdout, "debug")
+	r := remote.NewRemote(logger, testfs.Cwd, testfs.ReadFile, testfs.DirectoryExistsAt, testfs.FileExistsAt)
 	return &desiredStateLoader{
 		env:        env,
 		namespace:  "namespace",
@@ -22,6 +25,7 @@ func makeLoader(files map[string]string, env string) (*desiredStateLoader, *test
 		fileExists: testfs.FileExists,
 		abs:        testfs.Abs,
 		glob:       testfs.Glob,
+		remote:     r,
 	}, testfs
 }
 
