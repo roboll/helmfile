@@ -27,6 +27,7 @@ type desiredStateLoader struct {
 	namespace string
 
 	readFile   func(string) ([]byte, error)
+	deleteFile func(string) error
 	fileExists func(string) (bool, error)
 	abs        func(string) (string, error)
 	glob       func(string) ([]string, error)
@@ -148,6 +149,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
 	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.valsRuntime, a.getHelm, a.overrideHelmBinary)
+	c.DeleteFile = a.deleteFile
 	c.LoadFile = a.loadFile
 	return c
 }

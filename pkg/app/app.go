@@ -38,6 +38,7 @@ type App struct {
 	FileOrDir string
 
 	readFile          func(string) ([]byte, error)
+	deleteFile        func(string) error
 	fileExists        func(string) (bool, error)
 	glob              func(string) ([]string, error)
 	abs               func(string) (string, error)
@@ -82,6 +83,7 @@ func New(conf ConfigProvider) *App {
 
 func Init(app *App) *App {
 	app.readFile = ioutil.ReadFile
+	app.deleteFile = os.Remove
 	app.glob = filepath.Glob
 	app.abs = filepath.Abs
 	app.getwd = os.Getwd
@@ -482,6 +484,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 
 	ld := &desiredStateLoader{
 		readFile:   a.readFile,
+		deleteFile: a.deleteFile,
 		fileExists: a.fileExists,
 		env:        a.Env,
 		namespace:  a.Namespace,

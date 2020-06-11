@@ -2,6 +2,7 @@ package state
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -18,7 +19,9 @@ func createFromYaml(content []byte, file string, env string, logger *zap.Sugared
 		logger:   logger,
 		readFile: ioutil.ReadFile,
 		abs:      filepath.Abs,
-		Strict:   true,
+
+		DeleteFile: os.Remove,
+		Strict:     true,
 	}
 	return c.ParseAndLoad(content, filepath.Dir(file), file, env, true, nil)
 }
