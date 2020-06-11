@@ -32,7 +32,7 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-func (r *Run) withReposAndPreparedCharts(forceDownload bool, skipRepos bool, f func()) []error {
+func (r *Run) withReposAndPreparedCharts(forceDownload bool, skipRepos bool, helmfileCommand string, f func()) []error {
 	if !skipRepos {
 		ctx := r.ctx
 		if errs := ctx.SyncReposOnce(r.state, r.helm); errs != nil && len(errs) > 0 {
@@ -40,14 +40,14 @@ func (r *Run) withReposAndPreparedCharts(forceDownload bool, skipRepos bool, f f
 		}
 	}
 
-	if err := r.withPreparedCharts(forceDownload, f); err != nil {
+	if err := r.withPreparedCharts(forceDownload, helmfileCommand, f); err != nil {
 		return []error{err}
 	}
 
 	return nil
 }
 
-func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
+func (r *Run) withPreparedCharts(forceDownload bool, helmfileCommand string, f func()) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
 	}
@@ -59,7 +59,11 @@ func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
 	}
 	defer os.RemoveAll(dir)
 
-	releaseToChart, errs := state.PrepareCharts(r.helm, r.state, dir, 2, "template", forceDownload)
+	if _, err = r.state.TriggerGlobalPrepareEvent(helmfileCommand); err != nil {
+		return err
+	}
+
+	releaseToChart, errs := state.PrepareCharts(r.helm, r.state, dir, 2, helmfileCommand, forceDownload)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%v", errs)
@@ -75,7 +79,9 @@ func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
 
 	f()
 
-	return nil
+	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand)
+
+	return err
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {

@@ -101,7 +101,7 @@ func Init(app *App) *App {
 
 func (a *App) Deps(c DepsConfigProvider) error {
 	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
-		prepErrs := run.withReposAndPreparedCharts(false, c.SkipRepos(), func() {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipRepos(), "deps", func() {
 			errs = run.Deps(c)
 		})
 
@@ -113,7 +113,7 @@ func (a *App) Deps(c DepsConfigProvider) error {
 
 func (a *App) Repos(c ReposConfigProvider) error {
 	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
-		err := run.withPreparedCharts(false, func() {
+		err := run.withPreparedCharts(false, "repos", func() {
 			errs = run.Repos(c)
 		})
 
@@ -127,7 +127,7 @@ func (a *App) Repos(c ReposConfigProvider) error {
 
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
-		err := run.withPreparedCharts(false, func() {
+		err := run.withPreparedCharts(false, "charts", func() {
 			errs = run.DeprecatedSyncCharts(c)
 		})
 
@@ -153,7 +153,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		var errs []error
 
-		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), func() {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), "diff", func() {
 			msg, matched, affected, errs = run.Diff(c)
 		})
 
@@ -204,7 +204,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 func (a *App) Template(c TemplateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErrs := run.withReposAndPreparedCharts(true, c.SkipDeps(), func() {
+		prepErrs := run.withReposAndPreparedCharts(true, c.SkipDeps(), "template", func() {
 			ok, errs = a.template(run, c)
 		})
 
@@ -216,7 +216,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 
 func (a *App) Lint(c LintConfigProvider) error {
 	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
-		prepErrs := run.withReposAndPreparedCharts(true, c.SkipDeps(), func() {
+		prepErrs := run.withReposAndPreparedCharts(true, c.SkipDeps(), "lint", func() {
 			errs = run.Lint(c)
 		})
 
@@ -228,7 +228,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 
 func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), func() {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), "sync", func() {
 			ok, errs = a.sync(run, c)
 		})
 
@@ -248,7 +248,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), func() {
+		prepErrs := run.withReposAndPreparedCharts(false, c.SkipDeps(), "apply", func() {
 			matched, updated, es := a.apply(run, c)
 
 			mut.Lock()
@@ -278,7 +278,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 func (a *App) Status(c StatusesConfigProvider) error {
 	return a.ForEachStateFiltered(func(run *Run) (errs []error) {
-		err := run.withPreparedCharts(false, func() {
+		err := run.withPreparedCharts(false, "status", func() {
 			errs = run.Status(c)
 		})
 
@@ -292,7 +292,7 @@ func (a *App) Status(c StatusesConfigProvider) error {
 
 func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts(false, func() {
+		err := run.withPreparedCharts(false, "delete", func() {
 			ok, errs = a.delete(run, c.Purge(), c)
 		})
 
@@ -306,7 +306,7 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts(false, func() {
+		err := run.withPreparedCharts(false, "destroy", func() {
 			ok, errs = a.delete(run, true, c)
 		})
 
@@ -326,7 +326,7 @@ func (a *App) Test(c TestConfigProvider) error {
 				"or set helm.sh/hook-delete-policy\n")
 		}
 
-		err := run.withPreparedCharts(false, func() {
+		err := run.withPreparedCharts(false, "test", func() {
 			errs = run.Test(c)
 		})
 
@@ -340,7 +340,7 @@ func (a *App) Test(c TestConfigProvider) error {
 
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) (errs []error) {
-		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, func() {
+		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, "build", func() {
 			state, err := st.ToYaml()
 			if err != nil {
 				errs = []error{err}
@@ -363,7 +363,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 	var releases []*HelmRelease
 
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) []error {
-		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, func() {
+		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, "list", func() {
 
 			//var releases m
 			for _, r := range st.Releases {
