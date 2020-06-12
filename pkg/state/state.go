@@ -216,8 +216,6 @@ type ReleaseSpec struct {
 	StrategicMergePatches []interface{} `yaml:"strategicMergePatches,omitempty"`
 	Adopt                 []string      `yaml:"adopt,omitempty"`
 
-	// generatedValues are values that need cleaned up on exit
-	generatedValues []string
 	//version of the chart that has really been installed cause desired version may be fuzzy (~2.0.0)
 	installedVersion string
 }
@@ -296,6 +294,7 @@ type syncPrepareResult struct {
 	release *ReleaseSpec
 	flags   []string
 	errors  []*ReleaseError
+	files   []string
 }
 
 // SyncReleases wrapper for executing helm upgrade on the releases
@@ -346,10 +345,10 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
 				mut.Lock()
-				flags, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
+				flags, files, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
 				mut.Unlock()
 				if flagsErr != nil {
-					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseFailedError(release, flagsErr)}}
+					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseFailedError(release, flagsErr)}, files: files}
 					continue
 				}
 
@@ -376,11 +375,11 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 				}
 
 				if len(errs) > 0 {
-					results <- syncPrepareResult{errors: errs}
+					results <- syncPrepareResult{errors: errs, files: files}
 					continue
 				}
 
-				results <- syncPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}}
+				results <- syncPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}, files: files}
 			}
 		},
 		func() {
@@ -568,6 +567,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 	}
 
 	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit, opts)
+
+	defer func() {
+		for _, p := range preps {
+			st.removeFiles(p.files)
+		}
+	}()
+
 	if len(prepErrs) > 0 {
 		return prepErrs
 	}
@@ -713,7 +719,7 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 // Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
-func PrepareCharts(helm helmexec.Interface, st *HelmState, dir string, concurrency int, helmfileCommand string, forceDownload bool) (map[string]string, []error) {
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, forceDownload bool) (map[string]string, []error) {
 	temp := make(map[string]string, len(st.Releases))
 	type downloadResults struct {
 		releaseName string
@@ -744,7 +750,8 @@ func PrepareCharts(helm helmexec.Interface, st *HelmState, dir string, concurren
 			for release := range jobQueue {
 				var chartPath string
 
-				shouldChartify, opts, err := st.PrepareChartify(helm, release, workerIndex)
+				shouldChartify, opts, clean, err := st.PrepareChartify(helm, release, workerIndex)
+				defer clean()
 				if err != nil {
 					results <- &downloadResults{err: err}
 					return
@@ -844,15 +851,20 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 	}
 
 	for i := range st.Releases {
-		release := st.Releases[i]
+		release := &st.Releases[i]
 
 		if !release.Desired() {
 			continue
 		}
 
-		st.ApplyOverrides(&release)
+		st.ApplyOverrides(release)
 
-		flags, err := st.flagsForTemplate(helm, &release, 0)
+		flags, files, err := st.flagsForTemplate(helm, release, 0)
+
+		defer func() {
+			st.removeFiles(files)
+		}()
+
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -896,7 +908,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			}
 		}
 
-		if _, err := st.triggerCleanupEvent(&release, "template"); err != nil {
+		if _, err := st.triggerCleanupEvent(release, "template"); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -941,7 +953,10 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 			continue
 		}
 
-		flags, err := st.flagsForLint(helm, &release, 0)
+		flags, files, err := st.flagsForLint(helm, &release, 0)
+
+		defer st.removeFiles(files)
+
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -989,6 +1004,7 @@ type diffPrepareResult struct {
 	release *ReleaseSpec
 	flags   []string
 	errors  []*ReleaseError
+	files   []string
 }
 
 func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, includeTests, suppressSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
@@ -1035,7 +1051,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
 				mut.Lock()
-				flags, err := st.flagsForDiff(helm, release, workerIndex)
+				flags, files, err := st.flagsForDiff(helm, release, workerIndex)
 				mut.Unlock()
 				if err != nil {
 					errs = append(errs, err)
@@ -1084,9 +1100,9 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					for i, e := range errs {
 						rsErrs[i] = newReleaseFailedError(release, e)
 					}
-					results <- diffPrepareResult{errors: rsErrs}
+					results <- diffPrepareResult{errors: rsErrs, files: files}
 				} else {
-					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}}
+					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}, files: files}
 				}
 			}
 		},
@@ -1153,6 +1169,13 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 	}
 
 	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppressSecrets, opts)
+
+	defer func() {
+		for _, p := range preps {
+			st.removeFiles(p.files)
+		}
+	}()
+
 	if len(prepErrs) > 0 {
 		return []ReleaseSpec{}, prepErrs
 	}
@@ -1288,21 +1311,6 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 
 // Clean will remove any generated secrets
 func (st *HelmState) Clean() []error {
-	errs := []error{}
-
-	for _, release := range st.Releases {
-		for _, value := range release.generatedValues {
-			err := st.removeFile(value)
-			if err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
-
-	if len(errs) != 0 {
-		return errs
-	}
-
 	return nil
 }
 
@@ -1641,7 +1649,7 @@ func (st *HelmState) timeoutFlags(helm helmexec.Interface, release *ReleaseSpec)
 	return flags
 }
 
-func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
@@ -1683,7 +1691,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 			flags = append(flags, "--create-namespace")
 		} else if release.CreateNamespace != nil || st.HelmDefaults.CreateNamespace != nil {
 			// createNamespace was set explicitly, but not running supported version of helm - error
-			return nil, fmt.Errorf("releases[].createNamespace requires Helm 3.2.0 or greater")
+			return nil, nil, fmt.Errorf("releases[].createNamespace requires Helm 3.2.0 or greater")
 		}
 	}
 
@@ -1692,35 +1700,35 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	var err error
 	flags, err = st.appendHelmXFlags(flags, release)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
-		return nil, err
+		return nil, clean, err
 	}
-	return append(flags, common...), nil
+	return append(flags, common...), clean, nil
 }
 
-func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
 	flags := []string{}
 
 	var err error
 	flags, err = st.appendHelmXFlags(flags, release)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	flags = st.appendApiVersionsFlags(flags)
 
-	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
-		return nil, err
+		return nil, files, err
 	}
-	return append(flags, common...), nil
+	return append(flags, common...), files, nil
 }
 
-func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
 	flags := []string{}
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
@@ -1735,14 +1743,14 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	var err error
 	flags, err = st.appendHelmXFlags(flags, release)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	common, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
-		return nil, err
+		return nil, files, err
 	}
-	return append(flags, common...), nil
+	return append(flags, common...), files, nil
 }
 
 func (st *HelmState) appendApiVersionsFlags(flags []string) []string {
@@ -1761,18 +1769,18 @@ func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {
 	return result
 }
 
-func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
-	flags, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+	flags, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
-		return nil, err
+		return nil, files, err
 	}
 
 	flags, err = st.appendHelmXFlags(flags, release)
 	if err != nil {
-		return nil, err
+		return nil, files, err
 	}
 
-	return flags, nil
+	return flags, files, nil
 }
 
 func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
@@ -1845,6 +1853,16 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 	return helmfiles, nil
 }
 
+func (st *HelmState) removeFiles(files []string) {
+	for _, f := range files {
+		if err := st.removeFile(f); err != nil {
+			st.logger.Warnf("Removing %s: %v", err)
+		} else {
+			st.logger.Debugf("Removed %s", f)
+		}
+	}
+}
+
 func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingFileHandler *string) ([]string, error) {
 	generatedFiles := []string{}
 
@@ -1853,47 +1871,47 @@ func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingF
 		case string:
 			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", typedValue)
 			if err != nil {
-				return nil, err
+				return generatedFiles, err
 			}
 			if skip {
 				continue
 			}
 
 			if len(paths) > 1 {
-				return nil, fmt.Errorf("glob patterns in release values and secrets is not supported yet. please submit a feature request if necessary")
+				return generatedFiles, fmt.Errorf("glob patterns in release values and secrets is not supported yet. please submit a feature request if necessary")
 			}
 			path := paths[0]
 
 			yamlBytes, err := st.RenderValuesFileToBytes(path)
 			if err != nil {
-				return nil, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
+				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
 
 			valfile, err := ioutil.TempFile("", "values")
 			if err != nil {
-				return nil, err
+				return generatedFiles, err
 			}
 			defer valfile.Close()
 
 			if _, err := valfile.Write(yamlBytes); err != nil {
-				return nil, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
+				return generatedFiles, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
 			}
 			st.logger.Debugf("successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
 			generatedFiles = append(generatedFiles, valfile.Name())
 		case map[interface{}]interface{}, map[string]interface{}:
 			valfile, err := ioutil.TempFile("", "values")
 			if err != nil {
-				return nil, err
+				return generatedFiles, err
 			}
 			defer valfile.Close()
 			encoder := yaml.NewEncoder(valfile)
 			defer encoder.Close()
 			if err := encoder.Encode(typedValue); err != nil {
-				return nil, err
+				return generatedFiles, err
 			}
 			generatedFiles = append(generatedFiles, valfile.Name())
 		default:
-			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
+			return generatedFiles, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
 		}
 	}
 	return generatedFiles, nil
@@ -1926,8 +1944,6 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 		return nil, err
 	}
 
-	release.generatedValues = append(release.generatedValues, generatedFiles...)
-
 	return generatedFiles, nil
 }
 
@@ -1957,8 +1973,6 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 		generatedFiles = append(generatedFiles, valfile)
 	}
 
-	release.generatedValues = append(release.generatedValues, generatedFiles...)
-
 	return generatedFiles, nil
 }
 
@@ -1978,16 +1992,20 @@ func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *Relea
 	return files, nil
 }
 
-func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
 	flags := []string{}
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
 	}
 
+	var files []string
+
 	generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
 	if err != nil {
-		return nil, err
+		return nil, files, err
 	}
+
+	files = generatedFiles
 
 	for _, f := range generatedFiles {
 		flags = append(flags, "--values", f)
@@ -1998,7 +2016,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 			if set.Value != "" {
 				renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
 				if err != nil {
-					return nil, fmt.Errorf("Failed to render set value entry in %s for release %s: %v", st.FilePath, release.Name, err)
+					return nil, files, fmt.Errorf("Failed to render set value entry in %s for release %s: %v", st.FilePath, release.Name, err)
 				}
 				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
 			} else if set.File != "" {
@@ -2006,7 +2024,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 			} else if len(set.Values) > 0 {
 				renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
 				if err != nil {
-					return nil, fmt.Errorf("Failed to render set values entry in %s for release %s: %v", st.FilePath, release.Name, err)
+					return nil, files, fmt.Errorf("Failed to render set values entry in %s for release %s: %v", st.FilePath, release.Name, err)
 				}
 				items := make([]string, len(renderedValues))
 				for i, raw := range renderedValues {
@@ -2037,7 +2055,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 		if len(envValErrs) != 0 {
 			joinedEnvVals := strings.Join(envValErrs, "\n")
 			errMsg := fmt.Sprintf("Environment Variables not found. Please make sure they are set and try again:\n%s", joinedEnvVals)
-			return nil, errors.New(errMsg)
+			return nil, files, errors.New(errMsg)
 		}
 		flags = append(flags, "--set", strings.Join(val, ","))
 	}
@@ -2045,7 +2063,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	 * END 'env' section for backwards compatibility
 	 **************/
 
-	return flags, nil
+	return flags, files, nil
 }
 
 // renderValsSecrets helper function which renders 'ref+.*' secrets
@@ -2145,7 +2163,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	return nil
 }
 
-func (st *HelmState) GenerateOutputDir(outputDir string, release ReleaseSpec) (string, error) {
+func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec) (string, error) {
 	// get absolute path of state file to generate a hash
 	// use this hash to write helm output in a specific directory by state file and release name
 	// ie. in a directory named stateFileName-stateFileHash-releaseName

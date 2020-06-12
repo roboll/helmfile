@@ -59,7 +59,7 @@ func (r *Run) withPreparedCharts(forceDownload bool, f func()) error {
 	}
 	defer os.RemoveAll(dir)
 
-	releaseToChart, errs := state.PrepareCharts(r.helm, r.state, dir, 2, "template", forceDownload)
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, 2, "template", forceDownload)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%v", errs)

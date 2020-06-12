@@ -705,7 +705,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Version: tt.version,
 			}
 
-			args, err := state.flagsForUpgrade(helm, tt.release, 0)
+			args, _, err := state.flagsForUpgrade(helm, tt.release, 0)
 			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
 			}
