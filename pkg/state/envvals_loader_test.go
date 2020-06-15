@@ -2,6 +2,7 @@ package state
 
 import (
 	"github.com/google/go-cmp/cmp"
+	"github.com/roboll/helmfile/pkg/remote"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"path/filepath"
@@ -23,7 +24,10 @@ func newLoader() *EnvironmentValuesLoader {
 		logger:   sugar,
 	}
 
-	return NewEnvironmentValuesLoader(storage, ioutil.ReadFile, sugar)
+	readFile := func(s string) ([]byte, error) { return []byte{}, nil }
+	dirExists := func(d string) bool { return false }
+	fileExists := func(f string) bool { return false }
+	return NewEnvironmentValuesLoader(storage, ioutil.ReadFile, sugar, remote.NewRemote(sugar, "/tmp", readFile, dirExists, fileExists))
 }
 
 // See https://github.com/roboll/helmfile/pull/1169

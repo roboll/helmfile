@@ -1,6 +1,7 @@
 package state
 
 import (
+	"github.com/roboll/helmfile/pkg/remote"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -111,7 +112,9 @@ bar: {{ readFile "bar.txt" }}
 	})
 	testFs.Cwd = "/example/path/to"
 
-	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "").ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil)
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "", r).
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

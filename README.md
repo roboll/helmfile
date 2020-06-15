@@ -983,6 +983,19 @@ Now, replace `echo` with any command you like, and rewrite `args` that actually 
 For templating, imagine that you created a hook that generates a helm chart on-the-fly by running an external tool like ksonnet, kustomize, or your own template engine.
 It will allow you to write your helm releases with any language you like, while still leveraging goodies provided by helm.
 
+### Global Hooks
+In contrast to the per release hooks mentioned above these are run only once at the very beginning and end of the execution of a helmfile command and only the `prepare` and `cleanup` hooks are available respectively.
+
+They use the same syntax as per release hooks, but at the top level of your helmfile:
+``` yaml
+hooks:
+- events: ["prepare", "cleanup"]
+  showlogs: true
+  command: "echo"
+  args: ["{{`{{.Environment.Name}}`}}", "{{`{{.Release.Name}}`}}", "{{`{{.HelmfileCommand}}`}}\
+"]
+```
+
 ### Helmfile + Kustomize
 
 Do you prefer `kustomize` to write and organize your Kubernetes apps, but still want to leverage helm's useful features

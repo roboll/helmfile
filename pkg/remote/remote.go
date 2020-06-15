@@ -260,3 +260,15 @@ func (g *GoGetter) Get(wd, src, dst string) error {
 
 	return nil
 }
+
+func NewRemote(logger *zap.SugaredLogger, homeDir string, readFile func(string) ([]byte, error), dirExists func(string) bool, fileExists func(string) bool) *Remote {
+	remote := &Remote{
+		Logger:     logger,
+		Home:       homeDir,
+		Getter:     &GoGetter{Logger: logger},
+		ReadFile:   readFile,
+		DirExists:  dirExists,
+		FileExists: fileExists,
+	}
+	return remote
+}

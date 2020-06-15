@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
 	"io"
 	"os"
 
@@ -53,9 +54,11 @@ type StateCreator struct {
 	getHelm func(*HelmState) helmexec.Interface
 
 	overrideHelmBinary string
+
+	remote *remote.Remote
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote) *StateCreator {
 	return &StateCreator{
 		logger:      logger,
 		readFile:    readFile,
@@ -67,6 +70,8 @@ func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error)
 		getHelm:     getHelm,
 
 		overrideHelmBinary: overrideHelmBinary,
+
+		remote: remote,
 	}
 }
 
@@ -140,7 +145,7 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *envi
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
 
-	e.Defaults, err = state.loadValuesEntries(nil, state.DefaultValues)
+	e.Defaults, err = state.loadValuesEntries(nil, state.DefaultValues, c.remote)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +209,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	envSpec, ok := st.Environments[name]
 	if ok {
 		var err error
-		envVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envSpec.Values)
+		envVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envSpec.Values, c.remote)
 		if err != nil {
 			return nil, err
 		}
@@ -327,11 +332,11 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 	return nil
 }
 
-func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []interface{}) (map[string]interface{}, error) {
+func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []interface{}, remote *remote.Remote) (map[string]interface{}, error) {
 	envVals := map[string]interface{}{}
 
 	valuesEntries := append([]interface{}{}, entries...)
-	ld := NewEnvironmentValuesLoader(st.storage(), st.readFile, st.logger)
+	ld := NewEnvironmentValuesLoader(st.storage(), st.readFile, st.logger, remote)
 	var err error
 	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries)
 	if err != nil {

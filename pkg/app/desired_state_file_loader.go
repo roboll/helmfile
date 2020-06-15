@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
 	"path/filepath"
 	"sort"
 
@@ -33,6 +34,7 @@ type desiredStateLoader struct {
 	glob       func(string) ([]string, error)
 	getHelm    func(*state.HelmState) helmexec.Interface
 
+	remote      *remote.Remote
 	logger      *zap.SugaredLogger
 	valsRuntime vals.Evaluator
 }
@@ -47,7 +49,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, fmt.Errorf("bug: opts.CalleePath was nil: f=%s, opts=%v", f, opts)
 		}
 		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.glob)
-		envld := state.NewEnvironmentValuesLoader(storage, ld.readFile, ld.logger)
+		envld := state.NewEnvironmentValuesLoader(storage, ld.readFile, ld.logger, ld.remote)
 		handler := state.MissingFileHandlerError
 		vals, err := envld.LoadEnvironmentValues(&handler, args)
 		if err != nil {
@@ -148,8 +150,8 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.valsRuntime, a.getHelm, a.overrideHelmBinary)
-	c.DeleteFile = a.deleteFile
+	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.remote)
+  c.DeleteFile = a.deleteFile
 	c.LoadFile = a.loadFile
 	return c
 }

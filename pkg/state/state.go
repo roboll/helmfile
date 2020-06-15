@@ -59,6 +59,9 @@ type HelmState struct {
 	Selectors          []string          `yaml:"-"`
 	ApiVersions        []string          `yaml:"apiVersions,omitempty"`
 
+	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
+	Hooks []event.Hook `yaml:"hooks,omitempty"`
+
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
 	Env environment.Environment `yaml:"-"`
@@ -1447,6 +1450,30 @@ func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand st
 	*st = *updated
 
 	return nil
+}
+
+func (st *HelmState) TriggerGlobalPrepareEvent(helmfileCommand string) (bool, error) {
+	return st.triggerGlobalReleaseEvent("prepare", nil, helmfileCommand)
+}
+
+func (st *HelmState) TriggerGlobalCleanupEvent(helmfileCommand string) (bool, error) {
+	return st.triggerGlobalReleaseEvent("cleanup", nil, helmfileCommand)
+}
+
+func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfileCmd string) (bool, error) {
+	bus := &event.Bus{
+		Hooks:         st.Hooks,
+		StateFilePath: st.FilePath,
+		BasePath:      st.basePath,
+		Namespace:     st.OverrideNamespace,
+		Env:           st.Env,
+		Logger:        st.logger,
+		ReadFile:      st.readFile,
+	}
+	data := map[string]interface{}{
+		"HelmfileCommand": helmfileCmd,
+	}
+	return bus.Trigger(evt, evtErr, data)
 }
 
 func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
