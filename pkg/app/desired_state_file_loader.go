@@ -151,7 +151,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
 	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.remote)
-  c.DeleteFile = a.deleteFile
+	c.DeleteFile = a.deleteFile
 	c.LoadFile = a.loadFile
 	return c
 }
