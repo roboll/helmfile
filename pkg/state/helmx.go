@@ -22,7 +22,7 @@ func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) ([]s
 	return flags, nil
 }
 
-func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) (bool, *chartify.ChartifyOpts, error) {
+func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) (bool, *chartify.ChartifyOpts, func(), error) {
 	var opts chartify.ChartifyOpts
 
 	opts.WorkaroundOutputDirIssue = true
@@ -66,18 +66,24 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		shouldRun = true
 	}
 
+	var filesNeedCleaning []string
+
+	clean := func() {
+		st.removeFiles(filesNeedCleaning)
+	}
+
 	jsonPatches := release.JSONPatches
 	if len(jsonPatches) > 0 {
 		generatedFiles, err := st.generateTemporaryValuesFiles(jsonPatches, release.MissingFileHandler)
 		if err != nil {
-			return false, nil, err
+			return false, nil, clean, err
 		}
+
+		filesNeedCleaning = append(filesNeedCleaning, generatedFiles...)
 
 		for _, f := range generatedFiles {
 			opts.JsonPatches = append(opts.JsonPatches, f)
 		}
-
-		release.generatedValues = append(release.generatedValues, generatedFiles...)
 
 		shouldRun = true
 	}
@@ -86,14 +92,14 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	if len(strategicMergePatches) > 0 {
 		generatedFiles, err := st.generateTemporaryValuesFiles(strategicMergePatches, release.MissingFileHandler)
 		if err != nil {
-			return false, nil, err
+			return false, nil, clean, err
 		}
 
 		for _, f := range generatedFiles {
 			opts.StrategicMergePatches = append(opts.StrategicMergePatches, f)
 		}
 
-		release.generatedValues = append(release.generatedValues, generatedFiles...)
+		filesNeedCleaning = append(filesNeedCleaning, generatedFiles...)
 
 		shouldRun = true
 	}
@@ -101,11 +107,13 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	if shouldRun {
 		generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
 		if err != nil {
-			return false, nil, err
+			return false, nil, clean, err
 		}
+
+		filesNeedCleaning = append(filesNeedCleaning, generatedFiles...)
 
 		opts.ValuesFiles = generatedFiles
 	}
 
-	return shouldRun, &opts, nil
+	return shouldRun, &opts, clean, nil
 }

@@ -44,6 +44,7 @@ type StateCreator struct {
 	fileExists  func(string) (bool, error)
 	abs         func(string) (string, error)
 	glob        func(string) ([]string, error)
+	DeleteFile  func(string) error
 	valsRuntime vals.Evaluator
 
 	Strict bool
@@ -281,6 +282,11 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 					results <- secretResult{nil, err, path}
 					continue
 				}
+				defer func() {
+					if err := c.DeleteFile(decFile); err != nil {
+						c.logger.Warnf("removing decrypted file %s: %w", decFile, err)
+					}
+				}()
 				bytes, err := readFile(decFile)
 				if err != nil {
 					results <- secretResult{nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err), path}
