@@ -17,6 +17,10 @@ check:
 	go vet ${PKGS}
 .PHONY: check
 
+build-test-tools:
+	go build test/diff-yamls.go
+.PHONY: build-test-tools
+
 test:
 	go test -v ${PKGS} -cover -race -p=1
 .PHONY: test

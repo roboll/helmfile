@@ -898,7 +898,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 			flags = append(flags, "--output-dir", releaseOutputDir)
 			st.logger.Debugf("Generating templates to : %s\n", releaseOutputDir)
-			os.Mkdir(releaseOutputDir, 0755)
+			err = os.MkdirAll(releaseOutputDir, 0755)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 
 		if validate {

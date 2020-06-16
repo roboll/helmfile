@@ -21,6 +21,7 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
 	github.com/r3labs/diff v0.0.0-20190801153147-a71de73c46ad
+	github.com/spf13/cobra v0.0.3
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.20.0
 	github.com/variantdev/chartify v0.3.7
@@ -35,4 +36,5 @@ require (
 	gopkg.in/yaml.v2 v2.2.4
 	gotest.tools v2.2.0+incompatible
 	gotest.tools/v3 v3.0.3-0.20200410202438-4e4a41b7851a
+	k8s.io/apimachinery v0.0.0-20190409092423-760d1845f48b
 )

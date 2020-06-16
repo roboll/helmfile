@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name
+data:
+  name: {{ .Release.Name }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-namespace
+data:
+  namespace: {{ .Release.Namespace }}

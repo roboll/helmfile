@@ -16,6 +16,7 @@ jobs:
           - go-mod-cache-v1-
       - run: go env
       - run: make build
+      - run: make build-test-tools
       - save_cache:
           key: go-mod-cache-v1-{{ checksum "./go.sum" }}
           paths:
@@ -87,7 +88,10 @@ jobs:
       - run: mkdir ~/build
       - attach_workspace:
           at: ~/build
-      - run: cp ~/build/helmfile ~/project/helmfile
+      - run:
+          command: |
+            cp ~/build/helmfile ~/project/helmfile
+            cp ~/build/diff-yamls ~/project/diff-yamls
       - run:
           name: Install helm
           environment:
@@ -98,6 +102,16 @@ jobs:
             tar zxf ${HELM_FILENAME} linux-amd64/helm
             chmod +x linux-amd64/helm
             sudo mv linux-amd64/helm /usr/local/bin/
+      - run:
+          name: Install kustomize
+          environment:
+            KUSTOMIZE_VERSION: v3.6.1
+          command: |
+            KUSTOMIZE_FILENAME="kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+            curl -Lo ${KUSTOMIZE_FILENAME} "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}"
+            tar zxf ${KUSTOMIZE_FILENAME} kustomize
+            chmod +x kustomize
+            sudo mv kustomize /usr/local/bin/
       - run:
           name: Deploy minikube
           environment:
@@ -132,7 +146,10 @@ jobs:
     - run: mkdir ~/build
     - attach_workspace:
         at: ~/build
-    - run: cp ~/build/helmfile ~/project/helmfile
+    - run:
+        command: |
+          cp ~/build/helmfile ~/project/helmfile
+          cp ~/build/diff-yamls ~/project/diff-yamls
     - run:
         name: Install helm
         environment:
@@ -143,6 +160,16 @@ jobs:
           tar zxf ${HELM_FILENAME} linux-amd64/helm
           chmod +x linux-amd64/helm
           sudo mv linux-amd64/helm /usr/local/bin/
+    - run:
+        name: Install kustomize
+        environment:
+          KUSTOMIZE_VERSION: v3.6.1
+        command: |
+          KUSTOMIZE_FILENAME="kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          curl -Lo ${KUSTOMIZE_FILENAME} "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}"
+          tar zxf ${KUSTOMIZE_FILENAME} kustomize
+          chmod +x kustomize
+          sudo mv kustomize /usr/local/bin/
     - run:
         name: Deploy minikube
         environment:
