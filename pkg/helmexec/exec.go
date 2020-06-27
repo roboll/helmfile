@@ -365,7 +365,7 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 		cmdargs = append(cmdargs, helm.extra...)
 	}
 	if helm.kubeContext != "" {
-		cmdargs = append(cmdargs, "--kube-context", helm.kubeContext)
+		cmdargs = append([]string{"--kube-context", helm.kubeContext}, cmdargs...)
 	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
