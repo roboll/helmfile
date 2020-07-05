@@ -820,6 +820,8 @@ github.com/variantdev/vals v0.4.1-0.20200501114609-9cebe482281c h1:ODJGhYOTMQJ1s
 github.com/variantdev/vals v0.4.1-0.20200501114609-9cebe482281c/go.mod h1:IfLBErvsyYBQU0Jobuzfmft46K0MG0sLO6xz9o9KZdY=
 github.com/variantdev/vals v0.6.0 h1:PcAK0n+tQ7Xu4EorKcgf8B2Xo3PjGm4Ryfv3sikQsy8=
 github.com/variantdev/vals v0.6.0/go.mod h1:28iJwAamsfHevGLXO7QKmVWmwa79xM06sRjw8eGY73U=
+github.com/variantdev/vals v0.7.1 h1:SXhRvduRposBURQPB+/h4LyY6/t7VydVlQLWGDu9Go4=
+github.com/variantdev/vals v0.7.1/go.mod h1:28iJwAamsfHevGLXO7QKmVWmwa79xM06sRjw8eGY73U=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 go.etcd.io/bbolt v1.3.2 h1:Z/90sZLPOeCy2PwprqkFa25PdkusRzaj9P8zm/KNyvk=
