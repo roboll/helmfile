@@ -2,7 +2,7 @@ FROM golang:1.10
 
 FROM debian:stretch
 
-RUN apt-get update && apt-get install -y wget curl git lsb-release sudo unzip
+RUN apt-get update && apt-get install -y wget curl git lsb-release sudo unzip make
 ENV HELM_VERSION=v2.10.0
 ENV HELM_LOCATION="https://kubernetes-helm.storage.googleapis.com"
 ENV HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
