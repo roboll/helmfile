@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/roboll/helmfile/pkg/remote"
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/remote"
 
 	"github.com/roboll/helmfile/pkg/exectest"
 	"gotest.tools/v3/assert"
@@ -2272,6 +2274,10 @@ type mockRunner struct {
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
+	return []byte{}, nil
+}
+
+func (mock *mockRunner) OutputInLine(c *exec.Cmd) ([]byte, error) {
 	return []byte{}, nil
 }
 
