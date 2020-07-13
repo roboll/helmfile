@@ -112,8 +112,6 @@ func (shell ShellRunner) OutputInLine(c *exec.Cmd) ([]byte, error) {
 			// so that helmfile could return its own exit code accordingly
 			waitStatus := ee.Sys().(syscall.WaitStatus)
 			exitStatus := waitStatus.ExitStatus()
-			// err = newExitError(c.Path, c.Args, exitStatus, ee, string(stderr), string(stdout))
-			shell.Logger.Debug("DASDSADASDASDASDASDADASDSASDASDASDASDAS")
 			err = newExitError(c.Path, c.Args, exitStatus, ee, errorStream, combinedStream)
 		default:
 			panic(fmt.Sprintf("unexpected error: %v", err))
