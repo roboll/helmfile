@@ -1,15 +1,18 @@
 package helmexec
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -20,6 +23,7 @@ const (
 // Runner interface for shell commands
 type Runner interface {
 	Execute(cmd string, args []string, env map[string]string) ([]byte, error)
+	OutputInLine(c *exec.Cmd) ([]byte, error)
 }
 
 // ShellRunner implemention for shell commands
@@ -34,7 +38,89 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
-	return Output(preparedCmd)
+	return shell.OutputInLine(preparedCmd)
+}
+
+func (shell ShellRunner) OutputInLine(c *exec.Cmd) ([]byte, error) {
+	var errorStream string
+	var outputStream string
+	var combinedStream string
+
+	stdout, err := c.StdoutPipe()
+	if err != nil {
+		return nil, errors.New("exec: Stdout already set")
+	}
+	stderr, err := c.StderrPipe()
+	if err != nil {
+		return nil, errors.New("exec: Stderr already set")
+	}
+
+	err = c.Start()
+	if err != nil {
+		panic(fmt.Sprintf("unexpected error: %v", err))
+	}
+
+	combined := make(chan string, 2)
+
+	var wg sync.WaitGroup
+
+	scannerStdout := bufio.NewScanner(stdout)
+	wg.Add(1)
+	go func() {
+		for scannerStdout.Scan() {
+			text := scannerStdout.Text()
+			if strings.TrimSpace(text) != "" {
+				outputStream += text + "\n"
+				combined <- text
+			}
+		}
+		wg.Done()
+	}()
+
+	scannerStderr := bufio.NewScanner(stderr)
+	wg.Add(1)
+	go func() {
+		for scannerStderr.Scan() {
+			text := scannerStderr.Text()
+			if strings.TrimSpace(text) != "" {
+				errorStream += text + "\n"
+				combined <- text
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		wg.Wait()
+		close(combined)
+	}()
+
+	for t := range combined {
+		combinedStream += t + "\n"
+		shell.Logger.Debug(t)
+	}
+
+	err = c.Wait()
+	if err != nil {
+		// TrimSpace is necessary, because otherwise helmfile prints the redundant new-lines after each error like:
+		//
+		//   err: release "envoy2" in "helmfile.yaml" failed: exit status 1: Error: could not find a ready tiller pod
+		//   <redundant new line!>
+		//   err: release "envoy" in "helmfile.yaml" failed: exit status 1: Error: could not find a ready tiller pod
+		switch ee := err.(type) {
+		case *exec.ExitError:
+			// Propagate any non-zero exit status from the external command, rather than throwing it away,
+			// so that helmfile could return its own exit code accordingly
+			waitStatus := ee.Sys().(syscall.WaitStatus)
+			exitStatus := waitStatus.ExitStatus()
+			// err = newExitError(c.Path, c.Args, exitStatus, ee, string(stderr), string(stdout))
+			shell.Logger.Debug("DASDSADASDASDASDASDADASDSASDASDASDASDAS")
+			err = newExitError(c.Path, c.Args, exitStatus, ee, errorStream, combinedStream)
+		default:
+			panic(fmt.Sprintf("unexpected error: %v", err))
+		}
+	}
+
+	return []byte(outputStream), err
 }
 
 func Output(c *exec.Cmd) ([]byte, error) {
