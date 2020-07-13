@@ -2,7 +2,7 @@ FROM golang:1.10
 
 FROM debian:stretch
 
-RUN apt-get update && apt-get install -y wget curl git lsb-release sudo unzip make
+RUN apt-get update && apt-get install -y wget curl git lsb-release sudo unzip make build-essential
 ENV HELM_VERSION=v2.10.0
 ENV HELM_LOCATION="https://kubernetes-helm.storage.googleapis.com"
 ENV HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
@@ -31,9 +31,10 @@ RUN wget ${AWS_IAM_AUTHENTICATOR_URL} && \
     mv aws-iam-authenticator /usr/local/bin/ && \
     chmod +x /usr/local/bin/aws-iam-authenticator
 
-ENV TERRAFORM_LOCATION=https://releases.hashicorp.com/terraform/0.12.28
-ENV TERRAFORM_FILENAME=terraform_0.12.28_linux_amd64.zip
-RUN wget ${TERRAFORM_LOCATION}/${TERRAFORM_FILENAME} && \
+ENV TERRAFORM_VERSION=0.12.26
+ENV TERRAFORM_LOCATION=https://releases.hashicorp.com/terraform
+ENV TERRAFORM_FILENAME=terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+RUN wget ${TERRAFORM_LOCATION}/${TERRAFORM_VERSION}/${TERRAFORM_FILENAME} && \
     unzip ${TERRAFORM_FILENAME} && mv terraform /usr/local/bin/ && \
     chmod +x /usr/local/bin/terraform
 
