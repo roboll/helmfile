@@ -2,7 +2,7 @@ FROM golang:1.10
 
 FROM debian:stretch
 
-RUN apt-get update && apt-get install -y wget curl git lsb-release sudo
+RUN apt-get update && apt-get install -y wget curl git lsb-release sudo unzip
 ENV HELM_VERSION=v2.10.0
 ENV HELM_LOCATION="https://kubernetes-helm.storage.googleapis.com"
 ENV HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
@@ -30,5 +30,11 @@ ENV AWS_IAM_AUTHENTICATOR_URL="https://amazon-eks.s3.us-west-2.amazonaws.com/1.1
 RUN wget ${AWS_IAM_AUTHENTICATOR_URL} && \
     mv aws-iam-authenticator /usr/local/bin/ && \
     chmod +x /usr/local/bin/aws-iam-authenticator
+
+ENV TERRAFORM_LOCATION=https://releases.hashicorp.com/terraform/0.12.28
+ENV TERRAFORM_FILENAME=terraform_0.12.28_linux_amd64.zip
+RUN wget ${TERRAFORM_LOCATION}/${TERRAFORM_FILENAME} && \
+    unzip ${TERRAFORM_FILENAME} && mv terraform /usr/local/bin/ && \
+    chmod +x /usr/local/bin/terraform
 
 CMD ["kubectl"]
