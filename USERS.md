@@ -20,5 +20,5 @@ information to this file.
 | [kloeckner-i](https://www.kloeckner-i.com/) | production | We are deploying our standard tools via helmfile to all our clusters.  | Berlin, Germany | September 2019 |
 | [American Express](https://www.americanexpress.com) | proof-of-concept | Orchestration of both internal cluster workloads and local developer environments. | London, GB | January 2020 |
 | [Sportradar](https://www.sportradar.com) | production | Since mid-2019, we've been deploying our core infrastructure and several application stacks with Helmfile. | St. Gallen, Switzerland | March 2020 |
-| [PedidosYa](https://www.pedidosya.com) | staging | proof-of-concept | Montevideo, Uruguay | June 2020 |
+| [PedidosYa](https://www.pedidosya.com) | production | | Montevideo, Uruguay | June 2020 |
 <!-- TABLE_END -->
