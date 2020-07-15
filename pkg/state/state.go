@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/event"
@@ -828,7 +830,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 }
 
 type TemplateOpts struct {
-	Set []string
+	Set               []string
+	OutputDirTemplate string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -890,8 +893,8 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			}
 		}
 
-		if len(outputDir) > 0 {
-			releaseOutputDir, err := st.GenerateOutputDir(outputDir, release)
+		if len(outputDir) > 0 || len(opts.OutputDirTemplate) > 0 {
+			releaseOutputDir, err := st.GenerateOutputDir(outputDir, release, opts.OutputDirTemplate)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -2193,7 +2196,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	return nil
 }
 
-func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec) (string, error) {
+func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {
 	// get absolute path of state file to generate a hash
 	// use this hash to write helm output in a specific directory by state file and release name
 	// ie. in a directory named stateFileName-stateFileHash-releaseName
@@ -2208,14 +2211,53 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec) (
 	var stateFileExtension = filepath.Ext(st.FilePath)
 	var stateFileName = st.FilePath[0 : len(st.FilePath)-len(stateFileExtension)]
 
+	sha1sum := hex.EncodeToString(hasher.Sum(nil))[:8]
+
 	var sb strings.Builder
 	sb.WriteString(stateFileName)
 	sb.WriteString("-")
-	sb.WriteString(hex.EncodeToString(hasher.Sum(nil))[:8])
+	sb.WriteString(sha1sum)
 	sb.WriteString("-")
 	sb.WriteString(release.Name)
 
-	return path.Join(outputDir, sb.String()), nil
+	if outputDirTemplate == "" {
+		outputDirTemplate = filepath.Join("{{ .OutputDir }}", "{{ .State.BaseName }}-{{ .State.AbsPathSHA1 }}-{{ .Release.Name}}")
+	}
+
+	t, err := template.New("output-dir").Parse(outputDirTemplate)
+	if err != nil {
+		return "", fmt.Errorf("parsing output-dir templmate")
+	}
+
+	buf := &bytes.Buffer{}
+
+	type state struct {
+		BaseName    string
+		Path        string
+		AbsPath     string
+		AbsPathSHA1 string
+	}
+
+	data := struct {
+		OutputDir string
+		State     state
+		Release   *ReleaseSpec
+	}{
+		OutputDir: outputDir,
+		State: state{
+			BaseName:    stateFileName,
+			Path:        st.FilePath,
+			AbsPath:     stateAbsPath,
+			AbsPathSHA1: sha1sum,
+		},
+		Release: release,
+	}
+
+	if err := t.Execute(buf, data); err != nil {
+		return "", fmt.Errorf("executing output-dir template: %w", err)
+	}
+
+	return buf.String(), nil
 }
 
 func (st *HelmState) ToYaml() (string, error) {
