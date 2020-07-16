@@ -2178,6 +2178,10 @@ func (c configImpl) OutputDir() string {
 	return "output/subdir"
 }
 
+func (c configImpl) OutputDirTemplate() string {
+	return ""
+}
+
 func (c configImpl) Concurrency() int {
 	return 1
 }
