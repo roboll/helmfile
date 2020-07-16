@@ -708,7 +708,7 @@ releases:
   ...
 ```
 
-### Note
+### Note on Environment.Values vs Values
 
 The `{{ .Values.foo }}` syntax is the recommended way of using environment values.
 
@@ -716,6 +716,27 @@ Prior to this [pull request](https://github.com/roboll/helmfile/pull/647), envir
 This is still working but is **deprecated** and the new `{{ .Values.foo }}` syntax should be used instead.
 
 You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
+
+### Loading remote environment values files
+
+Since #1296 and Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
+
+```yaml
+environments:
+  cluster-azure-us-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
+  cluster-gcp-europe-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
+
+releases:
+  - ...
+```
+
+This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
 
 ## Environment Secrets
 
