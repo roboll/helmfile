@@ -672,7 +672,7 @@ releaseName: prod
 `values.yaml.gotmpl`
 
 ```yaml
-domain: {{ .Values | get "my.domain" "dev.example.com" }}
+domain: {{ .Values | get "domain" "dev.example.com" }}
 ```
 
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
