@@ -825,6 +825,7 @@ github.com/variantdev/chartify v0.3.9 h1:pkfnXOsMd3PT6zpQDmKYIPJws1UlKe7QQhlIX0w
 github.com/variantdev/chartify v0.3.9/go.mod h1:0tw+4doFHsNnhttYx7I9Pv/dsZ82BD4UuTV9saBOcfw=
 github.com/variantdev/chartify v0.3.10 h1:hi/9z0GPPOKAubemWhJwwsnYJnCKKdIZyo1ouOF6M7Q=
 github.com/variantdev/chartify v0.3.10/go.mod h1:0tw+4doFHsNnhttYx7I9Pv/dsZ82BD4UuTV9saBOcfw=
+github.com/variantdev/chartify v0.3.11 h1:+jknp9CQ4kvgVMifuwxuu8/5UAVajuNrPBLWnTCTNpA=
 github.com/variantdev/chartify v0.3.11/go.mod h1:0tw+4doFHsNnhttYx7I9Pv/dsZ82BD4UuTV9saBOcfw=
 github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363 h1:KrfQBEUn+wEOQ/6UIfoqRDvn+Q/wZridQ7t0G1vQqKE=
 github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363/go.mod h1:pH1TQsNSLj2uxMo9NNl9zdGy01Wtn+/2MT96BrKmVyE=
@@ -838,6 +839,8 @@ github.com/variantdev/vals v0.7.1 h1:SXhRvduRposBURQPB+/h4LyY6/t7VydVlQLWGDu9Go4
 github.com/variantdev/vals v0.7.1/go.mod h1:28iJwAamsfHevGLXO7QKmVWmwa79xM06sRjw8eGY73U=
 github.com/variantdev/vals v0.9.3 h1:l9AT8UgvgU1GBADg5ZPssDVkZTkRr9SaVjvinVjQebk=
 github.com/variantdev/vals v0.9.3/go.mod h1:tAQZUHZAYfgNJJ3BzmUDXeN+r6RLk0HQPSQ+gdYSP5I=
+github.com/variantdev/vals v0.10.0 h1:2diYujperePiJGQbQx5TEjWzhM0J7WM5+8UZnPXiaOc=
+github.com/variantdev/vals v0.10.0/go.mod h1:tAQZUHZAYfgNJJ3BzmUDXeN+r6RLk0HQPSQ+gdYSP5I=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 go.etcd.io/bbolt v1.3.2 h1:Z/90sZLPOeCy2PwprqkFa25PdkusRzaj9P8zm/KNyvk=
