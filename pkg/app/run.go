@@ -22,6 +22,10 @@ type Run struct {
 }
 
 func NewRun(st *state.HelmState, helm helmexec.Interface, ctx Context) *Run {
+	if helm == nil {
+		panic("Assertion failed: helmexec.Interface must not be nil")
+	}
+
 	return &Run{state: st, helm: helm, ctx: ctx}
 }
 
