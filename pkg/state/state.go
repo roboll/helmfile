@@ -150,9 +150,15 @@ type RepositorySpec struct {
 // ReleaseSpec defines the structure of a helm release
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
-	Chart   string `yaml:"chart,omitempty"`
+	Chart string `yaml:"chart,omitempty"`
+	// Directory is an alias to Chart which may be of more fit when you want to use a local/remote directory containing
+	// K8s manifests or Kustomization as a chart
+	Directory string `yaml:"directory,omitempty"`
+	// Version is the semver version or version constraint for the chart
 	Version string `yaml:"version,omitempty"`
-	Verify  *bool  `yaml:"verify,omitempty"`
+	// Verify enables signature verification on fetched chart.
+	// Beware some (or many?) chart repositories and charts don't seem to support it.
+	Verify *bool `yaml:"verify,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel *bool `yaml:"devel,omitempty"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -237,6 +243,13 @@ type ReleaseSpec struct {
 
 	//version of the chart that has really been installed cause desired version may be fuzzy (~2.0.0)
 	installedVersion string
+
+	// ForceGoGetter forces the use of go-getter for fetching remote directory as maniefsts/chart/kustomization
+	// by parsing the url from `chart` field of the release.
+	// This is handy when getting the go-getter url parsing error when it doesn't work as expected.
+	// Without this, any error in url parsing result in silently falling-back to normal process of treating `chart:` as the regular
+	// helm chart name.
+	ForceGoGetter bool `yaml:"forceGoGetter,omitempty"`
 }
 
 type Release struct {
@@ -534,6 +547,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					}
 					deletionFlags := st.appendConnectionFlags(args, release)
 					m.Lock()
+
 					if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
@@ -638,6 +652,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						}
 						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
+
 						if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
@@ -745,6 +760,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		chartPath   string
 		err         error
 	}
+
 	errs := []error{}
 
 	jobQueue := make(chan *ReleaseSpec, len(st.Releases))
@@ -769,22 +785,23 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 			for release := range jobQueue {
 				var chartPath string
 
-				shouldChartify, opts, clean, err := st.PrepareChartify(helm, release, workerIndex)
+				chartification, clean, err := st.PrepareChartify(helm, release, workerIndex)
 				defer clean()
 				if err != nil {
 					results <- &downloadResults{err: err}
 					return
 				}
 
-				if shouldChartify {
+				if chartification != nil {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
 						chartify.UseHelm3(helm3),
 					)
 
-					out, err := c.Chartify(release.Name, release.Chart, chartify.WithChartifyOpts(opts))
+					out, err := c.Chartify(release.Name, chartification.Chart, chartify.WithChartifyOpts(chartification.Opts))
 					if err != nil {
-						errs = append(errs, err)
+						results <- &downloadResults{err: err}
+						return
 					} else {
 						// TODO Chartify
 						chartPath = out
@@ -810,7 +827,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
 						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
 						if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
-							errs = append(errs, err)
+							results <- &downloadResults{err: err}
+							return
 						}
 					}
 					// Set chartPath to be the path containing Chart.yaml, if found
