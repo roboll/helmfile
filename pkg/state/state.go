@@ -128,10 +128,12 @@ type HelmSpec struct {
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install/upgrade (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
 
-	TLS       bool   `yaml:"tls"`
-	TLSCACert string `yaml:"tlsCACert,omitempty"`
-	TLSKey    string `yaml:"tlsKey,omitempty"`
-	TLSCert   string `yaml:"tlsCert,omitempty"`
+	TLS                      bool   `yaml:"tls"`
+	TLSCACert                string `yaml:"tlsCACert,omitempty"`
+	TLSKey                   string `yaml:"tlsKey,omitempty"`
+	TLSCert                  string `yaml:"tlsCert,omitempty"`
+	DisableValidation        *bool  `yaml:"disableValidation,omitempty"`
+	DisableOpenAPIValidation *bool  `yaml:"disableOpenAPIValidation,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -173,6 +175,18 @@ type ReleaseSpec struct {
 	Condition string `yaml:"condition,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
+
+	// DisableOpenAPIValidation is rarely used to bypass OpenAPI validations only that is used for e.g.
+	// work-around against broken CRs
+	// See also:
+	// - https://github.com/helm/helm/pull/6819
+	// - https://github.com/roboll/helmfile/issues/1167
+	DisableOpenAPIValidation *bool `yaml:"disableOpenAPIValidation,omitempty"`
+
+	// DisableValidation is rarely used to bypass the whole validation of manifests against the Kubernetes cluster
+	// so that `helm diff` can be run containing a chart that installs both CRD and CRs on first install.
+	// FYI, such diff without `--disable-validation` fails on first install because the K8s cluster doesn't have CRDs registered yet.
+	DisableValidation *bool `yaml:"disableValidation,omitempty"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
@@ -1769,6 +1783,28 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	if st.isDevelopment(release) {
 		flags = append(flags, "--devel")
+	}
+
+	disableOpenAPIValidation := false
+	if release.DisableOpenAPIValidation != nil {
+		disableOpenAPIValidation = *release.DisableOpenAPIValidation
+	} else if st.HelmDefaults.DisableOpenAPIValidation != nil {
+		disableOpenAPIValidation = *st.HelmDefaults.DisableOpenAPIValidation
+	}
+
+	if disableOpenAPIValidation {
+		flags = append(flags, "--disable-openapi-validation")
+	}
+
+	disableValidation := false
+	if release.DisableValidation != nil {
+		disableValidation = *release.DisableValidation
+	} else if st.HelmDefaults.DisableValidation != nil {
+		disableValidation = *st.HelmDefaults.DisableValidation
+	}
+
+	if disableValidation {
+		flags = append(flags, "--disable-validation")
 	}
 
 	flags = st.appendConnectionFlags(flags, release)
