@@ -342,7 +342,7 @@ func (a *App) Test(c TestConfigProvider) error {
 
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) (errs []error) {
-		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, "build", func() {
+		err := NewRun(st, a.getHelm(st), NewContext()).withPreparedCharts(false, "build", func() {
 			state, err := st.ToYaml()
 			if err != nil {
 				errs = []error{err}
@@ -365,7 +365,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 	var releases []*HelmRelease
 
 	err := a.VisitDesiredStatesWithReleasesFiltered(a.FileOrDir, func(st *state.HelmState) []error {
-		err := NewRun(st, nil, NewContext()).withPreparedCharts(false, "list", func() {
+		err := NewRun(st, a.getHelm(st), NewContext()).withPreparedCharts(false, "list", func() {
 
 			//var releases m
 			for _, r := range st.Releases {
