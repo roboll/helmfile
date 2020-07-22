@@ -957,6 +957,8 @@ Currently supported `events` are:
 
 - `prepare`
 - `presync`
+- `preuninstall`
+- `postuninstall`
 - `postsync`
 - `cleanup`
 
@@ -964,9 +966,15 @@ Hooks associated to `prepare` events are triggered after each release in your he
 
 Hooks associated to `cleanup` events are triggered after each release is processed.
 
-Hooks associated to `presync` events are triggered before each release is applied to the remote cluster. This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+Hooks associated to `presync` events are triggered before each release is applied to the remote cluster.
+This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
-Hooks associated to `postsync` events are triggered after each release is applied to the remote cluster. This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+`preuninstall` hooks are triggered immediately before a release is uninstalled as part of `helmfile apply`, `helmfile sync`, `helmfile delete`, and `helmfile destroy`.
+
+Hooks associated to `postsync` events are triggered after each release is applied to the remote cluster.
+This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+
+`postuninstall` hooks are triggered immediately after successful uninstall of a release while running `helmfile apply`, `helmfile sync`, `helmfile delete`, `helmfile destroy`.
 
 The following is an example hook that just prints the contextual information provided to hook:
 

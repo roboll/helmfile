@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/variantdev/chartify"
 	"io"
 	"io/ioutil"
 	"os"
@@ -18,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+
+	"github.com/variantdev/chartify"
 
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/event"
@@ -547,8 +548,13 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					}
 					deletionFlags := st.appendConnectionFlags(args, release)
 					m.Lock()
-
-					if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						relErr = newReleaseFailedError(release, err)
+					} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						relErr = newReleaseFailedError(release, err)
+					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -652,8 +658,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						}
 						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
-
-						if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							relErr = newReleaseFailedError(release, err)
+						} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							relErr = newReleaseFailedError(release, err)
+						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else {
@@ -1309,13 +1320,24 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		}
 		context := st.createHelmContext(&release, workerIndex)
 
+		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
+			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+
+			return err
+		}
+
 		if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
-		} else {
-			affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
-			return nil
 		}
+
+		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete"); err != nil {
+			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+			return err
+		}
+
+		affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
+		return nil
 	})
 }
 
