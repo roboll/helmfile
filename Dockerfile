@@ -31,7 +31,7 @@ RUN wget ${AWS_IAM_AUTHENTICATOR_URL} && \
     mv aws-iam-authenticator /usr/local/bin/ && \
     chmod +x /usr/local/bin/aws-iam-authenticator
 
-ENV TERRAFORM_VERSION=0.12.26
+ENV TERRAFORM_VERSION=0.12.28
 ENV TERRAFORM_LOCATION=https://releases.hashicorp.com/terraform
 ENV TERRAFORM_FILENAME=terraform_${TERRAFORM_VERSION}_linux_amd64.zip
 RUN wget ${TERRAFORM_LOCATION}/${TERRAFORM_VERSION}/${TERRAFORM_FILENAME} && \
