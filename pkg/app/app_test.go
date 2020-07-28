@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"github.com/roboll/helmfile/pkg/remote"
 	"io"
 	"log"
@@ -90,19 +91,21 @@ releases:
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 		Namespace:           "",
 		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
 	}
 
 	expectNoCallsToHelm(app)
 
 	app = injectFs(app, fs)
 	actualOrder := []string{}
-	noop := func(st *state.HelmState) []error {
-		actualOrder = append(actualOrder, st.FilePath)
-		return []error{}
+	noop := func(run *Run) (bool, []error) {
+		actualOrder = append(actualOrder, run.state.FilePath)
+		return false, []error{}
 	}
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", noop,
+	err := app.ForEachState(
+		noop,
+		SetFilter(true),
 	)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -112,6 +115,10 @@ releases:
 	if !reflect.DeepEqual(actualOrder, expectedOrder) {
 		t.Errorf("unexpected order of processed state files: expected=%v, actual=%v", expectedOrder, actualOrder)
 	}
+}
+
+func Noop(_ *Run) (bool, []error) {
+	return false, []error{}
 }
 
 func TestVisitDesiredStatesWithReleasesFiltered_EnvValuesFileOrder(t *testing.T) {
@@ -140,17 +147,16 @@ BAZ: 4
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 		Namespace:           "",
 		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
 	}
 
 	expectNoCallsToHelm(app)
 
 	app = injectFs(app, fs)
-	noop := func(st *state.HelmState) []error {
-		return []error{}
-	}
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", noop,
+	err := app.ForEachState(
+		Noop,
+		SetFilter(true),
 	)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -182,17 +188,16 @@ releases:
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 		Namespace:           "",
 		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
 	}
 
 	expectNoCallsToHelm(app)
 
 	app = injectFs(app, fs)
-	noop := func(st *state.HelmState) []error {
-		return []error{}
-	}
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", noop,
+	err := app.ForEachState(
+		Noop,
+		SetFilter(true),
 	)
 	if err == nil {
 		t.Fatal("expected error did not occur")
@@ -232,12 +237,10 @@ releases:
 	expectNoCallsToHelm(app)
 
 	app = injectFs(app, fs)
-	noop := func(st *state.HelmState) []error {
-		return []error{}
-	}
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", noop,
+	err := app.ForEachState(
+		Noop,
+		SetFilter(true),
 	)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -279,17 +282,16 @@ releases:
 				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 				Namespace:           "",
 				Env:                 "default",
+				FileOrDir:           "helmfile.yaml",
 			}
 
 			expectNoCallsToHelm(app)
 
 			app = injectFs(app, fs)
-			noop := func(st *state.HelmState) []error {
-				return []error{}
-			}
 
-			err := app.VisitDesiredStatesWithReleasesFiltered(
-				"helmfile.yaml", noop,
+			err := app.ForEachState(
+				Noop,
+				SetFilter(true),
 			)
 			if testcase.expectErr && err == nil {
 				t.Fatal("expected error did not occur")
@@ -346,17 +348,16 @@ releases:
 			Selectors:           []string{fmt.Sprintf("name=%s", testcase.name)},
 			Namespace:           "",
 			Env:                 "default",
+			FileOrDir:           "helmfile.yaml",
 		}
 
 		expectNoCallsToHelm(app)
 
 		app = injectFs(app, fs)
-		noop := func(st *state.HelmState) []error {
-			return []error{}
-		}
 
-		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", noop,
+		err := app.ForEachState(
+			Noop,
+			SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
 			t.Errorf("error expected but not happened for name=%s", testcase.name)
@@ -385,9 +386,6 @@ releases:
   chart: stable/zipkin
 `,
 	}
-	noop := func(st *state.HelmState) []error {
-		return []error{}
-	}
 
 	testcases := []struct {
 		name      string
@@ -406,12 +404,14 @@ releases:
 			Namespace:           "",
 			Selectors:           []string{},
 			Env:                 testcase.name,
+			FileOrDir:           "helmfile.yaml",
 		}, files)
 
 		expectNoCallsToHelm(app)
 
-		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", noop,
+		err := app.ForEachState(
+			Noop,
+			SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
 			t.Errorf("error expected but not happened for environment=%s", testcase.name)
@@ -495,11 +495,11 @@ releases:
 		t.Run(testcase.label, func(t *testing.T) {
 			actual := []string{}
 
-			collectReleases := func(st *state.HelmState) []error {
-				for _, r := range st.Releases {
+			collectReleases := func(run *Run) (bool, []error) {
+				for _, r := range run.state.Releases {
 					actual = append(actual, r.Name)
 				}
-				return []error{}
+				return false, []error{}
 			}
 
 			app := appWithFs(&App{
@@ -509,12 +509,14 @@ releases:
 				Namespace:           "",
 				Selectors:           []string{testcase.label},
 				Env:                 "default",
+				FileOrDir:           "helmfile.yaml",
 			}, files)
 
 			expectNoCallsToHelm(app)
 
-			err := app.VisitDesiredStatesWithReleasesFiltered(
-				"helmfile.yaml", collectReleases,
+			err := app.ForEachState(
+				collectReleases,
+				SetFilter(true),
 			)
 			if testcase.expectErr {
 				if err == nil {
@@ -734,11 +736,11 @@ func runFilterSubHelmFilesTests(testcases []struct {
 	for _, testcase := range testcases {
 		actual := []string{}
 
-		collectReleases := func(st *state.HelmState) []error {
-			for _, r := range st.Releases {
+		collectReleases := func(run *Run) (bool, []error) {
+			for _, r := range run.state.Releases {
 				actual = append(actual, r.Name)
 			}
-			return []error{}
+			return false, []error{}
 		}
 
 		app := appWithFs(&App{
@@ -748,12 +750,14 @@ func runFilterSubHelmFilesTests(testcases []struct {
 			Namespace:           "",
 			Selectors:           []string{testcase.label},
 			Env:                 "default",
+			FileOrDir:           "helmfile.yaml",
 		}, files)
 
 		expectNoCallsToHelm(app)
 
-		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", collectReleases,
+		err := app.ForEachState(
+			collectReleases,
+			SetFilter(true),
 		)
 		if testcase.expectErr {
 			if err == nil {
@@ -832,21 +836,23 @@ tillerNs: INLINE_TILLER_NS_2
 		Namespace:           "",
 		Selectors:           []string{},
 		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelm(app)
 
 	processed := []state.ReleaseSpec{}
 
-	collectReleases := func(st *state.HelmState) []error {
-		for _, r := range st.Releases {
+	collectReleases := func(run *Run) (bool, []error) {
+		for _, r := range run.state.Releases {
 			processed = append(processed, r)
 		}
-		return []error{}
+		return false, []error{}
 	}
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", collectReleases,
+	err := app.ForEachState(
+		collectReleases,
+		SetFilter(true),
 	)
 
 	if err != nil {
@@ -927,11 +933,11 @@ releases:
 	for _, testcase := range testcases {
 		actual := []string{}
 
-		collectReleases := func(st *state.HelmState) []error {
-			for _, r := range st.Releases {
+		collectReleases := func(run *Run) (bool, []error) {
+			for _, r := range run.state.Releases {
 				actual = append(actual, r.Name)
 			}
-			return []error{}
+			return false, []error{}
 		}
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
@@ -940,13 +946,15 @@ releases:
 			Namespace:           "",
 			Selectors:           []string{},
 			Env:                 "default",
+			FileOrDir:           "helmfile.yaml",
 		}, files)
 
 		expectNoCallsToHelm(app)
 
-		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", collectReleases,
+		err := app.ForEachState(
+			collectReleases,
 			SetReverse(testcase.reverse),
+			SetFilter(true),
 		)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -988,11 +996,11 @@ bar: "bar1"
 	for _, testcase := range testcases {
 		actual := []string{}
 
-		collectReleases := func(st *state.HelmState) []error {
-			for _, r := range st.Releases {
+		collectReleases := func(run *Run) (bool, []error) {
+			for _, r := range run.state.Releases {
 				actual = append(actual, r.Name)
 			}
-			return []error{}
+			return false, []error{}
 		}
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
@@ -1003,12 +1011,14 @@ bar: "bar1"
 			Env:                 "default",
 			ValuesFiles:         []string{"overrides.yaml"},
 			Set:                 map[string]interface{}{"bar": "bar2", "baz": "baz1"},
+			FileOrDir:           "helmfile.yaml",
 		}, files)
 
 		expectNoCallsToHelm(app)
 
-		err := app.VisitDesiredStatesWithReleasesFiltered(
-			"helmfile.yaml", collectReleases,
+		err := app.ForEachState(
+			collectReleases,
+			SetFilter(true),
 		)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1108,11 +1118,11 @@ x:
 
 			actual := []state.ReleaseSpec{}
 
-			collectReleases := func(st *state.HelmState) []error {
-				for _, r := range st.Releases {
+			collectReleases := func(run *Run) (bool, []error) {
+				for _, r := range run.state.Releases {
 					actual = append(actual, r)
 				}
-				return []error{}
+				return false, []error{}
 			}
 			app := appWithFs(&App{
 				OverrideHelmBinary:  DefaultHelmBinary,
@@ -1123,12 +1133,14 @@ x:
 				Env:                 testcase.env,
 				ValuesFiles:         []string{"overrides.yaml"},
 				Set:                 map[string]interface{}{"x": map[string]interface{}{"hoge": "hoge_set", "fuga": "fuga_set"}},
+				FileOrDir:           "helmfile.yaml",
 			}, files)
 
 			expectNoCallsToHelm(app)
 
-			err := app.VisitDesiredStatesWithReleasesFiltered(
-				"helmfile.yaml", collectReleases,
+			err := app.ForEachState(
+				collectReleases,
+				SetFilter(true),
 			)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -1160,11 +1172,11 @@ releases:
 
 	actual := []state.ReleaseSpec{}
 
-	collectReleases := func(st *state.HelmState) []error {
-		for _, r := range st.Releases {
+	collectReleases := func(run *Run) (bool, []error) {
+		for _, r := range run.state.Releases {
 			actual = append(actual, r)
 		}
-		return []error{}
+		return false, []error{}
 	}
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
@@ -1173,12 +1185,14 @@ releases:
 		Namespace:           "",
 		Env:                 "default",
 		Selectors:           []string{},
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelm(app)
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", collectReleases,
+	err := app.ForEachState(
+		collectReleases,
+		SetFilter(true),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1215,11 +1229,11 @@ releases:
 
 			actual := []state.ReleaseSpec{}
 
-			collectReleases := func(st *state.HelmState) []error {
-				for _, r := range st.Releases {
+			collectReleases := func(run *Run) (bool, []error) {
+				for _, r := range run.state.Releases {
 					actual = append(actual, r)
 				}
-				return []error{}
+				return false, []error{}
 			}
 			app := appWithFs(&App{
 				OverrideHelmBinary:  DefaultHelmBinary,
@@ -1228,12 +1242,14 @@ releases:
 				Namespace:           "",
 				Selectors:           []string{},
 				Env:                 "default",
+				FileOrDir:           "helmfile.yaml",
 			}, files)
 
 			expectNoCallsToHelm(app)
 
-			err := app.VisitDesiredStatesWithReleasesFiltered(
-				"helmfile.yaml", collectReleases,
+			err := app.ForEachState(
+				collectReleases,
+				SetFilter(true),
 			)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -1264,11 +1280,11 @@ releases:
 
 	actual := []state.ReleaseSpec{}
 
-	collectReleases := func(st *state.HelmState) []error {
-		for _, r := range st.Releases {
+	collectReleases := func(run *Run) (bool, []error) {
+		for _, r := range run.state.Releases {
 			actual = append(actual, r)
 		}
-		return []error{}
+		return false, []error{}
 	}
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
@@ -1276,12 +1292,14 @@ releases:
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 		Namespace:           "",
 		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelmVersion(app, false)
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", collectReleases,
+	err := app.ForEachState(
+		collectReleases,
+		SetFilter(true),
 	)
 
 	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in \"\": there were 2 releases named \"foo\" matching specified selector"
@@ -1310,11 +1328,11 @@ releases:
 
 	actual := []state.ReleaseSpec{}
 
-	collectReleases := func(st *state.HelmState) []error {
-		for _, r := range st.Releases {
+	collectReleases := func(run *Run) (bool, []error) {
+		for _, r := range run.state.Releases {
 			actual = append(actual, r)
 		}
-		return []error{}
+		return false, []error{}
 	}
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
@@ -1322,12 +1340,14 @@ releases:
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 		Namespace:           "",
 		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelmVersion(app, false)
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", collectReleases,
+	err := app.ForEachState(
+		collectReleases,
+		SetFilter(true),
 	)
 
 	if err != nil {
@@ -1351,11 +1371,11 @@ releases:
 
 	actual := []state.ReleaseSpec{}
 
-	collectReleases := func(st *state.HelmState) []error {
-		for _, r := range st.Releases {
+	collectReleases := func(run *Run) (bool, []error) {
+		for _, r := range run.state.Releases {
 			actual = append(actual, r)
 		}
-		return []error{}
+		return false, []error{}
 	}
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
@@ -1363,12 +1383,14 @@ releases:
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 		Namespace:           "",
 		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelmVersion(app, true)
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", collectReleases,
+	err := app.ForEachState(
+		collectReleases,
+		SetFilter(true),
 	)
 
 	if err != nil {
@@ -1392,11 +1414,11 @@ releases:
 
 	actual := []state.ReleaseSpec{}
 
-	collectReleases := func(st *state.HelmState) []error {
-		for _, r := range st.Releases {
+	collectReleases := func(run *Run) (bool, []error) {
+		for _, r := range run.state.Releases {
 			actual = append(actual, r)
 		}
-		return []error{}
+		return false, []error{}
 	}
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
@@ -1404,12 +1426,14 @@ releases:
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 		Namespace:           "",
 		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelmVersion(app, true)
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", collectReleases,
+	err := app.ForEachState(
+		collectReleases,
+		SetFilter(true),
 	)
 
 	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in \"foo\": there were 2 releases named \"foo\" matching specified selector"
@@ -2150,8 +2174,9 @@ services:
 }
 
 type configImpl struct {
-	set    []string
-	output string
+	set      []string
+	output   string
+	skipDeps bool
 }
 
 func (c configImpl) Set() []string {
@@ -2171,7 +2196,7 @@ func (c configImpl) Validate() bool {
 }
 
 func (c configImpl) SkipDeps() bool {
-	return true
+	return c.skipDeps
 }
 
 func (c configImpl) OutputDir() string {
@@ -2293,6 +2318,7 @@ type listKey struct {
 
 type mockHelmExec struct {
 	templated []mockTemplates
+	repos     []mockRepo
 
 	updateDepsCallbacks map[string]func(string) error
 }
@@ -2300,6 +2326,10 @@ type mockHelmExec struct {
 type mockTemplates struct {
 	name, chart string
 	flags       []string
+}
+
+type mockRepo struct {
+	Name string
 }
 
 func (helm *mockHelmExec) TemplateRelease(name, chart string, flags ...string) error {
@@ -2322,6 +2352,7 @@ func (helm *mockHelmExec) SetHelmBinary(bin string) {
 	return
 }
 func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error {
+	helm.repos = append(helm.repos, mockRepo{Name: name})
 	return nil
 }
 func (helm *mockHelmExec) UpdateRepo() error {
@@ -2371,11 +2402,23 @@ func (helm *mockHelmExec) IsVersionAtLeast(major int, minor int) bool {
 func TestTemplate_SingleStateFile(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
+repositories:
+- name: stable
+  url: https://kubernetes-charts.storage.googleapis.com
+- name: stable2
+  url: https://kubernetes-charts.storage.googleapis.com
+
 releases:
 - name: myrelease1
   chart: stable/mychart1
+  labels:
+    group: one
 - name: myrelease2
   chart: stable/mychart2
+  labels:
+    group: one
+- name: myrelease3
+  chart: stable2/mychart3
 `,
 	}
 
@@ -2383,6 +2426,10 @@ releases:
 	var wantReleases = []mockTemplates{
 		{name: "myrelease1", chart: "stable/mychart1", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
 		{name: "myrelease2", chart: "stable/mychart2", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
+	}
+
+	var wantRepos = []mockRepo{
+		{Name: "stable"},
 	}
 
 	var buffer bytes.Buffer
@@ -2405,10 +2452,17 @@ releases:
 		},
 		Namespace:   "testNamespace",
 		valsRuntime: valsRuntime,
+		Selectors: []string{
+			"group=one",
+		},
 	}, files)
 
-	if err := app.Template(configImpl{set: []string{"foo=a", "bar=b"}}); err != nil {
+	if err := app.Template(configImpl{set: []string{"foo=a", "bar=b"}, skipDeps: false}); err != nil {
 		t.Fatalf("%v", err)
+	}
+
+	if diff := cmp.Diff(wantRepos, helm.repos); diff != "" {
+		t.Errorf("unexpected add repo:\n%s", diff)
 	}
 
 	for i := range wantReleases {
@@ -2428,7 +2482,6 @@ releases:
 				t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
 			}
 		}
-
 	}
 }
 
@@ -3511,15 +3564,9 @@ GROUP RELEASES
 3     default/my-release
 
 processing releases in group 1/3: kube-system/kubernetes-external-secrets
-0 release(s) matching app=test found in helmfile.yaml
-
 processing releases in group 2/3: default/external-secrets
-1 release(s) matching app=test found in helmfile.yaml
-
 getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
 processing releases in group 3/3: default/my-release
-1 release(s) matching app=test found in helmfile.yaml
-
 getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
 
 UPDATED RELEASES:
@@ -4082,18 +4129,20 @@ releases:
 		OverrideKubeContext: "default",
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelm(app)
 
 	var specs []state.ReleaseSpec
-	collectReleases := func(st *state.HelmState) []error {
-		specs = append(specs, st.Releases...)
-		return nil
+	collectReleases := func(run *Run) (bool, []error) {
+		specs = append(specs, run.state.Releases...)
+		return false, nil
 	}
 
-	err := app.VisitDesiredStatesWithReleasesFiltered(
-		"helmfile.yaml", collectReleases,
+	err := app.ForEachState(
+		collectReleases,
+		SetFilter(true),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

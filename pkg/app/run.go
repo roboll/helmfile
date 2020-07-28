@@ -36,24 +36,16 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-func (r *Run) withReposAndPreparedCharts(forceDownload bool, skipRepos bool, helmfileCommand string, f func()) []error {
-	if !skipRepos {
-		ctx := r.ctx
-		if errs := ctx.SyncReposOnce(r.state, r.helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
-	}
-
-	if err := r.withPreparedCharts(forceDownload, helmfileCommand, f); err != nil {
-		return []error{err}
-	}
-
-	return nil
-}
-
-func (r *Run) withPreparedCharts(forceDownload bool, helmfileCommand string, f func()) error {
+func (r *Run) withPreparedCharts(forceDownload, skipRepos bool, helmfileCommand string, f func()) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
+	}
+
+	if !skipRepos {
+		ctx := r.ctx
+		if err := ctx.SyncReposOnce(r.state, r.helm); err != nil {
+			return err
+		}
 	}
 
 	// Create tmp directory and bail immediately if it fails
@@ -94,7 +86,7 @@ func (r *Run) Deps(c DepsConfigProvider) []error {
 	return r.state.UpdateDeps(r.helm)
 }
 
-func (r *Run) Repos(c ReposConfigProvider) []error {
+func (r *Run) Repos(c ReposConfigProvider) error {
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	return r.ctx.SyncReposOnce(r.state, r.helm)
@@ -118,13 +110,13 @@ func (r *Run) Status(c StatusesConfigProvider) []error {
 	return r.state.ReleaseStatuses(r.helm, workers)
 }
 
-func (r *Run) Diff(c DiffConfigProvider) (*string, bool, bool, []error) {
+func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 
 	allReleases := st.GetReleasesWithOverrides()
 
-	toDiff, err := st.GetSelectedReleasesWithOverrides()
+	toDiff, err := a.getSelectedReleases(r)
 	if err != nil {
 		return nil, false, false, []error{err}
 	}
