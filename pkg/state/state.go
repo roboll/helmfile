@@ -299,24 +299,57 @@ type RepoUpdater interface {
 	UpdateRepo() error
 }
 
-// SyncRepos will update the given helm releases
-func (st *HelmState) SyncRepos(helm RepoUpdater) []error {
-	errs := []error{}
+// getRepositoriesToSync returns the names of repositories to be updated
+func (st *HelmState) getRepositoriesToSync() (map[string]bool, error) {
+	releases, err := st.GetSelectedReleasesWithOverrides()
+	if err != nil {
+		return nil, err
+	}
 
-	for _, repo := range st.Repositories {
-		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password); err != nil {
-			errs = append(errs, err)
+	repositoriesToUpdate := map[string]bool{}
+
+	if len(releases) == 0 {
+		for _, repo := range st.Repositories {
+			repositoriesToUpdate[repo.Name] = true
+		}
+
+		return repositoriesToUpdate, nil
+	}
+
+	for _, release := range releases {
+		if release.Installed == nil || *release.Installed {
+			chart := strings.Split(release.Chart, "/")
+			if len(chart) == 1 {
+				continue
+			}
+			repositoriesToUpdate[chart[0]] = true
 		}
 	}
 
-	if len(errs) != 0 {
-		return errs
+	return repositoriesToUpdate, nil
+}
+
+func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]string, error) {
+	shouldUpdate, err := st.getRepositoriesToSync()
+	if err != nil {
+		return nil, err
 	}
 
-	if err := helm.UpdateRepo(); err != nil {
-		return []error{err}
+	var updated []string
+
+	for _, repo := range st.Repositories {
+		if !shouldUpdate[repo.Name] || shouldSkip[repo.Name] {
+			continue
+		}
+
+		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password); err != nil {
+			return nil, err
+		}
+
+		updated = append(updated, repo.Name)
 	}
-	return nil
+
+	return updated, nil
 }
 
 type syncResult struct {
@@ -1461,14 +1494,6 @@ func (st *HelmState) GetSelectedReleasesWithOverrides() ([]ReleaseSpec, error) {
 			releases = append(releases, r.ReleaseSpec)
 		}
 	}
-
-	var extra string
-
-	if len(st.Selectors) > 0 {
-		extra = " matching " + strings.Join(st.Selectors, ",")
-	}
-
-	st.logger.Debugf("%d release(s)%s found in %s\n", len(releases), extra, st.FilePath)
 
 	return releases, nil
 }

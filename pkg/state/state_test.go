@@ -923,7 +923,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			state := &HelmState{
 				Repositories: tt.repos,
 			}
-			if _ = state.SyncRepos(tt.helm); !reflect.DeepEqual(tt.helm.Repo, tt.want) {
+			if _, _ = state.SyncRepos(tt.helm, map[string]bool{}); !reflect.DeepEqual(tt.helm.Repo, tt.want) {
 				t.Errorf("HelmState.SyncRepos() for [%s] = %v, want %v", tt.name, tt.helm.Repo, tt.want)
 			}
 		})
