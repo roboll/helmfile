@@ -856,12 +856,28 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					chartPath = normalizeChart(st.basePath, release.Chart)
 				} else {
 					fetchFlags := []string{}
-					if release.Version != "" {
-						chartPath = path.Join(dir, release.Name, release.Version, release.Chart)
-						fetchFlags = append(fetchFlags, "--version", release.Version)
-					} else {
-						chartPath = path.Join(dir, release.Name, "latest", release.Chart)
+
+					pathElems := []string{
+						dir,
 					}
+
+					if release.TillerNamespace != "" {
+						pathElems = append(pathElems, release.TillerNamespace)
+					}
+
+					if release.Namespace != "" {
+						pathElems = append(pathElems, release.Namespace)
+					}
+
+					chartVersion := "latest"
+					if release.Version != "" {
+						chartVersion = release.Version
+						fetchFlags = append(fetchFlags, "--version", release.Version)
+					}
+
+					pathElems = append(pathElems, chartVersion, release.Chart)
+
+					chartPath = path.Join(pathElems...)
 
 					if st.isDevelopment(release) {
 						fetchFlags = append(fetchFlags, "--devel")
@@ -875,6 +891,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 							return
 						}
 					}
+
 					// Set chartPath to be the path containing Chart.yaml, if found
 					fullChartPath, err := findChartDirectory(chartPath)
 					if err == nil {
