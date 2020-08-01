@@ -1297,11 +1297,6 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		releasesToRender[id] = r
 	}
 
-	names := make([]string, len(toRender))
-	for i, r := range toRender {
-		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
-	}
-
 	var errs []error
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies

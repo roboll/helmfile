@@ -784,6 +784,19 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 	}
 }
 
+func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
+	var result []ReleaseSpec
+
+	for _, r := range releases {
+		if r.Installed != nil && !*r.Installed {
+			continue
+		}
+		result = append(result, r)
+	}
+
+	return result
+}
+
 // PrepareCharts creates temporary directories of charts.
 //
 // Each resulting "chart" can be one of the followings:
@@ -798,7 +811,9 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
 func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, forceDownload bool) (map[string]string, []error) {
-	temp := make(map[string]string, len(st.Releases))
+	releases := releasesNeedCharts(st.Releases)
+
+	temp := make(map[string]string, len(releases))
 	type downloadResults struct {
 		releaseName string
 		chartPath   string
@@ -807,8 +822,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	errs := []error{}
 
-	jobQueue := make(chan *ReleaseSpec, len(st.Releases))
-	results := make(chan *downloadResults, len(st.Releases))
+	jobQueue := make(chan *ReleaseSpec, len(releases))
+	results := make(chan *downloadResults, len(releases))
 
 	var helm3 bool
 
@@ -818,10 +833,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	st.scatterGather(
 		concurrency,
-		len(st.Releases),
+		len(releases),
 		func() {
-			for i := 0; i < len(st.Releases); i++ {
-				jobQueue <- &st.Releases[i]
+			for i := 0; i < len(releases); i++ {
+				jobQueue <- &releases[i]
 			}
 			close(jobQueue)
 		},
@@ -903,7 +918,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 			}
 		},
 		func() {
-			for i := 0; i < len(st.Releases); i++ {
+			for i := 0; i < len(releases); i++ {
 				downloadRes := <-results
 
 				if downloadRes.err != nil {
@@ -1649,7 +1664,9 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
 	errs := []error{}
 
-	for _, release := range st.Releases {
+	releases := releasesNeedCharts(st.Releases)
+
+	for _, release := range releases {
 		if len(release.Chart) == 0 {
 			errs = append(errs, errors.New("chart is required for: "+release.Name))
 			continue

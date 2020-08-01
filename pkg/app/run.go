@@ -68,7 +68,9 @@ func (r *Run) withPreparedCharts(forceDownload, skipRepos bool, helmfileCommand 
 	for i := range r.state.Releases {
 		rel := &r.state.Releases[i]
 
-		rel.Chart = releaseToChart[rel.Name]
+		if chart := releaseToChart[rel.Name]; chart != "" {
+			rel.Chart = chart
+		}
 	}
 
 	r.ReleaseToChart = releaseToChart
