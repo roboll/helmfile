@@ -827,7 +827,7 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 	}
 
 	type Key struct {
-		TillerNamespace, Name string
+		TillerNamespace, Name, KubeContext string
 	}
 
 	releaseNameCounts := map[Key]int{}
@@ -840,11 +840,21 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 				namespace = st.HelmDefaults.TillerNamespace
 			}
 		}
-		releaseNameCounts[Key{namespace, r.Name}]++
+		releaseNameCounts[Key{namespace, r.Name, r.KubeContext}]++
 	}
 	for name, c := range releaseNameCounts {
 		if c > 1 {
-			return false, []error{fmt.Errorf("duplicate release \"%s\" found in \"%s\": there were %d releases named \"%s\" matching specified selector", name.Name, name.TillerNamespace, c, name.Name)}
+			var msg string
+
+			if name.TillerNamespace != "" {
+				msg += fmt.Sprintf(" in namespace %q", name.TillerNamespace)
+			}
+
+			if name.KubeContext != "" {
+				msg += fmt.Sprintf(" in kubecontext %q", name.KubeContext)
+			}
+
+			return false, []error{fmt.Errorf("duplicate release %q found%s: there were %d releases named \"%s\" matching specified selector", name.Name, msg, c, name.Name)}
 		}
 	}
 

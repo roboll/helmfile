@@ -456,11 +456,23 @@ releases:
 - name: foo
   chart: charts/foo
   labels:
-    duplicated: yes
+    duplicatedNs: yes
 - name: foo
   chart: charts/foo
   labels:
-    duplicated: yes
+    duplicatedNs: yes
+- name: grafana
+  chart: stable/grafana
+- name: foo
+  chart: charts/foo
+  kubeContext: baz
+  labels:
+    duplicatedCtx: yes
+- name: foo
+  chart: charts/foo
+  kubeContext: baz
+  labels:
+    duplicatedCtx: yes
 - name: bar
   chart: charts/foo
   tillerNamespace:  bar1
@@ -485,7 +497,8 @@ releases:
 		{label: "name!=", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: Malformed label: name!=. Expected label in form k=v or k!=v"},
 		{label: "name", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: Malformed label: name. Expected label in form k=v or k!=v"},
 		// See https://github.com/roboll/helmfile/issues/193
-		{label: "duplicated=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in \"zoo\": there were 2 releases named \"foo\" matching specified selector"},
+		{label: "duplicatedNs=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in namespace \"zoo\": there were 2 releases named \"foo\" matching specified selector"},
+		{label: "duplicatedCtx=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in namespace \"zoo\" in kubecontext \"baz\": there were 2 releases named \"foo\" matching specified selector"},
 		{label: "duplicatedOK=yes", expectedCount: 2, expectErr: false},
 	}
 
@@ -1302,7 +1315,7 @@ releases:
 		SetFilter(true),
 	)
 
-	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in \"\": there were 2 releases named \"foo\" matching specified selector"
+	expected := "in ./helmfile.yaml: duplicate release \"foo\" found: there were 2 releases named \"foo\" matching specified selector"
 	if err == nil {
 		t.Errorf("error expected but not happened")
 	} else if err.Error() != expected {
@@ -1436,7 +1449,54 @@ releases:
 		SetFilter(true),
 	)
 
-	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in \"foo\": there were 2 releases named \"foo\" matching specified selector"
+	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\": there were 2 releases named \"foo\" matching specified selector"
+	if err == nil {
+		t.Errorf("error expected but not happened")
+	} else if err.Error() != expected {
+		t.Errorf("unexpected error message: expected=\"%s\", actual=\"%s\"", expected, err.Error())
+	}
+}
+
+func TestVisitDesiredStatesWithReleases_DuplicateReleasesInNsKubeContextHelm3(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  namespace: foo
+  chart: charts/foo
+  kubeContext: foo
+- name: foo
+  namespace: foo
+  chart: charts/foo
+  kubeContext: foo
+`,
+	}
+
+	actual := []state.ReleaseSpec{}
+
+	collectReleases := func(run *Run) (bool, []error) {
+		for _, r := range run.state.Releases {
+			actual = append(actual, r)
+		}
+		return false, []error{}
+	}
+	app := appWithFs(&App{
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Namespace:           "",
+		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
+	}, files)
+
+	expectNoCallsToHelmVersion(app, true)
+
+	err := app.ForEachState(
+		collectReleases,
+		SetFilter(true),
+	)
+
+	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\" in kubecontext \"foo\": there were 2 releases named \"foo\" matching specified selector"
 	if err == nil {
 		t.Errorf("error expected but not happened")
 	} else if err.Error() != expected {
