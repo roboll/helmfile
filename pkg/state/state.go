@@ -890,7 +890,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						fetchFlags = append(fetchFlags, "--version", release.Version)
 					}
 
-					pathElems = append(pathElems, chartVersion, release.Chart)
+					pathElems = append(pathElems, release.Name, release.Chart, chartVersion)
 
 					chartPath = path.Join(pathElems...)
 
