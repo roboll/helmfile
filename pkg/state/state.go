@@ -1841,6 +1841,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		}
 	}
 
+	if release.DisableOpenAPIValidation != nil && *release.DisableOpenAPIValidation ||
+		release.DisableOpenAPIValidation == nil && st.HelmDefaults.DisableOpenAPIValidation != nil && *st.HelmDefaults.DisableOpenAPIValidation {
+		flags = append(flags, "--disable-openapi-validation")
+	}
+
 	flags = st.appendConnectionFlags(flags, release)
 
 	var err error
