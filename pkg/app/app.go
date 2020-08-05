@@ -225,7 +225,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		}
 
 		return
-	})
+	}, SetFilter(true))
 }
 
 func (a *App) Lint(c LintConfigProvider) error {
