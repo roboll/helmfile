@@ -59,7 +59,7 @@ func (r *Run) withPreparedCharts(forceDownload, skipRepos bool, helmfileCommand 
 		return err
 	}
 
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, 2, helmfileCommand, forceDownload)
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, 2, helmfileCommand, forceDownload, skipRepos)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%v", errs)
@@ -114,7 +114,6 @@ func (r *Run) Status(c StatusesConfigProvider) []error {
 
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
-	helm := r.helm
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -130,15 +129,6 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
 	st.Releases = toDiff
-
-	if !c.SkipDeps() {
-		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return nil, false, false, errs
-		}
-	}
-	if errs := st.PrepareReleases(helm, "diff"); errs != nil && len(errs) > 0 {
-		return nil, false, false, errs
-	}
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
@@ -188,14 +178,6 @@ func (r *Run) Lint(c LintConfigProvider) []error {
 	values := c.Values()
 	args := argparser.GetArgs(c.Args(), st)
 	workers := c.Concurrency()
-	if !c.SkipDeps() {
-		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
-	}
-	if errs := st.PrepareReleases(helm, "lint"); errs != nil && len(errs) > 0 {
-		return errs
-	}
 	opts := &state.LintOpts{
 		Set: c.Set(),
 	}

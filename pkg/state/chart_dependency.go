@@ -254,7 +254,7 @@ func updateDependencies(st *HelmState, shell helmexec.DependencyUpdater, unresol
 
 	_, err := depMan.Update(shell, wd, unresolved)
 	if err != nil {
-		return nil, fmt.Errorf("unable to resolve %d deps: %v", len(unresolved.deps), err)
+		return nil, fmt.Errorf("unable to update %d deps: %v", len(unresolved.deps), err)
 	}
 
 	return resolveDependencies(st, depMan, unresolved)
