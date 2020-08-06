@@ -216,7 +216,9 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 func (a *App) Template(c TemplateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErr := run.withPreparedCharts(true, c.SkipDeps(), "template", func() {
+		// `helm template` in helm v2 does not support local chart.
+		// So, we set forceDownload=true for helm v2 only
+		prepErr := run.withPreparedCharts(!run.helm.IsHelm3(), c.SkipDeps(), "template", func() {
 			ok, errs = a.template(run, c)
 		})
 
@@ -230,6 +232,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 
 func (a *App) Lint(c LintConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
+		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
 		prepErr := run.withPreparedCharts(true, c.SkipDeps(), "lint", func() {
 			errs = run.Lint(c)
 		})
@@ -970,15 +973,6 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	// on running various helm commands on unnecessary releases
 	st.Releases = toApply
 
-	if !c.SkipDeps() {
-		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return false, false, errs
-		}
-	}
-	if errs := st.PrepareReleases(helm, "apply"); errs != nil && len(errs) > 0 {
-		return false, false, errs
-	}
-
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
 	detailedExitCode := true
 
@@ -1157,15 +1151,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	// on running various helm commands on unnecessary releases
 	st.Releases = toSync
 
-	if !c.SkipDeps() {
-		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return false, errs
-		}
-	}
-	if errs := st.PrepareReleases(helm, "sync"); errs != nil && len(errs) > 0 {
-		return false, errs
-	}
-
 	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSync)
 	if err != nil {
 		return false, []error{err}
@@ -1278,15 +1263,6 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
 	st.Releases = toRender
-
-	if !c.SkipDeps() {
-		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return false, errs
-		}
-	}
-	if errs := st.PrepareReleases(helm, "template"); errs != nil && len(errs) > 0 {
-		return false, errs
-	}
 
 	releasesToRender := map[string]state.ReleaseSpec{}
 	for _, r := range toRender {

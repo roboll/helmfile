@@ -805,12 +805,13 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 // (2) temporary local chart generated from kustomization or manifests
 // (3) remote chart
 //
-// When running `helmfile lint` or `helmfile template`, PrepareCharts will download and untar charts for linting and templating.
+// When running `helmfile template` on helm v2, or `helmfile lint` on both helm v2 and v3,
+// PrepareCharts will download and untar charts for linting and templating.
 //
 // Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, forceDownload bool) (map[string]string, []error) {
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, forceDownload, skipDeps bool) (map[string]string, []error) {
 	releases := releasesNeedCharts(st.Releases)
 
 	temp := make(map[string]string, len(releases))
@@ -831,6 +832,12 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		helm3 = helm.IsHelm3()
 	}
 
+	updated, err := st.ResolveDeps()
+	if err != nil {
+		return nil, []error{err}
+	}
+	*st = *updated
+
 	st.scatterGather(
 		concurrency,
 		len(releases),
@@ -842,6 +849,16 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		},
 		func(workerIndex int) {
 			for release := range jobQueue {
+				// Call user-defined `prepare` hooks to create/modify local charts to be used by
+				// the later process.
+				//
+				// If it wasn't called here, Helmfile can end up an issue like
+				// https://github.com/roboll/helmfile/issues/1328
+				if _, err := st.triggerPrepareEvent(release, helmfileCommand); err != nil {
+					results <- &downloadResults{err: err}
+					return
+				}
+
 				var chartPath string
 
 				chartification, clean, err := st.PrepareChartify(helm, release, workerIndex)
@@ -869,6 +886,13 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					chartPath = release.Chart
 				} else if pathExists(normalizeChart(st.basePath, release.Chart)) {
 					chartPath = normalizeChart(st.basePath, release.Chart)
+
+					if !skipDeps {
+						if err := helm.BuildDeps(release.Name, chartPath); err != nil {
+							results <- &downloadResults{err: err}
+							return
+						}
+					}
 				} else {
 					fetchFlags := []string{}
 
@@ -1540,35 +1564,6 @@ func (st *HelmState) FilterReleases() error {
 	return nil
 }
 
-func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand string) []error {
-	errs := []error{}
-
-	for i := range st.Releases {
-		release := st.Releases[i]
-
-		if release.Installed != nil && !*release.Installed {
-			continue
-		}
-
-		if _, err := st.triggerPrepareEvent(&release, helmfileCommand); err != nil {
-			errs = append(errs, newReleaseFailedError(&release, err))
-			continue
-		}
-	}
-	if len(errs) != 0 {
-		return errs
-	}
-
-	updated, err := st.ResolveDeps()
-	if err != nil {
-		return []error{err}
-	}
-
-	*st = *updated
-
-	return nil
-}
-
 func (st *HelmState) TriggerGlobalPrepareEvent(helmfileCommand string) (bool, error) {
 	return st.triggerGlobalReleaseEvent("prepare", nil, helmfileCommand)
 }
@@ -1654,34 +1649,6 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 		}
 	}
 
-	if len(errs) != 0 {
-		return errs
-	}
-	return nil
-}
-
-// BuildDeps wrapper for building dependencies on the releases
-func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
-	errs := []error{}
-
-	releases := releasesNeedCharts(st.Releases)
-
-	for _, release := range releases {
-		if len(release.Chart) == 0 {
-			errs = append(errs, errors.New("chart is required for: "+release.Name))
-			continue
-		}
-
-		if release.Installed != nil && !*release.Installed {
-			continue
-		}
-
-		if isLocalChart(release.Chart) {
-			if err := helm.BuildDeps(release.Name, normalizeChart(st.basePath, release.Chart)); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
 	if len(errs) != 0 {
 		return errs
 	}
