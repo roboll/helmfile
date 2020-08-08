@@ -859,9 +859,15 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					return
 				}
 
-				var chartPath string
+				chartName := release.Chart
 
-				chartification, clean, err := st.PrepareChartify(helm, release, workerIndex)
+				chartPath, err := st.goGetterChart(chartName, release.Directory, release.ForceGoGetter)
+				if err != nil {
+					results <- &downloadResults{err: fmt.Errorf("release %q: %w", release.Name, err)}
+					return
+				}
+
+				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
 				defer clean()
 				if err != nil {
 					results <- &downloadResults{err: err}
@@ -874,7 +880,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						chartify.UseHelm3(helm3),
 					)
 
-					out, err := c.Chartify(release.Name, chartification.Chart, chartify.WithChartifyOpts(chartification.Opts))
+					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartification.Opts))
 					if err != nil {
 						results <- &downloadResults{err: err}
 						return
@@ -883,9 +889,14 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						chartPath = out
 					}
 				} else if !forceDownload {
-					chartPath = release.Chart
-				} else if pathExists(normalizeChart(st.basePath, release.Chart)) {
-					chartPath = normalizeChart(st.basePath, release.Chart)
+					// At this point, we are sure that either:
+					// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
+					//    without any modification, or
+					// 2. It is a remote chart which can be safely handed over to helm,
+					//    because the version of Helm used in this transaction support downloading the chart instead,
+					//    and we don't need any modification to the chart
+				} else if pathExists(normalizeChart(st.basePath, chartPath)) {
+					chartPath = normalizeChart(st.basePath, chartPath)
 
 					if !skipDeps {
 						if err := helm.BuildDeps(release.Name, chartPath); err != nil {
@@ -914,7 +925,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						fetchFlags = append(fetchFlags, "--version", release.Version)
 					}
 
-					pathElems = append(pathElems, release.Name, release.Chart, chartVersion)
+					pathElems = append(pathElems, release.Name, chartName, chartVersion)
 
 					chartPath = path.Join(pathElems...)
 
@@ -925,7 +936,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// only fetch chart if it is not already fetched
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
 						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
-						if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
+						if err := helm.Fetch(chartName, fetchFlags...); err != nil {
 							results <- &downloadResults{err: err}
 							return
 						}
