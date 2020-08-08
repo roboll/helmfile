@@ -819,6 +819,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		releaseName string
 		chartPath   string
 		err         error
+		diagnostic  string
 	}
 
 	errs := []error{}
@@ -837,6 +838,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		return nil, []error{err}
 	}
 	*st = *updated
+
+	var diagnostics []string
 
 	st.scatterGather(
 		concurrency,
@@ -867,12 +870,16 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					return
 				}
 
+				chartFetchedByGoGetter := chartPath != chartName
+
 				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
 				defer clean()
 				if err != nil {
 					results <- &downloadResults{err: err}
 					return
 				}
+
+				var diagnostic string
 
 				if chartification != nil {
 					c := chartify.New(
@@ -888,6 +895,50 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						// TODO Chartify
 						chartPath = out
 					}
+				} else if pathExists(normalizeChart(st.basePath, chartPath)) {
+					// At this point, we are sure that chartPath is a local directory containing either:
+					// - A remote chart fetched by go-getter or
+					// - A local chart
+					//
+					// The chart may have Chart.yaml(and requirements.yaml for Helm 2), and optionally Chart.lock/requirements.lock,
+					// but no `charts/` directory populated at all, or a subet of chart dependencies are missing in the directory.
+					//
+					// In such situation, Helm fails with an error like:
+					//   Error: found in Chart.yaml, but missing in charts/ directory: cert-manager, prometheus, postgresql, gitlab-runner, grafana, redis
+					//
+					// (See also https://github.com/roboll/helmfile/issues/1401#issuecomment-670854495)
+					//
+					// To avoid it, we need to call a `helm dep build` command on the chart.
+					// But the command may consistently fail when an outdated Chart.lock exists.
+					//
+					// (I've mentioned about such case in https://github.com/roboll/helmfile/pull/1400.)
+					//
+					// Trying to run `helm dep build` on the chart regardless of if it's from local or remote is
+					// problematic, as usually the user would have no way to fix the remote chart on their own.
+					//
+					// Given that, we always run `helm dep build` on the chart here, but tolerate any error caused by it
+					// for a remote chart, so that the user can notice/fix the issue in a local chart while
+					// a broken remote chart won't completely block their job.
+					chartPath = normalizeChart(st.basePath, chartPath)
+
+					if !skipDeps {
+						if err := helm.BuildDeps(release.Name, chartPath); err != nil {
+							if chartFetchedByGoGetter {
+								diagnostic = fmt.Sprintf(
+									"WARN: `helm dep build` failed. While processing release %q, Helmfile observed that remote chart %q fetched by go-getter is seemingly broken. "+
+										"One of well-known causes of this is that the chart has outdated Chart.lock, which needs the chart maintainer needs to run `helm dep up`. "+
+										"Helmfile is tolerating the error to avoid blocking you until the remote chart gets fixed. "+
+										"But this may result in any failure later if the chart is broken badly. FYI, the tolerated error was: %v",
+									release.Name,
+									chartName,
+									err.Error(),
+								)
+							} else {
+								results <- &downloadResults{err: err}
+								return
+							}
+						}
+					}
 				} else if !forceDownload {
 					// At this point, we are sure that either:
 					// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
@@ -895,15 +946,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// 2. It is a remote chart which can be safely handed over to helm,
 					//    because the version of Helm used in this transaction support downloading the chart instead,
 					//    and we don't need any modification to the chart
-				} else if pathExists(normalizeChart(st.basePath, chartPath)) {
-					chartPath = normalizeChart(st.basePath, chartPath)
-
-					if !skipDeps {
-						if err := helm.BuildDeps(release.Name, chartPath); err != nil {
-							results <- &downloadResults{err: err}
-							return
-						}
-					}
 				} else {
 					pathElems := []string{
 						dir,
@@ -943,12 +985,16 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					}
 				}
 
-				results <- &downloadResults{releaseName: release.Name, chartPath: chartPath}
+				results <- &downloadResults{releaseName: release.Name, chartPath: chartPath, diagnostic: diagnostic}
 			}
 		},
 		func() {
 			for i := 0; i < len(releases); i++ {
 				downloadRes := <-results
+
+				if d := downloadRes.diagnostic; d != "" {
+					diagnostics = append(diagnostics, d)
+				}
 
 				if downloadRes.err != nil {
 					errs = append(errs, downloadRes.err)
@@ -959,6 +1005,11 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 			}
 		},
 	)
+
+	sort.Strings(diagnostics)
+	for _, d := range diagnostics {
+		st.logger.Warn(d)
+	}
 
 	if len(errs) > 0 {
 		return nil, errs
