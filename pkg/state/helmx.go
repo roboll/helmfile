@@ -36,11 +36,34 @@ func directoryExistsAt(path string) bool {
 
 type Chartify struct {
 	Opts  *chartify.ChartifyOpts
-	Chart string
 	Clean func()
 }
 
-func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) (*Chartify, func(), error) {
+func (st *HelmState) goGetterChart(chart, dir string, force bool) (string, error) {
+	if dir != "" && chart == "" {
+		chart = dir
+	}
+
+	_, err := remote.Parse(chart)
+	if err != nil {
+		if force {
+			return "", fmt.Errorf("Parsing url from dir failed due to error %q.\nContinuing the process assuming this is a regular Helm chart or a local dir.", err.Error())
+		}
+	} else {
+		r := remote.NewRemote(st.logger, st.basePath, st.readFile, directoryExistsAt, fileExistsAt)
+
+		fetchedDir, err := r.Fetch(chart)
+		if err != nil {
+			return "", fmt.Errorf("fetching %q: %v", chart, err)
+		}
+
+		chart = fetchedDir
+	}
+
+	return chart, nil
+}
+
+func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSpec, chart string, workerIndex int) (*Chartify, func(), error) {
 	chartify := &Chartify{
 		Opts: &chartify.ChartifyOpts{
 			WorkaroundOutputDirIssue:    true,
@@ -57,31 +80,6 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	}
 
 	var shouldRun bool
-
-	chart := release.Chart
-	if release.Directory != "" && chart == "" {
-		chart = release.Directory
-	}
-
-	_, err := remote.Parse(chart)
-	if err != nil {
-		if release.ForceGoGetter {
-			return nil, clean, fmt.Errorf("Parsing url from directory of release %q failed due to error %q.\nContinuing the process assuming this is a regular Helm chart or a local directory.", release.Name, err.Error())
-		}
-	} else {
-		r := remote.NewRemote(st.logger, st.basePath, st.readFile, directoryExistsAt, fileExistsAt)
-
-		fetchedDir, err := r.Fetch(chart)
-		if err != nil {
-			return nil, clean, fmt.Errorf("fetching %q: %v", chart, err)
-		}
-
-		chart = fetchedDir
-
-		filesNeedCleaning = append(filesNeedCleaning, fetchedDir)
-	}
-
-	chartify.Chart = chart
 
 	dir := filepath.Join(st.basePath, chart)
 	if stat, _ := os.Stat(dir); stat != nil && stat.IsDir() {
