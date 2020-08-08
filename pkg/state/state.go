@@ -905,8 +905,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						}
 					}
 				} else {
-					fetchFlags := []string{}
-
 					pathElems := []string{
 						dir,
 					}
@@ -922,19 +920,15 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					chartVersion := "latest"
 					if release.Version != "" {
 						chartVersion = release.Version
-						fetchFlags = append(fetchFlags, "--version", release.Version)
 					}
 
 					pathElems = append(pathElems, release.Name, chartName, chartVersion)
 
 					chartPath = path.Join(pathElems...)
 
-					if st.isDevelopment(release) {
-						fetchFlags = append(fetchFlags, "--devel")
-					}
-
 					// only fetch chart if it is not already fetched
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
+						fetchFlags := st.chartVersionFlags(release)
 						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
 						if err := helm.Fetch(chartName, fetchFlags...); err != nil {
 							results <- &downloadResults{err: err}
@@ -1774,14 +1768,7 @@ func (st *HelmState) timeoutFlags(helm helmexec.Interface, release *ReleaseSpec)
 }
 
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
-	flags := []string{}
-	if release.Version != "" {
-		flags = append(flags, "--version", release.Version)
-	}
-
-	if st.isDevelopment(release) {
-		flags = append(flags, "--devel")
-	}
+	flags := st.chartVersionFlags(release)
 
 	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
 		flags = append(flags, "--verify")
@@ -1840,7 +1827,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 }
 
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
-	flags := []string{}
+	flags := st.chartVersionFlags(release)
 
 	var err error
 	flags, err = st.appendHelmXFlags(flags, release)
@@ -1858,14 +1845,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 }
 
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
-	flags := []string{}
-	if release.Version != "" {
-		flags = append(flags, "--version", release.Version)
-	}
-
-	if st.isDevelopment(release) {
-		flags = append(flags, "--devel")
-	}
+	flags := st.chartVersionFlags(release)
 
 	disableOpenAPIValidation := false
 	if release.DisableOpenAPIValidation != nil {
@@ -1902,6 +1882,20 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, files, err
 	}
 	return append(flags, common...), files, nil
+}
+
+func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
+	flags := []string{}
+
+	if release.Version != "" {
+		flags = append(flags, "--version", release.Version)
+	}
+
+	if st.isDevelopment(release) {
+		flags = append(flags, "--devel")
+	}
+
+	return flags
 }
 
 func (st *HelmState) appendApiVersionsFlags(flags []string) []string {
