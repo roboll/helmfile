@@ -987,6 +987,23 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		return false, false, errs
 	}
 
+	releasesWithNoChange := map[string]state.ReleaseSpec{}
+	for _, r := range toApply {
+		id := state.ReleaseToID(&r)
+		_, uninstalled := releasesToBeUpdated[id]
+		_, updated := releasesToBeDeleted[id]
+		if !uninstalled && !updated {
+			releasesWithNoChange[id] = r
+		}
+	}
+
+	for id := range releasesWithNoChange {
+		r := releasesWithNoChange[id]
+		if _, err := st.TriggerCleanupEvent(&r, "apply"); err != nil {
+			a.Logger.Warnf("warn: %v\n", err)
+		}
+	}
+
 	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
 		if infoMsg != nil {
 			logger := c.Logger()
@@ -1091,6 +1108,22 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 		releasesToDelete[id] = r
 	}
 
+	releasesWithNoChange := map[string]state.ReleaseSpec{}
+	for _, r := range toSync {
+		id := state.ReleaseToID(&r)
+		_, uninstalled := releasesToDelete[id]
+		if !uninstalled {
+			releasesWithNoChange[id] = r
+		}
+	}
+
+	for id := range releasesWithNoChange {
+		r := releasesWithNoChange[id]
+		if _, err := st.TriggerCleanupEvent(&r, "delete"); err != nil {
+			a.Logger.Warnf("warn: %v\n", err)
+		}
+	}
+
 	names := make([]string, len(toSync))
 	for i, r := range toSync {
 		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
@@ -1173,6 +1206,23 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	for _, r := range toUpdate {
 		id := state.ReleaseToID(&r)
 		releasesToUpdate[id] = r
+	}
+
+	releasesWithNoChange := map[string]state.ReleaseSpec{}
+	for _, r := range toSync {
+		id := state.ReleaseToID(&r)
+		_, uninstalled := releasesToDelete[id]
+		_, updated := releasesToUpdate[id]
+		if !uninstalled && !updated {
+			releasesWithNoChange[id] = r
+		}
+	}
+
+	for id := range releasesWithNoChange {
+		r := releasesWithNoChange[id]
+		if _, err := st.TriggerCleanupEvent(&r, "sync"); err != nil {
+			a.Logger.Warnf("warn: %v\n", err)
+		}
 	}
 
 	names := []string{}
