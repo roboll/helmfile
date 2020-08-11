@@ -1065,6 +1065,7 @@ func (a *App) getSelectedReleases(r *Run) ([]state.ReleaseSpec, error) {
 func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
+	helm.SetExtraArgs(argparser.GetArgs(c.Args(), st)...)
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -1139,8 +1140,6 @@ Do you really want to apply?
 	st.Releases = allReleases
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
-		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
@@ -1195,6 +1194,7 @@ Do you really want to apply?
 func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
+	helm.SetExtraArgs(argparser.GetArgs(c.Args(), st)...)
 
 	affectedReleases := state.AffectedReleases{}
 
@@ -1249,8 +1249,6 @@ Do you really want to delete?
 `, strings.Join(names, "\n"))
 	interactive := c.Interactive()
 	if !interactive || interactive && r.askForConfirmation(msg) {
-		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-
 		if len(releasesToDelete) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
@@ -1278,6 +1276,7 @@ Do you really want to delete?
 func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
+	helm.SetExtraArgs(argparser.GetArgs(c.Args(), st)...)
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -1351,8 +1350,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	a.Logger.Info(infoMsg)
 
 	var errs []error
-
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = allReleases
