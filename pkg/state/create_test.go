@@ -250,6 +250,8 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 			[]bool{false, true, false}},
 		{LabelFilter{negativeLabels: [][]string{[]string{"stage", "pre"}, []string{"stage", "post"}}},
 			[]bool{false, false, true}},
+		{LabelFilter{negativeLabels: [][]string{[]string{"foo", "bar"}}},
+			[]bool{false, true, true}},
 	}
 	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
 	if err != nil {
