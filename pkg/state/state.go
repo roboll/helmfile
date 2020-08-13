@@ -58,6 +58,7 @@ type HelmState struct {
 	DeprecatedReleases []ReleaseSpec     `yaml:"charts,omitempty"`
 	OverrideNamespace  string            `yaml:"namespace,omitempty"`
 	Repositories       []RepositorySpec  `yaml:"repositories,omitempty"`
+	CommonLabels       map[string]string `yaml:"commonLabels,omitempty"`
 	Releases           []ReleaseSpec     `yaml:"releases,omitempty"`
 	Selectors          []string          `yaml:"-"`
 	ApiVersions        []string          `yaml:"apiVersions,omitempty"`
@@ -1533,14 +1534,14 @@ func (st *HelmState) SelectReleasesWithOverrides() ([]Release, error) {
 	if err != nil {
 		return nil, err
 	}
-	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, values)
+	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, st.CommonLabels, values)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]interface{}) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]interface{}) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -1560,6 +1561,10 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map
 		// Strip off just the last portion for the name stable/newrelic would give newrelic
 		chartSplit := strings.Split(r.Chart, "/")
 		r.Labels["chart"] = chartSplit[len(chartSplit)-1]
+		//Merge CommonLabels into release labels
+		for k, v := range commonLabels {
+			r.Labels[k] = v
+		}
 		var filterMatch bool
 		for _, f := range filters {
 			if r.Labels == nil {

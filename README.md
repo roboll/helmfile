@@ -103,6 +103,9 @@ helmDefaults:
   # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
   createNamespace: true
 
+# these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
+commonLabels:
+  hello: world
 
 # The desired states of Helm releases.
 #
@@ -518,6 +521,41 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 `--selector tier=frontend --selector tier=backend` will select all the charts
 
 In addition to user supplied labels, the name, the namespace, and the chart are available to be used as selectors.  The chart will just be the chart name excluding the repository (Example `stable/filebeat` would be selected using `--selector chart=filebeat`).
+
+`commonLabels` can be used when you want to apply the same label to all releases and use [templating](##Templates) based on that.
+For instance, you install a number of charts on every customer but need to provide different values file per customer.
+
+templates/common.yaml:
+
+```
+templates:
+  nginx: &nginx
+    name: nginx
+    chart: stable/nginx-ingress
+    values:
+    - ../values/common/{{ .Release.Name }}.yaml
+    - ../values/{{ .Release.Labels.customer }}/{{ .Release.Name }}.yaml
+
+  cert-manager: &cert-manager
+    name: cert-manager
+    chart: jetstack/cert-manager
+    values:
+    - ../values/common/{{ .Release.Name }}.yaml
+    - ../values/{{ .Release.Labels.customer }}/{{ .Release.Name }}.yaml
+```
+
+helmfile.yaml:
+
+```
+{{ readFile "templates/common.yaml" }}
+
+commonLabels:
+  customer: company
+
+releases:
+- <<: *nginx
+- <<: *cert-manager
+```
 
 ## Templates
 
