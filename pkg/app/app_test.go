@@ -4098,7 +4098,7 @@ releases:
 	})
 
 	expected := `NAME      	NAMESPACE	ENABLED	LABELS                    
-myrelease1	         	false  	id:myrelease1,common:label
+myrelease1	         	false  	common:label,id:myrelease1
 myrelease2	         	true   	common:label              
 myrelease3	         	true   	                          
 myrelease4	         	true   	id:myrelease1             
