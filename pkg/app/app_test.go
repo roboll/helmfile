@@ -2490,6 +2490,7 @@ releases:
 
 	var wantRepos = []mockRepo{
 		{Name: "stable"},
+		{Name: "stable2"},
 	}
 
 	var buffer bytes.Buffer

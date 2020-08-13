@@ -330,15 +330,10 @@ func (st *HelmState) getRepositoriesToSync() (map[string]bool, error) {
 }
 
 func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]string, error) {
-	shouldUpdate, err := st.getRepositoriesToSync()
-	if err != nil {
-		return nil, err
-	}
-
 	var updated []string
 
 	for _, repo := range st.Repositories {
-		if !shouldUpdate[repo.Name] || shouldSkip[repo.Name] {
+		if shouldSkip[repo.Name] {
 			continue
 		}
 
