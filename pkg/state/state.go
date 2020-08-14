@@ -939,8 +939,13 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
 					//    without any modification, or
 					// 2. It is a remote chart which can be safely handed over to helm,
-					//    because the version of Helm used in this transaction support downloading the chart instead,
-					//    and we don't need any modification to the chart
+					//    because the version of Helm used in this transaction (helm v3 or greater) support downloading
+					//    the chart instead, AND we don't need any modification to the chart
+					//
+					//    Also see HelmState.chartVersionFlags(). For `helmfile template`, it's called before `helm template`
+					//    only on helm v3.
+					//    For helm 2, we `helm fetch` with the version flags and call `helm template`
+					//    WITHOUT the version flags.
 				} else {
 					pathElems := []string{
 						dir,
@@ -1873,7 +1878,16 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 }
 
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
-	flags := st.chartVersionFlags(release)
+	var flags []string
+
+	// `helm template` in helm v2 does not support `--version` flag. So we fetch with the version flag and then template
+	// without the flag. See PrepareCharts function to see the Helmfile implementation of chart fetching.
+	//
+	// `helm template` in helm v3 supports `--version` and it automatically fetches the remote chart to template,
+	// so we skip fetching on helmfile-side and let helm fetch it.
+	if helm.IsHelm3() {
+		flags = st.chartVersionFlags(release)
+	}
 
 	var err error
 	flags, err = st.appendHelmXFlags(flags, release)
