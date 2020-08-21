@@ -100,9 +100,11 @@ bar: {{ readFile "bar.txt" }}
 	}
 
 	valuesFile := "/example/path/to/values.yaml.gotmpl"
-	valuesContent := []byte(`env: {{ .Environment.Name }}`)
+	valuesContent := []byte(`env: {{ .Environment.Name }}
+releaseName: {{ .Release.Name }}`)
 
-	expectedValues := `env: production`
+	expectedValues := `env: production
+releaseName: myrelease`
 
 	testFs := testhelper.NewTestFs(map[string]string{
 		fooYamlFile: string(fooYamlContent),
