@@ -126,7 +126,11 @@ releaseName: myrelease`
 		t.Errorf("unexpected environment values: expected=%v, actual=%v", expected, actual)
 	}
 
-	actualValuesData, err := state.RenderValuesFileToBytes(valuesFile)
+	var release = ReleaseSpec{
+		Name: "myrelease",
+	}
+
+	actualValuesData, err := state.RenderValuesFileToBytes(&release, valuesFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

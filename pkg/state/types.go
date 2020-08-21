@@ -17,6 +17,8 @@ type EnvironmentTemplateData struct {
 	Namespace string
 	// Values is accessible as `.Values` and it contains default state values overrode by environment values and override values.
 	Values map[string]interface{}
+	// Release is accessible as `.Release` from any template expression executed by the renderer
+	Release ReleaseSpec
 }
 
 // releaseTemplateData provides variables accessible while executing golang text/template expressions in releases of a helmfile YAML file

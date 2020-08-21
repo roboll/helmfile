@@ -114,7 +114,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	jsonPatches := release.JSONPatches
 	if len(jsonPatches) > 0 {
-		generatedFiles, err := st.generateTemporaryValuesFiles(jsonPatches, release.MissingFileHandler)
+		generatedFiles, err := st.generateTemporaryValuesFiles(release, jsonPatches, release.MissingFileHandler)
 		if err != nil {
 			return nil, clean, err
 		}
@@ -130,7 +130,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	strategicMergePatches := release.StrategicMergePatches
 	if len(strategicMergePatches) > 0 {
-		generatedFiles, err := st.generateTemporaryValuesFiles(strategicMergePatches, release.MissingFileHandler)
+		generatedFiles, err := st.generateTemporaryValuesFiles(release, strategicMergePatches, release.MissingFileHandler)
 		if err != nil {
 			return nil, clean, err
 		}

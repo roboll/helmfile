@@ -20,11 +20,12 @@ func (st *HelmState) mustLoadVals() map[string]interface{} {
 	return vals
 }
 
-func (st *HelmState) valuesFileTemplateData() EnvironmentTemplateData {
+func (st *HelmState) valuesFileTemplateData(release *ReleaseSpec) EnvironmentTemplateData {
 	return EnvironmentTemplateData{
 		Environment: st.Env,
 		Namespace:   st.OverrideNamespace,
 		Values:      st.mustLoadVals(),
+		Release:     *release,
 	}
 }
 

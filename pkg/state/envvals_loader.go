@@ -54,7 +54,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			}
 
 			for _, f := range files {
-				tmplData := EnvironmentTemplateData{environment.EmptyEnvironment, "", map[string]interface{}{}}
+				tmplData := EnvironmentTemplateData{environment.EmptyEnvironment, "", map[string]interface{}{}, ReleaseSpec{}}
 				r := tmpl.NewFileRenderer(ld.readFile, filepath.Dir(f), tmplData)
 				bytes, err := r.RenderToBytes(f)
 				if err != nil {
