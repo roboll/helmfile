@@ -420,6 +420,9 @@ GLOBAL OPTIONS:
    --interactive, -i                       Request confirmation before attempting to modify clusters
    --help, -h                              show help
    --version, -v                           print the version
+
+Environment variables:
+  HELMFILE_ENVIRONMENT                     specify the environment name, the command line option '-e' have precedence
 ```
 
 ### sync

@@ -681,7 +681,10 @@ func (c configImpl) Logger() *zap.SugaredLogger {
 func (c configImpl) Env() string {
 	env := c.c.GlobalString("environment")
 	if env == "" {
-		env = state.DefaultEnv
+		env = os.Getenv("HELMFILE_ENVIRONMENT")
+		if env == "" {
+			env = state.DefaultEnv
+		}
 	}
 	return env
 }
