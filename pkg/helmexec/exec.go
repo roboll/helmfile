@@ -48,40 +48,28 @@ func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 	return zap.New(core).Sugar()
 }
 
-func getHelmVersion(helmBinary string, logger *zap.SugaredLogger, runner Runner) Version {
+// versionRegex matches versions like v1.1.1 and v1.1
+var versionRegex = regexp.MustCompile("v(?P<major>\\d+)\\.(?P<minor>\\d+)(?:\\.(?P<patch>\\d+))?")
 
-	// Autodetect from `helm verison`
-	bytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil)
-	if err != nil {
-		panic(err)
+func parseHelmVersion(versionStr string) (Version, error) {
+	if len(versionStr) == 0 {
+		return Version{}, nil
 	}
 
-	if bytes == nil || len(bytes) == 0 {
-		return Version{}
+	matches := versionRegex.FindStringSubmatch(versionStr)
+	if len(matches) == 0 {
+		return Version{}, fmt.Errorf("error parsing helm verion '%s'", versionStr)
 	}
-
-	re := regexp.MustCompile("v(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)")
-	matches := re.FindStringSubmatch(string(bytes))
-
 	result := make(map[string]string)
-	for i, name := range re.SubexpNames() {
+	for i, name := range versionRegex.SubexpNames() {
 		result[name] = matches[i]
 	}
 
-	major, err := strconv.Atoi(result["major"])
-	if err != nil {
-		panic(err)
-	}
-
-	minor, err := strconv.Atoi(result["minor"])
-	if err != nil {
-		panic(err)
-	}
-
-	patch, err := strconv.Atoi(result["patch"])
-	if err != nil {
-		panic(err)
-	}
+	// We ignore errors because regex matches only integers
+	// If any of the parts does not exist - default "0" will be used
+	major, _ := strconv.Atoi(result["major"])
+	minor, _ := strconv.Atoi(result["minor"])
+	patch, _ := strconv.Atoi(result["patch"])
 
 	// Support explicit helm3 opt-in via environment variable
 	if os.Getenv("HELMFILE_HELM3") != "" && major < 3 {
@@ -89,21 +77,37 @@ func getHelmVersion(helmBinary string, logger *zap.SugaredLogger, runner Runner)
 			Major: 3,
 			Minor: 0,
 			Patch: 0,
-		}
+		}, nil
 	}
 
 	return Version{
 		Major: major,
 		Minor: minor,
 		Patch: patch,
+	}, nil
+}
+
+func getHelmVersion(helmBinary string, runner Runner) (Version, error) {
+
+	// Autodetect from `helm verison`
+	bytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil)
+	if err != nil {
+		return Version{}, fmt.Errorf("error determining helm version: %w", err)
 	}
+
+	return parseHelmVersion(string(bytes))
 }
 
 // New for running helm commands
 func New(helmBinary string, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
+	// TODO: proper error handling
+	version, err := getHelmVersion(helmBinary, runner)
+	if err != nil {
+		panic(err)
+	}
 	return &execer{
 		helmBinary:       helmBinary,
-		version:          getHelmVersion(helmBinary, logger, runner),
+		version:          version,
 		logger:           logger,
 		kubeContext:      kubeContext,
 		runner:           runner,
