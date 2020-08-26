@@ -103,7 +103,10 @@ func Init(app *App) *App {
 
 func (a *App) Deps(c DepsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		prepErr := run.withPreparedCharts(false, c.SkipRepos(), "deps", func() {
+		prepErr := run.withPreparedCharts("deps", state.ChartPrepareOptions{
+			SkipRepos:   c.SkipRepos(),
+			SkipResolve: true,
+		}, func() {
 			errs = run.Deps(c)
 		})
 
@@ -119,7 +122,7 @@ func (a *App) Repos(c ReposConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		var reposErr error
 
-		err := run.withPreparedCharts(false, true, "repos", func() {
+		err := run.withPreparedCharts("repos", state.ChartPrepareOptions{SkipRepos: true}, func() {
 			reposErr = run.Repos(c)
 		})
 
@@ -137,7 +140,7 @@ func (a *App) Repos(c ReposConfigProvider) error {
 
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts(false, true, "charts", func() {
+		err := run.withPreparedCharts("charts", state.ChartPrepareOptions{SkipRepos: true}, func() {
 			errs = run.DeprecatedSyncCharts(c)
 		})
 
@@ -163,7 +166,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		var errs []error
 
-		prepErr := run.withPreparedCharts(false, c.SkipDeps(), "diff", func() {
+		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{SkipRepos: c.SkipDeps()}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
 		})
 
@@ -218,7 +221,10 @@ func (a *App) Template(c TemplateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		// `helm template` in helm v2 does not support local chart.
 		// So, we set forceDownload=true for helm v2 only
-		prepErr := run.withPreparedCharts(!run.helm.IsHelm3(), c.SkipDeps(), "template", func() {
+		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
+			ForceDownload: !run.helm.IsHelm3(),
+			SkipRepos:     c.SkipDeps(),
+		}, func() {
 			ok, errs = a.template(run, c)
 		})
 
@@ -233,7 +239,10 @@ func (a *App) Template(c TemplateConfigProvider) error {
 func (a *App) Lint(c LintConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
-		prepErr := run.withPreparedCharts(true, c.SkipDeps(), "lint", func() {
+		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
+			ForceDownload: true,
+			SkipRepos:     c.SkipDeps(),
+		}, func() {
 			errs = run.Lint(c)
 		})
 
@@ -247,7 +256,9 @@ func (a *App) Lint(c LintConfigProvider) error {
 
 func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErr := run.withPreparedCharts(false, c.SkipDeps(), "sync", func() {
+		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
+			SkipRepos: c.SkipDeps(),
+		}, func() {
 			ok, errs = a.sync(run, c)
 		})
 
@@ -269,7 +280,9 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErr := run.withPreparedCharts(false, c.SkipDeps(), "apply", func() {
+		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
+			SkipRepos: c.SkipDeps(),
+		}, func() {
 			matched, updated, es := a.apply(run, c)
 
 			mut.Lock()
@@ -301,7 +314,9 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 func (a *App) Status(c StatusesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts(false, true, "status", func() {
+		err := run.withPreparedCharts("status", state.ChartPrepareOptions{
+			SkipRepos: true,
+		}, func() {
 			errs = run.Status(c)
 		})
 
@@ -315,7 +330,9 @@ func (a *App) Status(c StatusesConfigProvider) error {
 
 func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts(false, true, "delete", func() {
+		err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
+			SkipRepos: true,
+		}, func() {
 			ok, errs = a.delete(run, c.Purge(), c)
 		})
 
@@ -329,7 +346,9 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts(false, true, "destroy", func() {
+		err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
+			SkipRepos: true,
+		}, func() {
 			ok, errs = a.delete(run, true, c)
 		})
 
@@ -349,7 +368,9 @@ func (a *App) Test(c TestConfigProvider) error {
 				"or set helm.sh/hook-delete-policy\n")
 		}
 
-		err := run.withPreparedCharts(false, true, "test", func() {
+		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
+			SkipRepos: true,
+		}, func() {
 			errs = run.Test(c)
 		})
 
@@ -363,7 +384,9 @@ func (a *App) Test(c TestConfigProvider) error {
 
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts(false, true, "build", func() {
+		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
+			SkipRepos: true,
+		}, func() {
 			state, err := run.state.ToYaml()
 			if err != nil {
 				errs = []error{err}
@@ -386,7 +409,9 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 	var releases []*HelmRelease
 
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts(false, true, "list", func() {
+		err := run.withPreparedCharts("list", state.ChartPrepareOptions{
+			SkipRepos: true,
+		}, func() {
 
 			//var releases m
 			for _, r := range run.state.Releases {
