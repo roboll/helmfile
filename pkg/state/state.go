@@ -792,6 +792,12 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 	return result
 }
 
+type ChartPrepareOptions struct {
+	ForceDownload bool
+	SkipRepos     bool
+	SkipResolve   bool
+}
+
 // PrepareCharts creates temporary directories of charts.
 //
 // Each resulting "chart" can be one of the followings:
@@ -806,7 +812,7 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 // Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, forceDownload, skipDeps bool) (map[string]string, []error) {
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[string]string, []error) {
 	releases := releasesNeedCharts(st.Releases)
 
 	temp := make(map[string]string, len(releases))
@@ -828,11 +834,13 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		helm3 = helm.IsHelm3()
 	}
 
-	updated, err := st.ResolveDeps()
-	if err != nil {
-		return nil, []error{err}
+	if !opts.SkipResolve {
+		updated, err := st.ResolveDeps()
+		if err != nil {
+			return nil, []error{err}
+		}
+		*st = *updated
 	}
-	*st = *updated
 
 	var diagnostics []string
 
@@ -916,7 +924,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// a broken remote chart won't completely block their job.
 					chartPath = normalizeChart(st.basePath, chartPath)
 
-					if !skipDeps {
+					if !opts.SkipRepos {
 						if err := helm.BuildDeps(release.Name, chartPath); err != nil {
 							if chartFetchedByGoGetter {
 								diagnostic = fmt.Sprintf(
@@ -934,7 +942,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 							}
 						}
 					}
-				} else if !forceDownload {
+				} else if !opts.ForceDownload {
 					// At this point, we are sure that either:
 					// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
 					//    without any modification, or

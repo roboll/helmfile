@@ -36,12 +36,12 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-func (r *Run) withPreparedCharts(forceDownload, skipRepos bool, helmfileCommand string, f func()) error {
+func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
 	}
 
-	if !skipRepos {
+	if !opts.SkipRepos {
 		ctx := r.ctx
 		if err := ctx.SyncReposOnce(r.state, r.helm); err != nil {
 			return err
@@ -59,7 +59,7 @@ func (r *Run) withPreparedCharts(forceDownload, skipRepos bool, helmfileCommand 
 		return err
 	}
 
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, 2, helmfileCommand, forceDownload, skipRepos)
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, 2, helmfileCommand, opts)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%v", errs)
