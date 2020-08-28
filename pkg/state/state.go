@@ -813,6 +813,9 @@ type ChartPrepareOptions struct {
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
 func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[string]string, []error) {
+	depBuiltChartsMu := &sync.Mutex{}
+	depBuiltCharts := map[string]bool{}
+
 	releases := releasesNeedCharts(st.Releases)
 
 	temp := make(map[string]string, len(releases))
@@ -924,7 +927,19 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// a broken remote chart won't completely block their job.
 					chartPath = normalizeChart(st.basePath, chartPath)
 
-					if !opts.SkipRepos {
+					var doBuildDeps bool
+
+					depBuiltChartsMu.Lock()
+					if depBuiltCharts == nil {
+						depBuiltCharts = map[string]bool{}
+					}
+					if !depBuiltCharts[chartPath] {
+						depBuiltCharts[chartPath] = true
+						doBuildDeps = true
+					}
+					depBuiltChartsMu.Unlock()
+
+					if !opts.SkipRepos && doBuildDeps {
 						if err := helm.BuildDeps(release.Name, chartPath); err != nil {
 							if chartFetchedByGoGetter {
 								diagnostic = fmt.Sprintf(
