@@ -387,12 +387,35 @@ func (a *App) PrintState(c StateConfigProvider) error {
 		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
 			SkipRepos: true,
 		}, func() {
-			state, err := run.state.ToYaml()
+			if c.EmbedValues() {
+				for i := range run.state.Releases {
+					r := run.state.Releases[i]
+
+					values, err := run.state.LoadYAMLForEmbedding(r.Values, r.MissingFileHandler, r.ValuesPathPrefix)
+					if err != nil {
+						errs = []error{err}
+						return
+					}
+
+					run.state.Releases[i].Values = values
+
+					secrets, err := run.state.LoadYAMLForEmbedding(r.Secrets, r.MissingFileHandler, r.ValuesPathPrefix)
+					if err != nil {
+						errs = []error{err}
+						return
+					}
+
+					run.state.Releases[i].Secrets = secrets
+				}
+			}
+
+			stateYaml, err := run.state.ToYaml()
 			if err != nil {
 				errs = []error{err}
 				return
 			}
-			fmt.Printf("---\n#  Source: %s\n\n%+v", run.state.FilePath, state)
+
+			fmt.Printf("---\n#  Source: %s\n\n%+v", run.state.FilePath, stateYaml)
 
 			errs = []error{}
 		})

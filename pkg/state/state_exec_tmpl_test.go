@@ -36,7 +36,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Name:           "test-app",
 				Namespace:      "test-namespace-{{ .Release.Name }}",
 				ValuesTemplate: []interface{}{"config/{{ .Environment.Name }}/{{ .Release.Name }}/values.yaml"},
-				Secrets:        []string{"config/{{ .Environment.Name }}/{{ .Release.Name }}/secrets.yaml"},
+				Secrets:        []interface{}{"config/{{ .Environment.Name }}/{{ .Release.Name }}/secrets.yaml"},
 				Labels:         map[string]string{"id": "{{ .Release.Name }}"},
 			},
 			want: ReleaseSpec{
@@ -45,7 +45,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Name:      "test-app",
 				Namespace: "test-namespace-test-app",
 				Values:    []interface{}{"config/test_env/test-app/values.yaml"},
-				Secrets:   []string{"config/test_env/test-app/secrets.yaml"},
+				Secrets:   []interface{}{"config/test_env/test-app/secrets.yaml"},
 				Labels:    map[string]string{"id": "test-app"},
 			},
 		},

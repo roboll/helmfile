@@ -209,7 +209,7 @@ type ReleaseSpec struct {
 	Namespace string            `yaml:"namespace,omitempty"`
 	Labels    map[string]string `yaml:"labels,omitempty"`
 	Values    []interface{}     `yaml:"values,omitempty"`
-	Secrets   []string          `yaml:"secrets,omitempty"`
+	Secrets   []interface{}     `yaml:"secrets,omitempty"`
 	SetValues []SetValue        `yaml:"set,omitempty"`
 
 	ValuesTemplate    []interface{} `yaml:"valuesTemplate,omitempty"`
@@ -2163,11 +2163,41 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
 	var generatedFiles []string
 
-	for _, value := range release.Secrets {
-		paths, skip, err := st.storage().resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value)
-		if err != nil {
-			return nil, err
+	for _, v := range release.Secrets {
+		var (
+			paths []string
+			skip  bool
+			err   error
+		)
+
+		switch value := v.(type) {
+		case string:
+			paths, skip, err = st.storage().resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			bs, err := yaml.Marshal(value)
+			if err != nil {
+				return nil, err
+			}
+
+			path, err := ioutil.TempFile(os.TempDir(), "helmfile-embdedded-secrets-*.yaml.enc")
+			if err != nil {
+				return nil, err
+			}
+			_ = path.Close()
+			defer func() {
+				_ = os.Remove(path.Name())
+			}()
+
+			if err := ioutil.WriteFile(path.Name(), bs, 0644); err != nil {
+				return nil, err
+			}
+
+			paths = []string{path.Name()}
 		}
+
 		if skip {
 			continue
 		}
@@ -2446,4 +2476,43 @@ func (st *HelmState) ToYaml() (string, error) {
 	} else {
 		return string(result), nil
 	}
+}
+
+func (st *HelmState) LoadYAMLForEmbedding(entries []interface{}, missingFileHandler *string, pathPrefix string) ([]interface{}, error) {
+	var result []interface{}
+
+	for _, v := range entries {
+		switch t := v.(type) {
+		case string:
+			var values map[string]interface{}
+
+			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", pathPrefix+t)
+			if err != nil {
+				return nil, err
+			}
+			if skip {
+				continue
+			}
+
+			if len(paths) > 1 {
+				return nil, fmt.Errorf("glob patterns in release values and secrets is not supported yet. please submit a feature request if necessary")
+			}
+			yamlOrTemplatePath := paths[0]
+
+			yamlBytes, err := st.RenderValuesFileToBytes(yamlOrTemplatePath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to render values files \"%s\": %v", t, err)
+			}
+
+			if err := yaml.Unmarshal(yamlBytes, &values); err != nil {
+				return nil, err
+			}
+
+			result = append(result, values)
+		default:
+			result = append(result, v)
+		}
+	}
+
+	return result, nil
 }
