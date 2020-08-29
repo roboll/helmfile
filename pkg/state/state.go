@@ -520,6 +520,11 @@ func (o *SyncOpts) Apply(opts *SyncOpts) {
 func ReleaseToID(r *ReleaseSpec) string {
 	var id string
 
+	kc := r.KubeContext
+	if kc != "" {
+		id += kc + "/"
+	}
+
 	tns := r.TillerNamespace
 	if tns != "" {
 		id += tns + "/"
