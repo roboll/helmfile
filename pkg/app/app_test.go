@@ -2272,6 +2272,10 @@ func (c configImpl) Concurrency() int {
 	return 1
 }
 
+func (c configImpl) EmbedValues() bool {
+	return false
+}
+
 func (c configImpl) Output() string {
 	return c.output
 }

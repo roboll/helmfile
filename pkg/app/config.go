@@ -144,6 +144,7 @@ type StatusesConfigProvider interface {
 }
 
 type StateConfigProvider interface {
+	EmbedValues() bool
 }
 
 type concurrencyConfig interface {

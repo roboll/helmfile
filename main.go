@@ -467,7 +467,12 @@ func main() {
 		{
 			Name:  "build",
 			Usage: "output compiled helmfile state(s) as YAML",
-			Flags: []cli.Flag{},
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "embed-values",
+					Usage: "Read all the values files for every release and embed into the output helmfile.yaml",
+				},
+			},
 			Action: action(func(run *app.App, c configImpl) error {
 				return run.PrintState(c)
 			}),
@@ -672,6 +677,10 @@ func (c configImpl) NoColor() bool {
 
 func (c configImpl) Context() int {
 	return c.c.Int("context")
+}
+
+func (c configImpl) EmbedValues() bool {
+	return c.c.Bool("embed-values")
 }
 
 func (c configImpl) Logger() *zap.SugaredLogger {
