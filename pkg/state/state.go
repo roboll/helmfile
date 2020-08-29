@@ -928,7 +928,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// a broken remote chart won't completely block their job.
 					chartPath = normalizeChart(st.basePath, chartPath)
 
-					buildDeps = true
+					buildDeps = !opts.SkipRepos
 				} else if !opts.ForceDownload {
 					// At this point, we are sure that either:
 					// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
@@ -1011,7 +1011,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		return nil, errs
 	}
 
-	if !opts.SkipRepos {
+	if len(builds) > 0 {
 		if err := st.runHelmDepBuilds(helm, concurrency, builds); err != nil {
 			return nil, []error{err}
 		}
