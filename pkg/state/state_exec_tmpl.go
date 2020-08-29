@@ -83,6 +83,12 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 	}
 
 	for i, rt := range st.Releases {
+		if rt.Labels == nil {
+			rt.Labels = map[string]string{}
+		}
+		for k, v := range st.CommonLabels {
+			rt.Labels[k] = v
+		}
 		successFlag := false
 		for it, prev := 0, &rt; it < 6; it++ {
 			tmplData := st.createReleaseTemplateData(prev, vals)

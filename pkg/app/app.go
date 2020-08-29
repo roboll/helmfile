@@ -416,6 +416,12 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 			//var releases m
 			for _, r := range run.state.Releases {
 				labels := ""
+				if r.Labels == nil {
+					r.Labels = map[string]string{}
+				}
+				for k, v := range run.state.CommonLabels {
+					r.Labels[k] = v
+				}
 				for k, v := range r.Labels {
 					labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
 				}

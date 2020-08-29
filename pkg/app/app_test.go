@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/roboll/helmfile/pkg/remote"
 	"io"
 	"log"
 	"os"
@@ -16,6 +14,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/roboll/helmfile/pkg/remote"
 
 	"github.com/roboll/helmfile/pkg/exectest"
 	"gotest.tools/v3/assert"
@@ -4051,6 +4052,8 @@ releases:
 func TestList(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.d/first.yaml": `
+commonLabels:
+  common: label
 releases:
 - name: myrelease1
   chart: mychart1
@@ -4094,11 +4097,11 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := `NAME      	NAMESPACE	ENABLED	LABELS       
-myrelease1	         	false  	id:myrelease1
-myrelease2	         	true   	             
-myrelease3	         	true   	             
-myrelease4	         	true   	id:myrelease1
+	expected := `NAME      	NAMESPACE	ENABLED	LABELS                    
+myrelease1	         	false  	common:label,id:myrelease1
+myrelease2	         	true   	common:label              
+myrelease3	         	true   	                          
+myrelease4	         	true   	id:myrelease1             
 `
 	assert.Equal(t, expected, out)
 }
