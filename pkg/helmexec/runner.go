@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -34,21 +36,34 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
-	return Output(preparedCmd)
+	return Output(preparedCmd, &logWriterGenerator{
+		log: shell.Logger,
+	})
 }
 
-func Output(c *exec.Cmd) ([]byte, error) {
+func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("exec: Stdout already set")
 	}
 	if c.Stderr != nil {
 		return nil, errors.New("exec: Stderr already set")
 	}
+
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	var combined bytes.Buffer
-	c.Stdout = io.MultiWriter(&stdout, &combined)
-	c.Stderr = io.MultiWriter(&stderr, &combined)
+
+	var logWriters []io.Writer
+
+	id := newExecutionID()
+	for _, g := range logWriterGenerators {
+		logPrefix := fmt.Sprintf("%s:%s> ", filepath.Base(c.Path), id)
+		logWriters = append(logWriters, g.Writer(logPrefix))
+	}
+
+	c.Stdout = io.MultiWriter(append([]io.Writer{&stdout, &combined}, logWriters...)...)
+	c.Stderr = io.MultiWriter(append([]io.Writer{&stderr, &combined}, logWriters...)...)
+
 	err := c.Run()
 
 	if err != nil {
