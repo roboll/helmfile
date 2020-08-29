@@ -2577,7 +2577,7 @@ func (st *HelmState) ToYaml() (string, error) {
 	}
 }
 
-func (st *HelmState) LoadYAMLForEmbedding(entries []interface{}, missingFileHandler *string, pathPrefix string) ([]interface{}, error) {
+func (st *HelmState) LoadYAMLForEmbedding(release *ReleaseSpec, entries []interface{}, missingFileHandler *string, pathPrefix string) ([]interface{}, error) {
 	var result []interface{}
 
 	for _, v := range entries {
@@ -2598,7 +2598,7 @@ func (st *HelmState) LoadYAMLForEmbedding(entries []interface{}, missingFileHand
 			}
 			yamlOrTemplatePath := paths[0]
 
-			yamlBytes, err := st.RenderValuesFileToBytes(yamlOrTemplatePath)
+			yamlBytes, err := st.RenderReleaseValuesFileToBytes(release, yamlOrTemplatePath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to render values files \"%s\": %v", t, err)
 			}

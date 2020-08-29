@@ -391,7 +391,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 				for i := range run.state.Releases {
 					r := run.state.Releases[i]
 
-					values, err := run.state.LoadYAMLForEmbedding(r.Values, r.MissingFileHandler, r.ValuesPathPrefix)
+					values, err := run.state.LoadYAMLForEmbedding(&r, r.Values, r.MissingFileHandler, r.ValuesPathPrefix)
 					if err != nil {
 						errs = []error{err}
 						return
@@ -399,7 +399,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 
 					run.state.Releases[i].Values = values
 
-					secrets, err := run.state.LoadYAMLForEmbedding(r.Secrets, r.MissingFileHandler, r.ValuesPathPrefix)
+					secrets, err := run.state.LoadYAMLForEmbedding(&r, r.Secrets, r.MissingFileHandler, r.ValuesPathPrefix)
 					if err != nil {
 						errs = []error{err}
 						return
