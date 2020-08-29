@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -21,10 +20,6 @@ type mockRunner struct {
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
-	return mock.output, mock.err
-}
-
-func (mock *mockRunner) OutputInLine(c *exec.Cmd) ([]byte, error) {
 	return mock.output, mock.err
 }
 

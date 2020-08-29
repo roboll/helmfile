@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -2363,10 +2362,6 @@ type mockRunner struct {
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
-	return []byte{}, nil
-}
-
-func (mock *mockRunner) OutputInLine(c *exec.Cmd) ([]byte, error) {
 	return []byte{}, nil
 }
 

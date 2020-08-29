@@ -3,7 +3,6 @@ package event
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/roboll/helmfile/pkg/environment"
@@ -26,10 +25,6 @@ func (r *runner) Execute(cmd string, args []string, env map[string]string) ([]by
 			return nil, fmt.Errorf("cmd failed due to invalid arg: %s", a)
 		}
 	}
-	return []byte(""), nil
-}
-
-func (r *runner) OutputInLine(c *exec.Cmd) ([]byte, error) {
 	return []byte(""), nil
 }
 
