@@ -2,7 +2,7 @@ ORG     ?= $(shell basename $(realpath ..))
 PKGS    := $(shell go list ./... | grep -v /vendor/)
 
 build:
-	go build ${TARGETS}
+	go build -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: build
 
 generate:

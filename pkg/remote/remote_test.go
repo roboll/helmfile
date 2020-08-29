@@ -2,6 +2,7 @@ package remote
 
 import (
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
 	"os"
@@ -151,6 +152,75 @@ func TestRemote_SShGitHub(t *testing.T) {
 			}
 			if !testcase.expectCacheHit && hit {
 				t.Errorf("unexpected result: unexpected cache hit")
+			}
+		})
+	}
+}
+
+func TestParse(t *testing.T) {
+	type testcase struct {
+		input                            string
+		getter, scheme, dir, file, query string
+		err                              string
+	}
+
+	testcases := []testcase{
+		{
+			input: "raw/incubator",
+			err:   "parse url: missing scheme - probably this is a local file path? raw/incubator",
+		},
+		{
+			input:  "git::https://github.com/stakater/Forecastle.git@deployments/kubernetes/chart/forecastle?ref=v1.0.54",
+			getter: "git",
+			scheme: "https",
+			dir:    "/stakater/Forecastle.git",
+			file:   "deployments/kubernetes/chart/forecastle",
+			query:  "ref=v1.0.54",
+		},
+	}
+
+	for i := range testcases {
+		tc := testcases[i]
+
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			src, err := Parse(tc.input)
+
+			var errMsg string
+			if err != nil {
+				errMsg = err.Error()
+			}
+
+			if diff := cmp.Diff(tc.err, errMsg); diff != "" {
+				t.Fatalf("Unexpected error:\n%s", diff)
+			}
+
+			var getter, scheme, dir, file, query string
+			if src != nil {
+				getter = src.Getter
+				scheme = src.Scheme
+				dir = src.Dir
+				file = src.File
+				query = src.RawQuery
+			}
+
+			if diff := cmp.Diff(tc.getter, getter); diff != "" {
+				t.Fatalf("Unexpected getter:\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.scheme, scheme); diff != "" {
+				t.Fatalf("Unexpected scheme:\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.file, file); diff != "" {
+				t.Fatalf("Unexpected file:\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.dir, dir); diff != "" {
+				t.Fatalf("Unexpected dir:\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.query, query); diff != "" {
+				t.Fatalf("Unexpected query:\n%s", diff)
 			}
 		})
 	}

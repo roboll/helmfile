@@ -575,3 +575,50 @@ func Test_IsVersionAtLeast(t *testing.T) {
 	}
 
 }
+
+func Test_parseHelmVersion(t *testing.T) {
+	tests := []struct {
+		ver     string
+		want    Version
+		wantErr bool
+	}{
+		{
+			ver: "v1.2.3",
+			want: Version{
+				Major: 1,
+				Minor: 2,
+				Patch: 3,
+			},
+			wantErr: false,
+		},
+		{
+			ver: "v1.2",
+			want: Version{
+				Major: 1,
+				Minor: 2,
+				Patch: 0,
+			},
+			wantErr: false,
+		},
+		{
+			ver:     "v1",
+			wantErr: true,
+		},
+		{
+			ver:     "1.1.1",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.ver, func(t *testing.T) {
+			got, err := parseHelmVersion(tt.ver)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseHelmVersion() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseHelmVersion() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

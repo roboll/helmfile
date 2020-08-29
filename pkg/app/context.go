@@ -5,40 +5,21 @@ import (
 )
 
 type Context struct {
-	updatedRepos map[string]struct{}
+	updatedRepos map[string]bool
 }
 
 func NewContext() Context {
 	return Context{
-		updatedRepos: map[string]struct{}{},
+		updatedRepos: map[string]bool{},
 	}
 }
 
-func (ctx Context) SyncReposOnce(st *state.HelmState, helm state.RepoUpdater) []error {
-	var errs []error
+func (ctx Context) SyncReposOnce(st *state.HelmState, helm state.RepoUpdater) error {
+	updated, err := st.SyncRepos(helm, ctx.updatedRepos)
 
-	hasInstalled := false
-	for _, release := range st.Releases {
-		hasInstalled = hasInstalled || release.Installed == nil || *release.Installed
+	for _, r := range updated {
+		ctx.updatedRepos[r] = true
 	}
 
-	if !hasInstalled {
-		return errs
-	}
-
-	allUpdated := true
-	for _, r := range st.Repositories {
-		_, exists := ctx.updatedRepos[r.Name]
-		allUpdated = allUpdated && exists
-	}
-
-	if !allUpdated {
-		errs = st.SyncRepos(helm)
-
-		for _, r := range st.Repositories {
-			ctx.updatedRepos[r.Name] = struct{}{}
-		}
-	}
-
-	return errs
+	return err
 }

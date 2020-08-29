@@ -235,6 +235,10 @@ func main() {
 					Name:  "output-dir",
 					Usage: "output directory to pass to helm template (helm template --output-dir)",
 				},
+				cli.StringFlag{
+					Name:  "output-dir-template",
+					Usage: "go text template for generating the output directory. Default: {{ .OutputDir }}/{{ .State.BaseName }}-{{ .State.AbsPathSHA1 }}-{{ .Release.Name}}",
+				},
 				cli.IntFlag{
 					Name:  "concurrency",
 					Value: 0,
@@ -482,6 +486,15 @@ func main() {
 				return run.ListReleases(c)
 			}),
 		},
+		{
+			Name:      "version",
+			Usage:     "Show the version for Helmfile.",
+			ArgsUsage: "[command]",
+			Action: func(c *cli.Context) error {
+				cli.ShowVersion(c)
+				return nil
+			},
+		},
 	}
 
 	err := cliApp.Run(os.Args)
@@ -550,6 +563,10 @@ func (c configImpl) Args() string {
 
 func (c configImpl) OutputDir() string {
 	return c.c.String("output-dir")
+}
+
+func (c configImpl) OutputDirTemplate() string {
+	return c.c.String("output-dir-template")
 }
 
 func (c configImpl) Validate() bool {
@@ -664,7 +681,10 @@ func (c configImpl) Logger() *zap.SugaredLogger {
 func (c configImpl) Env() string {
 	env := c.c.GlobalString("environment")
 	if env == "" {
-		env = state.DefaultEnv
+		env = os.Getenv("HELMFILE_ENVIRONMENT")
+		if env == "" {
+			env = state.DefaultEnv
+		}
 	}
 	return env
 }

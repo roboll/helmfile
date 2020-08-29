@@ -103,6 +103,9 @@ helmDefaults:
   # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
   createNamespace: true
 
+# these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
+commonLabels:
+  hello: world
 
 # The desired states of Helm releases.
 #
@@ -420,6 +423,9 @@ GLOBAL OPTIONS:
    --interactive, -i                       Request confirmation before attempting to modify clusters
    --help, -h                              show help
    --version, -v                           print the version
+
+Environment variables:
+  HELMFILE_ENVIRONMENT                     specify the environment name, the command line option '-e' have precedence
 ```
 
 ### sync
@@ -518,6 +524,41 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 `--selector tier=frontend --selector tier=backend` will select all the charts
 
 In addition to user supplied labels, the name, the namespace, and the chart are available to be used as selectors.  The chart will just be the chart name excluding the repository (Example `stable/filebeat` would be selected using `--selector chart=filebeat`).
+
+`commonLabels` can be used when you want to apply the same label to all releases and use [templating](##Templates) based on that.
+For instance, you install a number of charts on every customer but need to provide different values file per customer.
+
+templates/common.yaml:
+
+```
+templates:
+  nginx: &nginx
+    name: nginx
+    chart: stable/nginx-ingress
+    values:
+    - ../values/common/{{ .Release.Name }}.yaml
+    - ../values/{{ .Release.Labels.customer }}/{{ .Release.Name }}.yaml
+
+  cert-manager: &cert-manager
+    name: cert-manager
+    chart: jetstack/cert-manager
+    values:
+    - ../values/common/{{ .Release.Name }}.yaml
+    - ../values/{{ .Release.Labels.customer }}/{{ .Release.Name }}.yaml
+```
+
+helmfile.yaml:
+
+```
+{{ readFile "templates/common.yaml" }}
+
+commonLabels:
+  customer: company
+
+releases:
+- <<: *nginx
+- <<: *cert-manager
+```
 
 ## Templates
 
@@ -672,7 +713,7 @@ releaseName: prod
 `values.yaml.gotmpl`
 
 ```yaml
-domain: {{ .Values | get "my.domain" "dev.example.com" }}
+domain: {{ .Values | get "domain" "dev.example.com" }}
 ```
 
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
@@ -708,7 +749,7 @@ releases:
   ...
 ```
 
-### Note
+### Note on Environment.Values vs Values
 
 The `{{ .Values.foo }}` syntax is the recommended way of using environment values.
 
@@ -716,6 +757,27 @@ Prior to this [pull request](https://github.com/roboll/helmfile/pull/647), envir
 This is still working but is **deprecated** and the new `{{ .Values.foo }}` syntax should be used instead.
 
 You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
+
+### Loading remote environment values files
+
+Since #1296 and Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
+
+```yaml
+environments:
+  cluster-azure-us-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
+  cluster-gcp-europe-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
+
+releases:
+  - ...
+```
+
+This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
 
 ## Environment Secrets
 
@@ -936,16 +998,26 @@ Currently supported `events` are:
 
 - `prepare`
 - `presync`
+- `preuninstall`
+- `postuninstall`
 - `postsync`
 - `cleanup`
 
 Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before execution.
+`prepare` hooks are triggered on the release as long as it is not excluded by the helmfile selector(e.g. `helmfile -l key=value`).
 
-Hooks associated to `cleanup` events are triggered after each release is processed.
+Hooks associated to `presync` events are triggered before each release is applied to the remote cluster.
+This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
-Hooks associated to `presync` events are triggered before each release is applied to the remote cluster. This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+`preuninstall` hooks are triggered immediately before a release is uninstalled as part of `helmfile apply`, `helmfile sync`, `helmfile delete`, and `helmfile destroy`.
 
-Hooks associated to `postsync` events are triggered after each release is applied to the remote cluster. This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+`postuninstall` hooks are triggered immediately after successful uninstall of a release while running `helmfile apply`, `helmfile sync`, `helmfile delete`, `helmfile destroy`.
+
+`postsync` hooks are triggered after each release is synced(installed, updated, or uninstalled) to/from the cluster, regardless of the sync was successful or not.
+This is the ideal place to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+
+`cleanup` hooks are triggered after each release is processed.
+This is the counterpart to `prepare`, as any release on which `prepare` has been triggered gets `cleanup` triggered as well.
 
 The following is an example hook that just prints the contextual information provided to hook:
 
@@ -1108,6 +1180,41 @@ repositories:
 ## Examples
 
 For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile`](https://github.com/cloudposse/helmfiles/tree/master/releases) distribution by [Cloud Posse](https://github.com/cloudposse/).
+
+## Integrations
+
+- [renovate](https://github.com/renovatebot/renovate) automates chart version updates. See [this PR for more information](https://github.com/renovatebot/renovate/pull/5257).
+  - For updating container image tags and git tags embedded within helmfile.yaml and values, you can use [renovate's regexManager](https://docs.renovatebot.com/modules/manager/regex/). Please see [this comment in the renovate repository](https://github.com/renovatebot/renovate/issues/6130#issuecomment-624061289) for more information.
+- [ArgoCD Integration](#argocd-integration)
+
+### ArgoCD Integration
+
+Use [ArgoCD](https://argoproj.github.io/argo-cd/) with `helmfile template` for GitOps.
+
+ArgoCD has support for kustomize/manifests/helm chart by itself. Why bother with Helmfile?
+
+The reasons may vary:
+
+1. You do want to manage applications with ArgoCD, while letting Helmfile manage infrastructure-related components like Calico/Cilium/WeaveNet, Linkerd/Istio, and ArgoCD itself.
+  - This way, any application deployed by ArgoCD has access to all the infrastructure.
+  - Of course, you can use ArgoCD's [Sync Waves and Phases](https://argoproj.github.io/argo-cd/user-guide/sync-waves/) for ordering the infrastructure and application installations. But it may be difficult to separate the concern between the infrastructure and apps and annotate K8s resources consistently when you have different teams for managing infra and apps.
+2. You want to review the exact K8s manifests being applied on pull-request time, before ArgoCD syncs.
+  - This is often better than using a kind of `HelmRelease` custom resources that obfuscates exactly what manifests are being applied, which makes reviewing harder.
+3. Use Helmfile as the single-pane of glass for all the K8s resources deployed to your cluster(s).
+  - Helmfile can reduce repetition in K8s manifests across ArgoCD application
+
+For 1, you run `helmfile apply` on CI to deploy ArgoCD and the infrastructure components.
+
+> helmfile config for this phase often reside within the same directory as your Terraform project. So connecting the two with [terraform-provider-helmfile](https://github.com/mumoshu/terraform-provider-helmfile) may be helpful
+
+For 2, another app-centric CI or bot should run `helmfile template --output-dir-template gitops//{{.Release.Name}} && cd gitops && git add . && git commit && git push` to render/commit manifests,
+so that they can be deployed by Argo CD as usual.
+
+Recommendations:
+
+- Do create ArgoCD `Application` custom resource per Helm/Helmfile release, each point to respective sub-directory generated by `helmfile template --output-dir-template`
+- If you don't directly push it to the main Git branch and instead go through a pull-request, do lint rendered manifests on your CI, so that you can catch easy mistakes earlier/before ArgoCD finally deploys it
+- See [this ArgoCD issue](https://github.com/argoproj/argo-cd/issues/2143#issuecomment-570478329) for why you may want this, and see [this helmfile issue](https://github.com/roboll/helmfile/pull/1357) for how `--output-dir-template` works.
 
 # Attribution
 

@@ -15,6 +15,8 @@ type LoadOpts struct {
 	CalleePath string
 
 	Reverse bool
+
+	Filter bool
 }
 
 func (o LoadOpts) DeepCopy() LoadOpts {

@@ -12,19 +12,16 @@ func (st *HelmState) Values() (map[string]interface{}, error) {
 	return st.Env.GetMergedValues()
 }
 
-func (st *HelmState) mustLoadVals() map[string]interface{} {
-	vals, err := st.Values()
-	if err != nil {
-		panic(err)
-	}
-	return vals
-}
-
-func (st *HelmState) valuesFileTemplateData() EnvironmentTemplateData {
-	return EnvironmentTemplateData{
+func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[string]interface{}) releaseTemplateData {
+	return releaseTemplateData{
 		Environment: st.Env,
-		Namespace:   st.OverrideNamespace,
-		Values:      st.mustLoadVals(),
+		Values:      vals,
+		Release: releaseTemplateDataRelease{
+			Name:      release.Name,
+			Chart:     release.Chart,
+			Namespace: release.Namespace,
+			Labels:    release.Labels,
+		},
 	}
 }
 
@@ -86,13 +83,15 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 	}
 
 	for i, rt := range st.Releases {
+		if rt.Labels == nil {
+			rt.Labels = map[string]string{}
+		}
+		for k, v := range st.CommonLabels {
+			rt.Labels[k] = v
+		}
 		successFlag := false
 		for it, prev := 0, &rt; it < 6; it++ {
-			tmplData := releaseTemplateData{
-				Environment: st.Env,
-				Release:     *prev,
-				Values:      vals,
-			}
+			tmplData := st.createReleaseTemplateData(prev, vals)
 			renderer := tmpl.NewFileRenderer(st.readFile, st.basePath, tmplData)
 			r, err := rt.ExecuteTemplateExpressions(renderer)
 			if err != nil {

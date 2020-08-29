@@ -1,11 +1,12 @@
 package state
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/variantdev/chartify"
+	"golang.org/x/sync/errgroup"
 	"io"
 	"io/ioutil"
 	"os"
@@ -16,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
+
+	"github.com/variantdev/chartify"
 
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/event"
@@ -55,6 +59,7 @@ type HelmState struct {
 	DeprecatedReleases []ReleaseSpec     `yaml:"charts,omitempty"`
 	OverrideNamespace  string            `yaml:"namespace,omitempty"`
 	Repositories       []RepositorySpec  `yaml:"repositories,omitempty"`
+	CommonLabels       map[string]string `yaml:"commonLabels,omitempty"`
 	Releases           []ReleaseSpec     `yaml:"releases,omitempty"`
 	Selectors          []string          `yaml:"-"`
 	ApiVersions        []string          `yaml:"apiVersions,omitempty"`
@@ -126,10 +131,12 @@ type HelmSpec struct {
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install/upgrade (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
 
-	TLS       bool   `yaml:"tls"`
-	TLSCACert string `yaml:"tlsCACert,omitempty"`
-	TLSKey    string `yaml:"tlsKey,omitempty"`
-	TLSCert   string `yaml:"tlsCert,omitempty"`
+	TLS                      bool   `yaml:"tls"`
+	TLSCACert                string `yaml:"tlsCACert,omitempty"`
+	TLSKey                   string `yaml:"tlsKey,omitempty"`
+	TLSCert                  string `yaml:"tlsCert,omitempty"`
+	DisableValidation        *bool  `yaml:"disableValidation,omitempty"`
+	DisableOpenAPIValidation *bool  `yaml:"disableOpenAPIValidation,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -146,9 +153,15 @@ type RepositorySpec struct {
 // ReleaseSpec defines the structure of a helm release
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
-	Chart   string `yaml:"chart,omitempty"`
+	Chart string `yaml:"chart,omitempty"`
+	// Directory is an alias to Chart which may be of more fit when you want to use a local/remote directory containing
+	// K8s manifests or Kustomization as a chart
+	Directory string `yaml:"directory,omitempty"`
+	// Version is the semver version or version constraint for the chart
 	Version string `yaml:"version,omitempty"`
-	Verify  *bool  `yaml:"verify,omitempty"`
+	// Verify enables signature verification on fetched chart.
+	// Beware some (or many?) chart repositories and charts don't seem to support it.
+	Verify *bool `yaml:"verify,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel *bool `yaml:"devel,omitempty"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -171,6 +184,18 @@ type ReleaseSpec struct {
 	Condition string `yaml:"condition,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
+
+	// DisableOpenAPIValidation is rarely used to bypass OpenAPI validations only that is used for e.g.
+	// work-around against broken CRs
+	// See also:
+	// - https://github.com/helm/helm/pull/6819
+	// - https://github.com/roboll/helmfile/issues/1167
+	DisableOpenAPIValidation *bool `yaml:"disableOpenAPIValidation,omitempty"`
+
+	// DisableValidation is rarely used to bypass the whole validation of manifests against the Kubernetes cluster
+	// so that `helm diff` can be run containing a chart that installs both CRD and CRs on first install.
+	// FYI, such diff without `--disable-validation` fails on first install because the K8s cluster doesn't have CRDs registered yet.
+	DisableValidation *bool `yaml:"disableValidation,omitempty"`
 
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
@@ -221,6 +246,13 @@ type ReleaseSpec struct {
 
 	//version of the chart that has really been installed cause desired version may be fuzzy (~2.0.0)
 	installedVersion string
+
+	// ForceGoGetter forces the use of go-getter for fetching remote directory as maniefsts/chart/kustomization
+	// by parsing the url from `chart` field of the release.
+	// This is handy when getting the go-getter url parsing error when it doesn't work as expected.
+	// Without this, any error in url parsing result in silently falling-back to normal process of treating `chart:` as the regular
+	// helm chart name.
+	ForceGoGetter bool `yaml:"forceGoGetter,omitempty"`
 }
 
 type Release struct {
@@ -269,24 +301,52 @@ type RepoUpdater interface {
 	UpdateRepo() error
 }
 
-// SyncRepos will update the given helm releases
-func (st *HelmState) SyncRepos(helm RepoUpdater) []error {
-	errs := []error{}
+// getRepositoriesToSync returns the names of repositories to be updated
+func (st *HelmState) getRepositoriesToSync() (map[string]bool, error) {
+	releases, err := st.GetSelectedReleasesWithOverrides()
+	if err != nil {
+		return nil, err
+	}
 
-	for _, repo := range st.Repositories {
-		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password); err != nil {
-			errs = append(errs, err)
+	repositoriesToUpdate := map[string]bool{}
+
+	if len(releases) == 0 {
+		for _, repo := range st.Repositories {
+			repositoriesToUpdate[repo.Name] = true
+		}
+
+		return repositoriesToUpdate, nil
+	}
+
+	for _, release := range releases {
+		if release.Installed == nil || *release.Installed {
+			chart := strings.Split(release.Chart, "/")
+			if len(chart) == 1 {
+				continue
+			}
+			repositoriesToUpdate[chart[0]] = true
 		}
 	}
 
-	if len(errs) != 0 {
-		return errs
+	return repositoriesToUpdate, nil
+}
+
+func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]string, error) {
+	var updated []string
+
+	for _, repo := range st.Repositories {
+		if shouldSkip[repo.Name] {
+			continue
+		}
+
+		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password); err != nil {
+			return nil, err
+		}
+
+		updated = append(updated, repo.Name)
 	}
 
-	if err := helm.UpdateRepo(); err != nil {
-		return []error{err}
-	}
-	return nil
+	return updated, nil
 }
 
 type syncResult struct {
@@ -461,6 +521,11 @@ func (o *SyncOpts) Apply(opts *SyncOpts) {
 func ReleaseToID(r *ReleaseSpec) string {
 	var id string
 
+	kc := r.KubeContext
+	if kc != "" {
+		id += kc + "/"
+	}
+
 	tns := r.TillerNamespace
 	if tns != "" {
 		id += tns + "/"
@@ -518,7 +583,13 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					}
 					deletionFlags := st.appendConnectionFlags(args, release)
 					m.Lock()
-					if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						relErr = newReleaseFailedError(release, err)
+					} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						relErr = newReleaseFailedError(release, err)
+					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -527,18 +598,18 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					m.Unlock()
 				}
 
-				if relErr == nil {
-					results <- syncResult{}
-				} else {
-					results <- syncResult{errors: []*ReleaseError{relErr}}
-				}
-
 				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
-				if _, err := st.triggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
+				}
+
+				if relErr == nil {
+					results <- syncResult{}
+				} else {
+					results <- syncResult{errors: []*ReleaseError{relErr}}
 				}
 			}
 		},
@@ -622,7 +693,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						}
 						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
-						if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							relErr = newReleaseFailedError(release, err)
+						} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							relErr = newReleaseFailedError(release, err)
+						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else {
@@ -647,18 +724,18 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 
-				if relErr == nil {
-					results <- syncResult{}
-				} else {
-					results <- syncResult{errors: []*ReleaseError{relErr}}
-				}
-
 				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
-				if _, err := st.triggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
+				}
+
+				if relErr == nil {
+					results <- syncResult{}
+				} else {
+					results <- syncResult{errors: []*ReleaseError{relErr}}
 				}
 			}
 		},
@@ -709,6 +786,34 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 	}
 }
 
+func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
+	var result []ReleaseSpec
+
+	for _, r := range releases {
+		if r.Installed != nil && !*r.Installed {
+			continue
+		}
+		result = append(result, r)
+	}
+
+	return result
+}
+
+type ChartPrepareOptions struct {
+	ForceDownload bool
+	SkipRepos     bool
+	SkipResolve   bool
+}
+
+type chartPrepareResult struct {
+	releaseName            string
+	chartName              string
+	chartPath              string
+	err                    error
+	buildDeps              bool
+	chartFetchedByGoGetter bool
+}
+
 // PrepareCharts creates temporary directories of charts.
 //
 // Each resulting "chart" can be one of the followings:
@@ -717,22 +822,21 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 // (2) temporary local chart generated from kustomization or manifests
 // (3) remote chart
 //
-// When running `helmfile lint` or `helmfile template`, PrepareCharts will download and untar charts for linting and templating.
+// When running `helmfile template` on helm v2, or `helmfile lint` on both helm v2 and v3,
+// PrepareCharts will download and untar charts for linting and templating.
 //
 // Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, forceDownload bool) (map[string]string, []error) {
-	temp := make(map[string]string, len(st.Releases))
-	type downloadResults struct {
-		releaseName string
-		chartPath   string
-		err         error
-	}
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[string]string, []error) {
+	releases := releasesNeedCharts(st.Releases)
+
+	temp := make(map[string]string, len(releases))
+
 	errs := []error{}
 
-	jobQueue := make(chan *ReleaseSpec, len(st.Releases))
-	results := make(chan *downloadResults, len(st.Releases))
+	jobQueue := make(chan *ReleaseSpec, len(releases))
+	results := make(chan *chartPrepareResult, len(releases))
 
 	var helm3 bool
 
@@ -740,63 +844,141 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		helm3 = helm.IsHelm3()
 	}
 
+	if !opts.SkipResolve {
+		updated, err := st.ResolveDeps()
+		if err != nil {
+			return nil, []error{err}
+		}
+		*st = *updated
+	}
+
+	var builds []*chartPrepareResult
+
 	st.scatterGather(
 		concurrency,
-		len(st.Releases),
+		len(releases),
 		func() {
-			for i := 0; i < len(st.Releases); i++ {
-				jobQueue <- &st.Releases[i]
+			for i := 0; i < len(releases); i++ {
+				jobQueue <- &releases[i]
 			}
 			close(jobQueue)
 		},
 		func(workerIndex int) {
 			for release := range jobQueue {
-				var chartPath string
-
-				shouldChartify, opts, clean, err := st.PrepareChartify(helm, release, workerIndex)
-				defer clean()
-				if err != nil {
-					results <- &downloadResults{err: err}
+				// Call user-defined `prepare` hooks to create/modify local charts to be used by
+				// the later process.
+				//
+				// If it wasn't called here, Helmfile can end up an issue like
+				// https://github.com/roboll/helmfile/issues/1328
+				if _, err := st.triggerPrepareEvent(release, helmfileCommand); err != nil {
+					results <- &chartPrepareResult{err: err}
 					return
 				}
 
-				if shouldChartify {
+				chartName := release.Chart
+
+				chartPath, err := st.goGetterChart(chartName, release.Directory, release.ForceGoGetter)
+				if err != nil {
+					results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
+					return
+				}
+
+				chartFetchedByGoGetter := chartPath != chartName
+
+				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
+				defer clean()
+				if err != nil {
+					results <- &chartPrepareResult{err: err}
+					return
+				}
+
+				var buildDeps bool
+
+				if chartification != nil {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
 						chartify.UseHelm3(helm3),
 					)
 
-					out, err := c.Chartify(release.Name, release.Chart, chartify.WithChartifyOpts(opts))
+					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartification.Opts))
 					if err != nil {
-						errs = append(errs, err)
+						results <- &chartPrepareResult{err: err}
+						return
 					} else {
 						// TODO Chartify
 						chartPath = out
 					}
-				} else if !forceDownload {
-					chartPath = release.Chart
-				} else if pathExists(normalizeChart(st.basePath, release.Chart)) {
-					chartPath = normalizeChart(st.basePath, release.Chart)
+				} else if pathExists(normalizeChart(st.basePath, chartPath)) {
+					// At this point, we are sure that chartPath is a local directory containing either:
+					// - A remote chart fetched by go-getter or
+					// - A local chart
+					//
+					// The chart may have Chart.yaml(and requirements.yaml for Helm 2), and optionally Chart.lock/requirements.lock,
+					// but no `charts/` directory populated at all, or a subet of chart dependencies are missing in the directory.
+					//
+					// In such situation, Helm fails with an error like:
+					//   Error: found in Chart.yaml, but missing in charts/ directory: cert-manager, prometheus, postgresql, gitlab-runner, grafana, redis
+					//
+					// (See also https://github.com/roboll/helmfile/issues/1401#issuecomment-670854495)
+					//
+					// To avoid it, we need to call a `helm dep build` command on the chart.
+					// But the command may consistently fail when an outdated Chart.lock exists.
+					//
+					// (I've mentioned about such case in https://github.com/roboll/helmfile/pull/1400.)
+					//
+					// Trying to run `helm dep build` on the chart regardless of if it's from local or remote is
+					// problematic, as usually the user would have no way to fix the remote chart on their own.
+					//
+					// Given that, we always run `helm dep build` on the chart here, but tolerate any error caused by it
+					// for a remote chart, so that the user can notice/fix the issue in a local chart while
+					// a broken remote chart won't completely block their job.
+					chartPath = normalizeChart(st.basePath, chartPath)
+
+					buildDeps = !opts.SkipRepos
+				} else if !opts.ForceDownload {
+					// At this point, we are sure that either:
+					// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
+					//    without any modification, or
+					// 2. It is a remote chart which can be safely handed over to helm,
+					//    because the version of Helm used in this transaction (helm v3 or greater) support downloading
+					//    the chart instead, AND we don't need any modification to the chart
+					//
+					//    Also see HelmState.chartVersionFlags(). For `helmfile template`, it's called before `helm template`
+					//    only on helm v3.
+					//    For helm 2, we `helm fetch` with the version flags and call `helm template`
+					//    WITHOUT the version flags.
 				} else {
-					fetchFlags := []string{}
-					if release.Version != "" {
-						chartPath = path.Join(dir, release.Name, release.Version, release.Chart)
-						fetchFlags = append(fetchFlags, "--version", release.Version)
-					} else {
-						chartPath = path.Join(dir, release.Name, "latest", release.Chart)
+					pathElems := []string{
+						dir,
 					}
 
-					if st.isDevelopment(release) {
-						fetchFlags = append(fetchFlags, "--devel")
+					if release.TillerNamespace != "" {
+						pathElems = append(pathElems, release.TillerNamespace)
 					}
+
+					if release.Namespace != "" {
+						pathElems = append(pathElems, release.Namespace)
+					}
+
+					chartVersion := "latest"
+					if release.Version != "" {
+						chartVersion = release.Version
+					}
+
+					pathElems = append(pathElems, release.Name, chartName, chartVersion)
+
+					chartPath = path.Join(pathElems...)
 
 					// only fetch chart if it is not already fetched
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
+						fetchFlags := st.chartVersionFlags(release)
 						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
-						if err := helm.Fetch(release.Chart, fetchFlags...); err != nil {
-							errs = append(errs, err)
+						if err := helm.Fetch(chartName, fetchFlags...); err != nil {
+							results <- &chartPrepareResult{err: err}
+							return
 						}
 					}
+
 					// Set chartPath to be the path containing Chart.yaml, if found
 					fullChartPath, err := findChartDirectory(chartPath)
 					if err == nil {
@@ -804,11 +986,17 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					}
 				}
 
-				results <- &downloadResults{releaseName: release.Name, chartPath: chartPath}
+				results <- &chartPrepareResult{
+					releaseName:            release.Name,
+					chartName:              chartName,
+					chartPath:              chartPath,
+					buildDeps:              buildDeps,
+					chartFetchedByGoGetter: chartFetchedByGoGetter,
+				}
 			}
 		},
 		func() {
-			for i := 0; i < len(st.Releases); i++ {
+			for i := 0; i < len(releases); i++ {
 				downloadRes := <-results
 
 				if downloadRes.err != nil {
@@ -817,6 +1005,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					return
 				}
 				temp[downloadRes.releaseName] = downloadRes.chartPath
+
+				if downloadRes.buildDeps {
+					builds = append(builds, downloadRes)
+				}
 			}
 		},
 	)
@@ -824,11 +1016,107 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	if len(errs) > 0 {
 		return nil, errs
 	}
+
+	if len(builds) > 0 {
+		if err := st.runHelmDepBuilds(helm, concurrency, builds); err != nil {
+			return nil, []error{err}
+		}
+	}
+
 	return temp, nil
 }
 
+func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult) error {
+	type buildOutput struct {
+		diagnostic string
+	}
+
+	buildQueue := make(chan *chartPrepareResult)
+
+	buildOutputQueue := make(chan *buildOutput)
+
+	buildWorkers := &errgroup.Group{}
+	for i := 0; i < concurrency; i++ {
+		buildWorkers.Go(func() error {
+			for r := range buildQueue {
+				out, err := func() (*buildOutput, error) {
+					if err := helm.BuildDeps(r.releaseName, r.chartPath); err != nil {
+						if r.chartFetchedByGoGetter {
+							return &buildOutput{
+								diagnostic: fmt.Sprintf(
+									"WARN: `helm dep build` failed. While processing release %q, Helmfile observed that remote chart %q fetched by go-getter is seemingly broken. "+
+										"One of well-known causes of this is that the chart has outdated Chart.lock, which needs the chart maintainer needs to run `helm dep up`. "+
+										"Helmfile is tolerating the error to avoid blocking you until the remote chart gets fixed. "+
+										"But this may result in any failure later if the chart is broken badly. FYI, the tolerated error was: %v",
+									r.releaseName,
+									r.chartName,
+									err.Error(),
+								),
+							}, nil
+						}
+						return nil, err
+					}
+					return nil, nil
+				}()
+
+				if err != nil {
+					return err
+				}
+
+				if out != nil {
+					buildOutputQueue <- out
+				}
+			}
+
+			return nil
+		})
+	}
+
+	diagnosticsAggregator := &sync.WaitGroup{}
+	diagnosticsAggregator.Add(1)
+	go func() {
+		var diagnostics []string
+		for r := range buildOutputQueue {
+			if d := r.diagnostic; d != "" {
+				diagnostics = append(diagnostics, d)
+			}
+		}
+
+		sort.Strings(diagnostics)
+		for _, d := range diagnostics {
+			st.logger.Warn(d)
+		}
+
+		diagnosticsAggregator.Done()
+	}()
+
+	built := map[string]bool{}
+
+	for _, b := range builds {
+		// `helm dep build` fails when it was run concurrency on the same chart.
+		// To avoid that, we run `helm dep build` only once per each local chart.
+		//
+		// See https://github.com/roboll/helmfile/issues/1438
+		if !built[b.chartPath] {
+			built[b.chartPath] = true
+			buildQueue <- b
+		}
+	}
+	close(buildQueue)
+
+	if err := buildWorkers.Wait(); err != nil {
+		return err
+	}
+	close(buildOutputQueue)
+
+	diagnosticsAggregator.Wait()
+
+	return nil
+}
+
 type TemplateOpts struct {
-	Set []string
+	Set               []string
+	OutputDirTemplate string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -890,8 +1178,8 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			}
 		}
 
-		if len(outputDir) > 0 {
-			releaseOutputDir, err := st.GenerateOutputDir(outputDir, release)
+		if len(outputDir) > 0 || len(opts.OutputDirTemplate) > 0 {
+			releaseOutputDir, err := st.GenerateOutputDir(outputDir, release, opts.OutputDirTemplate)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -914,7 +1202,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			}
 		}
 
-		if _, err := st.triggerCleanupEvent(release, "template"); err != nil {
+		if _, err := st.TriggerCleanupEvent(release, "template"); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -990,7 +1278,7 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 			}
 		}
 
-		if _, err := st.triggerCleanupEvent(&release, "lint"); err != nil {
+		if _, err := st.TriggerCleanupEvent(&release, "lint"); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1219,7 +1507,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				}
 
 				if triggerCleanupEvents {
-					if _, err := st.triggerCleanupEvent(prep.release, "diff"); err != nil {
+					if _, err := st.TriggerCleanupEvent(prep.release, "diff"); err != nil {
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
@@ -1274,13 +1562,24 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		}
 		context := st.createHelmContext(&release, workerIndex)
 
+		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
+			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+
+			return err
+		}
+
 		if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
-		} else {
-			affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
-			return nil
 		}
+
+		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete"); err != nil {
+			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+			return err
+		}
+
+		affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
+		return nil
 	})
 }
 
@@ -1336,14 +1635,14 @@ func (st *HelmState) SelectReleasesWithOverrides() ([]Release, error) {
 	if err != nil {
 		return nil, err
 	}
-	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, values)
+	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, st.CommonLabels, values)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]interface{}) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]interface{}) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -1363,6 +1662,10 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map
 		// Strip off just the last portion for the name stable/newrelic would give newrelic
 		chartSplit := strings.Split(r.Chart, "/")
 		r.Labels["chart"] = chartSplit[len(chartSplit)-1]
+		//Merge CommonLabels into release labels
+		for k, v := range commonLabels {
+			r.Labels[k] = v
+		}
 		var filterMatch bool
 		for _, f := range filters {
 			if r.Labels == nil {
@@ -1405,14 +1708,6 @@ func (st *HelmState) GetSelectedReleasesWithOverrides() ([]ReleaseSpec, error) {
 		}
 	}
 
-	var extra string
-
-	if len(st.Selectors) > 0 {
-		extra = " matching " + strings.Join(st.Selectors, ",")
-	}
-
-	st.logger.Debugf("%d release(s)%s found in %s\n", len(releases), extra, st.FilePath)
-
 	return releases, nil
 }
 
@@ -1423,35 +1718,6 @@ func (st *HelmState) FilterReleases() error {
 		return err
 	}
 	st.Releases = releases
-	return nil
-}
-
-func (st *HelmState) PrepareReleases(helm helmexec.Interface, helmfileCommand string) []error {
-	errs := []error{}
-
-	for i := range st.Releases {
-		release := st.Releases[i]
-
-		if release.Installed != nil && !*release.Installed {
-			continue
-		}
-
-		if _, err := st.triggerPrepareEvent(&release, helmfileCommand); err != nil {
-			errs = append(errs, newReleaseFailedError(&release, err))
-			continue
-		}
-	}
-	if len(errs) != 0 {
-		return errs
-	}
-
-	updated, err := st.ResolveDeps()
-	if err != nil {
-		return []error{err}
-	}
-
-	*st = *updated
-
 	return nil
 }
 
@@ -1483,7 +1749,7 @@ func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string)
 	return st.triggerReleaseEvent("prepare", nil, r, helmfileCommand)
 }
 
-func (st *HelmState) triggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+func (st *HelmState) TriggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
 	return st.triggerReleaseEvent("cleanup", nil, r, helmfileCommand)
 }
 
@@ -1540,32 +1806,6 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 		}
 	}
 
-	if len(errs) != 0 {
-		return errs
-	}
-	return nil
-}
-
-// BuildDeps wrapper for building dependencies on the releases
-func (st *HelmState) BuildDeps(helm helmexec.Interface) []error {
-	errs := []error{}
-
-	for _, release := range st.Releases {
-		if len(release.Chart) == 0 {
-			errs = append(errs, errors.New("chart is required for: "+release.Name))
-			continue
-		}
-
-		if release.Installed != nil && !*release.Installed {
-			continue
-		}
-
-		if isLocalChart(release.Chart) {
-			if err := helm.BuildDeps(release.Name, normalizeChart(st.basePath, release.Chart)); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
 	if len(errs) != 0 {
 		return errs
 	}
@@ -1680,14 +1920,7 @@ func (st *HelmState) timeoutFlags(helm helmexec.Interface, release *ReleaseSpec)
 }
 
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
-	flags := []string{}
-	if release.Version != "" {
-		flags = append(flags, "--version", release.Version)
-	}
-
-	if st.isDevelopment(release) {
-		flags = append(flags, "--devel")
-	}
+	flags := st.chartVersionFlags(release)
 
 	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
 		flags = append(flags, "--verify")
@@ -1725,6 +1958,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		}
 	}
 
+	if release.DisableOpenAPIValidation != nil && *release.DisableOpenAPIValidation ||
+		release.DisableOpenAPIValidation == nil && st.HelmDefaults.DisableOpenAPIValidation != nil && *st.HelmDefaults.DisableOpenAPIValidation {
+		flags = append(flags, "--disable-openapi-validation")
+	}
+
 	flags = st.appendConnectionFlags(flags, release)
 
 	var err error
@@ -1741,7 +1979,16 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 }
 
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
-	flags := []string{}
+	var flags []string
+
+	// `helm template` in helm v2 does not support `--version` flag. So we fetch with the version flag and then template
+	// without the flag. See PrepareCharts function to see the Helmfile implementation of chart fetching.
+	//
+	// `helm template` in helm v3 supports `--version` and it automatically fetches the remote chart to template,
+	// so we skip fetching on helmfile-side and let helm fetch it.
+	if helm.IsHelm3() {
+		flags = st.chartVersionFlags(release)
+	}
 
 	var err error
 	flags, err = st.appendHelmXFlags(flags, release)
@@ -1759,13 +2006,28 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 }
 
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
-	flags := []string{}
-	if release.Version != "" {
-		flags = append(flags, "--version", release.Version)
+	flags := st.chartVersionFlags(release)
+
+	disableOpenAPIValidation := false
+	if release.DisableOpenAPIValidation != nil {
+		disableOpenAPIValidation = *release.DisableOpenAPIValidation
+	} else if st.HelmDefaults.DisableOpenAPIValidation != nil {
+		disableOpenAPIValidation = *st.HelmDefaults.DisableOpenAPIValidation
 	}
 
-	if st.isDevelopment(release) {
-		flags = append(flags, "--devel")
+	if disableOpenAPIValidation {
+		flags = append(flags, "--disable-openapi-validation")
+	}
+
+	disableValidation := false
+	if release.DisableValidation != nil {
+		disableValidation = *release.DisableValidation
+	} else if st.HelmDefaults.DisableValidation != nil {
+		disableValidation = *st.HelmDefaults.DisableValidation
+	}
+
+	if disableValidation {
+		flags = append(flags, "--disable-validation")
 	}
 
 	flags = st.appendConnectionFlags(flags, release)
@@ -1781,6 +2043,20 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, files, err
 	}
 	return append(flags, common...), files, nil
+}
+
+func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
+	flags := []string{}
+
+	if release.Version != "" {
+		flags = append(flags, "--version", release.Version)
+	}
+
+	if st.isDevelopment(release) {
+		flags = append(flags, "--devel")
+	}
+
+	return flags
 }
 
 func (st *HelmState) appendApiVersionsFlags(flags []string) []string {
@@ -1813,8 +2089,14 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 	return flags, files, nil
 }
 
-func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
-	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), st.valuesFileTemplateData())
+func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
+	vals, err := st.Values()
+	if err != nil {
+		return nil, err
+	}
+	templateData := st.createReleaseTemplateData(release, vals)
+
+	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), templateData)
 	rawBytes, err := r.RenderToBytes(path)
 	if err != nil {
 		return nil, err
@@ -1893,7 +2175,7 @@ func (st *HelmState) removeFiles(files []string) {
 	}
 }
 
-func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingFileHandler *string) ([]string, error) {
+func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []interface{}, missingFileHandler *string) ([]string, error) {
 	generatedFiles := []string{}
 
 	for _, value := range values {
@@ -1912,7 +2194,7 @@ func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingF
 			}
 			path := paths[0]
 
-			yamlBytes, err := st.RenderValuesFileToBytes(path)
+			yamlBytes, err := st.RenderReleaseValuesFileToBytes(release, path)
 			if err != nil {
 				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
@@ -1969,7 +2251,7 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 		return nil, fmt.Errorf("Failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
 	}
 
-	generatedFiles, err := st.generateTemporaryValuesFiles(valuesSecretsRendered, release.MissingFileHandler)
+	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, valuesSecretsRendered, release.MissingFileHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -2193,7 +2475,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	return nil
 }
 
-func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec) (string, error) {
+func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {
 	// get absolute path of state file to generate a hash
 	// use this hash to write helm output in a specific directory by state file and release name
 	// ie. in a directory named stateFileName-stateFileHash-releaseName
@@ -2208,14 +2490,53 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec) (
 	var stateFileExtension = filepath.Ext(st.FilePath)
 	var stateFileName = st.FilePath[0 : len(st.FilePath)-len(stateFileExtension)]
 
+	sha1sum := hex.EncodeToString(hasher.Sum(nil))[:8]
+
 	var sb strings.Builder
 	sb.WriteString(stateFileName)
 	sb.WriteString("-")
-	sb.WriteString(hex.EncodeToString(hasher.Sum(nil))[:8])
+	sb.WriteString(sha1sum)
 	sb.WriteString("-")
 	sb.WriteString(release.Name)
 
-	return path.Join(outputDir, sb.String()), nil
+	if outputDirTemplate == "" {
+		outputDirTemplate = filepath.Join("{{ .OutputDir }}", "{{ .State.BaseName }}-{{ .State.AbsPathSHA1 }}-{{ .Release.Name}}")
+	}
+
+	t, err := template.New("output-dir").Parse(outputDirTemplate)
+	if err != nil {
+		return "", fmt.Errorf("parsing output-dir templmate")
+	}
+
+	buf := &bytes.Buffer{}
+
+	type state struct {
+		BaseName    string
+		Path        string
+		AbsPath     string
+		AbsPathSHA1 string
+	}
+
+	data := struct {
+		OutputDir string
+		State     state
+		Release   *ReleaseSpec
+	}{
+		OutputDir: outputDir,
+		State: state{
+			BaseName:    stateFileName,
+			Path:        st.FilePath,
+			AbsPath:     stateAbsPath,
+			AbsPathSHA1: sha1sum,
+		},
+		Release: release,
+	}
+
+	if err := t.Execute(buf, data); err != nil {
+		return "", fmt.Errorf("executing output-dir template: %w", err)
+	}
+
+	return buf.String(), nil
 }
 
 func (st *HelmState) ToYaml() (string, error) {
