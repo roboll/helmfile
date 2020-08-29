@@ -2084,8 +2084,14 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 	return flags, files, nil
 }
 
-func (st *HelmState) RenderValuesFileToBytes(path string) ([]byte, error) {
-	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), st.valuesFileTemplateData())
+func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
+	vals, err := st.Values()
+	if err != nil {
+		return nil, err
+	}
+	templateData := st.createReleaseTemplateData(release, vals)
+
+	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), templateData)
 	rawBytes, err := r.RenderToBytes(path)
 	if err != nil {
 		return nil, err
@@ -2164,7 +2170,7 @@ func (st *HelmState) removeFiles(files []string) {
 	}
 }
 
-func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingFileHandler *string) ([]string, error) {
+func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []interface{}, missingFileHandler *string) ([]string, error) {
 	generatedFiles := []string{}
 
 	for _, value := range values {
@@ -2183,7 +2189,7 @@ func (st *HelmState) generateTemporaryValuesFiles(values []interface{}, missingF
 			}
 			path := paths[0]
 
-			yamlBytes, err := st.RenderValuesFileToBytes(path)
+			yamlBytes, err := st.RenderReleaseValuesFileToBytes(release, path)
 			if err != nil {
 				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
@@ -2240,7 +2246,7 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 		return nil, fmt.Errorf("Failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
 	}
 
-	generatedFiles, err := st.generateTemporaryValuesFiles(valuesSecretsRendered, release.MissingFileHandler)
+	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, valuesSecretsRendered, release.MissingFileHandler)
 	if err != nil {
 		return nil, err
 	}
