@@ -130,7 +130,7 @@ releaseName: myrelease`
 		Name: "myrelease",
 	}
 
-	actualValuesData, err := state.RenderValuesFileToBytes(&release, valuesFile)
+	actualValuesData, err := state.RenderReleaseValuesFileToBytes(&release, valuesFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
