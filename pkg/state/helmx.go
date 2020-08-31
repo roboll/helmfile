@@ -144,6 +144,10 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		shouldRun = true
 	}
 
+	if release.ForceNamespace != "" {
+		chartify.Opts.OverrideNamespace = release.ForceNamespace
+	}
+
 	if shouldRun {
 		generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
 		if err != nil {
