@@ -2622,3 +2622,13 @@ func (st *HelmState) LoadYAMLForEmbedding(release *ReleaseSpec, entries []interf
 
 	return result, nil
 }
+
+func (st *HelmState) Reverse() {
+	for i, j := 0, len(st.Releases)-1; i < j; i, j = i+1, j-1 {
+		st.Releases[i], st.Releases[j] = st.Releases[j], st.Releases[i]
+	}
+
+	for i, j := 0, len(st.Helmfiles)-1; i < j; i, j = i+1, j-1 {
+		st.Helmfiles[i], st.Helmfiles[j] = st.Helmfiles[j], st.Helmfiles[i]
+	}
+}
