@@ -19,6 +19,14 @@ releases:
     set:
       - name: ingress.enabled
         value: false
+    hooks:
+    - events: ["prepare", "cleanup"]
+      showlogs: true
+      command: "echo"
+      args:
+      - "{{`{{.Environment.Name}}`}}"
+      - "{{`{{.Release.Name}}`}}"
+      - "{{`{{.HelmfileCommand}}`}}"
 
   - name: raw
     chart: incubator/raw
