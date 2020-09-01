@@ -1207,8 +1207,28 @@ For 1, you run `helmfile apply` on CI to deploy ArgoCD and the infrastructure co
 
 > helmfile config for this phase often reside within the same directory as your Terraform project. So connecting the two with [terraform-provider-helmfile](https://github.com/mumoshu/terraform-provider-helmfile) may be helpful
 
-For 2, another app-centric CI or bot should run `helmfile template --output-dir-template gitops//{{.Release.Name}} && cd gitops && git add . && git commit && git push` to render/commit manifests,
+For 2, another app-centric CI or bot should render/commit manifests by running:
+
+```
+helmfile template --output-dir-template $(pwd)/gitops//{{.Release.Name}}
+cd gitops
+git add .
+git commit -m 'some message'
+git push origin $BRANCH
+```
+
+> Note that `$(pwd)` is necessary when `hemlfile.yaml` has one or more sub-helmfiles in nested directories,
+> because setting a relative file path in `--output-dir` or `--output-dir-template` results in each sub-helmfile render
+> to the directory relative to the specified path. 
+
 so that they can be deployed by Argo CD as usual.
+
+
+The CI or bot can optionally submit a PR to be review by human, running:
+
+```
+hub pull-request -b main -l gitops -m 'some description'
+```
 
 Recommendations:
 
