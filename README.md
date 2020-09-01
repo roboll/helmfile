@@ -301,6 +301,21 @@ apiVersions:
 
 Helmfile uses [Go templates](https://godoc.org/text/template) for templating your helmfile.yaml. While go ships several built-in functions, we have added all of the functions in the [Sprig library](https://godoc.org/github.com/Masterminds/sprig).
 
+We also added the following functions:
+
+- `requiredEnv`
+- `exec`
+- `readFile`
+- `toYaml`
+- `fromYaml`
+- `setValueAtPath`
+- `requiredEnv`
+- `get` (Sprig's original `get` is available as `sprigGet`)
+- `tpl`
+- `required`
+- `fetchSecretValue`
+- `expandSecretRefs`
+
 We also added one special template function: `requiredEnv`.
 The `requiredEnv` function allows you to declare a particular environment variable as required for template rendering.
 If the environment variable is unset or empty, the template rendering will fail with an error message.

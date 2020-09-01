@@ -2,15 +2,31 @@ package tmpl
 
 import (
 	"bytes"
-	"github.com/Masterminds/sprig"
+	"github.com/Masterminds/sprig/v3"
 	"text/template"
 )
 
 func (c *Context) newTemplate() *template.Template {
+	aliased := template.FuncMap{}
+
+	aliases := map[string]string{
+		"get": "sprigGet",
+	}
+
 	funcMap := sprig.TxtFuncMap()
+
+	for orig, alias := range aliases {
+		aliased[alias] = funcMap[orig]
+	}
+
 	for name, f := range c.createFuncMap() {
 		funcMap[name] = f
 	}
+
+	for name, f := range aliased {
+		funcMap[name] = f
+	}
+
 	tmpl := template.New("stringTemplate").Funcs(funcMap)
 	if c.preRender {
 		tmpl = tmpl.Option("missingkey=zero")
