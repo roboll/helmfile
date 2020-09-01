@@ -445,10 +445,19 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 				for k, v := range run.state.CommonLabels {
 					r.Labels[k] = v
 				}
-				for k, v := range r.Labels {
+
+				var keys []string
+				for k, _ := range r.Labels {
+					keys = append(keys, k)
+				}
+				sort.Strings(keys)
+
+				for _, k := range keys {
+					v := r.Labels[k]
 					labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
 				}
 				labels = strings.Trim(labels, ",")
+
 				installed := r.Installed == nil || *r.Installed
 				releases = append(releases, &HelmRelease{
 					Name:      r.Name,
