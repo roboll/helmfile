@@ -2235,3 +2235,33 @@ func TestHelmState_Delete(t *testing.T) {
 		t.Run(tt.name, f)
 	}
 }
+
+func TestReverse(t *testing.T) {
+	num := 8
+	st := &HelmState{}
+
+	for i := 0; i < num; i++ {
+		name := fmt.Sprintf("%d", i)
+		st.Helmfiles = append(st.Helmfiles, SubHelmfileSpec{
+			Path: name,
+		})
+		st.Releases = append(st.Releases, ReleaseSpec{
+			Name: name,
+		})
+	}
+
+	st.Reverse()
+
+	for i := 0; i < num; i++ {
+		j := num - 1 - i
+		want := fmt.Sprintf("%d", j)
+
+		if got := st.Helmfiles[i].Path; got != want {
+			t.Errorf("sub-helmfile at %d has incorrect path: want %q, got %q", i, want, got)
+		}
+
+		if got := st.Releases[i].Name; got != want {
+			t.Errorf("release at %d has incorrect name: want %q, got %q", i, want, got)
+		}
+	}
+}

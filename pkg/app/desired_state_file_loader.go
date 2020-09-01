@@ -4,16 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/remote"
-	"path/filepath"
-	"sort"
-
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/pkg/environment"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
+	"path/filepath"
 )
 
 const (
@@ -68,11 +66,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 	}
 
 	if opts.Reverse {
-		rev := func(i, j int) bool {
-			return j < i
-		}
-		sort.Slice(st.Releases, rev)
-		sort.Slice(st.Helmfiles, rev)
+		st.Reverse()
 	}
 
 	if ld.overrideKubeContext != "" {

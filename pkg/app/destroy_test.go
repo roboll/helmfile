@@ -156,8 +156,8 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 				{Name: "backend-v2", Flags: []string{}},
 				{Name: "backend-v1", Flags: []string{}},
 				{Name: "anotherbackend", Flags: []string{}},
-				{Name: "database", Flags: []string{}},
 				{Name: "servicemesh", Flags: []string{}},
+				{Name: "database", Flags: []string{}},
 				{Name: "front-proxy", Flags: []string{}},
 				{Name: "logging", Flags: []string{}},
 			},
@@ -291,7 +291,7 @@ GROUP RELEASES
 1     frontend-v3, frontend-v2, frontend-v1
 2     backend-v2, backend-v1
 3     anotherbackend
-4     database, servicemesh
+4     servicemesh, database
 5     front-proxy, logging
 
 processing releases in group 1/5: frontend-v3, frontend-v2, frontend-v1
@@ -303,9 +303,9 @@ release "backend-v2" processed
 release "backend-v1" processed
 processing releases in group 3/5: anotherbackend
 release "anotherbackend" processed
-processing releases in group 4/5: database, servicemesh
-release "database" processed
+processing releases in group 4/5: servicemesh, database
 release "servicemesh" processed
+release "database" processed
 processing releases in group 5/5: front-proxy, logging
 release "front-proxy" processed
 release "logging" processed
@@ -318,8 +318,8 @@ frontend-v1
 backend-v2
 backend-v1
 anotherbackend
-database
 servicemesh
+database
 front-proxy
 logging
 `,
