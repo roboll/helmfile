@@ -42,6 +42,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 	if bus.Runner == nil {
 		bus.Runner = helmexec.ShellRunner{
 			Dir: bus.BasePath,
+			//Logger: bus.Logger,
 		}
 	}
 
