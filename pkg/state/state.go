@@ -253,6 +253,13 @@ type ReleaseSpec struct {
 	// Without this, any error in url parsing result in silently falling-back to normal process of treating `chart:` as the regular
 	// helm chart name.
 	ForceGoGetter bool `yaml:"forceGoGetter,omitempty"`
+
+	// ForceNamespace is an experimental feature to set metadata.namespace in every K8s resource rendered by the chart,
+	// regardless of the template, even when it doesn't have `namespace: {{ .Namespace | quote }}`.
+	// This is only needed when you can't FIX your chart to have `namespace: {{ .Namespace }}` AND you're using `helmfile template`.
+	// In standard use-cases, `Namespace` should be sufficient.
+	// Use this only when you know what you want to do!
+	ForceNamespace string `yaml:"forceNamespace"`
 }
 
 type Release struct {
