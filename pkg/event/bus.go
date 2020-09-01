@@ -41,8 +41,8 @@ type Bus struct {
 func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}) (bool, error) {
 	if bus.Runner == nil {
 		bus.Runner = helmexec.ShellRunner{
-			Dir: bus.BasePath,
-			//Logger: bus.Logger,
+			Dir:    bus.BasePath,
+			Logger: bus.Logger,
 		}
 	}
 
