@@ -135,14 +135,16 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				basePath: ".",
-				HelmDefaults: HelmSpec{
-					KubeContext: "test_context",
-				},
-				Env:               environment.Environment{Name: "test_env"},
-				OverrideNamespace: "test-namespace_",
-				Repositories:      nil,
-				Releases: []ReleaseSpec{
-					tt.input,
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: HelmSpec{
+						KubeContext: "test_context",
+					},
+					Env:               environment.Environment{Name: "test_env"},
+					OverrideNamespace: "test-namespace_",
+					Repositories:      nil,
+					Releases: []ReleaseSpec{
+						tt.input,
+					},
 				},
 			}
 
@@ -235,14 +237,16 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				basePath: ".",
-				HelmDefaults: HelmSpec{
-					KubeContext: "test_context",
-				},
-				Env:               environment.Environment{Name: "test_env"},
-				OverrideNamespace: "test-namespace_",
-				Repositories:      nil,
-				Releases: []ReleaseSpec{
-					tt.input,
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: HelmSpec{
+						KubeContext: "test_context",
+					},
+					Env:               environment.Environment{Name: "test_env"},
+					OverrideNamespace: "test-namespace_",
+					Repositories:      nil,
+					Releases: []ReleaseSpec{
+						tt.input,
+					},
 				},
 			}
 

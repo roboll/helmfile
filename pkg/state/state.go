@@ -40,11 +40,7 @@ const (
 	EmptyTimeout = -1
 )
 
-// HelmState structure for the helmfile
-type HelmState struct {
-	basePath string
-	FilePath string
-
+type ReleaseSetSpec struct {
 	DefaultHelmBinary string `yaml:"helmBinary,omitempty"`
 
 	// DefaultValues is the default values to be overrode by environment values and command-line overrides
@@ -71,6 +67,19 @@ type HelmState struct {
 
 	Env environment.Environment `yaml:"-"`
 
+	// If set to "Error", return an error when a subhelmfile points to a
+	// non-existent path. The default behavior is to print a warning. Note the
+	// differing default compared to other MissingFileHandlers.
+	MissingFileHandler string `yaml:"missingFileHandler"`
+}
+
+// HelmState structure for the helmfile
+type HelmState struct {
+	basePath string
+	FilePath string
+
+	ReleaseSetSpec `yaml:",inline"`
+
 	logger *zap.SugaredLogger
 
 	readFile func(string) ([]byte, error)
@@ -82,11 +91,6 @@ type HelmState struct {
 
 	runner      helmexec.Runner
 	valsRuntime vals.Evaluator
-
-	// If set to "Error", return an error when a subhelmfile points to a
-	// non-existent path. The default behavior is to print a warning. Note the
-	// differing default compared to other MissingFileHandlers.
-	MissingFileHandler string `yaml:"missingFileHandler"`
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options

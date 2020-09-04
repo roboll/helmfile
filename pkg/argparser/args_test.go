@@ -10,7 +10,11 @@ func TestGetArgs(t *testing.T) {
 	args := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false --tiller-namespace ns"
 	defaultArgs := []string{"--recreate-pods", "--force"}
 	Helmdefaults := state.HelmSpec{KubeContext: "test", TillerNamespace: "test-namespace", Args: defaultArgs}
-	testState := &state.HelmState{HelmDefaults: Helmdefaults}
+	testState := &state.HelmState{
+		ReleaseSetSpec: state.ReleaseSetSpec{
+			HelmDefaults: Helmdefaults,
+		},
+	}
 	receivedArgs := GetArgs(args, testState)
 
 	expectedOutput := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false --tiller-namespace ns --recreate-pods --force"
@@ -24,7 +28,11 @@ func Test2(t *testing.T) {
 	args := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --tiller-namespace ns"
 	defaultArgs := []string{"--recreate-pods", "--force"}
 	Helmdefaults := state.HelmSpec{KubeContext: "test", TillerNamespace: "test-namespace", Args: defaultArgs}
-	testState := &state.HelmState{HelmDefaults: Helmdefaults}
+	testState := &state.HelmState{
+		ReleaseSetSpec: state.ReleaseSetSpec{
+			HelmDefaults: Helmdefaults,
+		},
+	}
 	receivedArgs := GetArgs(args, testState)
 
 	expectedOutput := "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --tiller-namespace ns --recreate-pods --force"
