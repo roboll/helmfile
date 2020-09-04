@@ -216,7 +216,7 @@ func (ld *desiredStateLoader) renderAndLoad(env, overrodeEnv *environment.Enviro
 		if finalState == nil {
 			finalState = currentState
 		} else {
-			if err := mergo.Merge(finalState, currentState, mergo.WithOverride); err != nil {
+			if err := mergo.Merge(&finalState.ReleaseSetSpec, &currentState.ReleaseSetSpec, mergo.WithOverride); err != nil {
 				return nil, err
 			}
 		}
