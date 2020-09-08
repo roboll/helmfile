@@ -107,7 +107,16 @@ func env2map(env []string) map[string]string {
 	wanted := map[string]string{}
 	for _, cur := range env {
 		pair := strings.SplitN(cur, "=", 2)
-		wanted[pair[0]] = pair[1]
+
+		var v string
+
+		// An environment can completely miss `=` and the right side.
+		// If we didn't deal with that, this may fail due to an index-out-of-range error
+		if len(pair) > 1 {
+			v = pair[1]
+		}
+
+		wanted[pair[0]] = v
 	}
 	return wanted
 }
