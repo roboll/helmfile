@@ -11,6 +11,7 @@ information to this file.
 |---|---|---|---|---|
 | [reddit.com](https://www.reddit.com/) | production | [GitHub issue](https://github.com/roboll/helmfile/issues/96#issue-312012249), [Talk](https://www.slideshare.net/GregoryTaylor11/helm-at-reddit-from-local-dev-staging-to-production) | San Francisco, CA | April 2018 |
 | [ricardo.ch](https://www.ricardo.ch/) | production | We're deploying our complete application platform using Helmfile. | Zug, Switzerland | April 2018 |
+| [Hellofresh](https://engineering.hellofresh.com/) | production | We've been using helmfile in production since April 2018 for deploying all our infrastructure applications | Berlin, Germany | April 2018 |
 | [Cherre](https://cherre.com/) | production | We have no public posts about using Helmfile, but we have been using it for a long time now | New York, NY | October 2018 |
 | [Sight Machine](https://sightmachine.com/) | production | We don't have anything publicly posted about it, but have been using it for quite a while in production. | San Francisco, CA and Ann Arbor, MI | December 2018 |
 | [VSHN – The DevOps Company](https://vshn.ch) | production	| | Zurich, Switzerland | March 2019 |
