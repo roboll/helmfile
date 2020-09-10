@@ -15,6 +15,7 @@ func (st *HelmState) Values() (map[string]interface{}, error) {
 func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[string]interface{}) releaseTemplateData {
 	return releaseTemplateData{
 		Environment: st.Env,
+		Namespace:   st.OverrideNamespace,
 		Values:      vals,
 		Release: releaseTemplateDataRelease{
 			Name:      release.Name,
