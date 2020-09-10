@@ -12,7 +12,7 @@ information to this file.
 | [reddit.com](https://www.reddit.com/) | production | [GitHub issue](https://github.com/roboll/helmfile/issues/96#issue-312012249), [Talk](https://www.slideshare.net/GregoryTaylor11/helm-at-reddit-from-local-dev-staging-to-production) | San Francisco, CA | April 2018 |
 | [ricardo.ch](https://www.ricardo.ch/) | production | We're deploying our complete application platform using Helmfile. | Zug, Switzerland | April 2018 |
 | [Sight Machine](https://sightmachine.com/) | production | We don't have anything publicly posted about it, but have been using it for quite a while in production. | San Francisco, CA and Ann Arbor, MI | December 2018 |
-| [TailorMed](https://tailormed.co/) | We're deploying all of our platform and all K8s resources using Helmfile. | | Tel-Aviv, Israel | September 2020 |
+| [TailorMed](https://tailormed.co/) | production | We're deploying all of our platform and all K8s resources using Helmfile. | Tel-Aviv, Israel | September 2020 |
 | [VSHN – The DevOps Company](https://vshn.ch) | production	| | Zurich, Switzerland | March 2019 |
 | [Vlocity](https://vlocity.com/) | proof-of-concept | | Melbourne, Australia | March 2019 |
 | [transit](https://transit.app/) | production | Repos are private, but [here's a blog post](https://medium.com/@naseem_60378/helmfile-its-like-a-helm-for-your-helm-74a908581599). We're using `helmfile.d` with 1 helmfile per namespace. Multiple environments, but not all charts on all environments. Using installed: `{{ eq .Environment.Name "env1" "env2" "env5" }}`. Loving it so far! Thanks! | Montreal, Canada | March 2019 |
