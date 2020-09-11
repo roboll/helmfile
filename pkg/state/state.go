@@ -972,6 +972,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						pathElems = append(pathElems, release.Namespace)
 					}
 
+					if release.KubeContext != "" {
+						pathElems = append(pathElems, release.KubeContext)
+					}
+
 					chartVersion := "latest"
 					if release.Version != "" {
 						chartVersion = release.Version
