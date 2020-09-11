@@ -236,6 +236,25 @@ func (a *App) Template(c TemplateConfigProvider) error {
 	}, SetFilter(true))
 }
 
+func (a *App) WriteValues(c WriteValuesConfigProvider) error {
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		// `helm template` in helm v2 does not support local chart.
+		// So, we set forceDownload=true for helm v2 only
+		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
+			ForceDownload: !run.helm.IsHelm3(),
+			SkipRepos:     c.SkipDeps(),
+		}, func() {
+			ok, errs = a.writeValues(run, c)
+		})
+
+		if prepErr != nil {
+			errs = append(errs, prepErr)
+		}
+
+		return
+	}, SetFilter(true))
+}
+
 func (a *App) Lint(c LintConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
@@ -1413,6 +1432,64 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 		if templateErrs != nil && len(templateErrs) > 0 {
 			errs = append(errs, templateErrs...)
+		}
+	}
+	return true, errs
+}
+
+func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
+	st := r.state
+	helm := r.helm
+
+	allReleases := st.GetReleasesWithOverrides()
+
+	toRender, err := a.getSelectedReleases(r)
+	if err != nil {
+		return false, []error{err}
+	}
+	if len(toRender) == 0 {
+		return false, nil
+	}
+
+	// Do build deps and prepare only on selected releases so that we won't waste time
+	// on running various helm commands on unnecessary releases
+	st.Releases = toRender
+
+	releasesToWrite := map[string]state.ReleaseSpec{}
+	for _, r := range toRender {
+		id := state.ReleaseToID(&r)
+		if r.Installed != nil && !*r.Installed {
+			continue
+		}
+		releasesToWrite[id] = r
+	}
+
+	var errs []error
+
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	st.Releases = allReleases
+
+	if len(releasesToWrite) > 0 {
+		_, writeErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			var rs []state.ReleaseSpec
+
+			for _, r := range subst.Releases {
+				if r2, ok := releasesToWrite[state.ReleaseToID(&r)]; ok {
+					rs = append(rs, r2)
+				}
+			}
+
+			subst.Releases = rs
+
+			opts := &state.WriteValuesOpts{
+				Set:                c.Set(),
+				OutputFileTemplate: c.OutputFileTemplate(),
+			}
+			return subst.WriteReleasesValues(helm, c.Values(), opts)
+		}))
+
+		if writeErrs != nil && len(writeErrs) > 0 {
+			errs = append(errs, writeErrs...)
 		}
 	}
 	return true, errs

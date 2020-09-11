@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/imdario/mergo"
 	"golang.org/x/sync/errgroup"
 	"io"
 	"io/ioutil"
@@ -1220,6 +1221,103 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 	if len(errs) != 0 {
 		return errs
+	}
+
+	return nil
+}
+
+type WriteValuesOpts struct {
+	Set                []string
+	OutputFileTemplate string
+}
+
+type WriteValuesOpt interface{ Apply(*WriteValuesOpts) }
+
+func (o *WriteValuesOpts) Apply(opts *WriteValuesOpts) {
+	*opts = *o
+}
+
+// WriteReleasesValues writes values files for releases
+func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValues []string, opt ...WriteValuesOpt) []error {
+	opts := &WriteValuesOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
+	for i := range st.Releases {
+		release := &st.Releases[i]
+
+		if !release.Desired() {
+			continue
+		}
+
+		st.ApplyOverrides(release)
+
+		generatedFiles, err := st.generateValuesFiles(helm, release, i)
+		if err != nil {
+			return []error{err}
+		}
+
+		defer func() {
+			st.removeFiles(generatedFiles)
+		}()
+
+		for _, value := range additionalValues {
+			valfile, err := filepath.Abs(value)
+			if err != nil {
+				return []error{err}
+			}
+
+			if _, err := os.Stat(valfile); os.IsNotExist(err) {
+				return []error{err}
+			}
+			generatedFiles = append(generatedFiles, valfile)
+		}
+
+		outputValuesFile, err := st.GenerateOutputFilePath(release, opts.OutputFileTemplate)
+		if err != nil {
+			return []error{err}
+		}
+
+		if err := os.MkdirAll(filepath.Dir(outputValuesFile), 0755); err != nil {
+			return []error{err}
+		}
+
+		st.logger.Infof("Writing values file %s", outputValuesFile)
+
+		merged := map[string]interface{}{}
+
+		for _, f := range generatedFiles {
+			src := map[string]interface{}{}
+
+			srcBytes, err := st.readFile(f)
+			if err != nil {
+				return []error{fmt.Errorf("reading %s: %w", f, err)}
+			}
+
+			if err := yaml.Unmarshal(srcBytes, &src); err != nil {
+				return []error{fmt.Errorf("unmarshalling yaml %s: %w", f, err)}
+			}
+
+			if err := mergo.Merge(&merged, &src, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+				return []error{fmt.Errorf("merging %s: %w", f, err)}
+			}
+		}
+
+		var buf bytes.Buffer
+
+		y := yaml.NewEncoder(&buf)
+		if err := y.Encode(merged); err != nil {
+			return []error{err}
+		}
+
+		if err := ioutil.WriteFile(outputValuesFile, buf.Bytes(), 0644); err != nil {
+			return []error{fmt.Errorf("writing values file %s: %w", outputValuesFile, err)}
+		}
+
+		if _, err := st.TriggerCleanupEvent(release, "write-values"); err != nil {
+			st.logger.Warnf("warn: %v\n", err)
+		}
 	}
 
 	return nil
@@ -2575,6 +2673,68 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 
 	if err := t.Execute(buf, data); err != nil {
 		return "", fmt.Errorf("executing output-dir template: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemplate string) (string, error) {
+	// get absolute path of state file to generate a hash
+	// use this hash to write helm output in a specific directory by state file and release name
+	// ie. in a directory named stateFileName-stateFileHash-releaseName
+	stateAbsPath, err := filepath.Abs(st.FilePath)
+	if err != nil {
+		return stateAbsPath, err
+	}
+
+	hasher := sha1.New()
+	io.WriteString(hasher, stateAbsPath)
+
+	var stateFileExtension = filepath.Ext(st.FilePath)
+	var stateFileName = st.FilePath[0 : len(st.FilePath)-len(stateFileExtension)]
+
+	sha1sum := hex.EncodeToString(hasher.Sum(nil))[:8]
+
+	var sb strings.Builder
+	sb.WriteString(stateFileName)
+	sb.WriteString("-")
+	sb.WriteString(sha1sum)
+	sb.WriteString("-")
+	sb.WriteString(release.Name)
+
+	if outputFileTemplate == "" {
+		outputFileTemplate = filepath.Join("{{ .State.BaseName }}-{{ .State.AbsPathSHA1 }}", "{{ .Release.Name}}.yaml")
+	}
+
+	t, err := template.New("output-file").Parse(outputFileTemplate)
+	if err != nil {
+		return "", fmt.Errorf("parsing output-file templmate")
+	}
+
+	buf := &bytes.Buffer{}
+
+	type state struct {
+		BaseName    string
+		Path        string
+		AbsPath     string
+		AbsPathSHA1 string
+	}
+
+	data := struct {
+		State   state
+		Release *ReleaseSpec
+	}{
+		State: state{
+			BaseName:    stateFileName,
+			Path:        st.FilePath,
+			AbsPath:     stateAbsPath,
+			AbsPathSHA1: sha1sum,
+		},
+		Release: release,
+	}
+
+	if err := t.Execute(buf, data); err != nil {
+		return "", fmt.Errorf("executing output-file template: %w", err)
 	}
 
 	return buf.String(), nil
