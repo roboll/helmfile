@@ -137,6 +137,13 @@ type TemplateConfigProvider interface {
 	concurrencyConfig
 }
 
+type WriteValuesConfigProvider interface {
+	Values() []string
+	Set() []string
+	OutputFileTemplate() string
+	SkipDeps() bool
+}
+
 type StatusesConfigProvider interface {
 	Args() string
 
