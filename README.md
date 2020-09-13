@@ -1079,7 +1079,7 @@ hooks:
 - events: ["prepare", "cleanup"]
   showlogs: true
   command: "echo"
-  args: ["{{`{{.Environment.Name}}`}}", "{{`{{.Release.Name}}`}}", "{{`{{.HelmfileCommand}}`}}\
+  args: ["{{`{{.Environment.Name}}`}}", "{{`{{.HelmfileCommand}}`}}\
 "]
 ```
 
