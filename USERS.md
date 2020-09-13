@@ -14,6 +14,7 @@ information to this file.
 | [Hellofresh](https://engineering.hellofresh.com/) | production | We've been using helmfile in production since April 2018 for deploying all our infrastructure applications | Berlin, Germany | April 2018 |
 | [Cherre](https://cherre.com/) | production | We have no public posts about using Helmfile, but we have been using it for a long time now | New York, NY | October 2018 |
 | [Sight Machine](https://sightmachine.com/) | production | We don't have anything publicly posted about it, but have been using it for quite a while in production. | San Francisco, CA and Ann Arbor, MI | December 2018 |
+| [TailorMed](https://tailormed.co/) | production | We're deploying all of our platform and all K8s resources using Helmfile. The power of Helmfile are more then amazing. Thank you! | Tel-Aviv, Israel | September 2020 |
 | [VSHN – The DevOps Company](https://vshn.ch) | production	| | Zurich, Switzerland | March 2019 |
 | [Vlocity](https://vlocity.com/) | proof-of-concept | | Melbourne, Australia | March 2019 |
 | [transit](https://transit.app/) | production | [Blog post](https://medium.com/@naseem_60378/helmfile-its-like-a-helm-for-your-helm-74a908581599). | Montreal, Canada | March 2019 |
