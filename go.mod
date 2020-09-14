@@ -24,7 +24,7 @@ require (
 	github.com/urfave/cli v1.20.0
 	github.com/variantdev/chartify v0.4.2
 	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363
-	github.com/variantdev/vals v0.10.0
+	github.com/variantdev/vals v0.10.2
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.9.1
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a

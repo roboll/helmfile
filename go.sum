@@ -268,6 +268,8 @@ github.com/fujiwara/tfstate-lookup v0.0.4 h1:NGH9y+U4RDO3ooMYjK+fq1iYAkrBfCNZbZw
 github.com/fujiwara/tfstate-lookup v0.0.4/go.mod h1:kluvnw25uJ8bszZldMoewWxylt7QFvuzTGN+Rr911qs=
 github.com/fujiwara/tfstate-lookup v0.0.9 h1:U/iAQusJBJ5EsxdU48rZGaUSMiZmK8cTCkyCJpiFnMw=
 github.com/fujiwara/tfstate-lookup v0.0.9/go.mod h1:08o5Rm5pKzvIxoZe3D0NIT8AHYBqTzyUU03BZ/c0IKA=
+github.com/fujiwara/tfstate-lookup v0.0.12 h1:Ax8Xws/BvXRO2NH13QqGZJtk6X5aITJCSBdlaWqMLwU=
+github.com/fujiwara/tfstate-lookup v0.0.12/go.mod h1:08o5Rm5pKzvIxoZe3D0NIT8AHYBqTzyUU03BZ/c0IKA=
 github.com/fullsailor/pkcs7 v0.0.0-20190404230743-d7302db945fa h1:RDBNVkRviHZtvDvId8XSGPu3rmpmSe+wKRcEWNgsfWU=
 github.com/fullsailor/pkcs7 v0.0.0-20190404230743-d7302db945fa/go.mod h1:KnogPXtdwXqoenmZCw6S+25EAm2MkxbG0deNDu4cbSA=
 github.com/gammazero/deque v0.0.0-20190130191400-2afb3858e9c7 h1:D2LrfOPgGHQprIxmsTpxtzhpmF66HoM6rXSmcqaX7h8=
@@ -862,6 +864,10 @@ github.com/variantdev/vals v0.9.3 h1:l9AT8UgvgU1GBADg5ZPssDVkZTkRr9SaVjvinVjQebk
 github.com/variantdev/vals v0.9.3/go.mod h1:tAQZUHZAYfgNJJ3BzmUDXeN+r6RLk0HQPSQ+gdYSP5I=
 github.com/variantdev/vals v0.10.0 h1:2diYujperePiJGQbQx5TEjWzhM0J7WM5+8UZnPXiaOc=
 github.com/variantdev/vals v0.10.0/go.mod h1:tAQZUHZAYfgNJJ3BzmUDXeN+r6RLk0HQPSQ+gdYSP5I=
+github.com/variantdev/vals v0.10.1 h1:yJHcElbczPP4adoR8FQloyV9kvnO5zdDzziRBq71C3Q=
+github.com/variantdev/vals v0.10.1/go.mod h1:tAQZUHZAYfgNJJ3BzmUDXeN+r6RLk0HQPSQ+gdYSP5I=
+github.com/variantdev/vals v0.10.2 h1:2ZtEV1BcED2WkfL8pZd0kO4HGpow6faIuFSz+c8zXoM=
+github.com/variantdev/vals v0.10.2/go.mod h1:0KbR+woANJnnZakBreV1s8CBsmAY0O2mZNQBqilsU00=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 go.etcd.io/bbolt v1.3.2 h1:Z/90sZLPOeCy2PwprqkFa25PdkusRzaj9P8zm/KNyvk=
