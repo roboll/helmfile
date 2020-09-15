@@ -747,6 +747,8 @@ func runFilterSubHelmFilesTests(testcases []struct {
 	expectErr        bool
 	errMsg           string
 }, files map[string]string, t *testing.T, testName string) {
+	t.Helper()
+
 	for _, testcase := range testcases {
 		actual := []string{}
 
