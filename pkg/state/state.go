@@ -1884,7 +1884,12 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Logger:        st.logger,
 		ReadFile:      st.readFile,
 	}
+	vals, err := st.Values()
+	if err != nil {
+		return false, err
+	}
 	data := map[string]interface{}{
+		"Values":          vals,
 		"Release":         r,
 		"HelmfileCommand": helmfileCmd,
 	}
