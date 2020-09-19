@@ -129,7 +129,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		helm.logger.Infof("empty field name\n")
 		return fmt.Errorf("empty field name")
 	}
-	args = append(args, "repo", "add", name, repository)
+	args = append(args, "repo", "add", "--force-update", name, repository)
 	if certfile != "" && keyfile != "" {
 		args = append(args, "--cert-file", certfile, "--key-file", keyfile)
 	}
