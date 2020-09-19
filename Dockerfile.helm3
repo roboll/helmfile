@@ -11,10 +11,10 @@ FROM alpine:3.11
 
 RUN apk add --no-cache ca-certificates git bash curl jq
 
-ARG HELM_VERSION=v3.3.2
+ARG HELM_VERSION=v3.3.3
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
-ARG HELM_SHA256="cf82fe0ed1675030b203a9a3575b1a1bc4b0f5ce4584ce2cd7f75cd093cad259"
+ARG HELM_SHA256="246d58b6b353e63ae8627415a7340089015e3eb542ff7b5ce124b0b1409369cc"
 RUN wget ${HELM_LOCATION}/${HELM_FILENAME} && \
     echo Verifying ${HELM_FILENAME}... && \
     sha256sum ${HELM_FILENAME} | grep -q "${HELM_SHA256}" && \
