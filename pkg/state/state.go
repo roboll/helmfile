@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/imdario/mergo"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"io/ioutil"
 	"os"
@@ -19,6 +17,9 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+
+	"github.com/imdario/mergo"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/variantdev/chartify"
 
@@ -2063,7 +2064,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	if release.CreateNamespace != nil && *release.CreateNamespace ||
 		release.CreateNamespace == nil && (st.HelmDefaults.CreateNamespace == nil || *st.HelmDefaults.CreateNamespace) {
-		if helm.IsVersionAtLeast(3, 2) {
+		if helm.IsVersionAtLeast(3, 2, 0) {
 			flags = append(flags, "--create-namespace")
 		} else if release.CreateNamespace != nil || st.HelmDefaults.CreateNamespace != nil {
 			// createNamespace was set explicitly, but not running supported version of helm - error
