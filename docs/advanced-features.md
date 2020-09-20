@@ -135,3 +135,26 @@ Please note that the second `data` field `bar` is coming from the strategic-merg
 There's also `releases[].jsonPatches` that works similarly to `strategicMergePatches` but has additional capability to remove fields.
 
 Please also see [test/advanced/helmfile.yaml](https://github.com/roboll/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of patching support and more.
+
+You can also use templates instead of fix values in the resources:
+
+```
+repositories:
+- name: incubator
+  url: https://kubernetes-charts-incubator.storage.googleapis.com
+
+releases:
+- name: raw1
+  chart: incubator/raw
+  values:
+  - templates:
+      - |
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: common-secret
+        stringData:
+          mykey: {{ .Values.mysecret }}
+
+```
+Please also see [test/integration/values.yaml](https://github.com/roboll/helmfile/blob/master/test/integration/values.yaml) for an example of supporting templates.
