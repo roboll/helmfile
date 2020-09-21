@@ -309,7 +309,6 @@ We also added the following functions:
 - `toYaml`
 - `fromYaml`
 - `setValueAtPath`
-- `requiredEnv`
 - `get` (Sprig's original `get` is available as `sprigGet`)
 - `tpl`
 - `required`
