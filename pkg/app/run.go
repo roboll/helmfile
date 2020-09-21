@@ -161,14 +161,29 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 	return infoMsg, true, len(deleted) > 0 || len(updated) > 0, errs
 }
 
-func (r *Run) Test(c TestConfigProvider) []error {
+func (a *App) test(r *Run, c TestConfigProvider) []error {
 	cleanup := c.Cleanup()
 	timeout := c.Timeout()
 	concurrency := c.Concurrency()
 
+	st := r.state
+
+	toTest, err := a.getSelectedReleases(r)
+	if err != nil {
+		return []error{err}
+	}
+
+	if len(toTest) == 0 {
+		return nil
+	}
+
+	// Do test only on selected releases, because that's what the user intended
+	// with conditions and selectors
+	st.Releases = toTest
+
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-	return r.state.TestReleases(r.helm, cleanup, timeout, concurrency)
+	return st.TestReleases(r.helm, cleanup, timeout, concurrency)
 }
 
 func (r *Run) Lint(c LintConfigProvider) []error {

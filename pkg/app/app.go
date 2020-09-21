@@ -390,7 +390,7 @@ func (a *App) Test(c TestConfigProvider) error {
 		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
 			SkipRepos: true,
 		}, func() {
-			errs = run.Test(c)
+			errs = a.test(run, c)
 		})
 
 		if err != nil {
