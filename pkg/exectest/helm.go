@@ -170,12 +170,12 @@ func (helm *Helm) GetVersion() helmexec.Version {
 	return helmexec.Version{}
 }
 
-func (helm *Helm) IsVersionAtLeast(major int, minor int) bool {
+func (helm *Helm) IsVersionAtLeast(major int, minor int, patch int) bool {
 	if helm.Version == nil {
 		return false
 	}
 
-	return helm.Version.Major >= major && minor >= helm.Version.Minor
+	return helm.Version.Major >= major && minor >= helm.Version.Minor && patch >= helm.Version.Patch
 }
 
 func (helm *Helm) sync(m *sync.Mutex, f func()) {

@@ -130,6 +130,9 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		return fmt.Errorf("empty field name")
 	}
 	args = append(args, "repo", "add", name, repository)
+	if helm.IsHelm3() && helm.IsVersionAtLeast(3, 3, 2) {
+		args = append(args, "--force-update")
+	}
 	if certfile != "" && keyfile != "" {
 		args = append(args, "--cert-file", certfile, "--key-file", keyfile)
 	}
@@ -398,6 +401,6 @@ func (helm *execer) GetVersion() Version {
 	return helm.version
 }
 
-func (helm *execer) IsVersionAtLeast(major int, minor int) bool {
-	return helm.version.Major >= major && helm.version.Minor >= minor
+func (helm *execer) IsVersionAtLeast(major int, minor int, patch int) bool {
+	return helm.version.Major >= major && helm.version.Minor >= minor && helm.version.Patch >= patch
 }

@@ -557,15 +557,15 @@ func Test_GetVersion(t *testing.T) {
 func Test_IsVersionAtLeast(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
 	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
-	if !helm.IsVersionAtLeast(2, 1) {
+	if !helm.IsVersionAtLeast(2, 1, 0) {
 		t.Error("helmexec.IsVersionAtLeast - 2.16.1 not atleast 2.1")
 	}
 
-	if helm.IsVersionAtLeast(2, 19) {
+	if helm.IsVersionAtLeast(2, 19, 0) {
 		t.Error("helmexec.IsVersionAtLeast - 2.16.1 is atleast 2.19")
 	}
 
-	if helm.IsVersionAtLeast(3, 2) {
+	if helm.IsVersionAtLeast(3, 2, 0) {
 		t.Error("helmexec.IsVersionAtLeast - 2.16.1 is atleast 3.2")
 	}
 
