@@ -775,11 +775,11 @@ func Test_isLocalChart(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "local chart in 3-level deep dir",
+			name: "remote chart in 3-level deep dir (e.g. ChartCenter)",
 			args: args{
-				chart: "foo/bar/baz",
+				chart: "center/bar/baz",
 			},
-			want: true,
+			want: false,
 		},
 	}
 	for i := range tests {
@@ -817,6 +817,14 @@ func Test_normalizeChart(t *testing.T) {
 				chart:    "remote/app",
 			},
 			want: "remote/app",
+		},
+		{
+			name: "chartcenter repo path",
+			args: args{
+				basePath: "/Users/jane/code/deploy/charts",
+				chart:    "center/stable/myapp",
+			},
+			want: "center/stable/myapp",
 		},
 		{
 			name: "construct local chart path, parent dir",

@@ -6,8 +6,8 @@ environments:
 repositories:
   - name: stable
     url: https://kubernetes-charts.storage.googleapis.com/
-  - name: incubator
-    url: https://kubernetes-charts-incubator.storage.googleapis.com
+  - name: center
+    url: https://repo.chartcenter.io
 
 helmDefaults:
   kubeContext: minikube
@@ -29,7 +29,7 @@ releases:
       - "{{`{{.HelmfileCommand}}`}}"
 
   - name: raw
-    chart: incubator/raw
+    chart: center/incubator/raw
     values:
       - mysecret: {{ .Environment.Values.mysecret }}
       - values.yaml
