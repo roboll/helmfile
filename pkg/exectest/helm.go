@@ -175,7 +175,21 @@ func (helm *Helm) IsVersionAtLeast(major int, minor int, patch int) bool {
 		return false
 	}
 
-	return helm.Version.Major >= major && minor >= helm.Version.Minor && patch >= helm.Version.Patch
+	if helm.Version.Major > major {
+		return true
+	}
+	if helm.Version.Major < major {
+		return false
+	}
+
+	if helm.Version.Minor > minor {
+		return true
+	}
+	if helm.Version.Minor < minor {
+		return false
+	}
+
+	return helm.Version.Patch >= patch
 }
 
 func (helm *Helm) sync(m *sync.Mutex, f func()) {
