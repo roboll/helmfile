@@ -112,9 +112,16 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		return fmt.Errorf("empty field name")
 	}
 	args = append(args, "repo", "add", name, repository)
-	if helm.IsHelm3() && helm.IsVersionAtLeast("3.3.2") {
-		args = append(args, "--force-update")
+
+	// See https://github.com/helm/helm/pull/8777
+	if cons, err := semver.NewConstraint(">= 3.3.2, < 3.3.4"); err == nil {
+		if cons.Check(&helm.version) {
+			args = append(args, "--force-update")
+		}
+	} else {
+		panic(err)
 	}
+
 	if certfile != "" && keyfile != "" {
 		args = append(args, "--cert-file", certfile, "--key-file", keyfile)
 	}
