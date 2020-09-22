@@ -2069,7 +2069,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	if release.CreateNamespace != nil && *release.CreateNamespace ||
 		release.CreateNamespace == nil && (st.HelmDefaults.CreateNamespace == nil || *st.HelmDefaults.CreateNamespace) {
-		if helm.IsVersionAtLeast(3, 2, 0) {
+		if helm.IsVersionAtLeast("3.2.0") {
 			flags = append(flags, "--create-namespace")
 		} else if release.CreateNamespace != nil || st.HelmDefaults.CreateNamespace != nil {
 			// createNamespace was set explicitly, but not running supported version of helm - error

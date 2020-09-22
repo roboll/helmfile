@@ -97,7 +97,7 @@ func (helm *noCallHelmExec) GetVersion() helmexec.Version {
 	return helmexec.Version{}
 }
 
-func (helm *noCallHelmExec) IsVersionAtLeast(major int, minor int, patch int) bool {
+func (helm *noCallHelmExec) IsVersionAtLeast(versionStr string) bool {
 	helm.doPanic()
 	return false
 }

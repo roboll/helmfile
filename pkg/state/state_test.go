@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/roboll/helmfile/pkg/exectest"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
@@ -165,7 +166,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		version  *helmexec.Version
+		version  *semver.Version
 		defaults HelmSpec
 		release  *ReleaseSpec
 		want     []string
@@ -582,11 +583,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			defaults: HelmSpec{
 				Verify: false,
 			},
-			version: &helmexec.Version{
-				Major: 3,
-				Minor: 2,
-				Patch: 0,
-			},
+			version: semver.MustParse("3.2.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -606,11 +603,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Verify:          false,
 				CreateNamespace: &disable,
 			},
-			version: &helmexec.Version{
-				Major: 3,
-				Minor: 2,
-				Patch: 0,
-			},
+			version: semver.MustParse("3.2.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -629,11 +622,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Verify:          false,
 				CreateNamespace: &disable,
 			},
-			version: &helmexec.Version{
-				Major: 3,
-				Minor: 2,
-				Patch: 0,
-			},
+			version: semver.MustParse("3.2.0"),
 			release: &ReleaseSpec{
 				Chart:           "test/chart",
 				Version:         "0.1",
@@ -654,11 +643,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Verify:          false,
 				CreateNamespace: &enable,
 			},
-			version: &helmexec.Version{
-				Major: 3,
-				Minor: 2,
-				Patch: 0,
-			},
+			version: semver.MustParse("3.2.0"),
 			release: &ReleaseSpec{
 				Chart:           "test/chart",
 				Version:         "0.1",
@@ -678,11 +663,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Verify:          false,
 				CreateNamespace: &enable,
 			},
-			version: &helmexec.Version{
-				Major: 2,
-				Minor: 16,
-				Patch: 0,
-			},
+			version: semver.MustParse("2.16.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
