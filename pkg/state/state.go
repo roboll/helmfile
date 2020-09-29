@@ -31,6 +31,8 @@ import (
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+
+	"k8s.io/helm/pkg/strvals"
 )
 
 const (
@@ -1223,6 +1225,30 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 			generatedFiles = append(generatedFiles, valfile)
 		}
 
+		if opts.Set != nil {
+			for _, s := range opts.Set {
+				// Parsing to intermediate values file instead of directly into merged
+				// values map due to incompatibilties in YAML implementations used by Helm
+				// and Helmfile. See: https://github.com/helm/helm/pull/6630
+				yamlString, err := strvals.ToYAML(s)
+				if err != nil {
+					return []error{fmt.Errorf("parsing set flag \"%s\": %w", s, err)}
+				}
+
+				tempfile, err := ioutil.TempFile("", "values")
+				if err != nil {
+					return []error{fmt.Errorf("opening temp file \"%s\": %w", s, err)}
+				}
+				defer tempfile.Close()
+
+				if _, err := tempfile.Write([]byte(yamlString)); err != nil {
+					return []error{fmt.Errorf("writing temp file \"%s\": %w", s, err)}
+				}
+				st.logger.Debugf("successfully parsed set flag into temp file %s. produced:\n%s", tempfile.Name(), yamlString)
+				generatedFiles = append(generatedFiles, tempfile.Name())
+			}
+		}
+
 		outputValuesFile, err := st.GenerateOutputFilePath(release, opts.OutputFileTemplate)
 		if err != nil {
 			return []error{err}
@@ -1254,7 +1280,6 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 		}
 
 		var buf bytes.Buffer
-
 		y := yaml.NewEncoder(&buf)
 		if err := y.Encode(merged); err != nil {
 			return []error{err}

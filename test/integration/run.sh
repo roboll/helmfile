@@ -123,7 +123,14 @@ info "Ensuring \"helmfile delete\" doesn't fail when no releases installed"
 ${helmfile} -f ${dir}/happypath.yaml delete || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
 
 info "Ensuring \"helmfile template\" output does contain only YAML docs"
-(${helmfile} -f ${dir}/happypath.yaml template | kubectl apply -f -) || fail "\"helmfile template | kubectl apply -f -\" shouldn't fail"
+(${helmfile} -f ${dir}/happypath.yaml template | ${kubectl} apply -f -) || fail "\"helmfile template | kubectl apply -f -\" shouldn't fail"
+
+info "Ensuring \"helmfile write-values\" produces valid helm values"
+${helmfile} -f ${dir}/happypath.yaml write-values --set mysecret=COOLSECRET --output-file-template 'output/{{ .Release.Name }}.yaml'
+(${helmfile} -f ${dir}/happypath.yaml template --values output/raw.yaml | ${kubectl} apply -f -) || fail "\"helmfile template --values output/raw.yaml | kubectl apply -f -\" shouldn't fail"
+value="$(${kubectl} get secret common-secret -o jsonpath='{.data.mykey}' | base64 -d)"
+[ "$value" = "COOLSECRET" ] || fail "secret value not overwritten by helmfile write-values generated values file"
+
 
 test_pass "happypath"
 
