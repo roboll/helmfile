@@ -848,6 +848,8 @@ releases:
   - [TILLER_NAMESPACE/][NAMESPACE/]anotherelease
 ```
 
+Be aware that you have to specify the namespace name if you configured one for the release(s).
+
 All the releases listed under `needs` are installed before(or deleted after) the release itself.
 
 For the following example, `helmfile [sync|apply]` installs releases in this order:
