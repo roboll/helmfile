@@ -25,4 +25,6 @@ information to this file.
 | [Sportradar](https://www.sportradar.com) | production | Since mid-2019, we've been deploying our core infrastructure and several application stacks with Helmfile. | St. Gallen, Switzerland | March 2020 |
 | [PedidosYa](https://www.pedidosya.com) | production | | Montevideo, Uruguay | June 2020 |
 | [Jenkins OSS](https://jenkins.io) | production | [jenkins-infra/charts](https://github.com/jenkins-infra/charts) | * | July 2020 |
+| [SettleMint](https://settlemint.com) | production | The SettleMint platform allows enterprises to spin up k8s clusters and deploy production grade blockchain networks and additional services. Helmfile is in charge of deploying these networks and services on demand out of the self service management ui. | Belgium, Singapore, UAE, India | October 2020 |
+
 <!-- TABLE_END -->
