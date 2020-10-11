@@ -616,7 +616,7 @@ foo:
   bar: ""
 ```
 
-The resulting, temporary values.yaml that is generated from `values.yaml.tpl` would become:
+The resulting, temporary values.yaml that is generated from `values.yaml.gotmpl` would become:
 
 ```yaml
 foo:
