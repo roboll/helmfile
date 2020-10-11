@@ -105,6 +105,24 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/:
 	}
 
 	buffer.Reset()
+	helm.AddRepo("acrRepo", "", "", "", "", "", "", "acr")
+	expected = `Adding repo acrRepo (acr)
+exec: az acr helm repo add --name acrRepo
+exec: az acr helm repo add --name acrRepo: 
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	helm.AddRepo("otherRepo", "", "", "", "", "", "", "unknown")
+	expected = `ERROR: unknown type 'unknown' for repository otherRepo
+`
+	if buffer.String() != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
 	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password

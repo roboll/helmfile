@@ -879,6 +879,17 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			want: []string{"name", "http://example.com/", "", "", "", "", "", ""},
 		},
 		{
+			name: "ACR hosted repository",
+			repos: []RepositorySpec{
+				{
+					Name:     "name",
+					Managed:  "acr",
+				},
+			},
+			helm: &exectest.Helm{},
+			want: []string{"name", "", "", "", "", "", "", "acr"},
+		},
+		{
 			name: "repository with cert and key",
 			repos: []RepositorySpec{
 				{
