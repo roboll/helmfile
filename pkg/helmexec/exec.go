@@ -130,8 +130,10 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		return fmt.Errorf("empty field name")
 	}
 	if managed != "" {
-		helm.logger.Infof("Skipping managed repo %v (`%v`)\n", name, managed)
-		return nil
+		helm.logger.Infof("Adding repo %v (acr)", name)
+		out, err := helm.azcli(name)
+		helm.info(out)
+		return err
 	}
 	args = append(args, "repo", "add", name, repository)
 	if helm.IsHelm3() && helm.IsVersionAtLeast(3, 3, 2) {
@@ -381,6 +383,14 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
 	bytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env)
+	helm.logger.Debugf("%s: %s", cmd, bytes)
+	return bytes, err
+}
+
+func (helm *execer) azcli(name string) ([]byte, error) {
+	cmd := fmt.Sprintf("exec: az acr helm repo add --name %s", name)
+	helm.logger.Debug(cmd)
+	bytes, err := helm.runner.Execute("az", append( strings.Split("acr helm repo add --name", " ") , name ), map[string]string{})
 	helm.logger.Debugf("%s: %s", cmd, bytes)
 	return bytes, err
 }
