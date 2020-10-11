@@ -125,31 +125,37 @@ func (helm *execer) SetHelmBinary(bin string) {
 
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error {
 	var args []string
+	var out []byte
+	var err error
 	if name == "" && repository != "" {
 		helm.logger.Infof("empty field name\n")
 		return fmt.Errorf("empty field name")
 	}
-	if managed != "" {
+	switch managed {
+	case "acr":
 		helm.logger.Infof("Adding repo %v (acr)", name)
-		out, err := helm.azcli(name)
-		helm.info(out)
-		return err
+		out, err = helm.azcli(name)
+	case "":
+		args = append(args, "repo", "add", name, repository)
+		if helm.IsHelm3() && helm.IsVersionAtLeast(3, 3, 2) {
+			args = append(args, "--force-update")
+		}
+		if certfile != "" && keyfile != "" {
+			args = append(args, "--cert-file", certfile, "--key-file", keyfile)
+		}
+		if cafile != "" {
+			args = append(args, "--ca-file", cafile)
+		}
+		if username != "" && password != "" {
+			args = append(args, "--username", username, "--password", password)
+		}
+		helm.logger.Infof("Adding repo %v %v", name, repository)
+		out, err = helm.exec(args, map[string]string{})
+	default:
+		helm.logger.Errorf("ERROR: unknown type '%v' for repository %v", managed, name)
+		out = nil
+		err = nil
 	}
-	args = append(args, "repo", "add", name, repository)
-	if helm.IsHelm3() && helm.IsVersionAtLeast(3, 3, 2) {
-		args = append(args, "--force-update")
-	}
-	if certfile != "" && keyfile != "" {
-		args = append(args, "--cert-file", certfile, "--key-file", keyfile)
-	}
-	if cafile != "" {
-		args = append(args, "--ca-file", cafile)
-	}
-	if username != "" && password != "" {
-		args = append(args, "--username", username, "--password", password)
-	}
-	helm.logger.Infof("Adding repo %v %v", name, repository)
-	out, err := helm.exec(args, map[string]string{})
 	helm.info(out)
 	return err
 }
