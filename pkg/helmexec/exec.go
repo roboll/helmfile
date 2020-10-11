@@ -394,9 +394,10 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 }
 
 func (helm *execer) azcli(name string) ([]byte, error) {
-	cmd := fmt.Sprintf("exec: az acr helm repo add --name %s", name)
+	cmdargs := append(strings.Split("acr helm repo add --name", " "), name)
+	cmd := fmt.Sprintf("exec: az %s", strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	bytes, err := helm.runner.Execute("az", append( strings.Split("acr helm repo add --name", " ") , name ), map[string]string{})
+	bytes, err := helm.runner.Execute("az", cmdargs, map[string]string{})
 	helm.logger.Debugf("%s: %s", cmd, bytes)
 	return bytes, err
 }
