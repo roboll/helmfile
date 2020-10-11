@@ -154,6 +154,7 @@ type RepositorySpec struct {
 	KeyFile  string `yaml:"keyFile,omitempty"`
 	Username string `yaml:"username,omitempty"`
 	Password string `yaml:"password,omitempty"`
+	Managed  bool   `yaml:"managed,omitempty"`
 }
 
 // ReleaseSpec defines the structure of a helm release
