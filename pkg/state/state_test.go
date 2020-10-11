@@ -882,8 +882,8 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			name: "ACR hosted repository",
 			repos: []RepositorySpec{
 				{
-					Name:     "name",
-					Managed:  "acr",
+					Name:    "name",
+					Managed: "acr",
 				},
 			},
 			helm: &exectest.Helm{},
