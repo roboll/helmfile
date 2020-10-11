@@ -123,11 +123,15 @@ func (helm *execer) SetHelmBinary(bin string) {
 	helm.helmBinary = bin
 }
 
-func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error {
+func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error {
 	var args []string
 	if name == "" && repository != "" {
 		helm.logger.Infof("empty field name\n")
 		return fmt.Errorf("empty field name")
+	}
+	if managed != "" {
+		helm.logger.Infof("Skipping managed repo %v (`%v`)\n", name, managed)
+		return nil
 	}
 	args = append(args, "repo", "add", name, repository)
 	if helm.IsHelm3() && helm.IsVersionAtLeast(3, 3, 2) {

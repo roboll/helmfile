@@ -15,11 +15,6 @@ func NewContext() Context {
 }
 
 func (ctx Context) SyncReposOnce(st *state.HelmState, helm state.RepoUpdater) error {
-	for _, repo := range st.Repositories {
-		if repo.Managed != "" {
-			ctx.updatedRepos[repo.Name] = true
-		}
-	}
 	updated, err := st.SyncRepos(helm, ctx.updatedRepos)
 
 	for _, r := range updated {
