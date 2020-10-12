@@ -1149,14 +1149,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 		o.Apply(opts)
 	}
 
-	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
-	helm.SetExtraArgs()
-
 	errs := []error{}
-
-	if len(args) > 0 {
-		helm.SetExtraArgs(args...)
-	}
 
 	for i := range st.Releases {
 		release := &st.Releases[i]

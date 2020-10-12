@@ -1410,6 +1410,15 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = allReleases
 
+	args := argparser.GetArgs(c.Args(), st)
+
+	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
+	helm.SetExtraArgs()
+
+	if len(args) > 0 {
+		helm.SetExtraArgs(args...)
+	}
+
 	if len(releasesToRender) > 0 {
 		_, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
@@ -1422,7 +1431,6 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 			subst.Releases = rs
 
-			args := argparser.GetArgs(c.Args(), st)
 			opts := &state.TemplateOpts{
 				Set:               c.Set(),
 				OutputDirTemplate: c.OutputDirTemplate(),
