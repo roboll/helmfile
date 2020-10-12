@@ -19,8 +19,6 @@ import (
 	"text/template"
 
 	"github.com/imdario/mergo"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/variantdev/chartify"
 
 	"github.com/roboll/helmfile/pkg/environment"
@@ -1044,89 +1042,36 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 }
 
 func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult) error {
-	type buildOutput struct {
-		diagnostic string
-	}
+	// NOTES:
+	// 1. `helm dep build` fails when it was run concurrency on the same chart.
+	//    To avoid that, we run `helm dep build` only once per each local chart.
+	//
+	//    See https://github.com/roboll/helmfile/issues/1438
+	// 2. Even if it isn't on the same local chart, `helm dep build` intermittently fails when run concurrentl
+	//    So we shouldn't use goroutines like we do for other helm operations here.
+	//
+	//    See https://github.com/roboll/helmfile/issues/1521
+	for _, r := range builds {
+		if err := helm.BuildDeps(r.releaseName, r.chartPath); err != nil {
+			if r.chartFetchedByGoGetter {
+				diagnostic := fmt.Sprintf(
+					"WARN: `helm dep build` failed. While processing release %q, Helmfile observed that remote chart %q fetched by go-getter is seemingly broken. "+
+						"One of well-known causes of this is that the chart has outdated Chart.lock, which needs the chart maintainer needs to run `helm dep up`. "+
+						"Helmfile is tolerating the error to avoid blocking you until the remote chart gets fixed. "+
+						"But this may result in any failure later if the chart is broken badly. FYI, the tolerated error was: %v",
+					r.releaseName,
+					r.chartName,
+					err.Error(),
+				)
 
-	buildQueue := make(chan *chartPrepareResult)
+				st.logger.Warn(diagnostic)
 
-	buildOutputQueue := make(chan *buildOutput)
-
-	buildWorkers := &errgroup.Group{}
-	for i := 0; i < concurrency; i++ {
-		buildWorkers.Go(func() error {
-			for r := range buildQueue {
-				out, err := func() (*buildOutput, error) {
-					if err := helm.BuildDeps(r.releaseName, r.chartPath); err != nil {
-						if r.chartFetchedByGoGetter {
-							return &buildOutput{
-								diagnostic: fmt.Sprintf(
-									"WARN: `helm dep build` failed. While processing release %q, Helmfile observed that remote chart %q fetched by go-getter is seemingly broken. "+
-										"One of well-known causes of this is that the chart has outdated Chart.lock, which needs the chart maintainer needs to run `helm dep up`. "+
-										"Helmfile is tolerating the error to avoid blocking you until the remote chart gets fixed. "+
-										"But this may result in any failure later if the chart is broken badly. FYI, the tolerated error was: %v",
-									r.releaseName,
-									r.chartName,
-									err.Error(),
-								),
-							}, nil
-						}
-						return nil, err
-					}
-					return nil, nil
-				}()
-
-				if err != nil {
-					return err
-				}
-
-				if out != nil {
-					buildOutputQueue <- out
-				}
+				continue
 			}
 
-			return nil
-		})
-	}
-
-	diagnosticsAggregator := &sync.WaitGroup{}
-	diagnosticsAggregator.Add(1)
-	go func() {
-		var diagnostics []string
-		for r := range buildOutputQueue {
-			if d := r.diagnostic; d != "" {
-				diagnostics = append(diagnostics, d)
-			}
-		}
-
-		sort.Strings(diagnostics)
-		for _, d := range diagnostics {
-			st.logger.Warn(d)
-		}
-
-		diagnosticsAggregator.Done()
-	}()
-
-	built := map[string]bool{}
-
-	for _, b := range builds {
-		// `helm dep build` fails when it was run concurrency on the same chart.
-		// To avoid that, we run `helm dep build` only once per each local chart.
-		//
-		// See https://github.com/roboll/helmfile/issues/1438
-		if !built[b.chartPath] {
-			built[b.chartPath] = true
-			buildQueue <- b
+			return fmt.Errorf("building dependencies of local chart: %w", err)
 		}
 	}
-	close(buildQueue)
-
-	if err := buildWorkers.Wait(); err != nil {
-		return err
-	}
-	close(buildOutputQueue)
-
-	diagnosticsAggregator.Wait()
 
 	return nil
 }
