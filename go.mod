@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/Azure/azure-sdk-for-go v35.0.0+incompatible // indirect
-	github.com/Masterminds/semver v1.4.2
+	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Masterminds/sprig/v3 v3.1.0
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/go-test/deep v1.0.3
