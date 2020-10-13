@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/roboll/helmfile/pkg/helmexec"
 )
 
@@ -30,7 +31,7 @@ type Helm struct {
 	Diffed               []Release
 	FailOnUnexpectedDiff bool
 	FailOnUnexpectedList bool
-	Version              *helmexec.Version
+	Version              *semver.Version
 
 	UpdateDepsCallbacks map[string]func(string) error
 
@@ -163,19 +164,20 @@ func (helm *Helm) IsHelm3() bool {
 }
 
 func (helm *Helm) GetVersion() helmexec.Version {
-	if helm.Version != nil {
-		return *helm.Version
+	return helmexec.Version{
+		Major: int(helm.Version.Major()),
+		Minor: int(helm.Version.Minor()),
+		Patch: int(helm.Version.Patch()),
 	}
-
-	return helmexec.Version{}
 }
 
-func (helm *Helm) IsVersionAtLeast(major int, minor int, patch int) bool {
+func (helm *Helm) IsVersionAtLeast(versionStr string) bool {
 	if helm.Version == nil {
 		return false
 	}
 
-	return helm.Version.Major >= major && minor >= helm.Version.Minor && patch >= helm.Version.Patch
+	ver := semver.MustParse(versionStr)
+	return helm.Version.Equal(ver) || helm.Version.GreaterThan(ver)
 }
 
 func (helm *Helm) sync(m *sync.Mutex, f func()) {

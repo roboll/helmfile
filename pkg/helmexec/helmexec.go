@@ -28,7 +28,7 @@ type Interface interface {
 	DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
 	IsHelm3() bool
 	GetVersion() Version
-	IsVersionAtLeast(major int, minor int, patch int) bool
+	IsVersionAtLeast(versionStr string) bool
 }
 
 type DependencyUpdater interface {

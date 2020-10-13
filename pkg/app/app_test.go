@@ -2462,7 +2462,7 @@ func (helm *mockHelmExec) GetVersion() helmexec.Version {
 	return helmexec.Version{}
 }
 
-func (helm *mockHelmExec) IsVersionAtLeast(major int, minor int, patch int) bool {
+func (helm *mockHelmExec) IsVersionAtLeast(versionStr string) bool {
 	return false
 }
 
