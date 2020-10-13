@@ -2651,7 +2651,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 	sb.WriteString(release.Name)
 
 	if outputFileTemplate == "" {
-		outputFileTemplate = filepath.Join("{{ .State.BaseName }}-{{ .State.AbsPathSHA1 }}", "{{ .Release.Name}}.yaml")
+		outputFileTemplate = filepath.Join("{{ .State.BaseName }}-{{ .State.AbsPathSHA1 }}", "{{ .Release.Name }}.yaml")
 	}
 
 	t, err := template.New("output-file").Parse(outputFileTemplate)
