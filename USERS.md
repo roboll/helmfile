@@ -26,5 +26,5 @@ information to this file.
 | [PedidosYa](https://www.pedidosya.com) | production | | Montevideo, Uruguay | June 2020 |
 | [Jenkins OSS](https://jenkins.io) | production | [jenkins-infra/charts](https://github.com/jenkins-infra/charts) | * | July 2020 |
 | [SettleMint](https://settlemint.com) | production | The SettleMint platform allows enterprises to spin up k8s clusters and deploy production grade blockchain networks and additional services. Helmfile is in charge of deploying these networks and services on demand out of the self service management ui. | Belgium, Singapore, UAE, India | October 2020 |
-
+| [AutoTrader (UK)](https://www.autotrader.co.uk) | production | We've used Helmfile for 2+ years to deploy 400+ services | UK | October 2020 |
 <!-- TABLE_END -->
