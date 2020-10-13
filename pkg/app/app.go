@@ -1449,8 +1449,6 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	allReleases := st.GetReleasesWithOverrides()
-
 	toRender, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
@@ -1474,32 +1472,25 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 
 	var errs []error
 
-	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
-	st.Releases = allReleases
-
+	// Note: We don't calculate the DAG of releases here unlike other helmfile operations,
+	// because there's no need to do so for just writing values.
+	// See the first bullet in https://github.com/roboll/helmfile/issues/1460#issuecomment-691863465
 	if len(releasesToWrite) > 0 {
-		_, writeErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
-			var rs []state.ReleaseSpec
+		var rs []state.ReleaseSpec
 
-			for _, r := range subst.Releases {
-				if r2, ok := releasesToWrite[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r2)
-				}
-			}
-
-			subst.Releases = rs
-
-			opts := &state.WriteValuesOpts{
-				Set:                c.Set(),
-				OutputFileTemplate: c.OutputFileTemplate(),
-			}
-			return subst.WriteReleasesValues(helm, c.Values(), opts)
-		}))
-
-		if writeErrs != nil && len(writeErrs) > 0 {
-			errs = append(errs, writeErrs...)
+		for _, r := range releasesToWrite {
+			rs = append(rs, r)
 		}
+
+		st.Releases = rs
+
+		opts := &state.WriteValuesOpts{
+			Set:                c.Set(),
+			OutputFileTemplate: c.OutputFileTemplate(),
+		}
+		errs = st.WriteReleasesValues(helm, c.Values(), opts)
 	}
+
 	return true, errs
 }
 
