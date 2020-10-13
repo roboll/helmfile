@@ -82,7 +82,7 @@ func Test_AddRepo_Helm_3_3_2(t *testing.T) {
 		kubeContext: "dev",
 		runner:      &mockRunner{},
 	}
-	helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem: 
