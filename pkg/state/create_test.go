@@ -63,6 +63,35 @@ func TestReadFromYaml_NonexistentEnv(t *testing.T) {
 	}
 }
 
+type stateTestEnv struct {
+	Files   map[string]string
+	WorkDir string
+}
+
+func (testEnv stateTestEnv) MustLoadState(t *testing.T, file, envName string) *HelmState {
+	t.Helper()
+
+	testFs := testhelper.NewTestFs(testEnv.Files)
+
+	if testFs.Cwd == "" {
+		testFs.Cwd = "/"
+	}
+
+	yamlContent, ok := testEnv.Files[file]
+	if !ok {
+		t.Fatalf("no file named %q registered", file)
+	}
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "", r).
+		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	return state
+}
+
 func TestReadFromYaml_NonDefaultEnv(t *testing.T) {
 	yamlFile := "/example/path/to/helmfile.yaml"
 	yamlContent := []byte(`environments:

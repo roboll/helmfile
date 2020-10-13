@@ -8,8 +8,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func (st *HelmState) Values() (map[string]interface{}, error) {
-	return st.Env.GetMergedValues()
+func (st *HelmState) Values() map[string]interface{} {
+	if st.RenderedValues == nil {
+		panic("[bug] RenderedValues is nil")
+	}
+
+	return st.RenderedValues
 }
 
 func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[string]interface{}) releaseTemplateData {
@@ -78,10 +82,7 @@ func updateBoolTemplatedValues(r *ReleaseSpec) error {
 func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 	r := *st
 
-	vals, err := st.Values()
-	if err != nil {
-		return nil, err
-	}
+	vals := st.Values()
 
 	for i, rt := range st.Releases {
 		if rt.Labels == nil {

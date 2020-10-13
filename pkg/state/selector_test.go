@@ -2,7 +2,6 @@ package state
 
 import (
 	"github.com/google/go-cmp/cmp"
-	"gopkg.in/yaml.v2"
 	"testing"
 )
 
@@ -70,11 +69,12 @@ func TestSelectReleasesWithOverrides(t *testing.T) {
     type: bar
 `)
 
-	var state HelmState
-
-	if err := yaml.Unmarshal(example, &state); err != nil {
-		t.Fatal(err)
-	}
+	state := stateTestEnv{
+		Files: map[string]string{
+			"/helmfile.yaml": string(example),
+		},
+		WorkDir: "/",
+	}.MustLoadState(t, "/helmfile.yaml", "default")
 
 	for _, tc := range testcases {
 		state.Selectors = tc.selector

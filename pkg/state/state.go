@@ -91,6 +91,11 @@ type HelmState struct {
 
 	runner      helmexec.Runner
 	valsRuntime vals.Evaluator
+
+	// RenderedValues is the helmfile-wide values that is `.Values`
+	// which is accessible from within the whole helmfile go template.
+	// Note that this is usually computed by DesiredStateLoader from ReleaseSetSpec.Env
+	RenderedValues map[string]interface{}
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options
@@ -1683,10 +1688,7 @@ func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
 }
 
 func (st *HelmState) SelectReleasesWithOverrides() ([]Release, error) {
-	values, err := st.Values()
-	if err != nil {
-		return nil, err
-	}
+	values := st.Values()
 	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, st.CommonLabels, values)
 	if err != nil {
 		return nil, err
@@ -1823,10 +1825,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Logger:        st.logger,
 		ReadFile:      st.readFile,
 	}
-	vals, err := st.Values()
-	if err != nil {
-		return false, err
-	}
+	vals := st.Values()
 	data := map[string]interface{}{
 		"Values":          vals,
 		"Release":         r,
@@ -2147,10 +2146,7 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 }
 
 func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
-	vals, err := st.Values()
-	if err != nil {
-		return nil, err
-	}
+	vals := st.Values()
 	templateData := st.createReleaseTemplateData(release, vals)
 
 	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), templateData)
