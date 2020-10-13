@@ -1030,8 +1030,9 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: tt.releases,
 				},
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); errs != nil && len(errs) > 0 {
 				if len(errs) != len(tt.wantErrorMsgs) {
@@ -1136,8 +1137,9 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: []ReleaseSpec{tt.release},
 				},
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			fs := testhelper.NewTestFs(map[string]string{})
 			state = injectFs(state, fs)
@@ -1283,8 +1285,9 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: tt.releases,
 				},
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
@@ -1387,8 +1390,9 @@ func TestGetDeployedVersion(t *testing.T) {
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: []ReleaseSpec{tt.release},
 				},
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
@@ -1516,8 +1520,9 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: tt.releases,
 				},
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false)
 			if errs != nil && len(errs) > 0 {
@@ -1596,6 +1601,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 					numRemovedFiles += 1
 					return nil
 				},
+				RenderedValues: map[string]interface{}{},
 			}
 			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: FOO`,
@@ -1682,6 +1688,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 					numRemovedFiles += 1
 					return nil
 				},
+				RenderedValues: map[string]interface{}{},
 			}
 			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: bar
@@ -2062,7 +2069,8 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: releases,
 				},
-				logger: logger,
+				logger:         logger,
+				RenderedValues: map[string]interface{}{},
 			}
 			state.Selectors = []string{tt.labels}
 			errs := state.FilterReleases()
@@ -2233,7 +2241,8 @@ func TestHelmState_Delete(t *testing.T) {
 					},
 					Releases: releases,
 				},
-				logger: logger,
+				logger:         logger,
+				RenderedValues: map[string]interface{}{},
 			}
 			helm := &exectest.Helm{
 				Lists:   map[exectest.ListKey]string{},

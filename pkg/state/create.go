@@ -145,8 +145,12 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *envi
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
 
-	e.Defaults, err = state.loadValuesEntries(nil, state.DefaultValues, c.remote)
+	newDefaults, err := state.loadValuesEntries(nil, state.DefaultValues, c.remote)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := mergo.Merge(&e.Defaults, newDefaults, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
 		return nil, err
 	}
 
@@ -180,6 +184,12 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 	}
 
 	state.FilePath = file
+
+	vals, err := state.Env.GetMergedValues()
+	if err != nil {
+		return nil, fmt.Errorf("rendering values: %w", err)
+	}
+	state.RenderedValues = vals
 
 	return state, nil
 }

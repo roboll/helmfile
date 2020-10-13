@@ -146,6 +146,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 						tt.input,
 					},
 				},
+				RenderedValues: map[string]interface{}{},
 			}
 
 			r, err := state.ExecuteTemplates()
@@ -248,6 +249,7 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 						tt.input,
 					},
 				},
+				RenderedValues: map[string]interface{}{},
 			}
 
 			r, err := state.ExecuteTemplates()
