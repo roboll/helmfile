@@ -82,8 +82,8 @@ func (helm *Helm) SetExtraArgs(args ...string) {
 func (helm *Helm) SetHelmBinary(bin string) {
 	return
 }
-func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error {
-	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password}
+func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error {
+	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed}
 	return nil
 }
 func (helm *Helm) UpdateRepo() error {

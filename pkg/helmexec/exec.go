@@ -105,34 +105,46 @@ func (helm *execer) SetHelmBinary(bin string) {
 	helm.helmBinary = bin
 }
 
-func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error {
+func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error {
 	var args []string
+	var out []byte
+	var err error
 	if name == "" && repository != "" {
 		helm.logger.Infof("empty field name\n")
 		return fmt.Errorf("empty field name")
 	}
-	args = append(args, "repo", "add", name, repository)
+	switch managed {
+	case "acr":
+		helm.logger.Infof("Adding repo %v (acr)", name)
+		out, err = helm.azcli(name)
+	case "":
+		args = append(args, "repo", "add", name, repository)
 
-	// See https://github.com/helm/helm/pull/8777
-	if cons, err := semver.NewConstraint(">= 3.3.2, < 3.3.4"); err == nil {
-		if cons.Check(&helm.version) {
-			args = append(args, "--force-update")
+		// See https://github.com/helm/helm/pull/8777
+		if cons, err := semver.NewConstraint(">= 3.3.2, < 3.3.4"); err == nil {
+			if cons.Check(&helm.version) {
+				args = append(args, "--force-update")
+			}
+		} else {
+			panic(err)
 		}
-	} else {
-		panic(err)
-	}
 
-	if certfile != "" && keyfile != "" {
-		args = append(args, "--cert-file", certfile, "--key-file", keyfile)
+		if certfile != "" && keyfile != "" {
+			args = append(args, "--cert-file", certfile, "--key-file", keyfile)
+		}
+		if cafile != "" {
+			args = append(args, "--ca-file", cafile)
+		}
+		if username != "" && password != "" {
+			args = append(args, "--username", username, "--password", password)
+		}
+		helm.logger.Infof("Adding repo %v %v", name, repository)
+		out, err = helm.exec(args, map[string]string{})
+	default:
+		helm.logger.Errorf("ERROR: unknown type '%v' for repository %v", managed, name)
+		out = nil
+		err = nil
 	}
-	if cafile != "" {
-		args = append(args, "--ca-file", cafile)
-	}
-	if username != "" && password != "" {
-		args = append(args, "--username", username, "--password", password)
-	}
-	helm.logger.Infof("Adding repo %v %v", name, repository)
-	out, err := helm.exec(args, map[string]string{})
 	helm.info(out)
 	return err
 }
@@ -366,6 +378,15 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
 	bytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env)
+	helm.logger.Debugf("%s: %s", cmd, bytes)
+	return bytes, err
+}
+
+func (helm *execer) azcli(name string) ([]byte, error) {
+	cmdargs := append(strings.Split("acr helm repo add --name", " "), name)
+	cmd := fmt.Sprintf("exec: az %s", strings.Join(cmdargs, " "))
+	helm.logger.Debug(cmd)
+	bytes, err := helm.runner.Execute("az", cmdargs, map[string]string{})
 	helm.logger.Debugf("%s: %s", cmd, bytes)
 	return bytes, err
 }

@@ -157,6 +157,7 @@ type RepositorySpec struct {
 	KeyFile  string `yaml:"keyFile,omitempty"`
 	Username string `yaml:"username,omitempty"`
 	Password string `yaml:"password,omitempty"`
+	Managed  string `yaml:"managed,omitempty"`
 }
 
 // ReleaseSpec defines the structure of a helm release
@@ -313,7 +314,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 }
 
 type RepoUpdater interface {
-	AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error
+	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error
 	UpdateRepo() error
 }
 
@@ -355,7 +356,7 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 			continue
 		}
 
-		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password); err != nil {
+		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed); err != nil {
 			return nil, err
 		}
 

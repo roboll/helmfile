@@ -857,7 +857,18 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "", ""},
+			want: []string{"name", "http://example.com/", "", "", "", "", "", ""},
+		},
+		{
+			name: "ACR hosted repository",
+			repos: []RepositorySpec{
+				{
+					Name:    "name",
+					Managed: "acr",
+				},
+			},
+			helm: &exectest.Helm{},
+			want: []string{"name", "", "", "", "", "", "", "acr"},
 		},
 		{
 			name: "repository with cert and key",
@@ -872,7 +883,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", ""},
+			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", ""},
 		},
 		{
 			name: "repository with ca file",
@@ -886,7 +897,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "cafile", "", "", "", ""},
+			want: []string{"name", "http://example.com/", "cafile", "", "", "", "", ""},
 		},
 		{
 			name: "repository with username and password",
@@ -901,7 +912,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", ""},
 		},
 	}
 	for i := range tests {
