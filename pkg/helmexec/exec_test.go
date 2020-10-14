@@ -85,7 +85,6 @@ func Test_AddRepo_Helm_3_3_2(t *testing.T) {
 	helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -99,7 +98,6 @@ func Test_AddRepo(t *testing.T) {
 	helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -109,7 +107,6 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-f
 	helm.AddRepo("myRepo", "https://repo.example.com/", "ca.crt", "", "", "", "")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --ca-file ca.crt
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --ca-file ca.crt: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -119,7 +116,6 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --ca-fil
 	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -129,7 +125,6 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/:
 	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -152,7 +147,6 @@ func Test_UpdateRepo(t *testing.T) {
 	helm.UpdateRepo()
 	expected := `Updating repo
 exec: helm --kube-context dev repo update
-exec: helm --kube-context dev repo update: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.UpdateRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -166,7 +160,6 @@ func Test_SyncRelease(t *testing.T) {
 	helm.SyncRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait")
 	expected := `Upgrading release=release, chart=chart
 exec: helm --kube-context dev upgrade --install --reset-values release chart --timeout 10 --wait
-exec: helm --kube-context dev upgrade --install --reset-values release chart --timeout 10 --wait: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -176,7 +169,6 @@ exec: helm --kube-context dev upgrade --install --reset-values release chart --t
 	helm.SyncRelease(HelmContext{}, "release", "chart")
 	expected = `Upgrading release=release, chart=chart
 exec: helm --kube-context dev upgrade --install --reset-values release chart
-exec: helm --kube-context dev upgrade --install --reset-values release chart: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -191,7 +183,6 @@ func Test_SyncReleaseTillerless(t *testing.T) {
 		"--timeout 10", "--wait")
 	expected := `Upgrading release=release, chart=chart
 exec: helm --kube-context dev tiller run foo -- helm upgrade --install --reset-values release chart --timeout 10 --wait
-exec: helm --kube-context dev tiller run foo -- helm upgrade --install --reset-values release chart --timeout 10 --wait: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -205,7 +196,6 @@ func Test_UpdateDeps(t *testing.T) {
 	helm.UpdateDeps("./chart/foo")
 	expected := `Updating dependency ./chart/foo
 exec: helm --kube-context dev dependency update ./chart/foo
-exec: helm --kube-context dev dependency update ./chart/foo: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.UpdateDeps()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -216,7 +206,6 @@ exec: helm --kube-context dev dependency update ./chart/foo:
 	helm.UpdateDeps("./chart/foo")
 	expected = `Updating dependency ./chart/foo
 exec: helm --kube-context dev dependency update ./chart/foo --verify
-exec: helm --kube-context dev dependency update ./chart/foo --verify: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -230,7 +219,6 @@ func Test_BuildDeps(t *testing.T) {
 	helm.BuildDeps("foo", "./chart/foo")
 	expected := `Building dependency release=foo, chart=./chart/foo
 exec: helm --kube-context dev dependency build ./chart/foo
-exec: helm --kube-context dev dependency build ./chart/foo: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.BuildDeps()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -241,7 +229,6 @@ exec: helm --kube-context dev dependency build ./chart/foo:
 	helm.BuildDeps("foo", "./chart/foo")
 	expected = `Building dependency release=foo, chart=./chart/foo
 exec: helm --kube-context dev dependency build ./chart/foo --verify
-exec: helm --kube-context dev dependency build ./chart/foo --verify: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.BuildDeps()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -263,10 +250,9 @@ func Test_DecryptSecret(t *testing.T) {
 	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName
 Decrypting secret %s/secretName
 exec: helm --kube-context dev secrets dec %s/secretName
-exec: helm --kube-context dev secrets dec %s/secretName: 
 Preparing to decrypt secret %s/secretName
 Found secret in cache %s/secretName
-`, cwd, cwd, cwd, cwd, cwd, cwd)
+`, cwd, cwd, cwd, cwd, cwd)
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DecryptSecret()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
@@ -279,7 +265,6 @@ func Test_DiffRelease(t *testing.T) {
 	helm.DiffRelease(HelmContext{}, "release", "chart", false, "--timeout 10", "--wait")
 	expected := `Comparing release=release, chart=chart
 exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait
-exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -289,7 +274,6 @@ exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased rel
 	helm.DiffRelease(HelmContext{}, "release", "chart", false)
 	expected = `Comparing release=release, chart=chart
 exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased release chart
-exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased release chart: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -303,7 +287,6 @@ func Test_DiffReleaseTillerless(t *testing.T) {
 	helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", false, "--timeout 10", "--wait")
 	expected := `Comparing release=release, chart=chart
 exec: helm --kube-context dev tiller run -- helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait
-exec: helm --kube-context dev tiller run -- helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -317,7 +300,6 @@ func Test_DeleteRelease(t *testing.T) {
 	helm.DeleteRelease(HelmContext{}, "release")
 	expected := `Deleting release
 exec: helm --kube-context dev delete release
-exec: helm --kube-context dev delete release: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DeleteRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -330,7 +312,6 @@ func Test_DeleteRelease_Flags(t *testing.T) {
 	helm.DeleteRelease(HelmContext{}, "release", "--purge")
 	expected := `Deleting release
 exec: helm --kube-context dev delete release --purge
-exec: helm --kube-context dev delete release --purge: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.DeleteRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -344,7 +325,6 @@ func Test_TestRelease(t *testing.T) {
 	helm.TestRelease(HelmContext{}, "release")
 	expected := `Testing release
 exec: helm --kube-context dev test release
-exec: helm --kube-context dev test release: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.TestRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -357,7 +337,6 @@ func Test_TestRelease_Flags(t *testing.T) {
 	helm.TestRelease(HelmContext{}, "release", "--cleanup", "--timeout", "60")
 	expected := `Testing release
 exec: helm --kube-context dev test release --cleanup --timeout 60
-exec: helm --kube-context dev test release --cleanup --timeout 60: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.TestRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -371,7 +350,6 @@ func Test_ReleaseStatus(t *testing.T) {
 	helm.ReleaseStatus(HelmContext{}, "myRelease")
 	expected := `Getting status myRelease
 exec: helm --kube-context dev status myRelease
-exec: helm --kube-context dev status myRelease: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.ReleaseStatus()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -385,7 +363,6 @@ func Test_exec(t *testing.T) {
 	env := map[string]string{}
 	helm.exec([]string{"version"}, env)
 	expected := `exec: helm version
-exec: helm version: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -401,7 +378,6 @@ exec: helm version:
 	helm = MockExecer(logger, "dev")
 	helm.exec([]string{"diff", "release", "chart", "--timeout 10", "--wait"}, env)
 	expected = `exec: helm --kube-context dev diff release chart --timeout 10 --wait
-exec: helm --kube-context dev diff release chart --timeout 10 --wait: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -410,7 +386,6 @@ exec: helm --kube-context dev diff release chart --timeout 10 --wait:
 	buffer.Reset()
 	helm.exec([]string{"version"}, env)
 	expected = `exec: helm --kube-context dev version
-exec: helm --kube-context dev version: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -420,7 +395,6 @@ exec: helm --kube-context dev version:
 	helm.SetExtraArgs("foo")
 	helm.exec([]string{"version"}, env)
 	expected = `exec: helm --kube-context dev version foo
-exec: helm --kube-context dev version foo: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -431,7 +405,6 @@ exec: helm --kube-context dev version foo:
 	helm.SetHelmBinary("overwritten")
 	helm.exec([]string{"version"}, env)
 	expected = `exec: overwritten version
-exec: overwritten version: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -445,7 +418,6 @@ func Test_Lint(t *testing.T) {
 	helm.Lint("release", "path/to/chart", "--values", "file.yml")
 	expected := `Linting release=release, chart=path/to/chart
 exec: helm --kube-context dev lint path/to/chart --values file.yml
-exec: helm --kube-context dev lint path/to/chart --values file.yml: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.Lint()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -459,7 +431,6 @@ func Test_Fetch(t *testing.T) {
 	helm.Fetch("chart", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
 	expected := `Fetching chart
 exec: helm --kube-context dev fetch chart --version 1.2.3 --untar --untardir /tmp/dir
-exec: helm --kube-context dev fetch chart --version 1.2.3 --untar --untardir /tmp/dir: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.Lint()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -469,7 +440,6 @@ exec: helm --kube-context dev fetch chart --version 1.2.3 --untar --untardir /tm
 var logLevelTests = map[string]string{
 	"debug": `Adding repo myRepo https://repo.example.com/
 exec: helm repo add myRepo https://repo.example.com/ --username example_user --password example_password
-exec: helm repo add myRepo https://repo.example.com/ --username example_user --password example_password: 
 `,
 	"info": `Adding repo myRepo https://repo.example.com/
 `,
@@ -530,7 +500,6 @@ func Test_Template(t *testing.T) {
 	helm.TemplateRelease("release", "path/to/chart", "--values", "file.yml")
 	expected := `Templating release=release, chart=path/to/chart
 exec: helm --kube-context dev template path/to/chart --name release --values file.yml
-exec: helm --kube-context dev template path/to/chart --name release --values file.yml: 
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.Template()\nactual = %v\nexpect = %v", buffer.String(), expected)
