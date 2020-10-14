@@ -378,7 +378,6 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
 	bytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env)
-	helm.logger.Debugf("%s: %s", cmd, bytes)
 	return bytes, err
 }
 
