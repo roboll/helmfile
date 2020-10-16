@@ -351,7 +351,7 @@ releases:
 
 If you wish to treat your enviroment variables as strings always, even if they are boolean or numeric values you can use `{{ env "ENV_NAME" | quote }}` or `"{{ env "ENV_NAME" }}"`. These approaches also work with `requiredEnv`.
 
-## installation
+## Installation
 
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
 - run as a [container](https://quay.io/roboll/helmfile) or
@@ -359,7 +359,7 @@ If you wish to treat your enviroment variables as strings always, even if they a
 - Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 - macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
 
-## getting started
+## Getting Started
 
 Let's start with a simple `helmfile` and gradually improve it to fit your use-case!
 
@@ -389,7 +389,7 @@ Iterate on the `helmfile.yaml` by referencing:
 - [CLI reference](#cli-reference).
 - [Helmfile Best Practices Guide](https://github.com/roboll/helmfile/blob/master/docs/writing-helmfile.md)
 
-## cli reference
+## CLI Reference
 
 ```
 NAME:
@@ -496,7 +496,6 @@ The `helmfile delete` sub-command deletes all the releases defined in the manife
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
 
-
 ### secrets
 
 The `secrets` parameter in a `helmfile.yaml` causes the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin to be executed to decrypt the file.
@@ -516,6 +515,7 @@ Use `--cleanup` to delete pods upon completion.
 The `helmfile lint` sub-command runs a `helm lint` across all of the charts/releases defined in the manifest. Non local charts will be fetched into a temporary folder which will be deleted once the task is completed.
 
 ## Paths Overview
+
 Using manifest files in conjunction with command line argument can be a bit confusing.
 
 A few rules to clear up this ambiguity:
@@ -524,9 +524,10 @@ A few rules to clear up this ambiguity:
 - Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
 - Relative paths referenced on the command line are relative to the current working directory the user is in
 
-For additional context, take a look at [paths examples](PATHS.md)
+For additional context, take a look at [paths examples](PATHS.md).
 
 ## Labels Overview
+
 A selector can be used to only target a subset of releases when running Helmfile. This is useful for large helmfiles with releases that are logically grouped together.
 
 Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
@@ -535,7 +536,7 @@ Multiple labels can be specified using `,` as a separator. A release must match 
 
 The `selector` parameter can be specified multiple times. Each parameter is resolved independently so a release that matches any parameter will be used.
 
-`--selector tier=frontend --selector tier=backend` will select all the charts
+`--selector tier=frontend --selector tier=backend` will select all the charts.
 
 In addition to user supplied labels, the name, the namespace, and the chart are available to be used as selectors.  The chart will just be the chart name excluding the repository (Example `stable/filebeat` would be selected using `--selector chart=filebeat`).
 
@@ -544,7 +545,7 @@ For instance, you install a number of charts on every customer but need to provi
 
 templates/common.yaml:
 
-```
+```yaml
 templates:
   nginx: &nginx
     name: nginx
@@ -563,7 +564,7 @@ templates:
 
 helmfile.yaml:
 
-```
+```yaml
 {{ readFile "templates/common.yaml" }}
 
 commonLabels:
@@ -984,14 +985,14 @@ that is accessible by running a command:
 
 A usual usage of `exec` would look like this:
 
-```
+```yaml
 mysetting: |
 {{ exec "./mycmd" (list "arg1" "arg2" "--flag1") | indent 2 }}
 ```
 
 Or even with a pipeline:
 
-```
+```yaml
 mysetting: |
 {{ yourinput | exec "./mycmd-consume-stdin" (list "arg1" "arg2") | indent 2 }}
 ```
@@ -1037,7 +1038,7 @@ This is the counterpart to `prepare`, as any release on which `prepare` has been
 
 The following is an example hook that just prints the contextual information provided to hook:
 
-```
+```yaml
 releases:
 - name: myapp
   chart: mychart
@@ -1072,10 +1073,11 @@ For templating, imagine that you created a hook that generates a helm chart on-t
 It will allow you to write your helm releases with any language you like, while still leveraging goodies provided by helm.
 
 ### Global Hooks
+
 In contrast to the per release hooks mentioned above these are run only once at the very beginning and end of the execution of a helmfile command and only the `prepare` and `cleanup` hooks are available respectively.
 
 They use the same syntax as per release hooks, but at the top level of your helmfile:
-``` yaml
+```yaml
 hooks:
 - events: ["prepare", "cleanup"]
   showlogs: true
@@ -1146,9 +1148,9 @@ We also have dedicated documentation on the following topics which might interes
 
 Or join our friendly slack community in the [`#helmfile`](https://slack.sweetops.com) channel to ask questions and get help. Check out our [slack archive](https://archive.sweetops.com/helmfile/) for good examples of how others are using it.
 
-## Using env files
+## Using .env files
 
-Helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:
+Helmfile itself doesn't have an ability to load .env files. But you can write some bash script to achieve the goal:
 
 ```console
 set -a; . .env; set +a; helmfile sync
@@ -1156,7 +1158,7 @@ set -a; . .env; set +a; helmfile sync
 
 Please see #203 for more context.
 
-## Running helmfile interactively
+## Running Helmfile interactively
 
 `helmfile --interactive [apply|destroy]` requests confirmation from you before actually modifying your cluster.
 
@@ -1170,28 +1172,13 @@ Once you download all required charts into your machine, you can run `helmfile c
 It basically run only `helm upgrade --install` with your already-downloaded charts, hence no Internet connection is required.
 See #155 for more information on this topic.
 
-## Experimental features
+## Experimental Features
+
 Some experimental features may be available for testing in perspective of being (or not) included in a future release.
 Those features are set using the environment variable `HELMFILE_EXPERIMENTAL`. Here is the current experimental feature :
 * `explicit-selector-inheritance` : remove today implicit cli selectors inheritance for composed helmfiles, see [composition selector](#selectors)
 
 If you want to enable all experimental features set the env var to `HELMFILE_EXPERIMENTAL=true`
-
-## Azure ACR integration
-
-Azure offers helm repository [support for Azure Container Registry](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos) as a preview feature.
-
-To use this you must first `az login` and then `az acr helm repo add -n <MyRegistry>`. This will extract a token for the given ACR and configure `helm` to use it, e.g. `helm repo update` should work straight away.
-
-To use `helmfile` with ACR, on the other hand, you must either include a username/password in the repository definition for the ACR in your `helmfile.yaml` or use the `--skip-deps` switch, e.g. `helmfile template --skip-deps`.
-
-An ACR repository definition in `helmfile.yaml` looks like this:
-
-```
-repositories:
-  - name: <MyRegistry>
-    url: https://<MyRegistry>.azurecr.io/helm/v1/repo
-```
 
 ## Examples
 
@@ -1202,6 +1189,7 @@ For more examples, see the [examples/README.md](https://github.com/roboll/helmfi
 - [renovate](https://github.com/renovatebot/renovate) automates chart version updates. See [this PR for more information](https://github.com/renovatebot/renovate/pull/5257).
   - For updating container image tags and git tags embedded within helmfile.yaml and values, you can use [renovate's regexManager](https://docs.renovatebot.com/modules/manager/regex/). Please see [this comment in the renovate repository](https://github.com/renovatebot/renovate/issues/6130#issuecomment-624061289) for more information.
 - [ArgoCD Integration](#argocd-integration)
+- [Azure ACR Integration](#azure-acr-integration)
 
 ### ArgoCD Integration
 
@@ -1235,7 +1223,7 @@ git push origin $BRANCH
 
 > Note that `$(pwd)` is necessary when `hemlfile.yaml` has one or more sub-helmfiles in nested directories,
 > because setting a relative file path in `--output-dir` or `--output-dir-template` results in each sub-helmfile render
-> to the directory relative to the specified path. 
+> to the directory relative to the specified path.
 
 so that they can be deployed by Argo CD as usual.
 
@@ -1252,7 +1240,23 @@ Recommendations:
 - If you don't directly push it to the main Git branch and instead go through a pull-request, do lint rendered manifests on your CI, so that you can catch easy mistakes earlier/before ArgoCD finally deploys it
 - See [this ArgoCD issue](https://github.com/argoproj/argo-cd/issues/2143#issuecomment-570478329) for why you may want this, and see [this helmfile issue](https://github.com/roboll/helmfile/pull/1357) for how `--output-dir-template` works.
 
-# Attribution
+### Azure ACR Integration
+
+Azure offers helm repository [support for Azure Container Registry](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos) as a preview feature.
+
+To use this you must first `az login` and then `az acr helm repo add -n <MyRegistry>`. This will extract a token for the given ACR and configure `helm` to use it, e.g. `helm repo update` should work straight away.
+
+To use `helmfile` with ACR, on the other hand, you must either include a username/password in the repository definition for the ACR in your `helmfile.yaml` or use the `--skip-deps` switch, e.g. `helmfile template --skip-deps`.
+
+An ACR repository definition in `helmfile.yaml` looks like this:
+
+```yaml
+repositories:
+  - name: <MyRegistry>
+    url: https://<MyRegistry>.azurecr.io/helm/v1/repo
+```
+
+## Attribution
 
 We use:
 
