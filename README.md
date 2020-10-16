@@ -52,8 +52,9 @@ repositories:
 - name: incubator
   url: https://kubernetes-charts-incubator.storage.googleapis.com
 # The flag "--force-update" will be passed to `helm repo add` if forceUpdate is true,
-# if unset, the value of helmDefaults.repoForceUpdate will be used. See
-# https://github.com/helm/helm/pull/8777 for more info.
+# if unset, the value of helmDefaults.repoForceUpdate will be used. We recommend users to
+# use Helm v3.3.4 or above, otherwise this value has to be true. See
+# https://github.com/roboll/helmfile/pull/1542 for more info.
 - name: bitnami
   url: https://charts.bitnami.com/bitnami
   forceUpdate: false
