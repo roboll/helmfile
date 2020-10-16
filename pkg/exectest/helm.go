@@ -3,6 +3,7 @@ package exectest
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -82,8 +83,8 @@ func (helm *Helm) SetExtraArgs(args ...string) {
 func (helm *Helm) SetHelmBinary(bin string) {
 	return
 }
-func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error {
-	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed}
+func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password, managed string, forceUpdate bool) error {
+	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed, strconv.FormatBool(forceUpdate)}
 	return nil
 }
 func (helm *Helm) UpdateRepo() error {

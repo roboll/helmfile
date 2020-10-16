@@ -41,7 +41,7 @@ func (helm *noCallHelmExec) SetHelmBinary(bin string) {
 	helm.doPanic()
 	return
 }
-func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error {
+func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password, managed string, forceUpdate bool) error {
 	helm.doPanic()
 	return nil
 }
