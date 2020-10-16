@@ -134,11 +134,13 @@ type HelmSpec struct {
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic bool `yaml:"atomic"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
-	CleanupOnFail bool `yaml:"cleanupOnFail,omitempty"`
+	CleanupOnFail bool `yaml:"cleanupOnFail"`
 	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	HistoryMax *int `yaml:"historyMax,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install/upgrade (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
+	// RepoForceUpdate, when set to true, the default value of repositories[].forceUpdate will be true, default is false. See https://github.com/roboll/helmfile/pull/1494
+	RepoForceUpdate bool `yaml:"repoforceUpdate"`
 
 	TLS                      bool   `yaml:"tls"`
 	TLSCACert                string `yaml:"tlsCACert,omitempty"`
@@ -150,14 +152,15 @@ type HelmSpec struct {
 
 // RepositorySpec that defines values for a helm repo
 type RepositorySpec struct {
-	Name     string `yaml:"name,omitempty"`
-	URL      string `yaml:"url,omitempty"`
-	CaFile   string `yaml:"caFile,omitempty"`
-	CertFile string `yaml:"certFile,omitempty"`
-	KeyFile  string `yaml:"keyFile,omitempty"`
-	Username string `yaml:"username,omitempty"`
-	Password string `yaml:"password,omitempty"`
-	Managed  string `yaml:"managed,omitempty"`
+	Name        string `yaml:"name,omitempty"`
+	URL         string `yaml:"url,omitempty"`
+	CaFile      string `yaml:"caFile,omitempty"`
+	CertFile    string `yaml:"certFile,omitempty"`
+	KeyFile     string `yaml:"keyFile,omitempty"`
+	Username    string `yaml:"username,omitempty"`
+	Password    string `yaml:"password,omitempty"`
+	Managed     string `yaml:"managed,omitempty"`
+	ForceUpdate *bool  `yaml:"forceUpdate,omitempty"`
 }
 
 // ReleaseSpec defines the structure of a helm release
@@ -314,7 +317,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 }
 
 type RepoUpdater interface {
-	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error
+	AddRepo(name, repository, cafile, certfile, keyfile, username, password, managed string, forceUpdate bool) error
 	UpdateRepo() error
 }
 
@@ -356,7 +359,8 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 			continue
 		}
 
-		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed); err != nil {
+		forceUpdate := repo.ForceUpdate != nil && *repo.ForceUpdate || repo.ForceUpdate == nil && st.HelmDefaults.RepoForceUpdate
+		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed, forceUpdate); err != nil {
 			return nil, err
 		}
 

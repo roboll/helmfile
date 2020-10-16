@@ -12,7 +12,7 @@ type Interface interface {
 	SetExtraArgs(args ...string)
 	SetHelmBinary(bin string)
 
-	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error
+	AddRepo(name, repository, cafile, certfile, keyfile, username, password, managed string, forceUpdate bool) error
 	UpdateRepo() error
 	BuildDeps(name, chart string) error
 	UpdateDeps(chart string) error

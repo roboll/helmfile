@@ -837,12 +837,16 @@ func Test_normalizeChart(t *testing.T) {
 // mocking helmexec.Interface
 
 func TestHelmState_SyncRepos(t *testing.T) {
+	enable := true
+	disable := false
+
 	tests := []struct {
-		name  string
-		repos []RepositorySpec
-		helm  *exectest.Helm
-		envs  map[string]string
-		want  []string
+		name     string
+		repos    []RepositorySpec
+		helm     *exectest.Helm
+		defaults HelmSpec
+		envs     map[string]string
+		want     []string
 	}{
 		{
 			name: "normal repository",
@@ -856,8 +860,9 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Password: "",
 				},
 			},
-			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "", "", ""},
+			helm:     &exectest.Helm{},
+			defaults: HelmSpec{},
+			want:     []string{"name", "http://example.com/", "", "", "", "", "", "", "false"},
 		},
 		{
 			name: "ACR hosted repository",
@@ -867,8 +872,9 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Managed: "acr",
 				},
 			},
-			helm: &exectest.Helm{},
-			want: []string{"name", "", "", "", "", "", "", "acr"},
+			helm:     &exectest.Helm{},
+			defaults: HelmSpec{},
+			want:     []string{"name", "", "", "", "", "", "", "acr", "false"},
 		},
 		{
 			name: "repository with cert and key",
@@ -882,8 +888,9 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Password: "",
 				},
 			},
-			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", ""},
+			helm:     &exectest.Helm{},
+			defaults: HelmSpec{},
+			want:     []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", "", "false"},
 		},
 		{
 			name: "repository with ca file",
@@ -896,8 +903,9 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Password: "",
 				},
 			},
-			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "cafile", "", "", "", "", ""},
+			helm:     &exectest.Helm{},
+			defaults: HelmSpec{},
+			want:     []string{"name", "http://example.com/", "cafile", "", "", "", "", "", "false"},
 		},
 		{
 			name: "repository with username and password",
@@ -911,8 +919,47 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Password: "example_password",
 				},
 			},
-			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", ""},
+			helm:     &exectest.Helm{},
+			defaults: HelmSpec{},
+			want:     []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "false"},
+		},
+		{
+			name: "repository with forceUpdate is true",
+			repos: []RepositorySpec{
+				{
+					Name:        "name",
+					URL:         "http://example.com/",
+					ForceUpdate: &enable,
+				},
+			},
+			helm:     &exectest.Helm{},
+			defaults: HelmSpec{},
+			want:     []string{"name", "http://example.com/", "", "", "", "", "", "", "true"},
+		},
+		{
+			name: "repository with helmDefaults.RepoForceUpdate is true",
+			repos: []RepositorySpec{
+				{
+					Name: "name",
+					URL:  "http://example.com/",
+				},
+			},
+			helm:     &exectest.Helm{},
+			defaults: HelmSpec{RepoForceUpdate: enable},
+			want:     []string{"name", "http://example.com/", "", "", "", "", "", "", "true"},
+		},
+		{
+			name: "repository with helmDefaults.RepoForceUpdate is true but forceUpdate is false",
+			repos: []RepositorySpec{
+				{
+					Name:        "name",
+					URL:         "http://example.com/",
+					ForceUpdate: &disable,
+				},
+			},
+			helm:     &exectest.Helm{},
+			defaults: HelmSpec{RepoForceUpdate: enable},
+			want:     []string{"name", "http://example.com/", "", "", "", "", "", "", "false"},
 		},
 	}
 	for i := range tests {
@@ -927,6 +974,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
 					Repositories: tt.repos,
+					HelmDefaults: tt.defaults,
 				},
 			}
 			if _, _ = state.SyncRepos(tt.helm, map[string]bool{}); !reflect.DeepEqual(tt.helm.Repo, tt.want) {

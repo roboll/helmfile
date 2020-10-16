@@ -51,6 +51,12 @@ repositories:
 # To use official "incubator" charts a.k.a https://github.com/helm/charts/tree/master/incubator
 - name: incubator
   url: https://kubernetes-charts-incubator.storage.googleapis.com
+# The flag "--force-update" will be passed to `helm repo add` if forceUpdate is true,
+# if unset, the value of helmDefaults.repoForceUpdate will be used. See
+# https://github.com/helm/helm/pull/8777 for more info.
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami
+  forceUpdate: false
 # helm-git powered repository: You can treat any Git repository as a charts repository
 - name: polaris
   url: git+https://github.com/reactiveops/polaris@deploy/helm?ref=master
@@ -64,8 +70,8 @@ repositories:
 # Advanced configuration: You can use a ca bundle to use an https repo
 # with a self-signed certificate
 - name: insecure
-   url: https://charts.my-insecure-domain.com
-   caFile: optional_ca_crt
+  url: https://charts.my-insecure-domain.com
+  caFile: optional_ca_crt
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
@@ -102,6 +108,9 @@ helmDefaults:
   historyMax: 10
   # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
   createNamespace: true
+  # when set to true (default false), "--force-update" will be passed to `helm repo add`. This value can be
+  # overridden by repositories[].forceUpdate for every individual repo.
+  repoForceUpdate: false
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
