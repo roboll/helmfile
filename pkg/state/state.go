@@ -140,7 +140,7 @@ type HelmSpec struct {
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install/upgrade (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
 	// RepoForceUpdate, when set to true, the default value of repositories[].forceUpdate will be true, default is false. See https://github.com/roboll/helmfile/pull/1494
-	RepoForceUpdate bool `yaml:"repoforceUpdate"`
+	RepoForceUpdate bool `yaml:"repoForceUpdate"`
 
 	TLS                      bool   `yaml:"tls"`
 	TLSCACert                string `yaml:"tlsCACert,omitempty"`
