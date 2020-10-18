@@ -121,7 +121,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		args = append(args, "repo", "add", name, repository)
 
 		// See https://github.com/helm/helm/pull/8777
-		if cons, err := semver.NewConstraint(">= 3.3.2, < 3.3.4"); err == nil {
+		if cons, err := semver.NewConstraint(">= 3.3.2"); err == nil {
 			if cons.Check(&helm.version) {
 				args = append(args, "--force-update")
 			}
