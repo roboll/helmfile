@@ -102,6 +102,8 @@ helmDefaults:
   historyMax: 10
   # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
   createNamespace: true
+  # if used with charts museum allows to pull unstable charts for deployment, for example: if 1.2.3 and 1.2.4-dev versions exist and set to true, 1.2.4-dev will be pulled (default false)
+  devel: true
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
