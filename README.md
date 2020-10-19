@@ -357,7 +357,7 @@ If you wish to treat your enviroment variables as strings always, even if they a
 
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
 - run as a [container](https://quay.io/roboll/helmfile) or
-- install from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) for Archlinux or
+- Archlinux: install via `pacman -S helmfile` or from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/)
 - Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 - macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
 
