@@ -139,6 +139,10 @@ type HelmSpec struct {
 	HistoryMax *int `yaml:"historyMax,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install/upgrade (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
+	// SkipDeps disables running `helm dependency up` and `helm dependency build` on this release's chart.
+	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
+	// as a Helm chart.
+	SkipDeps bool `yaml:"skipDeps"`
 
 	TLS                      bool   `yaml:"tls"`
 	TLSCACert                string `yaml:"tlsCACert,omitempty"`
@@ -270,6 +274,11 @@ type ReleaseSpec struct {
 	// In standard use-cases, `Namespace` should be sufficient.
 	// Use this only when you know what you want to do!
 	ForceNamespace string `yaml:"forceNamespace"`
+
+	// SkipDeps disables running `helm dependency up` and `helm dependency build` on this release's chart.
+	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
+	// as a Helm chart.
+	SkipDeps *bool `yaml:"skipDeps"`
 }
 
 type Release struct {
@@ -894,6 +903,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				chartName := release.Chart
 
+				isLocal := pathExists(normalizeChart(st.basePath, chartName))
+
 				chartPath, err := st.goGetterChart(chartName, release.Directory, release.ForceGoGetter)
 				if err != nil {
 					results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
@@ -911,20 +922,34 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				var buildDeps bool
 
+				skipDepsGlobal := opts.SkipRepos
+				skipDepsRelease := release.SkipDeps != nil && *release.SkipDeps
+				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
+				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault
+
 				if chartification != nil {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
 						chartify.UseHelm3(helm3),
 					)
 
-					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartification.Opts))
+					chartifyOpts := chartification.Opts
+
+					if skipDeps {
+						chartifyOpts.SkipDeps = true
+					}
+
+					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
 						results <- &chartPrepareResult{err: err}
 						return
 					} else {
-						// TODO Chartify
 						chartPath = out
 					}
+
+					// Skip `helm dep build` and `helm dep up` altogether when the chart is from remote or the dep is
+					// explicitly skipped.
+					buildDeps = !skipDeps
 				} else if pathExists(normalizeChart(st.basePath, chartPath)) {
 					// At this point, we are sure that chartPath is a local directory containing either:
 					// - A remote chart fetched by go-getter or
@@ -951,7 +976,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// a broken remote chart won't completely block their job.
 					chartPath = normalizeChart(st.basePath, chartPath)
 
-					buildDeps = !opts.SkipRepos
+					buildDeps = !skipDeps
 				} else if !opts.ForceDownload {
 					// At this point, we are sure that either:
 					// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
