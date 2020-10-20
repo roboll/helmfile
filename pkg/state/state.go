@@ -2206,7 +2206,7 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 			if st.MissingFileHandler == "Error" {
 				return nil, err
 			}
-			st.logger.Infof("no matches for path: %s", hf.Path)
+			st.logger.Warnf("no matches for path: %s", hf.Path)
 			continue
 		}
 		for _, match := range matches {
