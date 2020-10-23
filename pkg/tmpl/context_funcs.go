@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
 	"io"
 	"os"
 	"os/exec"
