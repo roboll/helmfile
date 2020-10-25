@@ -104,6 +104,9 @@ helmDefaults:
   createNamespace: true
   # if used with charts museum allows to pull unstable charts for deployment, for example: if 1.2.3 and 1.2.4-dev versions exist and set to true, 1.2.4-dev will be pulled (default false)
   devel: true
+  # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
+  # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
+  skipDeps: false
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
@@ -193,6 +196,9 @@ releases:
     kubeContext: kube-context
     # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
     historyMax: 10
+    # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
+    # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
+    skipDeps: false
 
   # Local chart example
   - name: grafana                            # name of this release
