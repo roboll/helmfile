@@ -42,6 +42,7 @@ func main() {
 	cliApp.Name = "helmfile"
 	cliApp.Usage = ""
 	cliApp.Version = version.Version
+	cliApp.EnableBashCompletion = true
 	cliApp.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "helm-binary, b",
