@@ -1680,6 +1680,9 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		if cleanup && !helm.IsHelm3() {
 			flags = append(flags, "--cleanup")
 		}
+		if opts.Logs {
+			flags = append(flags, "--logs")
+		}
 
 		if timeout == EmptyTimeout {
 			flags = append(flags, st.timeoutFlags(helm, &release)...)

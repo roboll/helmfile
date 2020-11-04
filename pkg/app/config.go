@@ -110,6 +110,7 @@ type TestConfigProvider interface {
 
 	Timeout() int
 	Cleanup() bool
+	Logs() bool
 
 	concurrencyConfig
 }
