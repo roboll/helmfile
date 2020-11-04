@@ -249,6 +249,10 @@ func main() {
 					Usage: "validate your manifests against the Kubernetes cluster you are currently pointing at",
 				},
 				cli.BoolFlag{
+					Name:  "include-crds",
+					Usage: "include CRDs in the templated output",
+				},
+				cli.BoolFlag{
 					Name:  "skip-deps",
 					Usage: "skip running `helm repo update` and `helm dependency build`",
 				},
@@ -715,6 +719,10 @@ func (c configImpl) Context() int {
 
 func (c configImpl) EmbedValues() bool {
 	return c.c.Bool("embed-values")
+}
+
+func (c configImpl) IncludeCRDs() bool {
+	return c.c.Bool("include-crds")
 }
 
 func (c configImpl) Logger() *zap.SugaredLogger {
