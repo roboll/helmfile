@@ -296,7 +296,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	var opts []LoadOption
 
-	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles()))
+	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles() || c.SkipCleanup()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
@@ -1059,9 +1059,10 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	detailedExitCode := true
 
 	diffOpts := &state.DiffOpts{
-		NoColor: c.NoColor(),
-		Context: c.Context(),
-		Set:     c.Set(),
+		NoColor:     c.NoColor(),
+		Context:     c.Context(),
+		Set:         c.Set(),
+		SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1150,7 +1151,8 @@ Do you really want to apply?
 				subst.Releases = rs
 
 				syncOpts := state.SyncOpts{
-					Set: c.Set(),
+					Set:         c.Set(),
+					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
 			}))
