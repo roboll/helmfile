@@ -134,6 +134,7 @@ type TemplateConfigProvider interface {
 	OutputDirTemplate() string
 	Validate() bool
 	SkipDeps() bool
+	SkipCleanup() bool
 	OutputDir() string
 	IncludeCRDs() bool
 

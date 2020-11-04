@@ -287,6 +287,8 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		return "", err
 	}
 
+	helm.logger.Debugf("Decrypted %s into %s", absPath, tmpFile.Name())
+
 	return tmpFile.Name(), err
 }
 
