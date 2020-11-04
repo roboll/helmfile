@@ -233,7 +233,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		}
 
 		return
-	}, SetFilter(true))
+	})
 }
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
