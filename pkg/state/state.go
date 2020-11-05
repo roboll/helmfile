@@ -535,7 +535,8 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 }
 
 type SyncOpts struct {
-	Set []string
+	Set         []string
+	SkipCleanup bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1549,6 +1550,8 @@ type DiffOpts struct {
 	Context int
 	NoColor bool
 	Set     []string
+
+	SkipCleanup bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {

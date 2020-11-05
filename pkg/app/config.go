@@ -51,6 +51,7 @@ type ApplyConfigProvider interface {
 	Context() int
 
 	RetainValuesFiles() bool
+	SkipCleanup() bool
 
 	concurrencyConfig
 	interactive
