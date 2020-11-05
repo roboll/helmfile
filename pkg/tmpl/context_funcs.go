@@ -2,6 +2,7 @@ package tmpl
 
 import (
 	"fmt"
+	"github.com/joho/godotenv"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
@@ -201,6 +202,12 @@ func SetValueAtPath(path string, value interface{}, values Values) (Values, erro
 }
 
 func RequiredEnv(name string) (string, error) {
+	var dotEnv map[string]string
+	dotEnv, _ = godotenv.Read(".env")
+	if val := dotEnv[name]; len(val) > 0 {
+		return val, nil
+	}
+
 	if val, exists := os.LookupEnv(name); exists && len(val) > 0 {
 		return val, nil
 	}
