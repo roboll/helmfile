@@ -717,6 +717,10 @@ func (c configImpl) Context() int {
 	return c.c.Int("context")
 }
 
+func (c configImpl) SkipCleanup() bool {
+	return c.c.Bool("skip-cleanup")
+}
+
 func (c configImpl) EmbedValues() bool {
 	return c.c.Bool("embed-values")
 }

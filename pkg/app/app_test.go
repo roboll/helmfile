@@ -2288,6 +2288,7 @@ type applyConfig struct {
 	retainValuesFiles bool
 	set               []string
 	validate          bool
+	skipCleanup       bool
 	skipDeps          bool
 	includeTests      bool
 	suppressSecrets   bool
@@ -2314,6 +2315,10 @@ func (a applyConfig) Set() []string {
 
 func (a applyConfig) Validate() bool {
 	return a.validate
+}
+
+func (a applyConfig) SkipCleanup() bool {
+	return a.skipCleanup
 }
 
 func (a applyConfig) SkipDeps() bool {
