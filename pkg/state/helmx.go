@@ -146,8 +146,6 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	if release.ForceNamespace != "" {
 		chartify.Opts.OverrideNamespace = release.ForceNamespace
-
-		shouldRun = true
 	}
 
 	if shouldRun {

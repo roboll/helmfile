@@ -33,4 +33,6 @@ require (
 	gotest.tools v2.2.0+incompatible
 	gotest.tools/v3 v3.0.3-0.20200410202438-4e4a41b7851a
 	k8s.io/apimachinery v0.0.0-20190409092423-760d1845f48b
+	k8s.io/helm v2.16.12+incompatible
+	sigs.k8s.io/yaml v1.1.0
 )
