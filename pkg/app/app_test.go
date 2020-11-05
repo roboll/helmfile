@@ -2237,9 +2237,14 @@ services:
 }
 
 type configImpl struct {
-	set      []string
-	output   string
-	skipDeps bool
+	selectors []string
+	set       []string
+	output    string
+	skipDeps  bool
+}
+
+func (a configImpl) Selectors() []string {
+	return a.selectors
 }
 
 func (c configImpl) Set() []string {
@@ -4160,12 +4165,8 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := "[" +
-		"{\"name\":\"myrelease1\",\"namespace\":\"\",\"enabled\":false,\"labels\":\"id:myrelease1\"}," +
-		"{\"name\":\"myrelease2\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"\"}," +
-		"{\"name\":\"myrelease3\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"\"}," +
-		"{\"name\":\"myrelease4\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"id:myrelease1\"}" +
-		"]\n"
+	expected := `[{"name":"myrelease1","namespace":"","enabled":false,"labels":"id:myrelease1"},{"name":"myrelease2","namespace":"","enabled":true,"labels":""},{"name":"myrelease3","namespace":"","enabled":true,"labels":""},{"name":"myrelease4","namespace":"","enabled":true,"labels":"id:myrelease1"}]
+`
 	assert.Equal(t, expected, out)
 }
 
