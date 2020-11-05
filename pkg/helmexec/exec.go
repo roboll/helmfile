@@ -29,6 +29,7 @@ type execer struct {
 	extra                []string
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
+	writeTempFile        func([]byte) (string, error)
 }
 
 func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
@@ -278,18 +279,32 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		defer secret.mutex.RUnlock()
 	}
 
-	tmpFile, err := ioutil.TempFile("", "secret")
-	if err != nil {
-		return "", err
+	tempFile := helm.writeTempFile
+
+	if tempFile == nil {
+		tempFile = func(content []byte) (string, error) {
+			tmpFile, err := ioutil.TempFile("", "secret")
+			if err != nil {
+				return "", err
+			}
+
+			_, err = tmpFile.Write(content)
+			if err != nil {
+				return "", err
+			}
+
+			return tmpFile.Name(), nil
+		}
 	}
-	_, err = tmpFile.Write(secret.bytes)
+
+	tmpFileName, err := tempFile(secret.bytes)
 	if err != nil {
 		return "", err
 	}
 
-	helm.logger.Debugf("Decrypted %s into %s", absPath, tmpFile.Name())
+	helm.logger.Debugf("Decrypted %s into %s", absPath, tmpFileName)
 
-	return tmpFile.Name(), err
+	return tmpFileName, err
 }
 
 func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {

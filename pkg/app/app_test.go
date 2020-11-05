@@ -2241,6 +2241,7 @@ type configImpl struct {
 	set         []string
 	output      string
 	includeCRDs bool
+	skipCleanup bool
 	skipDeps    bool
 }
 
@@ -2262,6 +2263,10 @@ func (c configImpl) Args() string {
 
 func (c configImpl) Validate() bool {
 	return true
+}
+
+func (c configImpl) SkipCleanup() bool {
+	return c.skipCleanup
 }
 
 func (c configImpl) SkipDeps() bool {
