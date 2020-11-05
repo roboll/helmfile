@@ -1686,8 +1686,26 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 	})
 }
 
+type TestOpts struct {
+	Logs bool
+}
+
+type TestOption func(*TestOpts)
+
+func Logs(v bool) func(*TestOpts) {
+	return func(o *TestOpts) {
+		o.Logs = v
+	}
+}
+
 // TestReleases wrapper for executing helm test on the releases
-func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int) []error {
+func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int, options ...TestOption) []error {
+	var opts TestOpts
+
+	for _, o := range options {
+		o(&opts)
+	}
+
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
@@ -1699,6 +1717,9 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 		if cleanup && !helm.IsHelm3() {
 			flags = append(flags, "--cleanup")
+		}
+		if opts.Logs {
+			flags = append(flags, "--logs")
 		}
 
 		if timeout == EmptyTimeout {

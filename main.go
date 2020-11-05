@@ -478,6 +478,10 @@ func main() {
 					Name:  "cleanup",
 					Usage: "delete test pods upon completion",
 				},
+				cli.BoolFlag{
+					Name:  "logs",
+					Usage: "Dump the logs from test pods (this runs after all tests are complete, but before any cleanup)",
+				},
 				cli.StringFlag{
 					Name:  "args",
 					Value: "",
@@ -660,6 +664,10 @@ func (c configImpl) Purge() bool {
 
 func (c configImpl) Cleanup() bool {
 	return c.c.Bool("cleanup")
+}
+
+func (c configImpl) Logs() bool {
+	return c.c.Bool("logs")
 }
 
 func (c configImpl) Timeout() int {
