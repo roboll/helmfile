@@ -1125,6 +1125,7 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 type TemplateOpts struct {
 	Set               []string
 	OutputDirTemplate string
+	IncludeCRDs       bool
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -1195,6 +1196,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		if validate {
 			flags = append(flags, "--validate")
+		}
+
+		if opts.IncludeCRDs {
+			flags = append(flags, "--include-crds")
 		}
 
 		if len(errs) == 0 {

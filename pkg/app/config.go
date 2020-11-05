@@ -133,6 +133,7 @@ type TemplateConfigProvider interface {
 	Validate() bool
 	SkipDeps() bool
 	OutputDir() string
+	IncludeCRDs() bool
 
 	concurrencyConfig
 }

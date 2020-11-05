@@ -1433,6 +1433,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 			opts := &state.TemplateOpts{
 				Set:               c.Set(),
+				IncludeCRDs:       c.IncludeCRDs(),
 				OutputDirTemplate: c.OutputDirTemplate(),
 			}
 			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)

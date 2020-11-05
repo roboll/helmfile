@@ -2237,10 +2237,11 @@ services:
 }
 
 type configImpl struct {
-	selectors []string
-	set       []string
-	output    string
-	skipDeps  bool
+	selectors   []string
+	set         []string
+	output      string
+	includeCRDs bool
+	skipDeps    bool
 }
 
 func (a configImpl) Selectors() []string {
@@ -2273,6 +2274,10 @@ func (c configImpl) OutputDir() string {
 
 func (c configImpl) OutputDirTemplate() string {
 	return ""
+}
+
+func (c configImpl) IncludeCRDs() bool {
+	return c.includeCRDs
 }
 
 func (c configImpl) Concurrency() int {
