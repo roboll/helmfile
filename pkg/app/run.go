@@ -183,7 +183,7 @@ func (a *App) test(r *Run, c TestConfigProvider) []error {
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-	return st.TestReleases(r.helm, cleanup, timeout, concurrency, state.TestOpts{Logs: c.Logs()})
+	return st.TestReleases(r.helm, cleanup, timeout, concurrency, state.Logs(c.Logs()))
 }
 
 func (r *Run) Lint(c LintConfigProvider) []error {
