@@ -2237,9 +2237,14 @@ services:
 }
 
 type configImpl struct {
-	set      []string
-	output   string
-	skipDeps bool
+	selectors []string
+	set       []string
+	output    string
+	skipDeps  bool
+}
+
+func (a configImpl) Selectors() []string {
+	return a.selectors
 }
 
 func (c configImpl) Set() []string {
@@ -4103,11 +4108,11 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := `NAME      	NAMESPACE	ENABLED	LABELS                                                                           
-myrelease1	         	false  	chart:mychart1,common:label,id:myrelease1,name:myrelease1,namespace:testNamespace
-myrelease2	         	true   	chart:mychart1,common:label,name:myrelease2,namespace:testNamespace              
-myrelease3	         	true   	                                                                                 
-myrelease4	         	true   	chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace             
+	expected := `NAME      	NAMESPACE	ENABLED	LABELS                    
+myrelease1	         	false  	common:label,id:myrelease1
+myrelease2	         	true   	common:label              
+myrelease3	         	true   	                          
+myrelease4	         	true   	id:myrelease1             
 `
 	assert.Equal(t, expected, out)
 }
@@ -4160,7 +4165,7 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := `[{"name":"myrelease1","namespace":"","enabled":false,"labels":"chart:mychart1,id:myrelease1,name:myrelease1,namespace:testNamespace"},{"name":"myrelease2","namespace":"","enabled":true,"labels":""},{"name":"myrelease3","namespace":"","enabled":true,"labels":""},{"name":"myrelease4","namespace":"","enabled":true,"labels":"chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace"}]
+	expected := `[{"name":"myrelease1","namespace":"","enabled":false,"labels":"id:myrelease1"},{"name":"myrelease2","namespace":"","enabled":true,"labels":""},{"name":"myrelease3","namespace":"","enabled":true,"labels":""},{"name":"myrelease4","namespace":"","enabled":true,"labels":"id:myrelease1"}]
 `
 	assert.Equal(t, expected, out)
 }
