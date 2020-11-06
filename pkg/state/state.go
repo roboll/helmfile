@@ -670,6 +670,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit, opts)
 
 	defer func() {
+		if opts.SkipCleanup {
+			return
+		}
+
 		for _, p := range preps {
 			st.removeFiles(p.files)
 		}
@@ -1125,6 +1129,7 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 
 type TemplateOpts struct {
 	Set               []string
+	SkipCleanup       bool
 	OutputDirTemplate string
 	IncludeCRDs       bool
 }
@@ -1136,7 +1141,9 @@ func (o *TemplateOpts) Apply(opts *TemplateOpts) {
 }
 
 // TemplateReleases wrapper for executing helm template on the releases
-func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int, validate bool, opt ...TemplateOpt) []error {
+func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int,
+	validate bool, opt ...TemplateOpt) []error {
+
 	opts := &TemplateOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -1156,6 +1163,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 		flags, files, err := st.flagsForTemplate(helm, release, 0)
 
 		defer func() {
+			if opts.SkipCleanup {
+				return
+			}
+
 			st.removeFiles(files)
 		}()
 
@@ -1571,6 +1582,10 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppressSecrets, opts)
 
 	defer func() {
+		if opts.SkipCleanup {
+			return
+		}
+
 		for _, p := range preps {
 			st.removeFiles(p.files)
 		}

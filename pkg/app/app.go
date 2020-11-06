@@ -218,6 +218,9 @@ func (a *App) Diff(c DiffConfigProvider) error {
 }
 
 func (a *App) Template(c TemplateConfigProvider) error {
+
+	opts := []LoadOption{SetRetainValuesFiles(c.SkipCleanup())}
+
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		// `helm template` in helm v2 does not support local chart.
 		// So, we set forceDownload=true for helm v2 only
@@ -233,7 +236,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		}
 
 		return
-	})
+	}, opts...)
 }
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
@@ -1437,6 +1440,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 				Set:               c.Set(),
 				IncludeCRDs:       c.IncludeCRDs(),
 				OutputDirTemplate: c.OutputDirTemplate(),
+				SkipCleanup:       c.SkipCleanup(),
 			}
 			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 		}))
