@@ -2237,9 +2237,16 @@ services:
 }
 
 type configImpl struct {
-	set      []string
-	output   string
-	skipDeps bool
+	selectors   []string
+	set         []string
+	output      string
+	includeCRDs bool
+	skipCleanup bool
+	skipDeps    bool
+}
+
+func (a configImpl) Selectors() []string {
+	return a.selectors
 }
 
 func (c configImpl) Set() []string {
@@ -2258,6 +2265,10 @@ func (c configImpl) Validate() bool {
 	return true
 }
 
+func (c configImpl) SkipCleanup() bool {
+	return c.skipCleanup
+}
+
 func (c configImpl) SkipDeps() bool {
 	return c.skipDeps
 }
@@ -2268,6 +2279,10 @@ func (c configImpl) OutputDir() string {
 
 func (c configImpl) OutputDirTemplate() string {
 	return ""
+}
+
+func (c configImpl) IncludeCRDs() bool {
+	return c.includeCRDs
 }
 
 func (c configImpl) Concurrency() int {
@@ -2288,6 +2303,7 @@ type applyConfig struct {
 	retainValuesFiles bool
 	set               []string
 	validate          bool
+	skipCleanup       bool
 	skipDeps          bool
 	includeTests      bool
 	suppressSecrets   bool
@@ -2314,6 +2330,10 @@ func (a applyConfig) Set() []string {
 
 func (a applyConfig) Validate() bool {
 	return a.validate
+}
+
+func (a applyConfig) SkipCleanup() bool {
+	return a.skipCleanup
 }
 
 func (a applyConfig) SkipDeps() bool {
@@ -4160,12 +4180,8 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := "[" +
-		"{\"name\":\"myrelease1\",\"namespace\":\"\",\"enabled\":false,\"labels\":\"id:myrelease1\"}," +
-		"{\"name\":\"myrelease2\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"\"}," +
-		"{\"name\":\"myrelease3\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"\"}," +
-		"{\"name\":\"myrelease4\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"id:myrelease1\"}" +
-		"]\n"
+	expected := `[{"name":"myrelease1","namespace":"","enabled":false,"labels":"id:myrelease1"},{"name":"myrelease2","namespace":"","enabled":true,"labels":""},{"name":"myrelease3","namespace":"","enabled":true,"labels":""},{"name":"myrelease4","namespace":"","enabled":true,"labels":"id:myrelease1"}]
+`
 	assert.Equal(t, expected, out)
 }
 

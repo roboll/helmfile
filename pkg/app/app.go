@@ -218,6 +218,9 @@ func (a *App) Diff(c DiffConfigProvider) error {
 }
 
 func (a *App) Template(c TemplateConfigProvider) error {
+
+	opts := []LoadOption{SetRetainValuesFiles(c.SkipCleanup())}
+
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		// `helm template` in helm v2 does not support local chart.
 		// So, we set forceDownload=true for helm v2 only
@@ -233,7 +236,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		}
 
 		return
-	}, SetFilter(true))
+	}, opts...)
 }
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
@@ -296,7 +299,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	var opts []LoadOption
 
-	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles()))
+	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles() || c.SkipCleanup()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
@@ -1059,9 +1062,10 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	detailedExitCode := true
 
 	diffOpts := &state.DiffOpts{
-		NoColor: c.NoColor(),
-		Context: c.Context(),
-		Set:     c.Set(),
+		NoColor:     c.NoColor(),
+		Context:     c.Context(),
+		Set:         c.Set(),
+		SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1150,7 +1154,8 @@ Do you really want to apply?
 				subst.Releases = rs
 
 				syncOpts := state.SyncOpts{
-					Set: c.Set(),
+					Set:         c.Set(),
+					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
 			}))
@@ -1433,7 +1438,9 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 			opts := &state.TemplateOpts{
 				Set:               c.Set(),
+				IncludeCRDs:       c.IncludeCRDs(),
 				OutputDirTemplate: c.OutputDirTemplate(),
+				SkipCleanup:       c.SkipCleanup(),
 			}
 			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 		}))

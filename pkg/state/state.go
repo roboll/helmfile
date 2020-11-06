@@ -535,7 +535,8 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 }
 
 type SyncOpts struct {
-	Set []string
+	Set         []string
+	SkipCleanup bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -669,6 +670,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit, opts)
 
 	defer func() {
+		if opts.SkipCleanup {
+			return
+		}
+
 		for _, p := range preps {
 			st.removeFiles(p.files)
 		}
@@ -855,7 +860,22 @@ type chartPrepareResult struct {
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
 func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[string]string, []error) {
-	releases := releasesNeedCharts(st.Releases)
+	var selected []ReleaseSpec
+
+	if len(st.Selectors) > 0 {
+		var err error
+
+		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
+		// releases that are (1) selected by the selectors and (2) to be installed.
+		selected, err = st.GetSelectedReleasesWithOverrides()
+		if err != nil {
+			return nil, []error{err}
+		}
+	} else {
+		selected = st.Releases
+	}
+
+	releases := releasesNeedCharts(selected)
 
 	temp := make(map[string]string, len(releases))
 
@@ -1109,7 +1129,9 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 
 type TemplateOpts struct {
 	Set               []string
+	SkipCleanup       bool
 	OutputDirTemplate string
+	IncludeCRDs       bool
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -1119,7 +1141,9 @@ func (o *TemplateOpts) Apply(opts *TemplateOpts) {
 }
 
 // TemplateReleases wrapper for executing helm template on the releases
-func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int, validate bool, opt ...TemplateOpt) []error {
+func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int,
+	validate bool, opt ...TemplateOpt) []error {
+
 	opts := &TemplateOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -1139,6 +1163,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 		flags, files, err := st.flagsForTemplate(helm, release, 0)
 
 		defer func() {
+			if opts.SkipCleanup {
+				return
+			}
+
 			st.removeFiles(files)
 		}()
 
@@ -1180,6 +1208,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		if validate {
 			flags = append(flags, "--validate")
+		}
+
+		if opts.IncludeCRDs {
+			flags = append(flags, "--include-crds")
 		}
 
 		if len(errs) == 0 {
@@ -1529,6 +1561,8 @@ type DiffOpts struct {
 	Context int
 	NoColor bool
 	Set     []string
+
+	SkipCleanup bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -1548,6 +1582,10 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppressSecrets, opts)
 
 	defer func() {
+		if opts.SkipCleanup {
+			return
+		}
+
 		for _, p := range preps {
 			st.removeFiles(p.files)
 		}
@@ -1666,8 +1704,26 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 	})
 }
 
+type TestOpts struct {
+	Logs bool
+}
+
+type TestOption func(*TestOpts)
+
+func Logs(v bool) func(*TestOpts) {
+	return func(o *TestOpts) {
+		o.Logs = v
+	}
+}
+
 // TestReleases wrapper for executing helm test on the releases
-func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int) []error {
+func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int, options ...TestOption) []error {
+	var opts TestOpts
+
+	for _, o := range options {
+		o(&opts)
+	}
+
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
@@ -1679,6 +1735,9 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 		if cleanup && !helm.IsHelm3() {
 			flags = append(flags, "--cleanup")
+		}
+		if opts.Logs {
+			flags = append(flags, "--logs")
 		}
 
 		if timeout == EmptyTimeout {
