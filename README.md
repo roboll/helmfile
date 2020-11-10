@@ -364,7 +364,7 @@ If you wish to treat your enviroment variables as strings always, even if they a
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
 - run as a [container](https://quay.io/roboll/helmfile) or
 - Archlinux: install via `pacman -S helmfile` or from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) or
-- openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [OBS](https://download.opensuse.org/repositories/devel:/kubic/) for your distribution version once before that command, or
+- openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/\$releasever kubic`, or
 - Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 - macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
 
