@@ -47,10 +47,10 @@ The default name for a helmfile is `helmfile.yaml`:
 repositories:
 # To use official "stable" charts a.k.a https://github.com/helm/charts/tree/master/stable
 - name: stable
-  url: https://kubernetes-charts.storage.googleapis.com
+  url: https://charts.helm.sh/stable
 # To use official "incubator" charts a.k.a https://github.com/helm/charts/tree/master/incubator
 - name: incubator
-  url: https://kubernetes-charts-incubator.storage.googleapis.com
+  url: https://charts.helm.sh/incubator
 # helm-git powered repository: You can treat any Git repository as a charts repository
 - name: polaris
   url: git+https://github.com/reactiveops/polaris@deploy/helm?ref=master
