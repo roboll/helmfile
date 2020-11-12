@@ -4,8 +4,6 @@ environments:
       - environment.values.yaml
 ---
 repositories:
-  - name: stable
-    url: https://kubernetes-charts.storage.googleapis.com/
   - name: center
     url: https://repo.chartcenter.io
 
@@ -30,6 +28,7 @@ releases:
 
   - name: raw
     chart: center/incubator/raw
+    version: 0.2.3
     values:
       - mysecret: {{ .Environment.Values.mysecret }}
       - values.yaml
