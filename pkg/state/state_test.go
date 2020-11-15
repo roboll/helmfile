@@ -22,6 +22,7 @@ func injectFs(st *HelmState, fs *testhelper.TestFs) *HelmState {
 	st.glob = fs.Glob
 	st.readFile = fs.ReadFile
 	st.fileExists = fs.FileExists
+	st.directoryExistsAt = fs.DirectoryExistsAt
 	return st
 }
 
@@ -786,15 +787,23 @@ func Test_normalizeChart(t *testing.T) {
 		{
 			name: "construct local chart path",
 			args: args{
-				basePath: "/Users/jane/code/deploy/charts",
+				basePath: "/src",
 				chart:    "./app",
 			},
-			want: "/Users/jane/code/deploy/charts/app",
+			want: "/src/app",
+		},
+		{
+			name: "construct local chart path, without leading dot",
+			args: args{
+				basePath: "/src",
+				chart:    "published",
+			},
+			want: "/src/published",
 		},
 		{
 			name: "repo path",
 			args: args{
-				basePath: "/Users/jane/code/deploy/charts",
+				basePath: "/src",
 				chart:    "remote/app",
 			},
 			want: "remote/app",
@@ -802,18 +811,26 @@ func Test_normalizeChart(t *testing.T) {
 		{
 			name: "chartcenter repo path",
 			args: args{
-				basePath: "/Users/jane/code/deploy/charts",
+				basePath: "/src",
 				chart:    "center/stable/myapp",
 			},
 			want: "center/stable/myapp",
 		},
 		{
-			name: "construct local chart path, parent dir",
+			name: "construct local chart path, sibling dir",
 			args: args{
-				basePath: "/Users/jane/code/deploy/charts",
+				basePath: "/src",
 				chart:    "../app",
 			},
-			want: "/Users/jane/code/deploy/app",
+			want: "/app",
+		},
+		{
+			name: "construct local chart path, parent dir",
+			args: args{
+				basePath: "/src",
+				chart:    "./..",
+			},
+			want: "/",
 		},
 		{
 			name: "too much parent levels",
@@ -1752,22 +1769,17 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	logger := helmexec.NewLogger(os.Stderr, "debug")
+	basePath := "/src"
 	state := &HelmState{
-		basePath: "/src",
+		basePath: basePath,
 		FilePath: "/src/helmfile.yaml",
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
 				{
-					Chart: "./..",
+					Chart: "/example",
 				},
 				{
-					Chart: "../examples",
-				},
-				{
-					Chart: "../../helmfile",
-				},
-				{
-					Chart: "published",
+					Chart: "./example",
 				},
 				{
 					Chart: "published/deeper",
@@ -1792,25 +1804,32 @@ generated: 2019-05-16T15:42:45.50486+09:00
 		logger:  logger,
 	}
 
+	fs := testhelper.NewTestFs(map[string]string{
+		"/example/Chart.yaml":     `foo: FOO`,
+		"/src/example/Chart.yaml": `foo: FOO`,
+	})
+	fs.Cwd = basePath
+	state = injectFs(state, fs)
 	errs := state.UpdateDeps(helm)
-	want := []string{"/", "/examples", "/helmfile", "/src/published", generatedDir}
+
+	want := []string{"/example", "./example", generatedDir}
 	if !reflect.DeepEqual(helm.Charts, want) {
 		t.Errorf("HelmState.UpdateDeps() = %v, want %v", helm.Charts, want)
 	}
 	if len(errs) != 0 {
-		t.Errorf("HelmState.UpdateDeps() - no errors, but got %d: %v", len(errs), errs)
+		t.Errorf("HelmState.UpdateDeps() - unexpected %d errors: %v", len(errs), errs)
 	}
 
 	resolved, err := state.ResolveDeps()
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Errorf("HelmState.ResolveDeps() - unexpected error: %v", err)
 	}
 
-	if resolved.Releases[5].Version != "1.5.0" {
-		t.Errorf("unexpected version number: expected=1.5.0, got=%s", resolved.Releases[5].Version)
+	if resolved.Releases[3].Version != "1.5.0" {
+		t.Errorf("HelmState.ResolveDeps() - unexpected version number: expected=1.5.0, got=%s", resolved.Releases[5].Version)
 	}
-	if resolved.Releases[6].Version != "1.4.0" {
-		t.Errorf("unexpected version number: expected=1.4.0, got=%s", resolved.Releases[6].Version)
+	if resolved.Releases[4].Version != "1.4.0" {
+		t.Errorf("HelmState.ResolveDeps() - unexpected version number: expected=1.4.0, got=%s", resolved.Releases[6].Version)
 	}
 }
 

@@ -1,12 +1,13 @@
 package state
 
 import (
-	"github.com/roboll/helmfile/pkg/remote"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/remote"
 
 	"github.com/roboll/helmfile/pkg/testhelper"
 	"go.uber.org/zap"
@@ -83,7 +84,7 @@ func (testEnv stateTestEnv) MustLoadState(t *testing.T, file, envName string) *H
 	}
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
-	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "", r).
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, testFs.DirectoryExistsAt, nil, nil, "", r).
 		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -148,7 +149,7 @@ releaseNamespace: mynamespace
 	testFs.Cwd = "/example/path/to"
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
-	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "", r).
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, testFs.DirectoryExistsAt, nil, nil, "", r).
 		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -235,7 +236,7 @@ overrideNamespace: myns
 	testFs.Cwd = "/example/path/to"
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
-	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "", r).
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, testFs.DirectoryExistsAt, nil, nil, "", r).
 		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

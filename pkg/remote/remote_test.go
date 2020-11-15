@@ -2,19 +2,20 @@ package remote
 
 import (
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
-	"os"
-	"testing"
 )
 
 func TestRemote_HttpsGitHub(t *testing.T) {
 	cleanfs := map[string]string{
-		"path/to/home": "",
+		"/path/to/home": "",
 	}
 	cachefs := map[string]string{
-		"path/to/home/.helmfile/cache/https_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml": "foo: bar",
+		"/path/to/home/.helmfile/cache/https_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml": "foo: bar",
 	}
 
 	type testcase struct {
@@ -36,7 +37,7 @@ func TestRemote_HttpsGitHub(t *testing.T) {
 			hit := true
 
 			get := func(wd, src, dst string) error {
-				if wd != "path/to/home" {
+				if wd != "/path/to/home" {
 					return fmt.Errorf("unexpected wd: %s", wd)
 				}
 				if src != "git::https://github.com/cloudposse/helmfiles.git?ref=0.40.0" {
@@ -53,7 +54,7 @@ func TestRemote_HttpsGitHub(t *testing.T) {
 			}
 			remote := &Remote{
 				Logger:     helmexec.NewLogger(os.Stderr, "debug"),
-				Home:       "path/to/home",
+				Home:       "/path/to/home",
 				Getter:     getter,
 				ReadFile:   testfs.ReadFile,
 				FileExists: testfs.FileExistsAt,
@@ -72,7 +73,7 @@ func TestRemote_HttpsGitHub(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if file != "path/to/home/.helmfile/cache/https_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml" {
+			if file != "/path/to/home/.helmfile/cache/https_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml" {
 				t.Errorf("unexpected file located: %s", file)
 			}
 
@@ -88,10 +89,10 @@ func TestRemote_HttpsGitHub(t *testing.T) {
 
 func TestRemote_SShGitHub(t *testing.T) {
 	cleanfs := map[string]string{
-		"path/to/home": "",
+		"/path/to/home": "",
 	}
 	cachefs := map[string]string{
-		"path/to/home/.helmfile/cache/ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml": "foo: bar",
+		"/path/to/home/.helmfile/cache/ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml": "foo: bar",
 	}
 
 	type testcase struct {
@@ -113,7 +114,7 @@ func TestRemote_SShGitHub(t *testing.T) {
 			hit := true
 
 			get := func(wd, src, dst string) error {
-				if wd != "path/to/home" {
+				if wd != "/path/to/home" {
 					return fmt.Errorf("unexpected wd: %s", wd)
 				}
 				if src != "git::ssh://git@github.com/cloudposse/helmfiles.git?ref=0.40.0" {
@@ -130,7 +131,7 @@ func TestRemote_SShGitHub(t *testing.T) {
 			}
 			remote := &Remote{
 				Logger:     helmexec.NewLogger(os.Stderr, "debug"),
-				Home:       "path/to/home",
+				Home:       "/path/to/home",
 				Getter:     getter,
 				ReadFile:   testfs.ReadFile,
 				FileExists: testfs.FileExistsAt,
@@ -143,7 +144,7 @@ func TestRemote_SShGitHub(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if file != "path/to/home/.helmfile/cache/ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml" {
+			if file != "/path/to/home/.helmfile/cache/ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml" {
 				t.Errorf("unexpected file located: %s", file)
 			}
 

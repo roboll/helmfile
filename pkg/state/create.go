@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/remote"
 	"io"
 	"os"
+
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
 
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/pkg/environment"
@@ -39,12 +40,15 @@ func (e *UndefinedEnvError) Error() string {
 }
 
 type StateCreator struct {
-	logger      *zap.SugaredLogger
-	readFile    func(string) ([]byte, error)
-	fileExists  func(string) (bool, error)
-	abs         func(string) (string, error)
-	glob        func(string) ([]string, error)
-	DeleteFile  func(string) error
+	logger *zap.SugaredLogger
+
+	readFile          func(string) ([]byte, error)
+	fileExists        func(string) (bool, error)
+	abs               func(string) (string, error)
+	glob              func(string) ([]string, error)
+	DeleteFile        func(string) error
+	directoryExistsAt func(string) bool
+
 	valsRuntime vals.Evaluator
 
 	Strict bool
@@ -58,13 +62,16 @@ type StateCreator struct {
 	remote *remote.Remote
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), directoryExistsAt func(string) bool, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote) *StateCreator {
 	return &StateCreator{
-		logger:      logger,
-		readFile:    readFile,
-		fileExists:  fileExists,
-		abs:         abs,
-		glob:        glob,
+		logger: logger,
+
+		readFile:          readFile,
+		fileExists:        fileExists,
+		abs:               abs,
+		glob:              glob,
+		directoryExistsAt: directoryExistsAt,
+
 		Strict:      true,
 		valsRuntime: valsRuntime,
 		getHelm:     getHelm,
@@ -131,6 +138,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 	state.removeFile = os.Remove
 	state.fileExists = c.fileExists
 	state.glob = c.glob
+	state.directoryExistsAt = c.directoryExistsAt
 	state.valsRuntime = c.valsRuntime
 
 	return &state, nil
