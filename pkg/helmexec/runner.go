@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -33,24 +36,35 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
-	return combinedOutput(preparedCmd, shell.Logger)
+	return Output(preparedCmd, &logWriterGenerator{
+		log: shell.Logger,
+	})
 }
 
-func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
+func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("exec: Stdout already set")
 	}
 	if c.Stderr != nil {
 		return nil, errors.New("exec: Stderr already set")
 	}
+
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	c.Stdout = &stdout
-	c.Stderr = &stderr
-	err := c.Run()
+	var combined bytes.Buffer
 
-	o := stdout.Bytes()
-	e := stderr.Bytes()
+	var logWriters []io.Writer
+
+	id := newExecutionID()
+	for _, g := range logWriterGenerators {
+		logPrefix := fmt.Sprintf("%s:%s> ", filepath.Base(c.Path), id)
+		logWriters = append(logWriters, g.Writer(logPrefix))
+	}
+
+	c.Stdout = io.MultiWriter(append([]io.Writer{&stdout, &combined}, logWriters...)...)
+	c.Stderr = io.MultiWriter(append([]io.Writer{&stderr, &combined}, logWriters...)...)
+
+	err := c.Run()
 
 	if err != nil {
 		// TrimSpace is necessary, because otherwise helmfile prints the redundant new-lines after each error like:
@@ -64,14 +78,13 @@ func combinedOutput(c *exec.Cmd, logger *zap.SugaredLogger) ([]byte, error) {
 			// so that helmfile could return its own exit code accordingly
 			waitStatus := ee.Sys().(syscall.WaitStatus)
 			exitStatus := waitStatus.ExitStatus()
-			cmd := fmt.Sprintf("%s %s", c.Path, strings.Join(c.Args, " "))
-			err = newExitError(cmd, exitStatus, string(e))
+			err = newExitError(c.Path, c.Args, exitStatus, ee, stderr.String(), combined.String())
 		default:
 			panic(fmt.Sprintf("unexpected error: %v", err))
 		}
 	}
 
-	return o, err
+	return stdout.Bytes(), err
 }
 
 func mergeEnv(orig []string, new map[string]string) []string {
@@ -94,7 +107,16 @@ func env2map(env []string) map[string]string {
 	wanted := map[string]string{}
 	for _, cur := range env {
 		pair := strings.SplitN(cur, "=", 2)
-		wanted[pair[0]] = pair[1]
+
+		var v string
+
+		// An environment can completely miss `=` and the right side.
+		// If we didn't deal with that, this may fail due to an index-out-of-range error
+		if len(pair) > 1 {
+			v = pair[1]
+		}
+
+		wanted[pair[0]] = v
 	}
 	return wanted
 }

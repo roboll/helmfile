@@ -38,7 +38,7 @@ func (l LabelFilter) Match(r ReleaseSpec) bool {
 			k := element[0]
 			v := element[1]
 			if rVal, ok := r.Labels[k]; !ok {
-				return true
+
 			} else if rVal == v {
 				return false
 			}

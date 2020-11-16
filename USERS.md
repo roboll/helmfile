@@ -11,7 +11,10 @@ information to this file.
 |---|---|---|---|---|
 | [reddit.com](https://www.reddit.com/) | production | [GitHub issue](https://github.com/roboll/helmfile/issues/96#issue-312012249), [Talk](https://www.slideshare.net/GregoryTaylor11/helm-at-reddit-from-local-dev-staging-to-production) | San Francisco, CA | April 2018 |
 | [ricardo.ch](https://www.ricardo.ch/) | production | We're deploying our complete application platform using Helmfile. | Zug, Switzerland | April 2018 |
+| [Hellofresh](https://engineering.hellofresh.com/) | production | We've been using helmfile in production since April 2018 for deploying all our infrastructure applications | Berlin, Germany | April 2018 |
+| [Cherre](https://cherre.com/) | production | We have no public posts about using Helmfile, but we have been using it for a long time now | New York, NY | October 2018 |
 | [Sight Machine](https://sightmachine.com/) | production | We don't have anything publicly posted about it, but have been using it for quite a while in production. | San Francisco, CA and Ann Arbor, MI | December 2018 |
+| [TailorMed](https://tailormed.co/) | production | We're deploying all of our platform and all K8s resources using Helmfile. The power of Helmfile are more then amazing. Thank you! | Tel-Aviv, Israel | September 2020 |
 | [VSHN – The DevOps Company](https://vshn.ch) | production	| | Zurich, Switzerland | March 2019 |
 | [Vlocity](https://vlocity.com/) | proof-of-concept | | Melbourne, Australia | March 2019 |
 | [transit](https://transit.app/) | production | [Blog post](https://medium.com/@naseem_60378/helmfile-its-like-a-helm-for-your-helm-74a908581599). | Montreal, Canada | March 2019 |
@@ -20,4 +23,8 @@ information to this file.
 | [kloeckner-i](https://www.kloeckner-i.com/) | production | We are deploying our standard tools via helmfile to all our clusters.  | Berlin, Germany | September 2019 |
 | [American Express](https://www.americanexpress.com) | proof-of-concept | Orchestration of both internal cluster workloads and local developer environments. | London, GB | January 2020 |
 | [Sportradar](https://www.sportradar.com) | production | Since mid-2019, we've been deploying our core infrastructure and several application stacks with Helmfile. | St. Gallen, Switzerland | March 2020 |
+| [PedidosYa](https://www.pedidosya.com) | production | | Montevideo, Uruguay | June 2020 |
+| [Jenkins OSS](https://jenkins.io) | production | [jenkins-infra/charts](https://github.com/jenkins-infra/charts) | * | July 2020 |
+| [SettleMint](https://settlemint.com) | production | The SettleMint platform allows enterprises to spin up k8s clusters and deploy production grade blockchain networks and additional services. Helmfile is in charge of deploying these networks and services on demand out of the self service management ui. | Belgium, Singapore, UAE, India | October 2020 |
+| [AutoTrader (UK)](https://www.autotrader.co.uk) | production | We've used Helmfile for 2+ years to deploy 400+ services | UK | October 2020 |
 <!-- TABLE_END -->

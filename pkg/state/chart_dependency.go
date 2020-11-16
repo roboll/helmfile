@@ -2,18 +2,19 @@ package state
 
 import (
 	"fmt"
-	"github.com/Masterminds/semver"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/Masterminds/semver/v3"
 	goversion "github.com/hashicorp/go-version"
 	"github.com/r3labs/diff"
 	"github.com/roboll/helmfile/pkg/app/version"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
 )
 
 type ChartMeta struct {
@@ -254,7 +255,7 @@ func updateDependencies(st *HelmState, shell helmexec.DependencyUpdater, unresol
 
 	_, err := depMan.Update(shell, wd, unresolved)
 	if err != nil {
-		return nil, fmt.Errorf("unable to resolve %d deps: %v", len(unresolved.deps), err)
+		return nil, fmt.Errorf("unable to update %d deps: %v", len(unresolved.deps), err)
 	}
 
 	return resolveDependencies(st, depMan, unresolved)

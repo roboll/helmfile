@@ -47,10 +47,10 @@ The default name for a helmfile is `helmfile.yaml`:
 repositories:
 # To use official "stable" charts a.k.a https://github.com/helm/charts/tree/master/stable
 - name: stable
-  url: https://kubernetes-charts.storage.googleapis.com
+  url: https://charts.helm.sh/stable
 # To use official "incubator" charts a.k.a https://github.com/helm/charts/tree/master/incubator
 - name: incubator
-  url: https://kubernetes-charts-incubator.storage.googleapis.com
+  url: https://charts.helm.sh/incubator
 # helm-git powered repository: You can treat any Git repository as a charts repository
 - name: polaris
   url: git+https://github.com/reactiveops/polaris@deploy/helm?ref=master
@@ -102,7 +102,15 @@ helmDefaults:
   historyMax: 10
   # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
   createNamespace: true
+  # if used with charts museum allows to pull unstable charts for deployment, for example: if 1.2.3 and 1.2.4-dev versions exist and set to true, 1.2.4-dev will be pulled (default false)
+  devel: true
+  # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
+  # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
+  skipDeps: false
 
+# these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
+commonLabels:
+  hello: world
 
 # The desired states of Helm releases.
 #
@@ -188,6 +196,9 @@ releases:
     kubeContext: kube-context
     # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
     historyMax: 10
+    # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
+    # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
+    skipDeps: false
 
   # Local chart example
   - name: grafana                            # name of this release
@@ -298,6 +309,20 @@ apiVersions:
 
 Helmfile uses [Go templates](https://godoc.org/text/template) for templating your helmfile.yaml. While go ships several built-in functions, we have added all of the functions in the [Sprig library](https://godoc.org/github.com/Masterminds/sprig).
 
+We also added the following functions:
+
+- `requiredEnv`
+- `exec`
+- `readFile`
+- `toYaml`
+- `fromYaml`
+- `setValueAtPath`
+- `get` (Sprig's original `get` is available as `sprigGet`)
+- `tpl`
+- `required`
+- `fetchSecretValue`
+- `expandSecretRefs`
+
 We also added one special template function: `requiredEnv`.
 The `requiredEnv` function allows you to declare a particular environment variable as required for template rendering.
 If the environment variable is unset or empty, the template rendering will fail with an error message.
@@ -334,15 +359,16 @@ releases:
 
 If you wish to treat your enviroment variables as strings always, even if they are boolean or numeric values you can use `{{ env "ENV_NAME" | quote }}` or `"{{ env "ENV_NAME" }}"`. These approaches also work with `requiredEnv`.
 
-## installation
+## Installation
 
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
 - run as a [container](https://quay.io/roboll/helmfile) or
-- install from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) for Archlinux or
+- Archlinux: install via `pacman -S helmfile` or from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) or
+- openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/\$releasever kubic`, or
 - Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 - macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
 
-## getting started
+## Getting Started
 
 Let's start with a simple `helmfile` and gradually improve it to fit your use-case!
 
@@ -372,7 +398,7 @@ Iterate on the `helmfile.yaml` by referencing:
 - [CLI reference](#cli-reference).
 - [Helmfile Best Practices Guide](https://github.com/roboll/helmfile/blob/master/docs/writing-helmfile.md)
 
-## cli reference
+## CLI Reference
 
 ```
 NAME:
@@ -420,6 +446,9 @@ GLOBAL OPTIONS:
    --interactive, -i                       Request confirmation before attempting to modify clusters
    --help, -h                              show help
    --version, -v                           print the version
+
+Environment variables:
+  HELMFILE_ENVIRONMENT                     specify the environment name, the command line option '-e' have precedence
 ```
 
 ### sync
@@ -476,7 +505,6 @@ The `helmfile delete` sub-command deletes all the releases defined in the manife
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
 
-
 ### secrets
 
 The `secrets` parameter in a `helmfile.yaml` causes the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin to be executed to decrypt the file.
@@ -496,6 +524,7 @@ Use `--cleanup` to delete pods upon completion.
 The `helmfile lint` sub-command runs a `helm lint` across all of the charts/releases defined in the manifest. Non local charts will be fetched into a temporary folder which will be deleted once the task is completed.
 
 ## Paths Overview
+
 Using manifest files in conjunction with command line argument can be a bit confusing.
 
 A few rules to clear up this ambiguity:
@@ -504,9 +533,10 @@ A few rules to clear up this ambiguity:
 - Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
 - Relative paths referenced on the command line are relative to the current working directory the user is in
 
-For additional context, take a look at [paths examples](PATHS.md)
+For additional context, take a look at [paths examples](PATHS.md).
 
 ## Labels Overview
+
 A selector can be used to only target a subset of releases when running Helmfile. This is useful for large helmfiles with releases that are logically grouped together.
 
 Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
@@ -515,9 +545,44 @@ Multiple labels can be specified using `,` as a separator. A release must match 
 
 The `selector` parameter can be specified multiple times. Each parameter is resolved independently so a release that matches any parameter will be used.
 
-`--selector tier=frontend --selector tier=backend` will select all the charts
+`--selector tier=frontend --selector tier=backend` will select all the charts.
 
 In addition to user supplied labels, the name, the namespace, and the chart are available to be used as selectors.  The chart will just be the chart name excluding the repository (Example `stable/filebeat` would be selected using `--selector chart=filebeat`).
+
+`commonLabels` can be used when you want to apply the same label to all releases and use [templating](##Templates) based on that.
+For instance, you install a number of charts on every customer but need to provide different values file per customer.
+
+templates/common.yaml:
+
+```yaml
+templates:
+  nginx: &nginx
+    name: nginx
+    chart: stable/nginx-ingress
+    values:
+    - ../values/common/{{ .Release.Name }}.yaml
+    - ../values/{{ .Release.Labels.customer }}/{{ .Release.Name }}.yaml
+
+  cert-manager: &cert-manager
+    name: cert-manager
+    chart: jetstack/cert-manager
+    values:
+    - ../values/common/{{ .Release.Name }}.yaml
+    - ../values/{{ .Release.Labels.customer }}/{{ .Release.Name }}.yaml
+```
+
+helmfile.yaml:
+
+```yaml
+{{ readFile "templates/common.yaml" }}
+
+commonLabels:
+  customer: company
+
+releases:
+- <<: *nginx
+- <<: *cert-manager
+```
 
 ## Templates
 
@@ -532,6 +597,7 @@ In addition to built-in ones, the following custom template functions are availa
 - `fromYaml` reads a golang string and generates a map
 - `setValueAtPath PATH NEW_VALUE` traverses a golang map, replaces the value at the PATH with NEW_VALUE
 - `toYaml` marshals a map into a string
+- `get` returns the value of the specified key if present in the `.Values` object, otherwise will return the default value defined in the function
 
 ### Values Files Templates
 
@@ -560,7 +626,7 @@ foo:
   bar: ""
 ```
 
-The resulting, temporary values.yaml that is generated from `values.yaml.tpl` would become:
+The resulting, temporary values.yaml that is generated from `values.yaml.gotmpl` would become:
 
 ```yaml
 foo:
@@ -671,7 +737,7 @@ releaseName: prod
 `values.yaml.gotmpl`
 
 ```yaml
-domain: {{ .Values | getOrNil "my.domain" | default "dev.example.com" }}
+domain: {{ .Values | get "domain" "dev.example.com" }}
 ```
 
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
@@ -707,7 +773,7 @@ releases:
   ...
 ```
 
-### Note
+### Note on Environment.Values vs Values
 
 The `{{ .Values.foo }}` syntax is the recommended way of using environment values.
 
@@ -715,6 +781,27 @@ Prior to this [pull request](https://github.com/roboll/helmfile/pull/647), envir
 This is still working but is **deprecated** and the new `{{ .Values.foo }}` syntax should be used instead.
 
 You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
+
+### Loading remote environment values files
+
+Since #1296 and Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
+
+```yaml
+environments:
+  cluster-azure-us-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
+  cluster-gcp-europe-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
+
+releases:
+  - ...
+```
+
+This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
 
 ## Environment Secrets
 
@@ -770,6 +857,8 @@ releases:
   needs:
   - [TILLER_NAMESPACE/][NAMESPACE/]anotherelease
 ```
+
+Be aware that you have to specify the namespace name if you configured one for the release(s).
 
 All the releases listed under `needs` are installed before(or deleted after) the release itself.
 
@@ -905,14 +994,14 @@ that is accessible by running a command:
 
 A usual usage of `exec` would look like this:
 
-```
+```yaml
 mysetting: |
 {{ exec "./mycmd" (list "arg1" "arg2" "--flag1") | indent 2 }}
 ```
 
 Or even with a pipeline:
 
-```
+```yaml
 mysetting: |
 {{ yourinput | exec "./mycmd-consume-stdin" (list "arg1" "arg2") | indent 2 }}
 ```
@@ -935,20 +1024,30 @@ Currently supported `events` are:
 
 - `prepare`
 - `presync`
+- `preuninstall`
+- `postuninstall`
 - `postsync`
 - `cleanup`
 
 Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before execution.
+`prepare` hooks are triggered on the release as long as it is not excluded by the helmfile selector(e.g. `helmfile -l key=value`).
 
-Hooks associated to `cleanup` events are triggered after each release is processed.
+Hooks associated to `presync` events are triggered before each release is applied to the remote cluster.
+This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
-Hooks associated to `presync` events are triggered before each release is applied to the remote cluster. This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+`preuninstall` hooks are triggered immediately before a release is uninstalled as part of `helmfile apply`, `helmfile sync`, `helmfile delete`, and `helmfile destroy`.
 
-Hooks associated to `postsync` events are triggered after each release is applied to the remote cluster. This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+`postuninstall` hooks are triggered immediately after successful uninstall of a release while running `helmfile apply`, `helmfile sync`, `helmfile delete`, `helmfile destroy`.
+
+`postsync` hooks are triggered after each release is synced(installed, updated, or uninstalled) to/from the cluster, regardless of the sync was successful or not.
+This is the ideal place to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+
+`cleanup` hooks are triggered after each release is processed.
+This is the counterpart to `prepare`, as any release on which `prepare` has been triggered gets `cleanup` triggered as well.
 
 The following is an example hook that just prints the contextual information provided to hook:
 
-```
+```yaml
 releases:
 - name: myapp
   chart: mychart
@@ -981,6 +1080,20 @@ Now, replace `echo` with any command you like, and rewrite `args` that actually 
 
 For templating, imagine that you created a hook that generates a helm chart on-the-fly by running an external tool like ksonnet, kustomize, or your own template engine.
 It will allow you to write your helm releases with any language you like, while still leveraging goodies provided by helm.
+
+### Global Hooks
+
+In contrast to the per release hooks mentioned above these are run only once at the very beginning and end of the execution of a helmfile command and only the `prepare` and `cleanup` hooks are available respectively.
+
+They use the same syntax as per release hooks, but at the top level of your helmfile:
+```yaml
+hooks:
+- events: ["prepare", "cleanup"]
+  showlogs: true
+  command: "echo"
+  args: ["{{`{{.Environment.Name}}`}}", "{{`{{.HelmfileCommand}}`}}\
+"]
+```
 
 ### Helmfile + Kustomize
 
@@ -1044,9 +1157,9 @@ We also have dedicated documentation on the following topics which might interes
 
 Or join our friendly slack community in the [`#helmfile`](https://slack.sweetops.com) channel to ask questions and get help. Check out our [slack archive](https://archive.sweetops.com/helmfile/) for good examples of how others are using it.
 
-## Using env files
+## Using .env files
 
-Helmfile itself doesn't have an ability to load env files. But you can write some bash script to achieve the goal:
+Helmfile itself doesn't have an ability to load .env files. But you can write some bash script to achieve the goal:
 
 ```console
 set -a; . .env; set +a; helmfile sync
@@ -1054,7 +1167,7 @@ set -a; . .env; set +a; helmfile sync
 
 Please see #203 for more context.
 
-## Running helmfile interactively
+## Running Helmfile interactively
 
 `helmfile --interactive [apply|destroy]` requests confirmation from you before actually modifying your cluster.
 
@@ -1068,14 +1181,75 @@ Once you download all required charts into your machine, you can run `helmfile c
 It basically run only `helm upgrade --install` with your already-downloaded charts, hence no Internet connection is required.
 See #155 for more information on this topic.
 
-## Experimental features
+## Experimental Features
+
 Some experimental features may be available for testing in perspective of being (or not) included in a future release.
 Those features are set using the environment variable `HELMFILE_EXPERIMENTAL`. Here is the current experimental feature :
 * `explicit-selector-inheritance` : remove today implicit cli selectors inheritance for composed helmfiles, see [composition selector](#selectors)
 
 If you want to enable all experimental features set the env var to `HELMFILE_EXPERIMENTAL=true`
 
-## Azure ACR integration
+## Examples
+
+For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile`](https://github.com/cloudposse/helmfiles/tree/master/releases) distribution by [Cloud Posse](https://github.com/cloudposse/).
+
+## Integrations
+
+- [renovate](https://github.com/renovatebot/renovate) automates chart version updates. See [this PR for more information](https://github.com/renovatebot/renovate/pull/5257).
+  - For updating container image tags and git tags embedded within helmfile.yaml and values, you can use [renovate's regexManager](https://docs.renovatebot.com/modules/manager/regex/). Please see [this comment in the renovate repository](https://github.com/renovatebot/renovate/issues/6130#issuecomment-624061289) for more information.
+- [ArgoCD Integration](#argocd-integration)
+- [Azure ACR Integration](#azure-acr-integration)
+
+### ArgoCD Integration
+
+Use [ArgoCD](https://argoproj.github.io/argo-cd/) with `helmfile template` for GitOps.
+
+ArgoCD has support for kustomize/manifests/helm chart by itself. Why bother with Helmfile?
+
+The reasons may vary:
+
+1. You do want to manage applications with ArgoCD, while letting Helmfile manage infrastructure-related components like Calico/Cilium/WeaveNet, Linkerd/Istio, and ArgoCD itself.
+  - This way, any application deployed by ArgoCD has access to all the infrastructure.
+  - Of course, you can use ArgoCD's [Sync Waves and Phases](https://argoproj.github.io/argo-cd/user-guide/sync-waves/) for ordering the infrastructure and application installations. But it may be difficult to separate the concern between the infrastructure and apps and annotate K8s resources consistently when you have different teams for managing infra and apps.
+2. You want to review the exact K8s manifests being applied on pull-request time, before ArgoCD syncs.
+  - This is often better than using a kind of `HelmRelease` custom resources that obfuscates exactly what manifests are being applied, which makes reviewing harder.
+3. Use Helmfile as the single-pane of glass for all the K8s resources deployed to your cluster(s).
+  - Helmfile can reduce repetition in K8s manifests across ArgoCD application
+
+For 1, you run `helmfile apply` on CI to deploy ArgoCD and the infrastructure components.
+
+> helmfile config for this phase often reside within the same directory as your Terraform project. So connecting the two with [terraform-provider-helmfile](https://github.com/mumoshu/terraform-provider-helmfile) may be helpful
+
+For 2, another app-centric CI or bot should render/commit manifests by running:
+
+```
+helmfile template --output-dir-template $(pwd)/gitops//{{.Release.Name}}
+cd gitops
+git add .
+git commit -m 'some message'
+git push origin $BRANCH
+```
+
+> Note that `$(pwd)` is necessary when `hemlfile.yaml` has one or more sub-helmfiles in nested directories,
+> because setting a relative file path in `--output-dir` or `--output-dir-template` results in each sub-helmfile render
+> to the directory relative to the specified path.
+
+so that they can be deployed by Argo CD as usual.
+
+
+The CI or bot can optionally submit a PR to be review by human, running:
+
+```
+hub pull-request -b main -l gitops -m 'some description'
+```
+
+Recommendations:
+
+- Do create ArgoCD `Application` custom resource per Helm/Helmfile release, each point to respective sub-directory generated by `helmfile template --output-dir-template`
+- If you don't directly push it to the main Git branch and instead go through a pull-request, do lint rendered manifests on your CI, so that you can catch easy mistakes earlier/before ArgoCD finally deploys it
+- See [this ArgoCD issue](https://github.com/argoproj/argo-cd/issues/2143#issuecomment-570478329) for why you may want this, and see [this helmfile issue](https://github.com/roboll/helmfile/pull/1357) for how `--output-dir-template` works.
+
+### Azure ACR Integration
 
 Azure offers helm repository [support for Azure Container Registry](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos) as a preview feature.
 
@@ -1085,17 +1259,13 @@ To use `helmfile` with ACR, on the other hand, you must either include a usernam
 
 An ACR repository definition in `helmfile.yaml` looks like this:
 
-```
+```yaml
 repositories:
   - name: <MyRegistry>
     url: https://<MyRegistry>.azurecr.io/helm/v1/repo
 ```
 
-## Examples
-
-For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile`](https://github.com/cloudposse/helmfiles/tree/master/releases) distribution by [Cloud Posse](https://github.com/cloudposse/).
-
-# Attribution
+## Attribution
 
 We use:
 

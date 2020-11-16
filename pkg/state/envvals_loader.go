@@ -5,6 +5,7 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/maputil"
+	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/tmpl"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -17,13 +18,16 @@ type EnvironmentValuesLoader struct {
 	readFile func(string) ([]byte, error)
 
 	logger *zap.SugaredLogger
+
+	remote *remote.Remote
 }
 
-func NewEnvironmentValuesLoader(storage *Storage, readFile func(string) ([]byte, error), logger *zap.SugaredLogger) *EnvironmentValuesLoader {
+func NewEnvironmentValuesLoader(storage *Storage, readFile func(string) ([]byte, error), logger *zap.SugaredLogger, remote *remote.Remote) *EnvironmentValuesLoader {
 	return &EnvironmentValuesLoader{
 		storage:  storage,
 		readFile: readFile,
 		logger:   logger,
+		remote:   remote,
 	}
 }
 
@@ -36,6 +40,11 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 		switch strOrMap := entry.(type) {
 		case string:
 			urlOrPath := strOrMap
+			localPath, err := ld.remote.Locate(urlOrPath)
+			if err == nil {
+				urlOrPath = localPath
+			}
+
 			files, skipped, err := ld.storage.resolveFile(missingFileHandler, "environment values", urlOrPath)
 			if err != nil {
 				return nil, err

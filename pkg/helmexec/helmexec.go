@@ -12,7 +12,7 @@ type Interface interface {
 	SetExtraArgs(args ...string)
 	SetHelmBinary(bin string)
 
-	AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error
+	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error
 	UpdateRepo() error
 	BuildDeps(name, chart string) error
 	UpdateDeps(chart string) error
@@ -28,7 +28,7 @@ type Interface interface {
 	DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
 	IsHelm3() bool
 	GetVersion() Version
-	IsVersionAtLeast(major int, minor int) bool
+	IsVersionAtLeast(versionStr string) bool
 }
 
 type DependencyUpdater interface {

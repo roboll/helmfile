@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kustomapp2
+  namespace: default
+data:
+  kustomappfoo: FOO

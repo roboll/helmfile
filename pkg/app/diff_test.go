@@ -172,7 +172,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				// noop on frontend-v2
 				exectest.DiffKey{Name: "frontend-v2", Chart: "charts/frontend", Flags: "--kube-contextdefault--detailed-exitcode"}: nil,
@@ -324,10 +324,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 10 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   anotherbackend (charts/anotherbackend) UPDATED
   backend-v1 (charts/backend) DELETED
@@ -393,7 +389,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -440,10 +436,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 3 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   bar (mychart2) UPDATED
   baz (mychart3) UPDATED
@@ -469,7 +461,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -491,7 +483,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -514,7 +506,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -537,7 +529,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -561,7 +553,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -585,7 +577,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -612,7 +604,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -638,7 +630,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -687,10 +679,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   bar (mychart2) UPDATED
   foo (mychart1) UPDATED
@@ -717,7 +705,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -749,7 +737,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -783,7 +771,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -815,7 +803,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -847,7 +835,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -879,7 +867,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least on change",
+			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -937,7 +925,7 @@ releases:
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			error:       "Identified at least on change",
+			error:       "Identified at least one change",
 			log: `processing file "helmfile.yaml" in directory "."
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
@@ -1001,10 +989,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
-worker 1/1 started
-worker 1/1 finished
-worker 1/1 started
-worker 1/1 finished
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED

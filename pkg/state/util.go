@@ -21,7 +21,8 @@ func isLocalChart(chart string) bool {
 	return chart == "" ||
 		chart[0] == '/' ||
 		strings.Index(chart, "/") == -1 ||
-		len(strings.Split(chart, "/")) != 2
+		(len(strings.Split(chart, "/")) != 2 &&
+			len(strings.Split(chart, "/")) != 3)
 }
 
 func resolveRemoteChart(repoAndChart string) (string, string, bool) {
@@ -29,8 +30,13 @@ func resolveRemoteChart(repoAndChart string) (string, string, bool) {
 		return "", "", false
 	}
 
-	parts := strings.Split(repoAndChart, "/")
-	if len(parts) != 2 {
+	uriLike := strings.Index(repoAndChart, "://") > -1
+	if uriLike {
+		return "", "", false
+	}
+
+	parts := strings.SplitN(repoAndChart, "/", 2)
+	if len(parts) < 2 {
 		return "", "", false
 	}
 

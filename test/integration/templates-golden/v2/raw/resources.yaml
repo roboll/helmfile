@@ -1,0 +1,13 @@
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app: raw
+    chart: raw-0.2.3
+    heritage: Tiller
+    release: raw
+  name: common-secret
+stringData:
+  mykey: MYSECRET

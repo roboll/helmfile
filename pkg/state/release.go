@@ -133,12 +133,15 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		}
 	}
 
-	for i, ts := range result.Secrets {
-		s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
-		if err != nil {
-			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".secrets[%d] = \"%s\": %v", r.Name, i, ts, err)
+	for i, t := range result.Secrets {
+		switch ts := t.(type) {
+		case string:
+			s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
+			if err != nil {
+				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".secrets[%d] = \"%s\": %v", r.Name, i, ts, err)
+			}
+			result.Secrets[i] = s.String()
 		}
-		result.Secrets[i] = s.String()
 	}
 
 	if len(result.SetValuesTemplate) > 0 {

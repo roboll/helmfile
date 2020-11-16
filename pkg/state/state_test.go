@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/roboll/helmfile/pkg/exectest"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
@@ -127,12 +128,14 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath:           tt.fields.BaseChartPath,
-				DeprecatedContext:  tt.fields.Context,
-				DeprecatedReleases: tt.fields.DeprecatedReleases,
-				OverrideNamespace:  tt.fields.Namespace,
-				Repositories:       tt.fields.Repositories,
-				Releases:           tt.fields.Releases,
+				basePath: tt.fields.BaseChartPath,
+				ReleaseSetSpec: ReleaseSetSpec{
+					DeprecatedContext:  tt.fields.Context,
+					DeprecatedReleases: tt.fields.DeprecatedReleases,
+					OverrideNamespace:  tt.fields.Namespace,
+					Repositories:       tt.fields.Repositories,
+					Releases:           tt.fields.Releases,
+				},
 			}
 			if state.ApplyOverrides(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
 				t.Errorf("HelmState.ApplyOverrides() = %v, want %v", tt.args.spec, tt.want)
@@ -163,7 +166,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		version  *helmexec.Version
+		version  *semver.Version
 		defaults HelmSpec
 		release  *ReleaseSpec
 		want     []string
@@ -580,11 +583,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			defaults: HelmSpec{
 				Verify: false,
 			},
-			version: &helmexec.Version{
-				Major: 3,
-				Minor: 2,
-				Patch: 0,
-			},
+			version: semver.MustParse("3.2.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -604,11 +603,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Verify:          false,
 				CreateNamespace: &disable,
 			},
-			version: &helmexec.Version{
-				Major: 3,
-				Minor: 2,
-				Patch: 0,
-			},
+			version: semver.MustParse("3.2.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -627,11 +622,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Verify:          false,
 				CreateNamespace: &disable,
 			},
-			version: &helmexec.Version{
-				Major: 3,
-				Minor: 2,
-				Patch: 0,
-			},
+			version: semver.MustParse("3.2.0"),
 			release: &ReleaseSpec{
 				Chart:           "test/chart",
 				Version:         "0.1",
@@ -652,11 +643,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Verify:          false,
 				CreateNamespace: &enable,
 			},
-			version: &helmexec.Version{
-				Major: 3,
-				Minor: 2,
-				Patch: 0,
-			},
+			version: semver.MustParse("3.2.0"),
 			release: &ReleaseSpec{
 				Chart:           "test/chart",
 				Version:         "0.1",
@@ -676,11 +663,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Verify:          false,
 				CreateNamespace: &enable,
 			},
-			version: &helmexec.Version{
-				Major: 2,
-				Minor: 16,
-				Patch: 0,
-			},
+			version: semver.MustParse("2.16.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -695,17 +678,19 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath:          "./",
-				DeprecatedContext: "default",
-				Releases:          []ReleaseSpec{*tt.release},
-				HelmDefaults:      tt.defaults,
-				valsRuntime:       valsRuntime,
+				basePath: "./",
+				ReleaseSetSpec: ReleaseSetSpec{
+					DeprecatedContext: "default",
+					Releases:          []ReleaseSpec{*tt.release},
+					HelmDefaults:      tt.defaults,
+				},
+				valsRuntime: valsRuntime,
 			}
 			helm := &exectest.Helm{
 				Version: tt.version,
 			}
 
-			args, err := state.flagsForUpgrade(helm, tt.release, 0)
+			args, _, err := state.flagsForUpgrade(helm, tt.release, 0)
 			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
 			}
@@ -771,11 +756,11 @@ func Test_isLocalChart(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "local chart in 3-level deep dir",
+			name: "remote chart in 3-level deep dir (e.g. ChartCenter)",
 			args: args{
-				chart: "foo/bar/baz",
+				chart: "center/bar/baz",
 			},
-			want: true,
+			want: false,
 		},
 	}
 	for i := range tests {
@@ -813,6 +798,14 @@ func Test_normalizeChart(t *testing.T) {
 				chart:    "remote/app",
 			},
 			want: "remote/app",
+		},
+		{
+			name: "chartcenter repo path",
+			args: args{
+				basePath: "/Users/jane/code/deploy/charts",
+				chart:    "center/stable/myapp",
+			},
+			want: "center/stable/myapp",
 		},
 		{
 			name: "construct local chart path, parent dir",
@@ -864,7 +857,18 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "", ""},
+			want: []string{"name", "http://example.com/", "", "", "", "", "", ""},
+		},
+		{
+			name: "ACR hosted repository",
+			repos: []RepositorySpec{
+				{
+					Name:    "name",
+					Managed: "acr",
+				},
+			},
+			helm: &exectest.Helm{},
+			want: []string{"name", "", "", "", "", "", "", "acr"},
 		},
 		{
 			name: "repository with cert and key",
@@ -879,7 +883,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", ""},
+			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", ""},
 		},
 		{
 			name: "repository with ca file",
@@ -893,7 +897,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "cafile", "", "", "", ""},
+			want: []string{"name", "http://example.com/", "cafile", "", "", "", "", ""},
 		},
 		{
 			name: "repository with username and password",
@@ -908,7 +912,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", ""},
 		},
 	}
 	for i := range tests {
@@ -921,9 +925,11 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				}
 			}
 			state := &HelmState{
-				Repositories: tt.repos,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: tt.repos,
+				},
 			}
-			if _ = state.SyncRepos(tt.helm); !reflect.DeepEqual(tt.helm.Repo, tt.want) {
+			if _, _ = state.SyncRepos(tt.helm, map[string]bool{}); !reflect.DeepEqual(tt.helm.Repo, tt.want) {
 				t.Errorf("HelmState.SyncRepos() for [%s] = %v, want %v", tt.name, tt.helm.Repo, tt.want)
 			}
 		})
@@ -1032,9 +1038,12 @@ func TestHelmState_SyncReleases(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				Releases:    tt.releases,
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: tt.releases,
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); errs != nil && len(errs) > 0 {
 				if len(errs) != len(tt.wantErrorMsgs) {
@@ -1135,10 +1144,13 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath:    ".",
-				Releases:    []ReleaseSpec{tt.release},
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				basePath: ".",
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: []ReleaseSpec{tt.release},
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			fs := testhelper.NewTestFs(map[string]string{})
 			state = injectFs(state, fs)
@@ -1281,9 +1293,12 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				Releases:    tt.releases,
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: tt.releases,
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
@@ -1383,9 +1398,12 @@ func TestGetDeployedVersion(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				Releases:    []ReleaseSpec{tt.release},
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: []ReleaseSpec{tt.release},
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
@@ -1510,9 +1528,12 @@ func TestHelmState_DiffReleases(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				Releases:    tt.releases,
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: tt.releases,
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
 			}
 			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false)
 			if errs != nil && len(errs) > 0 {
@@ -1582,13 +1603,16 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			numRemovedFiles := 0
 			state := &HelmState{
-				Releases:    tt.releases,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: tt.releases,
+				},
 				logger:      logger,
 				valsRuntime: valsRuntime,
 				removeFile: func(f string) error {
 					numRemovedFiles += 1
 					return nil
 				},
+				RenderedValues: map[string]interface{}{},
 			}
 			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: FOO`,
@@ -1666,13 +1690,16 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			numRemovedFiles := 0
 			state := &HelmState{
-				Releases:    tt.releases,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: tt.releases,
+				},
 				logger:      logger,
 				valsRuntime: valsRuntime,
 				removeFile: func(f string) error {
 					numRemovedFiles += 1
 					return nil
 				},
+				RenderedValues: map[string]interface{}{},
 			}
 			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: bar
@@ -1728,35 +1755,37 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	state := &HelmState{
 		basePath: "/src",
 		FilePath: "/src/helmfile.yaml",
-		Releases: []ReleaseSpec{
-			{
-				Chart: "./..",
+		ReleaseSetSpec: ReleaseSetSpec{
+			Releases: []ReleaseSpec{
+				{
+					Chart: "./..",
+				},
+				{
+					Chart: "../examples",
+				},
+				{
+					Chart: "../../helmfile",
+				},
+				{
+					Chart: "published",
+				},
+				{
+					Chart: "published/deeper",
+				},
+				{
+					Chart:   "stable/envoy",
+					Version: "1.5.0",
+				},
+				{
+					Chart:   "stable/envoy",
+					Version: "1.4.0",
+				},
 			},
-			{
-				Chart: "../examples",
-			},
-			{
-				Chart: "../../helmfile",
-			},
-			{
-				Chart: "published",
-			},
-			{
-				Chart: "published/deeper",
-			},
-			{
-				Chart:   "stable/envoy",
-				Version: "1.5.0",
-			},
-			{
-				Chart:   "stable/envoy",
-				Version: "1.4.0",
-			},
-		},
-		Repositories: []RepositorySpec{
-			{
-				Name: "stable",
-				URL:  "https://kubernetes-charts.storage.googleapis.com",
+			Repositories: []RepositorySpec{
+				{
+					Name: "stable",
+					URL:  "https://kubernetes-charts.storage.googleapis.com",
+				},
 			},
 		},
 		tempDir: tempDir,
@@ -1790,30 +1819,32 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 	state := &HelmState{
 		basePath: "/src",
 		FilePath: "/src/helmfile.yaml",
-		Releases: []ReleaseSpec{
-			{
-				Chart: "./..",
+		ReleaseSetSpec: ReleaseSetSpec{
+			Releases: []ReleaseSpec{
+				{
+					Chart: "./..",
+				},
+				{
+					Chart: "../examples",
+				},
+				{
+					Chart: "../../helmfile",
+				},
+				{
+					Chart: "published",
+				},
+				{
+					Chart: "published/deeper",
+				},
+				{
+					Chart: "stable/envoy",
+				},
 			},
-			{
-				Chart: "../examples",
-			},
-			{
-				Chart: "../../helmfile",
-			},
-			{
-				Chart: "published",
-			},
-			{
-				Chart: "published/deeper",
-			},
-			{
-				Chart: "stable/envoy",
-			},
-		},
-		Repositories: []RepositorySpec{
-			{
-				Name: "stable",
-				URL:  "https://kubernetes-charts.storage.googleapis.com",
+			Repositories: []RepositorySpec{
+				{
+					Name: "stable",
+					URL:  "https://kubernetes-charts.storage.googleapis.com",
+				},
 			},
 		},
 		logger: logger,
@@ -1906,8 +1937,10 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 		tt := tests[i]
 		f := func(t *testing.T) {
 			state := &HelmState{
-				Releases: tt.releases,
-				logger:   logger,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: tt.releases,
+				},
+				logger: logger,
 				fileExists: func(f string) (bool, error) {
 					if f != "foo.yaml" {
 						return false, fmt.Errorf("unexpected file: %s", f)
@@ -1991,8 +2024,10 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 		tt := tests[i]
 		f := func(t *testing.T) {
 			state := &HelmState{
-				Releases: tt.releases,
-				logger:   logger,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: tt.releases,
+				},
+				logger: logger,
 			}
 			errs := state.TestReleases(tt.helm, tt.cleanup, 1, 1)
 			if (errs != nil) != tt.wantErr {
@@ -2042,8 +2077,11 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 		tt := tests[i]
 		f := func(t *testing.T) {
 			state := &HelmState{
-				Releases: releases,
-				logger:   logger,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: releases,
+				},
+				logger:         logger,
+				RenderedValues: map[string]interface{}{},
 			}
 			state.Selectors = []string{tt.labels}
 			errs := state.FilterReleases()
@@ -2208,11 +2246,14 @@ func TestHelmState_Delete(t *testing.T) {
 				release,
 			}
 			state := &HelmState{
-				HelmDefaults: HelmSpec{
-					KubeContext: tt.defKubeContext,
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: HelmSpec{
+						KubeContext: tt.defKubeContext,
+					},
+					Releases: releases,
 				},
-				Releases: releases,
-				logger:   logger,
+				logger:         logger,
+				RenderedValues: map[string]interface{}{},
 			}
 			helm := &exectest.Helm{
 				Lists:   map[exectest.ListKey]string{},
@@ -2233,5 +2274,35 @@ func TestHelmState_Delete(t *testing.T) {
 			}
 		}
 		t.Run(tt.name, f)
+	}
+}
+
+func TestReverse(t *testing.T) {
+	num := 8
+	st := &HelmState{}
+
+	for i := 0; i < num; i++ {
+		name := fmt.Sprintf("%d", i)
+		st.Helmfiles = append(st.Helmfiles, SubHelmfileSpec{
+			Path: name,
+		})
+		st.Releases = append(st.Releases, ReleaseSpec{
+			Name: name,
+		})
+	}
+
+	st.Reverse()
+
+	for i := 0; i < num; i++ {
+		j := num - 1 - i
+		want := fmt.Sprintf("%d", j)
+
+		if got := st.Helmfiles[i].Path; got != want {
+			t.Errorf("sub-helmfile at %d has incorrect path: want %q, got %q", i, want, got)
+		}
+
+		if got := st.Releases[i].Name; got != want {
+			t.Errorf("release at %d has incorrect name: want %q, got %q", i, want, got)
+		}
 	}
 }

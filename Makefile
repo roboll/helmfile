@@ -2,7 +2,7 @@ ORG     ?= $(shell basename $(realpath ..))
 PKGS    := $(shell go list ./... | grep -v /vendor/)
 
 build:
-	go build ${TARGETS}
+	go build -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: build
 
 generate:
@@ -17,6 +17,10 @@ check:
 	go vet ${PKGS}
 .PHONY: check
 
+build-test-tools:
+	go build test/diff-yamls.go
+.PHONY: build-test-tools
+
 test:
 	go test -v ${PKGS} -cover -race -p=1
 .PHONY: test
@@ -26,7 +30,7 @@ integration:
 .PHONY: integration
 
 cross:
-	env CGO_ENABLED=0 gox -os '!openbsd !freebsd !netbsd' -arch '!arm !mips !mipsle !mips64 !mips64le !s390x' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -os '!openbsd !freebsd !netbsd' -arch '!mips !mipsle !mips64 !mips64le !s390x' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:

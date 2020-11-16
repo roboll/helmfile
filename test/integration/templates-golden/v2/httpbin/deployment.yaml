@@ -1,0 +1,39 @@
+---
+# Source: httpbin/templates/deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+metadata:
+  name: httpbin-httpbin
+  labels:
+    app: httpbin
+    chart: httpbin-0.1.0
+    release: httpbin
+    heritage: Tiller
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        release: httpbin
+    spec:
+      containers:
+      - name: httpbin
+        image: "docker.io/citizenstig/httpbin:latest"
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000        
+        ports:
+          - containerPort: 8000
+        resources:
+          {}
+
+status: {}

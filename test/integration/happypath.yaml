@@ -4,10 +4,8 @@ environments:
       - environment.values.yaml
 ---
 repositories:
-  - name: stable
-    url: https://kubernetes-charts.storage.googleapis.com/
-  - name: incubator
-    url: https://kubernetes-charts-incubator.storage.googleapis.com
+  - name: center
+    url: https://repo.chartcenter.io
 
 helmDefaults:
   kubeContext: minikube
@@ -19,9 +17,32 @@ releases:
     set:
       - name: ingress.enabled
         value: false
+    hooks:
+    - events: ["prepare", "cleanup"]
+      showlogs: true
+      command: "echo"
+      args:
+      - "{{`{{.Environment.Name}}`}}"
+      - "{{`{{.Release.Name}}`}}"
+      - "{{`{{.HelmfileCommand}}`}}"
 
   - name: raw
-    chart: incubator/raw
+    chart: center/incubator/raw
+    version: 0.2.3
     values:
       - mysecret: {{ .Environment.Values.mysecret }}
       - values.yaml
+
+  - name: helmx
+    chart: ./charts/helmx
+    namespace: helmx-system
+    jsonPatches:
+      - target:
+          version: v1
+          kind: ConfigMap
+          name: release-name
+        patch:
+          - op: add
+            path: /metadata/annotations
+            value:
+              foo: bar

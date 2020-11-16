@@ -2,6 +2,7 @@ package tmpl
 
 import (
 	"fmt"
+	"github.com/roboll/helmfile/pkg/helmexec"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
 	"io"
@@ -97,25 +98,9 @@ func (c *Context) Exec(command string, args []interface{}, inputs ...string) (st
 	g.Go(func() error {
 		// We use CombinedOutput to produce helpful error messages
 		// See https://github.com/roboll/helmfile/issues/1158
-		bs, err := cmd.CombinedOutput()
+		bs, err := helmexec.Output(cmd)
 		if err != nil {
-			args := strings.Join(strArgs, ", ")
-			shownCmd := []string{command}
-			if len(args) > 0 {
-				shownCmd = append(shownCmd, args)
-			}
-
-			var out string
-
-			out += fmt.Sprintf("\n\nCOMMAND:\n%s", Indent(strings.Join(shownCmd, " "), "  "))
-
-			out += fmt.Sprintf("\n\nERROR:\n%s", Indent(err.Error(), "  "))
-
-			if len(bs) > 0 {
-				out += fmt.Sprintf("\n\nCOMBINED OUTPUT:\n%s", Indent(string(bs), "  "))
-			}
-
-			return fmt.Errorf("%v%s", err, out)
+			return err
 		}
 
 		bytes = bs
@@ -128,29 +113,6 @@ func (c *Context) Exec(command string, args []interface{}, inputs ...string) (st
 	}
 
 	return string(bytes), nil
-}
-
-// indents a block of text with an indent string
-func Indent(text, indent string) string {
-	var b strings.Builder
-
-	b.Grow(len(text) * 2)
-
-	lines := strings.Split(text, "\n")
-
-	last := len(lines) - 1
-
-	for i, j := range lines {
-		if i > 0 && i < last && j != "" {
-			b.WriteString("\n")
-		}
-
-		if j != "" {
-			b.WriteString(indent + j)
-		}
-	}
-
-	return b.String()
 }
 
 func (c *Context) ReadFile(filename string) (string, error) {

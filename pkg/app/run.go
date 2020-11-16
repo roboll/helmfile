@@ -5,6 +5,8 @@ import (
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
+	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 )
@@ -14,10 +16,16 @@ type Run struct {
 	helm  helmexec.Interface
 	ctx   Context
 
+	ReleaseToChart map[string]string
+
 	Ask func(string) bool
 }
 
 func NewRun(st *state.HelmState, helm helmexec.Interface, ctx Context) *Run {
+	if helm == nil {
+		panic("Assertion failed: helmexec.Interface must not be nil")
+	}
+
 	return &Run{state: st, helm: helm, ctx: ctx}
 }
 
@@ -28,19 +36,59 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-func (r *Run) Deps(c DepsConfigProvider) []error {
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
+	if r.ReleaseToChart != nil {
+		panic("Run.PrepareCharts can be called only once")
+	}
 
-	if !c.SkipRepos() {
-		if errs := r.ctx.SyncReposOnce(r.state, r.helm); errs != nil && len(errs) > 0 {
-			return errs
+	if !opts.SkipRepos {
+		ctx := r.ctx
+		if err := ctx.SyncReposOnce(r.state, r.helm); err != nil {
+			return err
 		}
 	}
+
+	// Create tmp directory and bail immediately if it fails
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+
+	if _, err = r.state.TriggerGlobalPrepareEvent(helmfileCommand); err != nil {
+		return err
+	}
+
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, 2, helmfileCommand, opts)
+
+	if len(errs) > 0 {
+		return fmt.Errorf("%v", errs)
+	}
+
+	for i := range r.state.Releases {
+		rel := &r.state.Releases[i]
+
+		if chart := releaseToChart[rel.Name]; chart != "" {
+			rel.Chart = chart
+		}
+	}
+
+	r.ReleaseToChart = releaseToChart
+
+	f()
+
+	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand)
+
+	return err
+}
+
+func (r *Run) Deps(c DepsConfigProvider) []error {
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	return r.state.UpdateDeps(r.helm)
 }
 
-func (r *Run) Repos(c ReposConfigProvider) []error {
+func (r *Run) Repos(c ReposConfigProvider) error {
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	return r.ctx.SyncReposOnce(r.state, r.helm)
@@ -64,14 +112,12 @@ func (r *Run) Status(c StatusesConfigProvider) []error {
 	return r.state.ReleaseStatuses(r.helm, workers)
 }
 
-func (r *Run) Diff(c DiffConfigProvider) (*string, bool, bool, []error) {
+func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
-	helm := r.helm
-	ctx := r.ctx
 
 	allReleases := st.GetReleasesWithOverrides()
 
-	toDiff, err := st.GetSelectedReleasesWithOverrides()
+	toDiff, err := a.getSelectedReleases(r)
 	if err != nil {
 		return nil, false, false, []error{err}
 	}
@@ -83,18 +129,6 @@ func (r *Run) Diff(c DiffConfigProvider) (*string, bool, bool, []error) {
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
 	st.Releases = toDiff
-
-	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return nil, false, false, errs
-		}
-		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return nil, false, false, errs
-		}
-	}
-	if errs := st.PrepareReleases(helm, "diff"); errs != nil && len(errs) > 0 {
-		return nil, false, false, errs
-	}
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
@@ -127,35 +161,38 @@ func (r *Run) Diff(c DiffConfigProvider) (*string, bool, bool, []error) {
 	return infoMsg, true, len(deleted) > 0 || len(updated) > 0, errs
 }
 
-func (r *Run) Test(c TestConfigProvider) []error {
+func (a *App) test(r *Run, c TestConfigProvider) []error {
 	cleanup := c.Cleanup()
 	timeout := c.Timeout()
 	concurrency := c.Concurrency()
 
+	st := r.state
+
+	toTest, err := a.getSelectedReleases(r)
+	if err != nil {
+		return []error{err}
+	}
+
+	if len(toTest) == 0 {
+		return nil
+	}
+
+	// Do test only on selected releases, because that's what the user intended
+	// with conditions and selectors
+	st.Releases = toTest
+
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-	return r.state.TestReleases(r.helm, cleanup, timeout, concurrency)
+	return st.TestReleases(r.helm, cleanup, timeout, concurrency, state.Logs(c.Logs()))
 }
 
 func (r *Run) Lint(c LintConfigProvider) []error {
 	st := r.state
 	helm := r.helm
-	ctx := r.ctx
 
 	values := c.Values()
 	args := argparser.GetArgs(c.Args(), st)
 	workers := c.Concurrency()
-	if !c.SkipDeps() {
-		if errs := ctx.SyncReposOnce(st, helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
-		if errs := st.BuildDeps(helm); errs != nil && len(errs) > 0 {
-			return errs
-		}
-	}
-	if errs := st.PrepareReleases(helm, "lint"); errs != nil && len(errs) > 0 {
-		return errs
-	}
 	opts := &state.LintOpts{
 		Set: c.Set(),
 	}

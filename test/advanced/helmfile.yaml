@@ -1,0 +1,50 @@
+repositories:
+- name: incubator
+  url: https://kubernetes-charts-incubator.storage.googleapis.com
+
+releases:
+- name: kustomapp
+  chart: ./kustomapp
+  values:
+  - namePrefix: kustomapp-
+- name: raw1
+  chart: incubator/raw
+  version: 0.1.0
+  values:
+  - resources:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: raw1
+        namespace: default
+      data:
+        foo: FOO
+  strategicMergePatches:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: raw1
+        namespace: default
+      data:
+        bar: BAR
+- name: raw2
+  chart: incubator/raw
+  values:
+  - resources:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: raw2
+        namespace: default
+      data:
+        foo: FOO
+  jsonPatches:
+  - target:
+      version: v1
+      kind: ConfigMap
+      name: raw2
+      namespace: default
+    patch:
+      - op: replace
+        path: /data/baz
+        value: "BAZ"

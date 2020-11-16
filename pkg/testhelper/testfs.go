@@ -70,7 +70,7 @@ func (f *TestFs) ReadFile(filename string) ([]byte, error) {
 		str, ok = f.files[filepath.Join(f.Cwd, filename)]
 	}
 	if !ok {
-		return []byte(nil), fmt.Errorf("no registered file found: %s", filename)
+		return []byte(nil), os.ErrNotExist
 	}
 
 	f.fileReaderCalls += 1

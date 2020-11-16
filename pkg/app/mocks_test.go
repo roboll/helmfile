@@ -41,7 +41,7 @@ func (helm *noCallHelmExec) SetHelmBinary(bin string) {
 	helm.doPanic()
 	return
 }
-func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string) error {
+func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error {
 	helm.doPanic()
 	return nil
 }
@@ -97,7 +97,7 @@ func (helm *noCallHelmExec) GetVersion() helmexec.Version {
 	return helmexec.Version{}
 }
 
-func (helm *noCallHelmExec) IsVersionAtLeast(major int, minor int) bool {
+func (helm *noCallHelmExec) IsVersionAtLeast(versionStr string) bool {
 	helm.doPanic()
 	return false
 }

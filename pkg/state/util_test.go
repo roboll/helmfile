@@ -16,12 +16,16 @@ func TestIsLocalChart(t *testing.T) {
 			expected: false,
 		},
 		{
+			input:    "center/stable/mysql",
+			expected: false,
+		},
+		{
 			input:    "./charts/myapp",
 			expected: true,
 		},
 		{
-			input:    "charts/mysubsystem/myapp",
-			expected: true,
+			input:    "center/stable/myapp",
+			expected: false,
 		},
 		{
 			input:    "./charts/mysubsystem/myapp",
@@ -77,8 +81,10 @@ func TestResolveRemortChart(t *testing.T) {
 			remote: false,
 		},
 		{
-			input:  "charts/mysubsystem/myapp",
-			remote: false,
+			input:  "center/stable/myapp",
+			repo:   "center",
+			chart:  "stable/myapp",
+			remote: true,
 		},
 		{
 			input:  "./charts/mysubsystem/myapp",

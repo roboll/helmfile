@@ -2,4 +2,5 @@ dist/
 .idea/
 helmfile
 helmfile.lock
+test/integration/tmp
 vendor/

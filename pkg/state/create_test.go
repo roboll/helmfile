@@ -1,7 +1,9 @@
 package state
 
 import (
+	"github.com/roboll/helmfile/pkg/remote"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -18,7 +20,9 @@ func createFromYaml(content []byte, file string, env string, logger *zap.Sugared
 		logger:   logger,
 		readFile: ioutil.ReadFile,
 		abs:      filepath.Abs,
-		Strict:   true,
+
+		DeleteFile: os.Remove,
+		Strict:     true,
 	}
 	return c.ParseAndLoad(content, filepath.Dir(file), file, env, true, nil)
 }
@@ -59,6 +63,35 @@ func TestReadFromYaml_NonexistentEnv(t *testing.T) {
 	}
 }
 
+type stateTestEnv struct {
+	Files   map[string]string
+	WorkDir string
+}
+
+func (testEnv stateTestEnv) MustLoadState(t *testing.T, file, envName string) *HelmState {
+	t.Helper()
+
+	testFs := testhelper.NewTestFs(testEnv.Files)
+
+	if testFs.Cwd == "" {
+		testFs.Cwd = "/"
+	}
+
+	yamlContent, ok := testEnv.Files[file]
+	if !ok {
+		t.Fatalf("no file named %q registered", file)
+	}
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "", r).
+		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	return state
+}
+
 func TestReadFromYaml_NonDefaultEnv(t *testing.T) {
 	yamlFile := "/example/path/to/helmfile.yaml"
 	yamlContent := []byte(`environments:
@@ -96,9 +129,15 @@ bar: {{ readFile "bar.txt" }}
 	}
 
 	valuesFile := "/example/path/to/values.yaml.gotmpl"
-	valuesContent := []byte(`env: {{ .Environment.Name }}`)
+	valuesContent := []byte(`env: {{ .Environment.Name }}
+releaseName: {{ .Release.Name }}
+releaseNamespace: {{ .Release.Namespace }}
+`)
 
-	expectedValues := `env: production`
+	expectedValues := `env: production
+releaseName: myrelease
+releaseNamespace: mynamespace
+`
 
 	testFs := testhelper.NewTestFs(map[string]string{
 		fooYamlFile: string(fooYamlContent),
@@ -108,7 +147,9 @@ bar: {{ readFile "bar.txt" }}
 	})
 	testFs.Cwd = "/example/path/to"
 
-	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "").ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil)
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "", r).
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -118,7 +159,98 @@ bar: {{ readFile "bar.txt" }}
 		t.Errorf("unexpected environment values: expected=%v, actual=%v", expected, actual)
 	}
 
-	actualValuesData, err := state.RenderValuesFileToBytes(valuesFile)
+	release := state.Releases[0]
+
+	state.ApplyOverrides(&release)
+
+	actualValuesData, err := state.RenderReleaseValuesFileToBytes(&release, valuesFile)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	actualValues := string(actualValuesData)
+
+	if !reflect.DeepEqual(expectedValues, actualValues) {
+		t.Errorf("unexpected values: expected=%v, actual=%v", expectedValues, actualValues)
+	}
+}
+
+func TestReadFromYaml_OverrideNamespace(t *testing.T) {
+	yamlFile := "/example/path/to/helmfile.yaml"
+	yamlContent := []byte(`environments:
+  production:
+    values:
+    - foo.yaml
+    - bar.yaml.gotmpl
+
+# A.k.a helmfile apply --namespace myns
+namespace: myns
+
+releases:
+- name: myrelease
+  namespace: mynamespace
+  chart: mychart
+  values:
+  - values.yaml.gotmpl
+`)
+
+	fooYamlFile := "/example/path/to/foo.yaml"
+	fooYamlContent := []byte(`foo: foo
+# As this file doesn't have an file extension ".gotmpl", this template expression should not be evaluated
+baz: "{{ readFile \"baz.txt\" }}"`)
+
+	barYamlFile := "/example/path/to/bar.yaml.gotmpl"
+	barYamlContent := []byte(`foo: FOO
+bar: {{ readFile "bar.txt" }}
+`)
+
+	barTextFile := "/example/path/to/bar.txt"
+	barTextContent := []byte("BAR")
+
+	expected := map[string]interface{}{
+		"foo": "FOO",
+		"bar": "BAR",
+		// As the file doesn't have an file extension ".gotmpl", this template expression should not be evaluated
+		"baz": "{{ readFile \"baz.txt\" }}",
+	}
+
+	valuesFile := "/example/path/to/values.yaml.gotmpl"
+	valuesContent := []byte(`env: {{ .Environment.Name }}
+releaseName: {{ .Release.Name }}
+releaseNamespace: {{ .Release.Namespace }}
+overrideNamespace: {{ .Namespace }}
+`)
+
+	expectedValues := `env: production
+releaseName: myrelease
+releaseNamespace: myns
+overrideNamespace: myns
+`
+
+	testFs := testhelper.NewTestFs(map[string]string{
+		fooYamlFile: string(fooYamlContent),
+		barYamlFile: string(barYamlContent),
+		barTextFile: string(barTextContent),
+		valuesFile:  string(valuesContent),
+	})
+	testFs.Cwd = "/example/path/to"
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, nil, nil, "", r).
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	actual := state.Env.Values
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("unexpected environment values: expected=%v, actual=%v", expected, actual)
+	}
+
+	release := state.Releases[0]
+
+	state.ApplyOverrides(&release)
+
+	actualValuesData, err := state.RenderReleaseValuesFileToBytes(&release, valuesFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -244,6 +376,8 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 			[]bool{false, true, false}},
 		{LabelFilter{negativeLabels: [][]string{[]string{"stage", "pre"}, []string{"stage", "post"}}},
 			[]bool{false, false, true}},
+		{LabelFilter{negativeLabels: [][]string{[]string{"foo", "bar"}}},
+			[]bool{false, true, true}},
 	}
 	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
 	if err != nil {
