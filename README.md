@@ -69,6 +69,9 @@ repositories:
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
+# Path to alternative helm binary (--helm-binary)
+helmBinary: path/to/helm3
+
 # Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these.
 # In other words, unset values results in no flags passed to helm.
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
