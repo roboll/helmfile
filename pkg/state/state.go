@@ -256,7 +256,14 @@ type ReleaseSpec struct {
 	Dependencies          []Dependency  `yaml:"dependencies,omitempty"`
 	JSONPatches           []interface{} `yaml:"jsonPatches,omitempty"`
 	StrategicMergePatches []interface{} `yaml:"strategicMergePatches,omitempty"`
-	Adopt                 []string      `yaml:"adopt,omitempty"`
+
+	// Transformers is the list of Kustomize transformers
+	//
+	// Each item can be a path to a YAML or go template file, or an embedded transformer declaration as a YAML hash.
+	// It's often used to add common labels and annotations to your resources.
+	// See https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead for more information.
+	Transformers []interface{} `yaml:"transformers,omitempty"`
+	Adopt        []string      `yaml:"adopt,omitempty"`
 
 	//version of the chart that has really been installed cause desired version may be fuzzy (~2.0.0)
 	installedVersion string
