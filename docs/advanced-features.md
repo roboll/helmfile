@@ -1,6 +1,8 @@
 ## Advanced Features
 
 - [Import Configuration Parameters into Helmfile](#import-configuration-parameters-into-helmfile)
+- [Deploy Kustomization with Helmfile](#deploy-kustomizations-with-helmfile)
+- [Adhoc Kustomization of Helm Charts](#adhoc-kustomization-of-helm-charts)
 
 ### Import Configuration Parameters into Helmfile
 
@@ -35,7 +37,7 @@ $ somehow_generate_chart_yaml ${TMPCHART}/Chart.yaml
 
 $ TMPKUSTOMIZATION=/tmp/sometmpdir2
 $ somehow_generate_temp_kustomization_yaml ${TMPKUSTOMIZATION}/kustomization.yaml
-$ kustomize build ${TMPKUSTOMIZATION}/kustomization.yaml > ${TMPCHART}/templates/all.yaml 
+$ kustomize build ${TMPKUSTOMIZATION}/kustomization.yaml > ${TMPCHART}/templates/all.yaml
 ```
 
 Let's say you have a `helmfile.yaml` that looks like the below:
@@ -57,7 +59,7 @@ bases:
 
 Followed by the below steps:
 
-- Running `kustomize edit set image $IMAGE` for every `$IMAGE` generated from your values.yaml 
+- Running `kustomize edit set image $IMAGE` for every `$IMAGE` generated from your values.yaml
 - Running `kustomize edit set nameprefix $NAMEPREFIX` with the nameprefix specified in your values.yaml
 - Running `kustomize edit set namesuffix $NAMESUFFIX` with the namesuffix specified in your values.yaml
 - Running `kustomize edit set namespace $NS` with the namespace specified in your values.yaml
@@ -92,7 +94,17 @@ After all, Helmfile just installs the temporary chart like standard charts, whic
 
 Please also see [test/advanced/helmfile.yaml](https://github.com/roboll/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of kustomization support and more.
 
-## Adhoc Customization of Helm charts
+### Adhoc Kustomization of Helm charts
+
+With Helmfile's integration with Helmfile, not only deploying Kustomization as a Helm chart, you can kustomize charts before installation.
+
+Currently, Helmfile allows you to set the following fields for kustomizing the chart:
+
+- [`releases[].strategicMergePatches`](#strategicmergepatches)
+- `releases[].jsonPatches`
+- [`releases[].transformers`](#transformers)
+
+#### `strategicMergePatches`
 
 You can add/update any Kubernetes resource field rendered from a Helm chart by specifying `releases[].strategicMergePatches`:
 
@@ -135,3 +147,65 @@ Please note that the second `data` field `bar` is coming from the strategic-merg
 There's also `releases[].jsonPatches` that works similarly to `strategicMergePatches` but has additional capability to remove fields.
 
 Please also see [test/advanced/helmfile.yaml](https://github.com/roboll/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of patching support and more.
+
+#### `transformers`
+
+You can set `transformers` to apply [Kustomize's transformers](https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead).
+
+Each item can be a path to a YAML or go template file, or an embedded transformer declaration as a YAML hash.
+
+It's often used to add common labels and annotations to your resources.
+
+In the below example. we add common annotations and labels every resource rendered from the `aws-load-balancer-controller` chart:
+
+```yaml
+releases:
+- name: "aws-load-balancer-controller"
+  namespace: "kube-system"
+  forceNamespace: "kube-system"
+  chart: "center/aws/aws-load-balancer-controller"
+  transformers:
+  - apiVersion: builtin
+    kind: AnnotationsTransformer
+    metadata:
+      name: notImportantHere
+    annotations:
+      area: 51
+      greeting: take me to your leader
+    fieldSpecs:
+    - path: metadata/annotations
+      create: true
+  - apiVersion: builtin
+    kind: LabelTransformer
+    metadata:
+      name: notImportantHere
+    labels:
+      foo: bar
+    fieldSpecs:
+    - path: metadata/labels
+      create: true
+```
+
+As explained earlier, `transformers` can be not only a list of embedded transformers, but also YAML or go template files, or a mix of those three kinds.
+
+```yaml
+transformers:
+# Embedded transformer
+- apiVersion: builtin
+  kind: AnnotationsTransformer
+  metadata:
+    name: notImportantHere
+  annotations:
+    area: 51
+    greeting: take me to your leader
+  fieldSpecs:
+  - path: metadata/annotations
+    create: true
+# YAML file
+- path/to/transformer.yaml
+# Go template
+# The same set of template parameters as release values files templates is available.
+- path/to/transformer.yaml.gotmpl
+```
+
+Please see https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead for more information on how to declare transformers.
