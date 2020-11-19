@@ -82,12 +82,12 @@ type HelmState struct {
 
 	logger *zap.SugaredLogger
 
-	readFile func(string) ([]byte, error)
-
-	removeFile func(string) error
-	fileExists func(string) (bool, error)
-	glob       func(string) ([]string, error)
-	tempDir    func(string, string) (string, error)
+	readFile          func(string) ([]byte, error)
+	removeFile        func(string) error
+	fileExists        func(string) (bool, error)
+	glob              func(string) ([]string, error)
+	tempDir           func(string, string) (string, error)
+	directoryExistsAt func(string) bool
 
 	runner      helmexec.Runner
 	valsRuntime vals.Evaluator
@@ -833,6 +833,7 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 type ChartPrepareOptions struct {
 	ForceDownload bool
 	SkipRepos     bool
+	SkipDeps      bool
 	SkipResolve   bool
 }
 
@@ -923,7 +924,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				chartName := release.Chart
 
-				isLocal := pathExists(normalizeChart(st.basePath, chartName))
+				isLocal := st.directoryExistsAt(normalizeChart(st.basePath, chartName))
 
 				chartPath, err := st.goGetterChart(chartName, release.Directory, release.ForceGoGetter)
 				if err != nil {
@@ -942,7 +943,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				var buildDeps bool
 
-				skipDepsGlobal := opts.SkipRepos
+				skipDepsGlobal := opts.SkipDeps
 				skipDepsRelease := release.SkipDeps != nil && *release.SkipDeps
 				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
 				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault
@@ -970,7 +971,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// Skip `helm dep build` and `helm dep up` altogether when the chart is from remote or the dep is
 					// explicitly skipped.
 					buildDeps = !skipDeps
-				} else if pathExists(normalizeChart(st.basePath, chartPath)) {
+				} else if normalizedChart := normalizeChart(st.basePath, chartPath); st.directoryExistsAt(normalizedChart) {
 					// At this point, we are sure that chartPath is a local directory containing either:
 					// - A remote chart fetched by go-getter or
 					// - A local chart
@@ -994,7 +995,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// Given that, we always run `helm dep build` on the chart here, but tolerate any error caused by it
 					// for a remote chart, so that the user can notice/fix the issue in a local chart while
 					// a broken remote chart won't completely block their job.
-					chartPath = normalizeChart(st.basePath, chartPath)
+					chartPath = normalizedChart
 
 					buildDeps = !skipDeps
 				} else if !opts.ForceDownload {
@@ -1929,10 +1930,12 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 	var errs []error
 
 	for _, release := range st.Releases {
-		if isLocalChart(release.Chart) {
-			if err := helm.UpdateDeps(normalizeChart(st.basePath, release.Chart)); err != nil {
+		if st.directoryExistsAt(release.Chart) {
+			if err := helm.UpdateDeps(release.Chart); err != nil {
 				errs = append(errs, err)
 			}
+		} else {
+			st.logger.Debugf("skipped updating dependencies for remote chart %s", release.Chart)
 		}
 	}
 
@@ -1951,11 +1954,6 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 		return errs
 	}
 	return nil
-}
-
-func pathExists(chart string) bool {
-	_, err := os.Stat(chart)
-	return err == nil
 }
 
 func chartNameWithoutRepository(chart string) string {

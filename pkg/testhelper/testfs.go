@@ -39,7 +39,7 @@ func NewTestFs(files map[string]string) *TestFs {
 
 func (f *TestFs) FileExistsAt(path string) bool {
 	var ok bool
-	if strings.Contains(path, "/") {
+	if strings.HasPrefix(path, "/") {
 		_, ok = f.files[path]
 	} else {
 		_, ok = f.files[filepath.Join(f.Cwd, path)]
@@ -53,7 +53,7 @@ func (f *TestFs) FileExists(path string) (bool, error) {
 
 func (f *TestFs) DirectoryExistsAt(path string) bool {
 	var ok bool
-	if strings.Contains(path, "/") {
+	if strings.HasPrefix(path, "/") {
 		_, ok = f.dirs[path]
 	} else {
 		_, ok = f.dirs[filepath.Join(f.Cwd, path)]
@@ -64,7 +64,7 @@ func (f *TestFs) DirectoryExistsAt(path string) bool {
 func (f *TestFs) ReadFile(filename string) ([]byte, error) {
 	var str string
 	var ok bool
-	if filename[0] == '/' {
+	if strings.HasPrefix(filename, "/") {
 		str, ok = f.files[filename]
 	} else {
 		str, ok = f.files[filepath.Join(f.Cwd, filename)]
@@ -90,7 +90,7 @@ func (f *TestFs) FileReaderCalls() int {
 
 func (f *TestFs) Glob(relPattern string) ([]string, error) {
 	var pattern string
-	if relPattern[0] == '/' {
+	if strings.HasPrefix(relPattern, "/") {
 		pattern = relPattern
 	} else {
 		pattern = filepath.Join(f.Cwd, relPattern)
@@ -116,7 +116,7 @@ func (f *TestFs) Glob(relPattern string) ([]string, error) {
 
 func (f *TestFs) Abs(path string) (string, error) {
 	var p string
-	if path[0] == '/' {
+	if strings.HasPrefix(path, "/") {
 		p = path
 	} else {
 		p = filepath.Join(f.Cwd, path)

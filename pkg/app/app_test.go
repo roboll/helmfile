@@ -2380,6 +2380,18 @@ func (a applyConfig) RetainValuesFiles() bool {
 	return a.retainValuesFiles
 }
 
+type depsConfig struct {
+	skipRepos bool
+}
+
+func (d depsConfig) SkipRepos() bool {
+	return d.skipRepos
+}
+
+func (d depsConfig) Args() string {
+	return ""
+}
+
 // Mocking the command-line runner
 
 type mockRunner struct {
@@ -3946,6 +3958,147 @@ err: "foo" depends on nonexistent release "bar"
 							t.Errorf("releaes[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Deleted[relIdx].Flags[flagIdx], wantDeletes[relIdx].Flags[flagIdx])
 						}
 					}
+				}
+			}()
+
+			if tc.log != "" {
+				actual := bs.String()
+
+				diff, exists := testhelper.Diff(tc.log, actual, 3)
+				if exists {
+					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
+				}
+			}
+		})
+	}
+}
+
+func TestDeps(t *testing.T) {
+	testcases := []struct {
+		name   string
+		loc    string
+		error  string
+		files  map[string]string
+		log    string
+		charts []string
+	}{
+		//
+		// complex test cases for smoke testing
+		//
+		{
+			name: "smoke",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+repositories:
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami/
+releases:
+- name: example
+  chart: /path/to/charts/example
+`,
+				"/path/to/charts/example/Chart.yaml": `foo: FOO`,
+			},
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: repositories:
+ 2: - name: bitnami
+ 3:   url: https://charts.bitnami.com/bitnami/
+ 4: releases:
+ 5: - name: example
+ 6:   chart: /path/to/charts/example
+ 7: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: repositories:
+ 2: - name: bitnami
+ 3:   url: https://charts.bitnami.com/bitnami/
+ 4: releases:
+ 5: - name: example
+ 6:   chart: /path/to/charts/example
+ 7: 
+
+merged environment: &{default map[] map[]}
+There are no repositories defined in your helmfile.yaml.
+This means helmfile cannot update your dependencies or create a lock file.
+See https://github.com/roboll/helmfile/issues/878 for more information.
+`,
+			charts: []string{"/path/to/charts/example"},
+		},
+	}
+
+	for i := range testcases {
+		tc := testcases[i]
+		t.Run(tc.name, func(t *testing.T) {
+
+			var helm = &exectest.Helm{
+				DiffMutex:     &sync.Mutex{},
+				ChartsMutex:   &sync.Mutex{},
+				ReleasesMutex: &sync.Mutex{},
+			}
+
+			bs := &bytes.Buffer{}
+
+			func() {
+				logReader, logWriter := io.Pipe()
+
+				logFlushed := &sync.WaitGroup{}
+				// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
+				logFlushed.Add(1)
+				go func() {
+					scanner := bufio.NewScanner(logReader)
+					for scanner.Scan() {
+						bs.Write(scanner.Bytes())
+						bs.WriteString("\n")
+					}
+					logFlushed.Done()
+				}()
+
+				defer func() {
+					// This is here to avoid data-trace on bytes buffer `bs` to capture logs
+					if err := logWriter.Close(); err != nil {
+						panic(err)
+					}
+					logFlushed.Wait()
+				}()
+
+				logger := helmexec.NewLogger(logWriter, "debug")
+
+				app := appWithFs(&App{
+					OverrideHelmBinary:  DefaultHelmBinary,
+					glob:                filepath.Glob,
+					abs:                 filepath.Abs,
+					OverrideKubeContext: "default",
+					Env:                 "default",
+					Logger:              logger,
+					helms: map[helmKey]helmexec.Interface{
+						createHelmKey("helm", "default"): helm,
+					},
+				}, tc.files)
+
+				depsErr := app.Deps(depsConfig{
+					skipRepos: false,
+				})
+
+				if tc.error == "" && depsErr != nil {
+					t.Fatalf("unexpected error for data defined at %s: %v", tc.loc, depsErr)
+				} else if tc.error != "" && depsErr == nil {
+					t.Fatalf("expected error did not occur for data defined at %s", tc.loc)
+				} else if tc.error != "" && depsErr != nil && tc.error != depsErr.Error() {
+					t.Fatalf("invalid error: expected %q, got %q", tc.error, depsErr.Error())
+				}
+
+				if !reflect.DeepEqual(helm.Charts, tc.charts) {
+					t.Fatalf("expected charts %v, got %v", helm.Charts, tc.charts)
 				}
 			}()
 
