@@ -1192,6 +1192,10 @@ Those features are set using the environment variable `HELMFILE_EXPERIMENTAL`. H
 
 If you want to enable all experimental features set the env var to `HELMFILE_EXPERIMENTAL=true`
 
+## `bash` and `zsh` completion
+
+Copy `autocomplete/helmfile_bash_autocomplete` or `autocomplete/helmfile_zsh_autocomplete` (depending on your shell of choice) to directory where you keep other shell completion scripts to make sure it is sourced.
+
 ## Examples
 
 For more examples, see the [examples/README.md](https://github.com/roboll/helmfile/blob/master/examples/README.md) or the [`helmfile`](https://github.com/cloudposse/helmfiles/tree/master/releases) distribution by [Cloud Posse](https://github.com/cloudposse/).
