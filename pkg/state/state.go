@@ -2608,6 +2608,23 @@ func escape(value string) string {
 	return strings.Replace(intermediate, ",", "\\,", -1)
 }
 
+//MarshalYAML will ensure we correctly marshal SubHelmfileSpec structure correctly so it can be unmarshalled at some
+//future time
+func (p *SubHelmfileSpec) MarshalYAML() (interface{}, error) {
+	type SubHelmfileSpecTmp struct {
+		Path               string        `yaml:"path,omitempty"`
+		Selectors          []string      `yaml:"selectors,omitempty"`
+		SelectorsInherited bool          `yaml:"selectorsInherited,omitempty"`
+		OverrideValues     []interface{} `yaml:"values,omitempty"`
+	}
+	return &SubHelmfileSpecTmp{
+		Path:               p.Path,
+		Selectors:          p.Selectors,
+		SelectorsInherited: p.SelectorsInherited,
+		OverrideValues:     p.Environment.OverrideValues,
+	}, nil
+}
+
 //UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
 //this is required to keep allowing string scalar for defining helmfile
 func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
