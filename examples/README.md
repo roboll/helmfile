@@ -26,7 +26,7 @@ You would then start a database migration job by executing:
 
 ```console
 # Start a database migration for the prod environment
-$ RAILS_ENV=prod helmfile sync --selector job=dbmigrator
+$ RAILS_ENV=prod helmfile --selector job=dbmigrator sync
 
 # Tail log until you are satisfied
 $ kubectl logs -l job=dbmigrator
