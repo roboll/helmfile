@@ -70,7 +70,7 @@ type ReleaseSetSpec struct {
 	// If set to "Error", return an error when a subhelmfile points to a
 	// non-existent path. The default behavior is to print a warning. Note the
 	// differing default compared to other MissingFileHandlers.
-	MissingFileHandler string `yaml:"missingFileHandler"`
+	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
 }
 
 // HelmState structure for the helmfile
@@ -280,12 +280,12 @@ type ReleaseSpec struct {
 	// This is only needed when you can't FIX your chart to have `namespace: {{ .Namespace }}` AND you're using `helmfile template`.
 	// In standard use-cases, `Namespace` should be sufficient.
 	// Use this only when you know what you want to do!
-	ForceNamespace string `yaml:"forceNamespace"`
+	ForceNamespace string `yaml:"forceNamespace,omitempty"`
 
 	// SkipDeps disables running `helm dependency up` and `helm dependency build` on this release's chart.
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
 	// as a Helm chart.
-	SkipDeps *bool `yaml:"skipDeps"`
+	SkipDeps *bool `yaml:"skipDeps,omitempty"`
 }
 
 type Release struct {
