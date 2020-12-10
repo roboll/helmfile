@@ -52,6 +52,7 @@ type ApplyConfigProvider interface {
 
 	RetainValuesFiles() bool
 	SkipCleanup() bool
+	SkipDiffOnInstall() bool
 
 	concurrencyConfig
 	interactive

@@ -211,6 +211,10 @@ type ReleaseSpec struct {
 	// FYI, such diff without `--disable-validation` fails on first install because the K8s cluster doesn't have CRDs registered yet.
 	DisableValidation *bool `yaml:"disableValidation,omitempty"`
 
+	// DisableValidationOnInstall disables the K8s API validation while running helm-diff on the release being newly installed on helmfile-apply.
+	// It is useful when any release contains custom resources for CRDs that is not yet installed onto the cluster.
+	DisableValidationOnInstall *bool `yaml:"disableValidationOnInstall,omitempty"`
+
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
 	MissingFileHandler *string `yaml:"missingFileHandler,omitempty"`
@@ -1418,16 +1422,40 @@ type diffResult struct {
 }
 
 type diffPrepareResult struct {
-	release *ReleaseSpec
-	flags   []string
-	errors  []*ReleaseError
-	files   []string
+	release                 *ReleaseSpec
+	flags                   []string
+	errors                  []*ReleaseError
+	files                   []string
+	upgradeDueToSkippedDiff bool
 }
 
 func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, includeTests, suppressSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
+	}
+
+	mu := &sync.Mutex{}
+	installedReleases := map[string]bool{}
+
+	isInstalled := func(r *ReleaseSpec) bool {
+		mu.Lock()
+		defer mu.Unlock()
+
+		id := ReleaseToID(r)
+
+		if v, ok := installedReleases[id]; ok {
+			return v
+		}
+
+		v, err := st.isReleaseInstalled(st.createHelmContext(r, 0), helm, *r)
+		if err != nil {
+			st.logger.Warnf("confirming if the release is already installed or not: %v", err)
+		} else {
+			installedReleases[id] = v
+		}
+
+		return v
 	}
 
 	releases := []*ReleaseSpec{}
@@ -1465,10 +1493,17 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				st.ApplyOverrides(release)
 
+				if opts.SkipDiffOnInstall && !isInstalled(release) {
+					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true}
+					continue
+				}
+
+				disableValidation := release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall && !isInstalled(release)
+
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
 				mut.Lock()
-				flags, files, err := st.flagsForDiff(helm, release, workerIndex)
+				flags, files, err := st.flagsForDiff(helm, release, disableValidation, workerIndex)
 				mut.Unlock()
 				if err != nil {
 					errs = append(errs, err)
@@ -1571,6 +1606,8 @@ type DiffOpts struct {
 	Set     []string
 
 	SkipCleanup bool
+
+	SkipDiffOnInstall bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -1609,6 +1646,9 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 	rs := []ReleaseSpec{}
 	errs := []error{}
 
+	// The exit code returned by helm-diff when it detected any changes
+	HelmDiffExitCodeChanged := 2
+
 	st.scatterGather(
 		workerLimit,
 		len(preps),
@@ -1622,7 +1662,9 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 			for prep := range jobQueue {
 				flags := prep.flags
 				release := prep.release
-				if err := helm.DiffRelease(st.createHelmContext(release, workerIndex), release.Name, normalizeChart(st.basePath, release.Chart), suppressDiff, flags...); err != nil {
+				if prep.upgradeDueToSkippedDiff {
+					results <- diffResult{&ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}}
+				} else if err := helm.DiffRelease(st.createHelmContext(release, workerIndex), release.Name, normalizeChart(st.basePath, release.Chart), suppressDiff, flags...); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
@@ -1647,7 +1689,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				res := <-results
 				if res.err != nil {
 					errs = append(errs, res.err)
-					if res.err.Code == 2 {
+					if res.err.Code == HelmDiffExitCodeChanged {
 						rs = append(rs, *res.err.ReleaseSpec)
 					}
 				}
@@ -2151,7 +2193,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	return append(flags, common...), files, nil
 }
 
-func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int) ([]string, []string, error) {
 	flags := st.chartVersionFlags(release)
 
 	disableOpenAPIValidation := false
@@ -2165,7 +2207,6 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-openapi-validation")
 	}
 
-	disableValidation := false
 	if release.DisableValidation != nil {
 		disableValidation = *release.DisableValidation
 	} else if st.HelmDefaults.DisableValidation != nil {
