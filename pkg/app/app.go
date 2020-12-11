@@ -1084,10 +1084,11 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	detailedExitCode := true
 
 	diffOpts := &state.DiffOpts{
-		NoColor:     c.NoColor(),
-		Context:     c.Context(),
-		Set:         c.Set(),
-		SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
+		NoColor:           c.NoColor(),
+		Context:           c.Context(),
+		Set:               c.Set(),
+		SkipCleanup:       c.RetainValuesFiles() || c.SkipCleanup(),
+		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
