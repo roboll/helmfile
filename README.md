@@ -377,23 +377,23 @@ The [Helmfile Docker images are available in Quay](https://quay.io/roboll/helmfi
 
 ```sh-session
 # helm 2
-$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" quay.io/roboll/helmfile:v0.135.0 helmfile sync
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:v0.135.0 helmfile sync
 
 # helm 3
-$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" quay.io/roboll/helmfile:helm3-v0.135.0 helmfile sync
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:helm3-v0.135.0 helmfile sync
 ```
 
 You can also use shims to make calling the binaries easier:
 
 ```sh-session
 # helm 2
-$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" quay.io/roboll/helmfile:v0.135.0 helmfile "$@"' |
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:v0.135.0 helmfile "$@"' |
     tee helmfile
 $ chmod +x helmfile
 $ ./helmfile sync
 
 # helm 3
-$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" quay.io/roboll/helmfile:helm3-v0.135.0 helmfile "$@"' |
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:helm3-v0.135.0 helmfile "$@"' |
     tee helmfile
 $ chmod +x helmfile
 $ ./helmfile sync
