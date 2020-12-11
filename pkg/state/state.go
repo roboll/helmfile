@@ -1418,7 +1418,9 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 }
 
 type diffResult struct {
-	err *ReleaseError
+	release *ReleaseSpec
+	err     *ReleaseError
+	buf     *bytes.Buffer
 }
 
 type diffPrepareResult struct {
@@ -1600,6 +1602,14 @@ func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helme
 	}
 }
 
+func (st *HelmState) createHelmContextWithWriter(spec *ReleaseSpec, w io.Writer) helmexec.HelmContext {
+	ctx := st.createHelmContext(spec, 0)
+
+	ctx.Writer = w
+
+	return ctx
+}
+
 type DiffOpts struct {
 	Context int
 	NoColor bool
@@ -1617,7 +1627,13 @@ func (o *DiffOpts) Apply(opts *DiffOpts) {
 type DiffOpt interface{ Apply(*DiffOpts) }
 
 // DiffReleases wrapper for executing helm diff on the releases
-// It returns releases that had any changes
+// It returns releases that had any changes, and errors if any.
+//
+// This function has responsibility to stabilize the order of writes to stdout from multiple concurrent helm-diff runs.
+// It's required to use the stdout from helmfile-diff to detect if there was another change(s) between 2 points in time.
+// For example, terraform-provider-helmfile runs a helmfile-diff on `terraform plan` and another on `terraform apply`.
+// `terraform`, by design, fails when helmfile-diff outputs were not equivalent.
+// Stabilized helmfile-diff output rescues that.
 func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, includeTests, suppressSecrets, suppressDiff, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
@@ -1644,6 +1660,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 	results := make(chan diffResult, len(preps))
 
 	rs := []ReleaseSpec{}
+	outputs := map[string]*bytes.Buffer{}
 	errs := []error{}
 
 	// The exit code returned by helm-diff when it detected any changes
@@ -1662,19 +1679,20 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 			for prep := range jobQueue {
 				flags := prep.flags
 				release := prep.release
+				buf := &bytes.Buffer{}
 				if prep.upgradeDueToSkippedDiff {
-					results <- diffResult{&ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}}
-				} else if err := helm.DiffRelease(st.createHelmContext(release, workerIndex), release.Name, normalizeChart(st.basePath, release.Chart), suppressDiff, flags...); err != nil {
+					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
+				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.Chart), suppressDiff, flags...); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-						results <- diffResult{&ReleaseError{release, err, e.ExitStatus()}}
+						results <- diffResult{release, &ReleaseError{release, err, e.ExitStatus()}, buf}
 					default:
-						results <- diffResult{&ReleaseError{release, err, 0}}
+						results <- diffResult{release, &ReleaseError{release, err, 0}, buf}
 					}
 				} else {
 					// diff succeeded, found no changes
-					results <- diffResult{}
+					results <- diffResult{release, nil, buf}
 				}
 
 				if triggerCleanupEvents {
@@ -1693,9 +1711,17 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 						rs = append(rs, *res.err.ReleaseSpec)
 					}
 				}
+
+				outputs[ReleaseToID(res.release)] = res.buf
 			}
 		},
 	)
+
+	for _, p := range preps {
+		if stdout, ok := outputs[ReleaseToID(p.release)]; ok {
+			fmt.Print(stdout.String())
+		}
+	}
 
 	return rs, errs
 }
