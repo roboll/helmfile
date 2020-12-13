@@ -272,6 +272,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals map[string]interface{}, readFile func(string) ([]byte, error)) error {
 	var errs []error
 
+	helm := c.getHelm(st)
 	inputs := envSecretFiles
 	inputsSize := len(inputs)
 
@@ -294,8 +295,8 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 		func(id int) {
 			for path := range secrets {
 				release := &ReleaseSpec{}
-				flags := st.appendConnectionFlags([]string{}, release)
-				decFile, err := c.getHelm(st).DecryptSecret(st.createHelmContext(release, 0), path, flags...)
+				flags := st.appendConnectionFlags([]string{}, helm, release)
+				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), path, flags...)
 				if err != nil {
 					results <- secretResult{nil, err, path}
 					continue
