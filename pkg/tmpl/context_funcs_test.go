@@ -1,7 +1,9 @@
 package tmpl
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -47,12 +49,31 @@ func TestReadFile_PassAbsPath(t *testing.T) {
 	}
 }
 
+func TestToYaml_UnsupportedNestedMapKey(t *testing.T) {
+	expected := ``
+	vals := Values(map[string]interface{}{
+		"foo": map[interface{}]interface{}{
+			"bar": "BAR",
+		},
+	})
+	actual, err := ToYaml(vals)
+	if err == nil {
+		t.Fatalf("expected error but got none")
+	} else if err.Error() != "error marshaling into JSON: json: unsupported type: map[interface {}]interface {}" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("unexpected result: expected=%v, actual=%v", expected, actual)
+	}
+}
+
 func TestToYaml(t *testing.T) {
 	expected := `foo:
   bar: BAR
 `
 	vals := Values(map[string]interface{}{
-		"foo": map[interface{}]interface{}{
+		"foo": map[string]interface{}{
 			"bar": "BAR",
 		},
 	})
@@ -70,7 +91,7 @@ func TestFromYaml(t *testing.T) {
   bar: BAR
 `
 	expected := Values(map[string]interface{}{
-		"foo": map[interface{}]interface{}{
+		"foo": map[string]interface{}{
 			"bar": "BAR",
 		},
 	})
@@ -80,6 +101,27 @@ func TestFromYaml(t *testing.T) {
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected result: expected=%v, actual=%v", expected, actual)
+	}
+}
+
+func TestFromYamlToJson(t *testing.T) {
+	input := `foo:
+  bar: BAR
+`
+	want := `{"foo":{"bar":"BAR"}}`
+
+	m, err := FromYaml(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got, err := json.Marshal(m)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if d := cmp.Diff(want, string(got)); d != "" {
+		t.Errorf("unexpected result: want (-), got (+):\n%s", d)
 	}
 }
 

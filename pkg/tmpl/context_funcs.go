@@ -2,9 +2,9 @@ package tmpl
 
 import (
 	"fmt"
+	"github.com/ghodss/yaml"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v2"
 	"io"
 	"os"
 	"os/exec"

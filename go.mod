@@ -8,6 +8,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.1.0
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/frankban/quicktest v1.11.2 // indirect
+	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-test/deep v1.0.7
 	github.com/golang/mock v1.4.4
 	github.com/google/go-cmp v0.5.2
