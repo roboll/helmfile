@@ -365,11 +365,39 @@ If you wish to treat your enviroment variables as strings always, even if they a
 ## Installation
 
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
-- run as a [container](https://quay.io/roboll/helmfile) or
+- [run as a container](#running-as-a-container) or
 - Archlinux: install via `pacman -S helmfile` or from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) or
 - openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/openSUSE_Leap_\$releasever kubic`, or
 - Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 - macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
+
+### Running as a container
+
+The [Helmfile Docker images are available in Quay](https://quay.io/roboll/helmfile). There is no `latest` tag, since the `0.x` versions can contain breaking changes, so make sure you pick the right tag. Example using `helmfile 0.135.0`:
+
+```sh-session
+# helm 2
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:v0.135.0 helmfile sync
+
+# helm 3
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:helm3-v0.135.0 helmfile sync
+```
+
+You can also use shims to make calling the binaries easier:
+
+```sh-session
+# helm 2
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:v0.135.0 helmfile "$@"' |
+    tee helmfile
+$ chmod +x helmfile
+$ ./helmfile sync
+
+# helm 3
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:helm3-v0.135.0 helmfile "$@"' |
+    tee helmfile
+$ chmod +x helmfile
+$ ./helmfile sync
+```
 
 ## Getting Started
 
