@@ -57,9 +57,12 @@ func TestToYaml_UnsupportedNestedMapKey(t *testing.T) {
 		},
 	})
 	actual, err := ToYaml(vals)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatalf("expected error but got none")
+	} else if err.Error() != "error marshaling into JSON: json: unsupported type: map[interface {}]interface {}" {
+		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected result: expected=%v, actual=%v", expected, actual)
 	}
