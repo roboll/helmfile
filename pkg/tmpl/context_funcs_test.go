@@ -49,12 +49,28 @@ func TestReadFile_PassAbsPath(t *testing.T) {
 	}
 }
 
+func TestToYaml_UnsupportedNestedMapKey(t *testing.T) {
+	expected := ``
+	vals := Values(map[string]interface{}{
+		"foo": map[interface{}]interface{}{
+			"bar": "BAR",
+		},
+	})
+	actual, err := ToYaml(vals)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("unexpected result: expected=%v, actual=%v", expected, actual)
+	}
+}
+
 func TestToYaml(t *testing.T) {
 	expected := `foo:
   bar: BAR
 `
 	vals := Values(map[string]interface{}{
-		"foo": map[interface{}]interface{}{
+		"foo": map[string]interface{}{
 			"bar": "BAR",
 		},
 	})
