@@ -70,7 +70,7 @@ type ReleaseSetSpec struct {
 	// If set to "Error", return an error when a subhelmfile points to a
 	// non-existent path. The default behavior is to print a warning. Note the
 	// differing default compared to other MissingFileHandlers.
-	MissingFileHandler string `yaml:"missingFileHandler"`
+	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
 }
 
 // HelmState structure for the helmfile
@@ -82,12 +82,12 @@ type HelmState struct {
 
 	logger *zap.SugaredLogger
 
-	readFile func(string) ([]byte, error)
-
-	removeFile func(string) error
-	fileExists func(string) (bool, error)
-	glob       func(string) ([]string, error)
-	tempDir    func(string, string) (string, error)
+	readFile          func(string) ([]byte, error)
+	removeFile        func(string) error
+	fileExists        func(string) (bool, error)
+	glob              func(string) ([]string, error)
+	tempDir           func(string, string) (string, error)
+	directoryExistsAt func(string) bool
 
 	runner      helmexec.Runner
 	valsRuntime vals.Evaluator
@@ -139,6 +139,10 @@ type HelmSpec struct {
 	HistoryMax *int `yaml:"historyMax,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install/upgrade (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
+	// SkipDeps disables running `helm dependency up` and `helm dependency build` on this release's chart.
+	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
+	// as a Helm chart.
+	SkipDeps bool `yaml:"skipDeps"`
 
 	TLS                      bool   `yaml:"tls"`
 	TLSCACert                string `yaml:"tlsCACert,omitempty"`
@@ -207,6 +211,10 @@ type ReleaseSpec struct {
 	// FYI, such diff without `--disable-validation` fails on first install because the K8s cluster doesn't have CRDs registered yet.
 	DisableValidation *bool `yaml:"disableValidation,omitempty"`
 
+	// DisableValidationOnInstall disables the K8s API validation while running helm-diff on the release being newly installed on helmfile-apply.
+	// It is useful when any release contains custom resources for CRDs that is not yet installed onto the cluster.
+	DisableValidationOnInstall *bool `yaml:"disableValidationOnInstall,omitempty"`
+
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
 	MissingFileHandler *string `yaml:"missingFileHandler,omitempty"`
@@ -252,7 +260,14 @@ type ReleaseSpec struct {
 	Dependencies          []Dependency  `yaml:"dependencies,omitempty"`
 	JSONPatches           []interface{} `yaml:"jsonPatches,omitempty"`
 	StrategicMergePatches []interface{} `yaml:"strategicMergePatches,omitempty"`
-	Adopt                 []string      `yaml:"adopt,omitempty"`
+
+	// Transformers is the list of Kustomize transformers
+	//
+	// Each item can be a path to a YAML or go template file, or an embedded transformer declaration as a YAML hash.
+	// It's often used to add common labels and annotations to your resources.
+	// See https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead for more information.
+	Transformers []interface{} `yaml:"transformers,omitempty"`
+	Adopt        []string      `yaml:"adopt,omitempty"`
 
 	//version of the chart that has really been installed cause desired version may be fuzzy (~2.0.0)
 	installedVersion string
@@ -269,7 +284,12 @@ type ReleaseSpec struct {
 	// This is only needed when you can't FIX your chart to have `namespace: {{ .Namespace }}` AND you're using `helmfile template`.
 	// In standard use-cases, `Namespace` should be sufficient.
 	// Use this only when you know what you want to do!
-	ForceNamespace string `yaml:"forceNamespace"`
+	ForceNamespace string `yaml:"forceNamespace,omitempty"`
+
+	// SkipDeps disables running `helm dependency up` and `helm dependency build` on this release's chart.
+	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
+	// as a Helm chart.
+	SkipDeps *bool `yaml:"skipDeps,omitempty"`
 }
 
 type Release struct {
@@ -526,7 +546,8 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 }
 
 type SyncOpts struct {
-	Set []string
+	Set         []string
+	SkipCleanup bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -660,6 +681,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit, opts)
 
 	defer func() {
+		if opts.SkipCleanup {
+			return
+		}
+
 		for _, p := range preps {
 			st.removeFiles(p.files)
 		}
@@ -819,6 +844,7 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 type ChartPrepareOptions struct {
 	ForceDownload bool
 	SkipRepos     bool
+	SkipDeps      bool
 	SkipResolve   bool
 }
 
@@ -846,7 +872,22 @@ type chartPrepareResult struct {
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
 func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[string]string, []error) {
-	releases := releasesNeedCharts(st.Releases)
+	var selected []ReleaseSpec
+
+	if len(st.Selectors) > 0 {
+		var err error
+
+		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
+		// releases that are (1) selected by the selectors and (2) to be installed.
+		selected, err = st.GetSelectedReleasesWithOverrides()
+		if err != nil {
+			return nil, []error{err}
+		}
+	} else {
+		selected = st.Releases
+	}
+
+	releases := releasesNeedCharts(selected)
 
 	temp := make(map[string]string, len(releases))
 
@@ -894,6 +935,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				chartName := release.Chart
 
+				isLocal := st.directoryExistsAt(normalizeChart(st.basePath, chartName))
+
 				chartPath, err := st.goGetterChart(chartName, release.Directory, release.ForceGoGetter)
 				if err != nil {
 					results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
@@ -911,21 +954,35 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				var buildDeps bool
 
+				skipDepsGlobal := opts.SkipDeps
+				skipDepsRelease := release.SkipDeps != nil && *release.SkipDeps
+				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
+				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault
+
 				if chartification != nil {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
 						chartify.UseHelm3(helm3),
 					)
 
-					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartification.Opts))
+					chartifyOpts := chartification.Opts
+
+					if skipDeps {
+						chartifyOpts.SkipDeps = true
+					}
+
+					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
 						results <- &chartPrepareResult{err: err}
 						return
 					} else {
-						// TODO Chartify
 						chartPath = out
 					}
-				} else if pathExists(normalizeChart(st.basePath, chartPath)) {
+
+					// Skip `helm dep build` and `helm dep up` altogether when the chart is from remote or the dep is
+					// explicitly skipped.
+					buildDeps = !skipDeps
+				} else if normalizedChart := normalizeChart(st.basePath, chartPath); st.directoryExistsAt(normalizedChart) {
 					// At this point, we are sure that chartPath is a local directory containing either:
 					// - A remote chart fetched by go-getter or
 					// - A local chart
@@ -949,9 +1006,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// Given that, we always run `helm dep build` on the chart here, but tolerate any error caused by it
 					// for a remote chart, so that the user can notice/fix the issue in a local chart while
 					// a broken remote chart won't completely block their job.
-					chartPath = normalizeChart(st.basePath, chartPath)
+					chartPath = normalizedChart
 
-					buildDeps = !opts.SkipRepos
+					buildDeps = !skipDeps
 				} else if !opts.ForceDownload {
 					// At this point, we are sure that either:
 					// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
@@ -1084,7 +1141,9 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 
 type TemplateOpts struct {
 	Set               []string
+	SkipCleanup       bool
 	OutputDirTemplate string
+	IncludeCRDs       bool
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -1094,7 +1153,9 @@ func (o *TemplateOpts) Apply(opts *TemplateOpts) {
 }
 
 // TemplateReleases wrapper for executing helm template on the releases
-func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int, validate bool, opt ...TemplateOpt) []error {
+func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int,
+	validate bool, opt ...TemplateOpt) []error {
+
 	opts := &TemplateOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -1114,6 +1175,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 		flags, files, err := st.flagsForTemplate(helm, release, 0)
 
 		defer func() {
+			if opts.SkipCleanup {
+				return
+			}
+
 			st.removeFiles(files)
 		}()
 
@@ -1155,6 +1220,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		if validate {
 			flags = append(flags, "--validate")
+		}
+
+		if opts.IncludeCRDs {
+			flags = append(flags, "--include-crds")
 		}
 
 		if len(errs) == 0 {
@@ -1349,20 +1418,46 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 }
 
 type diffResult struct {
-	err *ReleaseError
+	release *ReleaseSpec
+	err     *ReleaseError
+	buf     *bytes.Buffer
 }
 
 type diffPrepareResult struct {
-	release *ReleaseSpec
-	flags   []string
-	errors  []*ReleaseError
-	files   []string
+	release                 *ReleaseSpec
+	flags                   []string
+	errors                  []*ReleaseError
+	files                   []string
+	upgradeDueToSkippedDiff bool
 }
 
 func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, includeTests, suppressSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
+	}
+
+	mu := &sync.Mutex{}
+	installedReleases := map[string]bool{}
+
+	isInstalled := func(r *ReleaseSpec) bool {
+		mu.Lock()
+		defer mu.Unlock()
+
+		id := ReleaseToID(r)
+
+		if v, ok := installedReleases[id]; ok {
+			return v
+		}
+
+		v, err := st.isReleaseInstalled(st.createHelmContext(r, 0), helm, *r)
+		if err != nil {
+			st.logger.Warnf("confirming if the release is already installed or not: %v", err)
+		} else {
+			installedReleases[id] = v
+		}
+
+		return v
 	}
 
 	releases := []*ReleaseSpec{}
@@ -1400,10 +1495,17 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				st.ApplyOverrides(release)
 
+				if opts.SkipDiffOnInstall && !isInstalled(release) {
+					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true}
+					continue
+				}
+
+				disableValidation := release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall && !isInstalled(release)
+
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
 				mut.Lock()
-				flags, files, err := st.flagsForDiff(helm, release, workerIndex)
+				flags, files, err := st.flagsForDiff(helm, release, disableValidation, workerIndex)
 				mut.Unlock()
 				if err != nil {
 					errs = append(errs, err)
@@ -1500,10 +1602,22 @@ func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helme
 	}
 }
 
+func (st *HelmState) createHelmContextWithWriter(spec *ReleaseSpec, w io.Writer) helmexec.HelmContext {
+	ctx := st.createHelmContext(spec, 0)
+
+	ctx.Writer = w
+
+	return ctx
+}
+
 type DiffOpts struct {
 	Context int
 	NoColor bool
 	Set     []string
+
+	SkipCleanup bool
+
+	SkipDiffOnInstall bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -1513,7 +1627,13 @@ func (o *DiffOpts) Apply(opts *DiffOpts) {
 type DiffOpt interface{ Apply(*DiffOpts) }
 
 // DiffReleases wrapper for executing helm diff on the releases
-// It returns releases that had any changes
+// It returns releases that had any changes, and errors if any.
+//
+// This function has responsibility to stabilize the order of writes to stdout from multiple concurrent helm-diff runs.
+// It's required to use the stdout from helmfile-diff to detect if there was another change(s) between 2 points in time.
+// For example, terraform-provider-helmfile runs a helmfile-diff on `terraform plan` and another on `terraform apply`.
+// `terraform`, by design, fails when helmfile-diff outputs were not equivalent.
+// Stabilized helmfile-diff output rescues that.
 func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, includeTests, suppressSecrets, suppressDiff, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
@@ -1523,6 +1643,10 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppressSecrets, opts)
 
 	defer func() {
+		if opts.SkipCleanup {
+			return
+		}
+
 		for _, p := range preps {
 			st.removeFiles(p.files)
 		}
@@ -1536,7 +1660,11 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 	results := make(chan diffResult, len(preps))
 
 	rs := []ReleaseSpec{}
+	outputs := map[string]*bytes.Buffer{}
 	errs := []error{}
+
+	// The exit code returned by helm-diff when it detected any changes
+	HelmDiffExitCodeChanged := 2
 
 	st.scatterGather(
 		workerLimit,
@@ -1551,17 +1679,20 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 			for prep := range jobQueue {
 				flags := prep.flags
 				release := prep.release
-				if err := helm.DiffRelease(st.createHelmContext(release, workerIndex), release.Name, normalizeChart(st.basePath, release.Chart), suppressDiff, flags...); err != nil {
+				buf := &bytes.Buffer{}
+				if prep.upgradeDueToSkippedDiff {
+					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
+				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.Chart), suppressDiff, flags...); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-						results <- diffResult{&ReleaseError{release, err, e.ExitStatus()}}
+						results <- diffResult{release, &ReleaseError{release, err, e.ExitStatus()}, buf}
 					default:
-						results <- diffResult{&ReleaseError{release, err, 0}}
+						results <- diffResult{release, &ReleaseError{release, err, 0}, buf}
 					}
 				} else {
 					// diff succeeded, found no changes
-					results <- diffResult{}
+					results <- diffResult{release, nil, buf}
 				}
 
 				if triggerCleanupEvents {
@@ -1576,13 +1707,21 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				res := <-results
 				if res.err != nil {
 					errs = append(errs, res.err)
-					if res.err.Code == 2 {
+					if res.err.Code == HelmDiffExitCodeChanged {
 						rs = append(rs, *res.err.ReleaseSpec)
 					}
 				}
+
+				outputs[ReleaseToID(res.release)] = res.buf
 			}
 		},
 	)
+
+	for _, p := range preps {
+		if stdout, ok := outputs[ReleaseToID(p.release)]; ok {
+			fmt.Print(stdout.String())
+		}
+	}
 
 	return rs, errs
 }
@@ -1641,8 +1780,26 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 	})
 }
 
+type TestOpts struct {
+	Logs bool
+}
+
+type TestOption func(*TestOpts)
+
+func Logs(v bool) func(*TestOpts) {
+	return func(o *TestOpts) {
+		o.Logs = v
+	}
+}
+
 // TestReleases wrapper for executing helm test on the releases
-func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int) []error {
+func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int, options ...TestOption) []error {
+	var opts TestOpts
+
+	for _, o := range options {
+		o(&opts)
+	}
+
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
@@ -1654,6 +1811,9 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 		if cleanup && !helm.IsHelm3() {
 			flags = append(flags, "--cleanup")
+		}
+		if opts.Logs {
+			flags = append(flags, "--logs")
 		}
 
 		if timeout == EmptyTimeout {
@@ -1845,10 +2005,12 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 	var errs []error
 
 	for _, release := range st.Releases {
-		if isLocalChart(release.Chart) {
-			if err := helm.UpdateDeps(normalizeChart(st.basePath, release.Chart)); err != nil {
+		if st.directoryExistsAt(release.Chart) {
+			if err := helm.UpdateDeps(release.Chart); err != nil {
 				errs = append(errs, err)
 			}
+		} else {
+			st.logger.Debugf("skipped updating dependencies for remote chart %s", release.Chart)
 		}
 	}
 
@@ -1867,11 +2029,6 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 		return errs
 	}
 	return nil
-}
-
-func pathExists(chart string) bool {
-	_, err := os.Stat(chart)
-	return err == nil
 }
 
 func chartNameWithoutRepository(chart string) string {
@@ -2062,7 +2219,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	return append(flags, common...), files, nil
 }
 
-func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int) ([]string, []string, error) {
 	flags := st.chartVersionFlags(release)
 
 	disableOpenAPIValidation := false
@@ -2076,7 +2233,6 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-openapi-validation")
 	}
 
-	disableValidation := false
 	if release.DisableValidation != nil {
 		disableValidation = *release.DisableValidation
 	} else if st.HelmDefaults.DisableValidation != nil {
@@ -2206,7 +2362,7 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 			if st.MissingFileHandler == "Error" {
 				return nil, err
 			}
-			fmt.Println(err)
+			st.logger.Warnf("no matches for path: %s", hf.Path)
 			continue
 		}
 		for _, match := range matches {
@@ -2517,6 +2673,23 @@ func escape(value string) string {
 	intermediate := strings.Replace(value, "{", "\\{", -1)
 	intermediate = strings.Replace(intermediate, "}", "\\}", -1)
 	return strings.Replace(intermediate, ",", "\\,", -1)
+}
+
+//MarshalYAML will ensure we correctly marshal SubHelmfileSpec structure correctly so it can be unmarshalled at some
+//future time
+func (p SubHelmfileSpec) MarshalYAML() (interface{}, error) {
+	type SubHelmfileSpecTmp struct {
+		Path               string        `yaml:"path,omitempty"`
+		Selectors          []string      `yaml:"selectors,omitempty"`
+		SelectorsInherited bool          `yaml:"selectorsInherited,omitempty"`
+		OverrideValues     []interface{} `yaml:"values,omitempty"`
+	}
+	return &SubHelmfileSpecTmp{
+		Path:               p.Path,
+		Selectors:          p.Selectors,
+		SelectorsInherited: p.SelectorsInherited,
+		OverrideValues:     p.Environment.OverrideValues,
+	}, nil
 }
 
 //UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure

@@ -51,6 +51,8 @@ type ApplyConfigProvider interface {
 	Context() int
 
 	RetainValuesFiles() bool
+	SkipCleanup() bool
+	SkipDiffOnInstall() bool
 
 	concurrencyConfig
 	interactive
@@ -110,6 +112,7 @@ type TestConfigProvider interface {
 
 	Timeout() int
 	Cleanup() bool
+	Logs() bool
 
 	concurrencyConfig
 }
@@ -132,7 +135,9 @@ type TemplateConfigProvider interface {
 	OutputDirTemplate() string
 	Validate() bool
 	SkipDeps() bool
+	SkipCleanup() bool
 	OutputDir() string
+	IncludeCRDs() bool
 
 	concurrencyConfig
 }

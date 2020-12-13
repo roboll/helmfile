@@ -105,6 +105,7 @@ func (a *App) Deps(c DepsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		prepErr := run.withPreparedCharts("deps", state.ChartPrepareOptions{
 			SkipRepos:   c.SkipRepos(),
+			SkipDeps:    true,
 			SkipResolve: true,
 		}, func() {
 			errs = run.Deps(c)
@@ -122,7 +123,10 @@ func (a *App) Repos(c ReposConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		var reposErr error
 
-		err := run.withPreparedCharts("repos", state.ChartPrepareOptions{SkipRepos: true}, func() {
+		err := run.withPreparedCharts("repos", state.ChartPrepareOptions{
+			SkipRepos: true,
+			SkipDeps:  true,
+		}, func() {
 			reposErr = run.Repos(c)
 		})
 
@@ -140,7 +144,10 @@ func (a *App) Repos(c ReposConfigProvider) error {
 
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("charts", state.ChartPrepareOptions{SkipRepos: true}, func() {
+		err := run.withPreparedCharts("charts", state.ChartPrepareOptions{
+			SkipRepos: true,
+			SkipDeps:  true,
+		}, func() {
 			errs = run.DeprecatedSyncCharts(c)
 		})
 
@@ -166,7 +173,10 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		var errs []error
 
-		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{SkipRepos: c.SkipDeps()}, func() {
+		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
+			SkipRepos: c.SkipDeps(),
+			SkipDeps:  c.SkipDeps(),
+		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
 		})
 
@@ -218,12 +228,16 @@ func (a *App) Diff(c DiffConfigProvider) error {
 }
 
 func (a *App) Template(c TemplateConfigProvider) error {
+
+	opts := []LoadOption{SetRetainValuesFiles(c.SkipCleanup())}
+
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		// `helm template` in helm v2 does not support local chart.
 		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
 			ForceDownload: !run.helm.IsHelm3(),
 			SkipRepos:     c.SkipDeps(),
+			SkipDeps:      c.SkipDeps(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -233,7 +247,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		}
 
 		return
-	}, SetFilter(true))
+	}, opts...)
 }
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
@@ -243,6 +257,7 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
 			ForceDownload: !run.helm.IsHelm3(),
 			SkipRepos:     c.SkipDeps(),
+			SkipDeps:      c.SkipDeps(),
 		}, func() {
 			ok, errs = a.writeValues(run, c)
 		})
@@ -261,6 +276,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
 			ForceDownload: true,
 			SkipRepos:     c.SkipDeps(),
+			SkipDeps:      c.SkipDeps(),
 		}, func() {
 			errs = run.Lint(c)
 		})
@@ -277,6 +293,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
 			SkipRepos: c.SkipDeps(),
+			SkipDeps:  c.SkipDeps(),
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
@@ -296,11 +313,12 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	var opts []LoadOption
 
-	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles()))
+	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles() || c.SkipCleanup()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
 			SkipRepos: c.SkipDeps(),
+			SkipDeps:  c.SkipDeps(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -335,6 +353,7 @@ func (a *App) Status(c StatusesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("status", state.ChartPrepareOptions{
 			SkipRepos: true,
+			SkipDeps:  true,
 		}, func() {
 			errs = run.Status(c)
 		})
@@ -351,6 +370,7 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
 			SkipRepos: true,
+			SkipDeps:  true,
 		}, func() {
 			ok, errs = a.delete(run, c.Purge(), c)
 		})
@@ -367,6 +387,7 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
 			SkipRepos: true,
+			SkipDeps:  true,
 		}, func() {
 			ok, errs = a.delete(run, true, c)
 		})
@@ -389,6 +410,7 @@ func (a *App) Test(c TestConfigProvider) error {
 
 		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
 			SkipRepos: true,
+			SkipDeps:  true,
 		}, func() {
 			errs = a.test(run, c)
 		})
@@ -405,6 +427,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
 			SkipRepos: true,
+			SkipDeps:  true,
 		}, func() {
 			if c.EmbedValues() {
 				for i := range run.state.Releases {
@@ -453,6 +476,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("list", state.ChartPrepareOptions{
 			SkipRepos: true,
+			SkipDeps:  true,
 		}, func() {
 
 			//var releases m
@@ -584,14 +608,15 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 	}
 
 	ld := &desiredStateLoader{
-		readFile:   a.readFile,
-		deleteFile: a.deleteFile,
-		fileExists: a.fileExists,
-		env:        a.Env,
-		namespace:  a.Namespace,
-		logger:     a.Logger,
-		abs:        a.abs,
-		remote:     a.remote,
+		readFile:          a.readFile,
+		deleteFile:        a.deleteFile,
+		fileExists:        a.fileExists,
+		directoryExistsAt: a.directoryExistsAt,
+		env:               a.Env,
+		namespace:         a.Namespace,
+		logger:            a.Logger,
+		abs:               a.abs,
+		remote:            a.remote,
 
 		overrideKubeContext: a.OverrideKubeContext,
 		overrideHelmBinary:  a.OverrideHelmBinary,
@@ -1059,9 +1084,11 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	detailedExitCode := true
 
 	diffOpts := &state.DiffOpts{
-		NoColor: c.NoColor(),
-		Context: c.Context(),
-		Set:     c.Set(),
+		NoColor:           c.NoColor(),
+		Context:           c.Context(),
+		Set:               c.Set(),
+		SkipCleanup:       c.RetainValuesFiles() || c.SkipCleanup(),
+		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1150,7 +1177,8 @@ Do you really want to apply?
 				subst.Releases = rs
 
 				syncOpts := state.SyncOpts{
-					Set: c.Set(),
+					Set:         c.Set(),
+					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
 			}))
@@ -1433,7 +1461,9 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 			opts := &state.TemplateOpts{
 				Set:               c.Set(),
+				IncludeCRDs:       c.IncludeCRDs(),
 				OutputDirTemplate: c.OutputDirTemplate(),
+				SkipCleanup:       c.SkipCleanup(),
 			}
 			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 		}))

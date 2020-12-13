@@ -144,6 +144,22 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		shouldRun = true
 	}
 
+	transformers := release.Transformers
+	if len(transformers) > 0 {
+		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, transformers, release.MissingFileHandler)
+		if err != nil {
+			return nil, clean, err
+		}
+
+		for _, f := range generatedFiles {
+			chartify.Opts.Transformers = append(chartify.Opts.Transformers, f)
+		}
+
+		filesNeedCleaning = append(filesNeedCleaning, generatedFiles...)
+
+		shouldRun = true
+	}
+
 	if release.ForceNamespace != "" {
 		chartify.Opts.OverrideNamespace = release.ForceNamespace
 

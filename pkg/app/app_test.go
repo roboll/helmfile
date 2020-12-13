@@ -2237,9 +2237,16 @@ services:
 }
 
 type configImpl struct {
-	set      []string
-	output   string
-	skipDeps bool
+	selectors   []string
+	set         []string
+	output      string
+	includeCRDs bool
+	skipCleanup bool
+	skipDeps    bool
+}
+
+func (a configImpl) Selectors() []string {
+	return a.selectors
 }
 
 func (c configImpl) Set() []string {
@@ -2258,6 +2265,10 @@ func (c configImpl) Validate() bool {
 	return true
 }
 
+func (c configImpl) SkipCleanup() bool {
+	return c.skipCleanup
+}
+
 func (c configImpl) SkipDeps() bool {
 	return c.skipDeps
 }
@@ -2268,6 +2279,10 @@ func (c configImpl) OutputDir() string {
 
 func (c configImpl) OutputDirTemplate() string {
 	return ""
+}
+
+func (c configImpl) IncludeCRDs() bool {
+	return c.includeCRDs
 }
 
 func (c configImpl) Concurrency() int {
@@ -2288,6 +2303,7 @@ type applyConfig struct {
 	retainValuesFiles bool
 	set               []string
 	validate          bool
+	skipCleanup       bool
 	skipDeps          bool
 	includeTests      bool
 	suppressSecrets   bool
@@ -2297,6 +2313,7 @@ type applyConfig struct {
 	concurrency       int
 	detailedExitcode  bool
 	interactive       bool
+	skipDiffOnInstall bool
 	logger            *zap.SugaredLogger
 }
 
@@ -2314,6 +2331,10 @@ func (a applyConfig) Set() []string {
 
 func (a applyConfig) Validate() bool {
 	return a.validate
+}
+
+func (a applyConfig) SkipCleanup() bool {
+	return a.skipCleanup
 }
 
 func (a applyConfig) SkipDeps() bool {
@@ -2358,6 +2379,22 @@ func (a applyConfig) Logger() *zap.SugaredLogger {
 
 func (a applyConfig) RetainValuesFiles() bool {
 	return a.retainValuesFiles
+}
+
+func (a applyConfig) SkipDiffOnInstall() bool {
+	return a.skipDiffOnInstall
+}
+
+type depsConfig struct {
+	skipRepos bool
+}
+
+func (d depsConfig) SkipRepos() bool {
+	return d.skipRepos
+}
+
+func (d depsConfig) Args() string {
+	return ""
 }
 
 // Mocking the command-line runner
@@ -2619,18 +2656,19 @@ releases:
 
 func TestApply(t *testing.T) {
 	testcases := []struct {
-		name        string
-		loc         string
-		ns          string
-		concurrency int
-		error       string
-		files       map[string]string
-		selectors   []string
-		lists       map[exectest.ListKey]string
-		diffs       map[exectest.DiffKey]error
-		upgraded    []exectest.Release
-		deleted     []exectest.Release
-		log         string
+		name              string
+		loc               string
+		ns                string
+		concurrency       int
+		skipDiffOnInstall bool
+		error             string
+		files             map[string]string
+		selectors         []string
+		lists             map[exectest.ListKey]string
+		diffs             map[exectest.DiffKey]error
+		upgraded          []exectest.Release
+		deleted           []exectest.Release
+		log               string
 	}{
 		//
 		// complex test cases for smoke testing
@@ -3037,6 +3075,222 @@ UPDATED RELEASES:
 NAME   CHART             VERSION
 baz    stable/mychart3          
 bar    stable/mychart2          
+foo    stable/mychart1          
+
+`,
+		},
+		//
+		// install with upgrade
+		//
+		{
+			name: "install-with-upgrade-with-validation-control",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: baz
+  chart: stable/mychart3
+  disableValidationOnInstall: true
+- name: foo
+  chart: stable/mychart1
+  disableValidationOnInstall: true
+  needs:
+  - bar
+- name: bar
+  chart: stable/mychart2
+  disableValidation: true
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-contextdefault--detailed-exitcode"}:                     helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "stable/mychart1", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				exectest.ListKey{Filter: "^foo$", Flags: "--kube-contextdefault--deployed--failed--pending"}: ``,
+				exectest.ListKey{Filter: "^bar$", Flags: "--kube-contextdefault--deployed--failed--pending"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
+`,
+				exectest.ListKey{Filter: "^baz$", Flags: "--kube-contextdefault--deployed--failed--pending"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	default
+`,
+			},
+			upgraded: []exectest.Release{
+				{Name: "baz", Flags: []string{"--kube-context", "default"}},
+				{Name: "bar", Flags: []string{"--kube-context", "default"}},
+				{Name: "foo", Flags: []string{"--kube-context", "default"}},
+			},
+			deleted:     []exectest.Release{},
+			concurrency: 1,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: baz
+ 3:   chart: stable/mychart3
+ 4:   disableValidationOnInstall: true
+ 5: - name: foo
+ 6:   chart: stable/mychart1
+ 7:   disableValidationOnInstall: true
+ 8:   needs:
+ 9:   - bar
+10: - name: bar
+11:   chart: stable/mychart2
+12:   disableValidation: true
+13: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: baz
+ 3:   chart: stable/mychart3
+ 4:   disableValidationOnInstall: true
+ 5: - name: foo
+ 6:   chart: stable/mychart1
+ 7:   disableValidationOnInstall: true
+ 8:   needs:
+ 9:   - bar
+10: - name: bar
+11:   chart: stable/mychart2
+12:   disableValidation: true
+13: 
+
+merged environment: &{default map[] map[]}
+3 release(s) found in helmfile.yaml
+
+Affected releases are:
+  bar (stable/mychart2) UPDATED
+  baz (stable/mychart3) UPDATED
+  foo (stable/mychart1) UPDATED
+
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     baz, bar
+2     foo
+
+processing releases in group 1/2: baz, bar
+processing releases in group 2/2: foo
+getting deployed release version failed:Failed to get the version for:mychart1
+
+UPDATED RELEASES:
+NAME   CHART             VERSION
+baz    stable/mychart3     3.1.0
+bar    stable/mychart2     3.1.0
+foo    stable/mychart1          
+
+`,
+		},
+		//
+		// install with upgrade and --skip-diff-on-install
+		//
+		{
+			name:              "install-with-upgrade-with-skip-diff-on-install",
+			loc:               location(),
+			skipDiffOnInstall: true,
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: baz
+  chart: stable/mychart3
+  disableValidationOnInstall: true
+- name: foo
+  chart: stable/mychart1
+  disableValidationOnInstall: true
+  needs:
+  - bar
+- name: bar
+  chart: stable/mychart2
+  disableValidation: true
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-contextdefault--detailed-exitcode"}:                     helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				exectest.ListKey{Filter: "^foo$", Flags: "--kube-contextdefault--deployed--failed--pending"}: ``,
+				exectest.ListKey{Filter: "^bar$", Flags: "--kube-contextdefault--deployed--failed--pending"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
+`,
+				exectest.ListKey{Filter: "^baz$", Flags: "--kube-contextdefault--deployed--failed--pending"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	default
+`,
+			},
+			upgraded: []exectest.Release{
+				{Name: "baz", Flags: []string{"--kube-context", "default"}},
+				{Name: "bar", Flags: []string{"--kube-context", "default"}},
+				{Name: "foo", Flags: []string{"--kube-context", "default"}},
+			},
+			deleted:     []exectest.Release{},
+			concurrency: 1,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: baz
+ 3:   chart: stable/mychart3
+ 4:   disableValidationOnInstall: true
+ 5: - name: foo
+ 6:   chart: stable/mychart1
+ 7:   disableValidationOnInstall: true
+ 8:   needs:
+ 9:   - bar
+10: - name: bar
+11:   chart: stable/mychart2
+12:   disableValidation: true
+13: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: baz
+ 3:   chart: stable/mychart3
+ 4:   disableValidationOnInstall: true
+ 5: - name: foo
+ 6:   chart: stable/mychart1
+ 7:   disableValidationOnInstall: true
+ 8:   needs:
+ 9:   - bar
+10: - name: bar
+11:   chart: stable/mychart2
+12:   disableValidation: true
+13: 
+
+merged environment: &{default map[] map[]}
+3 release(s) found in helmfile.yaml
+
+Affected releases are:
+  bar (stable/mychart2) UPDATED
+  baz (stable/mychart3) UPDATED
+  foo (stable/mychart1) UPDATED
+
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     baz, bar
+2     foo
+
+processing releases in group 1/2: baz, bar
+processing releases in group 2/2: foo
+getting deployed release version failed:Failed to get the version for:mychart1
+
+UPDATED RELEASES:
+NAME   CHART             VERSION
+baz    stable/mychart3     3.1.0
+bar    stable/mychart2     3.1.0
 foo    stable/mychart1          
 
 `,
@@ -3887,8 +4141,9 @@ err: "foo" depends on nonexistent release "bar"
 
 				applyErr := app.Apply(applyConfig{
 					// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
-					concurrency: tc.concurrency,
-					logger:      logger,
+					concurrency:       tc.concurrency,
+					logger:            logger,
+					skipDiffOnInstall: tc.skipDiffOnInstall,
 				})
 				if tc.error == "" && applyErr != nil {
 					t.Fatalf("unexpected error for data defined at %s: %v", tc.loc, applyErr)
@@ -3926,6 +4181,147 @@ err: "foo" depends on nonexistent release "bar"
 							t.Errorf("releaes[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Deleted[relIdx].Flags[flagIdx], wantDeletes[relIdx].Flags[flagIdx])
 						}
 					}
+				}
+			}()
+
+			if tc.log != "" {
+				actual := bs.String()
+
+				diff, exists := testhelper.Diff(tc.log, actual, 3)
+				if exists {
+					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
+				}
+			}
+		})
+	}
+}
+
+func TestDeps(t *testing.T) {
+	testcases := []struct {
+		name   string
+		loc    string
+		error  string
+		files  map[string]string
+		log    string
+		charts []string
+	}{
+		//
+		// complex test cases for smoke testing
+		//
+		{
+			name: "smoke",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+repositories:
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami/
+releases:
+- name: example
+  chart: /path/to/charts/example
+`,
+				"/path/to/charts/example/Chart.yaml": `foo: FOO`,
+			},
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: repositories:
+ 2: - name: bitnami
+ 3:   url: https://charts.bitnami.com/bitnami/
+ 4: releases:
+ 5: - name: example
+ 6:   chart: /path/to/charts/example
+ 7: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: repositories:
+ 2: - name: bitnami
+ 3:   url: https://charts.bitnami.com/bitnami/
+ 4: releases:
+ 5: - name: example
+ 6:   chart: /path/to/charts/example
+ 7: 
+
+merged environment: &{default map[] map[]}
+There are no repositories defined in your helmfile.yaml.
+This means helmfile cannot update your dependencies or create a lock file.
+See https://github.com/roboll/helmfile/issues/878 for more information.
+`,
+			charts: []string{"/path/to/charts/example"},
+		},
+	}
+
+	for i := range testcases {
+		tc := testcases[i]
+		t.Run(tc.name, func(t *testing.T) {
+
+			var helm = &exectest.Helm{
+				DiffMutex:     &sync.Mutex{},
+				ChartsMutex:   &sync.Mutex{},
+				ReleasesMutex: &sync.Mutex{},
+			}
+
+			bs := &bytes.Buffer{}
+
+			func() {
+				logReader, logWriter := io.Pipe()
+
+				logFlushed := &sync.WaitGroup{}
+				// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
+				logFlushed.Add(1)
+				go func() {
+					scanner := bufio.NewScanner(logReader)
+					for scanner.Scan() {
+						bs.Write(scanner.Bytes())
+						bs.WriteString("\n")
+					}
+					logFlushed.Done()
+				}()
+
+				defer func() {
+					// This is here to avoid data-trace on bytes buffer `bs` to capture logs
+					if err := logWriter.Close(); err != nil {
+						panic(err)
+					}
+					logFlushed.Wait()
+				}()
+
+				logger := helmexec.NewLogger(logWriter, "debug")
+
+				app := appWithFs(&App{
+					OverrideHelmBinary:  DefaultHelmBinary,
+					glob:                filepath.Glob,
+					abs:                 filepath.Abs,
+					OverrideKubeContext: "default",
+					Env:                 "default",
+					Logger:              logger,
+					helms: map[helmKey]helmexec.Interface{
+						createHelmKey("helm", "default"): helm,
+					},
+				}, tc.files)
+
+				depsErr := app.Deps(depsConfig{
+					skipRepos: false,
+				})
+
+				if tc.error == "" && depsErr != nil {
+					t.Fatalf("unexpected error for data defined at %s: %v", tc.loc, depsErr)
+				} else if tc.error != "" && depsErr == nil {
+					t.Fatalf("expected error did not occur for data defined at %s", tc.loc)
+				} else if tc.error != "" && depsErr != nil && tc.error != depsErr.Error() {
+					t.Fatalf("invalid error: expected %q, got %q", tc.error, depsErr.Error())
+				}
+
+				if !reflect.DeepEqual(helm.Charts, tc.charts) {
+					t.Fatalf("expected charts %v, got %v", helm.Charts, tc.charts)
 				}
 			}()
 
@@ -4160,12 +4556,8 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := "[" +
-		"{\"name\":\"myrelease1\",\"namespace\":\"\",\"enabled\":false,\"labels\":\"id:myrelease1\"}," +
-		"{\"name\":\"myrelease2\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"\"}," +
-		"{\"name\":\"myrelease3\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"\"}," +
-		"{\"name\":\"myrelease4\",\"namespace\":\"\",\"enabled\":true,\"labels\":\"id:myrelease1\"}" +
-		"]\n"
+	expected := `[{"name":"myrelease1","namespace":"","enabled":false,"labels":"id:myrelease1"},{"name":"myrelease2","namespace":"","enabled":true,"labels":""},{"name":"myrelease3","namespace":"","enabled":true,"labels":""},{"name":"myrelease4","namespace":"","enabled":true,"labels":"id:myrelease1"}]
+`
 	assert.Equal(t, expected, out)
 }
 

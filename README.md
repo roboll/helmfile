@@ -47,10 +47,10 @@ The default name for a helmfile is `helmfile.yaml`:
 repositories:
 # To use official "stable" charts a.k.a https://github.com/helm/charts/tree/master/stable
 - name: stable
-  url: https://kubernetes-charts.storage.googleapis.com
+  url: https://charts.helm.sh/stable
 # To use official "incubator" charts a.k.a https://github.com/helm/charts/tree/master/incubator
 - name: incubator
-  url: https://kubernetes-charts-incubator.storage.googleapis.com
+  url: https://charts.helm.sh/incubator
 # helm-git powered repository: You can treat any Git repository as a charts repository
 - name: polaris
   url: git+https://github.com/reactiveops/polaris@deploy/helm?ref=master
@@ -68,6 +68,9 @@ repositories:
    caFile: optional_ca_crt
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
+
+# Path to alternative helm binary (--helm-binary)
+helmBinary: path/to/helm3
 
 # Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these.
 # In other words, unset values results in no flags passed to helm.
@@ -104,6 +107,9 @@ helmDefaults:
   createNamespace: true
   # if used with charts museum allows to pull unstable charts for deployment, for example: if 1.2.3 and 1.2.4-dev versions exist and set to true, 1.2.4-dev will be pulled (default false)
   devel: true
+  # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
+  # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
+  skipDeps: false
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
@@ -193,6 +199,9 @@ releases:
     kubeContext: kube-context
     # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
     historyMax: 10
+    # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
+    # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
+    skipDeps: false
 
   # Local chart example
   - name: grafana                            # name of this release
@@ -356,10 +365,39 @@ If you wish to treat your enviroment variables as strings always, even if they a
 ## Installation
 
 - download one of [releases](https://github.com/roboll/helmfile/releases) or
-- run as a [container](https://quay.io/roboll/helmfile) or
-- install from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) for Archlinux or
+- [run as a container](#running-as-a-container) or
+- Archlinux: install via `pacman -S helmfile` or from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) or
+- openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/openSUSE_Leap_\$releasever kubic`, or
 - Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 - macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
+
+### Running as a container
+
+The [Helmfile Docker images are available in Quay](https://quay.io/roboll/helmfile). There is no `latest` tag, since the `0.x` versions can contain breaking changes, so make sure you pick the right tag. Example using `helmfile 0.135.0`:
+
+```sh-session
+# helm 2
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:v0.135.0 helmfile sync
+
+# helm 3
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:helm3-v0.135.0 helmfile sync
+```
+
+You can also use shims to make calling the binaries easier:
+
+```sh-session
+# helm 2
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:v0.135.0 helmfile "$@"' |
+    tee helmfile
+$ chmod +x helmfile
+$ ./helmfile sync
+
+# helm 3
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:helm3-v0.135.0 helmfile "$@"' |
+    tee helmfile
+$ chmod +x helmfile
+$ ./helmfile sync
+```
 
 ## Getting Started
 
@@ -1181,6 +1219,10 @@ Those features are set using the environment variable `HELMFILE_EXPERIMENTAL`. H
 * `explicit-selector-inheritance` : remove today implicit cli selectors inheritance for composed helmfiles, see [composition selector](#selectors)
 
 If you want to enable all experimental features set the env var to `HELMFILE_EXPERIMENTAL=true`
+
+## `bash` and `zsh` completion
+
+Copy `autocomplete/helmfile_bash_autocomplete` or `autocomplete/helmfile_zsh_autocomplete` (depending on your shell of choice) to directory where you keep other shell completion scripts to make sure it is sourced.
 
 ## Examples
 

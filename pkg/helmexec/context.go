@@ -1,6 +1,7 @@
 package helmexec
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -10,6 +11,7 @@ type HelmContext struct {
 	TillerNamespace string
 	HistoryMax      int
 	WorkerIndex     int
+	Writer          io.Writer
 }
 
 func (context *HelmContext) GetTillerlessArgs(helm *execer) []string {

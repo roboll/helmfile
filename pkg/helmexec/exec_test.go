@@ -3,6 +3,7 @@ package helmexec
 import (
 	"bytes"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"os"
 	"path"
 	"path/filepath"
@@ -257,6 +258,12 @@ func Test_DecryptSecret(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
+
+	tmpFilePath := "path/to/temp/file"
+	helm.writeTempFile = func(content []byte) (string, error) {
+		return tmpFilePath, nil
+	}
+
 	helm.DecryptSecret(HelmContext{}, "secretName")
 	cwd, err := filepath.Abs(".")
 	if err != nil {
@@ -270,9 +277,10 @@ Decrypting secret %s/secretName
 exec: helm --kube-context dev secrets dec %s/secretName
 Preparing to decrypt secret %s/secretName
 Found secret in cache %s/secretName
-`, cwd, cwd, cwd, cwd, cwd)
-	if buffer.String() != expected {
-		t.Errorf("helmexec.DecryptSecret()\nactual = %v\nexpect = %v", buffer.String(), expected)
+Decrypted %s/secretName into path/to/temp/file
+`, cwd, cwd, cwd, cwd, cwd, cwd)
+	if d := cmp.Diff(expected, buffer.String()); d != "" {
+		t.Errorf("helmexec.DecryptSecret(): want (-), got (+):\n%s", d)
 	}
 }
 

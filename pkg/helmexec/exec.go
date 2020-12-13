@@ -29,6 +29,7 @@ type execer struct {
 	extra                []string
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
+	writeTempFile        func([]byte) (string, error)
 }
 
 func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
@@ -182,7 +183,7 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 	}
 
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", "--reset-values", name, chart), flags...), env)
-	helm.write(out)
+	helm.write(nil, out)
 	return err
 }
 
@@ -191,7 +192,7 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env)
-	helm.write(out)
+	helm.write(nil, out)
 	return err
 }
 
@@ -218,7 +219,7 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 		lines = lines[1:]
 		out = []byte(strings.Join(lines, "\n"))
 	}
-	helm.write(out)
+	helm.write(nil, out)
 	return string(out), err
 }
 
@@ -278,16 +279,32 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		defer secret.mutex.RUnlock()
 	}
 
-	tmpFile, err := ioutil.TempFile("", "secret")
-	if err != nil {
-		return "", err
+	tempFile := helm.writeTempFile
+
+	if tempFile == nil {
+		tempFile = func(content []byte) (string, error) {
+			tmpFile, err := ioutil.TempFile("", "secret")
+			if err != nil {
+				return "", err
+			}
+
+			_, err = tmpFile.Write(content)
+			if err != nil {
+				return "", err
+			}
+
+			return tmpFile.Name(), nil
+		}
 	}
-	_, err = tmpFile.Write(secret.bytes)
+
+	tmpFileName, err := tempFile(secret.bytes)
 	if err != nil {
 		return "", err
 	}
 
-	return tmpFile.Name(), err
+	helm.logger.Debugf("Decrypted %s into %s", absPath, tmpFileName)
+
+	return tmpFileName, err
 }
 
 func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {
@@ -300,12 +317,16 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	}
 
 	out, err := helm.exec(append(args, flags...), map[string]string{})
-	helm.write(out)
+	helm.write(nil, out)
 	return err
 }
 
 func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
-	helm.logger.Infof("Comparing release=%v, chart=%v", name, chart)
+	if context.Writer != nil {
+		fmt.Fprintf(context.Writer, "Comparing release=%v, chart=%v\n", name, chart)
+	} else {
+		helm.logger.Infof("Comparing release=%v, chart=%v", name, chart)
+	}
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--reset-values", "--allow-unreleased", name, chart), flags...), env)
@@ -323,13 +344,13 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 		case ExitError:
 			if e.ExitStatus() == 2 {
 				if !(suppressDiff) {
-					helm.write(out)
+					helm.write(context.Writer, out)
 				}
 				return err
 			}
 		}
 	} else if !(suppressDiff) {
-		helm.write(out)
+		helm.write(context.Writer, out)
 	}
 	return err
 }
@@ -337,7 +358,7 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 func (helm *execer) Lint(name, chart string, flags ...string) error {
 	helm.logger.Infof("Linting release=%v, chart=%v", name, chart)
 	out, err := helm.exec(append([]string{"lint", chart}, flags...), map[string]string{})
-	helm.write(out)
+	helm.write(nil, out)
 	return err
 }
 
@@ -353,7 +374,7 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env)
-	helm.write(out)
+	helm.write(nil, out)
 	return err
 }
 
@@ -363,7 +384,7 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	env := context.getTillerlessEnv()
 	args := []string{"test", name}
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env)
-	helm.write(out)
+	helm.write(nil, out)
 	return err
 }
 
@@ -396,9 +417,12 @@ func (helm *execer) info(out []byte) {
 	}
 }
 
-func (helm *execer) write(out []byte) {
+func (helm *execer) write(w io.Writer, out []byte) {
 	if len(out) > 0 {
-		fmt.Printf("%s\n", out)
+		if w == nil {
+			w = os.Stdout
+		}
+		fmt.Fprintf(w, "%s\n", out)
 	}
 }
 
