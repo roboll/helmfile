@@ -1474,6 +1474,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	numReleases := len(releases)
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan diffPrepareResult, numReleases)
+	resultsMap := map[string]diffPrepareResult{}
 
 	rs := []diffPrepareResult{}
 	errs := []error{}
@@ -1568,11 +1569,17 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 						errs = append(errs, e)
 					}
 				} else if res.release != nil {
-					rs = append(rs, res)
+					resultsMap[ReleaseToID(res.release)] = res
 				}
 			}
 		},
 	)
+
+	for _, r := range releases {
+		if p, ok := resultsMap[ReleaseToID(r)]; ok {
+			rs = append(rs, p)
+		}
+	}
 
 	return rs, errs
 }
@@ -2411,7 +2418,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
 
-			valfile, err := ioutil.TempFile("", "values")
+			valfile, err := createTempValuesFile(release, yamlBytes)
 			if err != nil {
 				return generatedFiles, err
 			}
@@ -2420,19 +2427,24 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 			if _, err := valfile.Write(yamlBytes); err != nil {
 				return generatedFiles, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
 			}
-			st.logger.Debugf("successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+
+			st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+
 			generatedFiles = append(generatedFiles, valfile.Name())
 		case map[interface{}]interface{}, map[string]interface{}:
-			valfile, err := ioutil.TempFile("", "values")
+			valfile, err := createTempValuesFile(release, typedValue)
 			if err != nil {
 				return generatedFiles, err
 			}
 			defer valfile.Close()
+
 			encoder := yaml.NewEncoder(valfile)
 			defer encoder.Close()
+
 			if err := encoder.Encode(typedValue); err != nil {
 				return generatedFiles, err
 			}
+
 			generatedFiles = append(generatedFiles, valfile.Name())
 		default:
 			return generatedFiles, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
