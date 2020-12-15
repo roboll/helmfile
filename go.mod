@@ -7,6 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Masterminds/sprig/v3 v3.1.0
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
+	github.com/davecgh/go-spew v1.1.1
 	github.com/frankban/quicktest v1.11.2 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-test/deep v1.0.7
@@ -24,7 +25,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.22.5
-	github.com/variantdev/chartify v0.5.0
+	github.com/variantdev/chartify v0.6.0
 	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363
 	github.com/variantdev/vals v0.11.0
 	go.uber.org/multierr v1.6.0
