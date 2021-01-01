@@ -54,13 +54,14 @@ repositories:
 # helm-git powered repository: You can treat any Git repository as a charts repository
 - name: polaris
   url: git+https://github.com/reactiveops/polaris@deploy/helm?ref=master
-# Advanced configuration: You can setup basic or tls auth
+# Advanced configuration: You can setup basic or tls auth and optionally enable helm OCI integration
 - name: roboll
   url: http://roboll.io/charts
   certFile: optional_client_cert
   keyFile: optional_client_key
   username: optional_username
   password: optional_password
+  oci: true
 # Advanced configuration: You can use a ca bundle to use an https repo
 # with a self-signed certificate
 - name: insecure
@@ -1306,6 +1307,35 @@ An ACR repository definition in `helmfile.yaml` looks like this:
 repositories:
   - name: <MyRegistry>
     url: https://<MyRegistry>.azurecr.io/helm/v1/repo
+```
+
+## OCI Registries
+
+In order to use OCI chart registries firstly they must be marked in the repository list as OCI enabled, e.g.
+
+```yaml
+repositories:
+  - name: myOCIRegistry
+    url: https://myregistry.azurecr.io
+    oci: true
+```
+
+Secondly the credentials for the OCI registry can either be specified within `helmfile.yaml` similar to
+
+```yaml
+repositories:
+  - name: myOCIRegistry
+    url: https://myregistry.azurecr.io
+    oci: true
+    username: spongebob
+    password: squarepants
+```
+
+or for CI scenarios these can be sourced from the environment with the format `<registryName>_USERNAME` and `<registryName_PASSWORD>`, e.g.
+
+```shell
+export MYOCIREGISTRY_USERNAME=spongebob
+export MYOCIREGISTRY_PASSWORD=squarepants
 ```
 
 ## Attribution

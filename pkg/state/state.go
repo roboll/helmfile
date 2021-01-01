@@ -18,6 +18,7 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/hashicorp/go-getter/helper/url"
 	"github.com/imdario/mergo"
 	"github.com/variantdev/chartify"
 
@@ -162,6 +163,7 @@ type RepositorySpec struct {
 	Username string `yaml:"username,omitempty"`
 	Password string `yaml:"password,omitempty"`
 	Managed  string `yaml:"managed,omitempty"`
+	OCI      bool   `yaml:"oci,omitempty"`
 }
 
 // ReleaseSpec defines the structure of a helm release
@@ -336,6 +338,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 type RepoUpdater interface {
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error
 	UpdateRepo() error
+	RegistryLogin(name string, username string, password string) error
 }
 
 // getRepositoriesToSync returns the names of repositories to be updated
@@ -375,8 +378,18 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 		if shouldSkip[repo.Name] {
 			continue
 		}
+		var err error
+		if repo.OCI {
+			username, password := gatherOCIUsernamePassword(repo.Name, repo.Username, repo.Password)
+			if username == "" || password == "" {
+				return nil, fmt.Errorf("username and password are required fields for logging in to OCI registries with helm")
+			}
+			err = helm.RegistryLogin(repo.URL, username, password)
+		} else {
+			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed)
+		}
 
-		if err := helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed); err != nil {
+		if err != nil {
 			return nil, err
 		}
 
@@ -384,6 +397,24 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 	}
 
 	return updated, nil
+}
+
+func gatherOCIUsernamePassword(repoName string, username string, password string) (string, string) {
+	var user, pass string
+
+	if username != "" {
+		user = username
+	} else if u := os.Getenv(fmt.Sprintf("%s_USERNAME", strings.ToUpper(repoName))); u != "" {
+		user = u
+	}
+
+	if password != "" {
+		pass = password
+	} else if p := os.Getenv(fmt.Sprintf("%s_PASSWORD", strings.ToUpper(repoName))); p != "" {
+		pass = p
+	}
+
+	return user, pass
 }
 
 type syncResult struct {
@@ -857,6 +888,20 @@ type chartPrepareResult struct {
 	chartFetchedByGoGetter bool
 }
 
+func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*RepositorySpec, string) {
+	chart := strings.Split(chartName, "/")
+	if len(chart) == 1 {
+		return nil, chartName
+	}
+	repo := chart[0]
+	for _, r := range st.Repositories {
+		if r.Name == repo {
+			return &r, strings.Join(chart[1:], "/")
+		}
+	}
+	return nil, chartName
+}
+
 // PrepareCharts creates temporary directories of charts.
 //
 // Each resulting "chart" can be one of the followings:
@@ -935,15 +980,20 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				chartName := release.Chart
 
-				isLocal := st.directoryExistsAt(normalizeChart(st.basePath, chartName))
-
 				chartPath, err := st.goGetterChart(chartName, release.Directory, release.ForceGoGetter)
 				if err != nil {
 					results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
 					return
 				}
-
 				chartFetchedByGoGetter := chartPath != chartName
+
+				isOCI, chartPath, err := st.getOCIChart(release, dir, helm)
+				if err != nil {
+					results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
+					return
+				}
+
+				isLocal := st.directoryExistsAt(normalizeChart(st.basePath, chartName))
 
 				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
 				defer clean()
@@ -957,7 +1007,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				skipDepsGlobal := opts.SkipDeps
 				skipDepsRelease := release.SkipDeps != nil && *release.SkipDeps
 				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
-				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault
+				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault || !isOCI
 
 				if chartification != nil {
 					c := chartify.New(
@@ -2927,4 +2977,65 @@ func (st *HelmState) Reverse() {
 	for i, j := 0, len(st.Helmfiles)-1; i < j; i, j = i+1, j-1 {
 		st.Helmfiles[i], st.Helmfiles[j] = st.Helmfiles[j], st.Helmfiles[i]
 	}
+}
+
+func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface) (bool, string, error) {
+
+	isOCI := false
+
+	repo, name := st.GetRepositoryAndNameFromChartName(release.Chart)
+	if repo == nil {
+		return false, release.Chart, nil
+	}
+
+	if repo.OCI {
+		isOCI = true
+	}
+
+	if !isOCI {
+		return isOCI, release.Chart, nil
+	}
+
+	repoUrl, err := url.Parse(repo.URL)
+	if err != nil {
+		return isOCI, release.Chart, err
+	}
+	if repoUrl.Scheme == "" {
+		return isOCI, release.Chart, fmt.Errorf("unable to detect scheme - a valid url must be supplied for OCI registry %s", repo.URL)
+	}
+
+	chartVersion := "latest"
+	if release.Version != "" {
+		chartVersion = release.Version
+	}
+
+	qualifiedChartName := fmt.Sprintf("%s/%s:%s", repoUrl.Host, name, chartVersion)
+
+	err = helm.ChartPull(qualifiedChartName)
+	if err != nil {
+		return isOCI, release.Chart, err
+	}
+
+	pathElems := []string{
+		tempDir,
+	}
+
+	if release.Namespace != "" {
+		pathElems = append(pathElems, release.Namespace)
+	}
+
+	if release.KubeContext != "" {
+		pathElems = append(pathElems, release.KubeContext)
+	}
+
+	pathElems = append(pathElems, release.Name, name, chartVersion)
+
+	dir := filepath.Join(pathElems...)
+	err = helm.ChartExport(qualifiedChartName, dir)
+
+	if err != nil {
+		return isOCI, release.Chart, err
+	}
+
+	return isOCI, filepath.Join(dir, name), nil
 }

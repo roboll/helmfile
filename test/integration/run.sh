@@ -49,7 +49,7 @@ info "Using namespace: ${test_ns}"
 if helm version --client 2>/dev/null | grep '"v2\.'; then
   helm_major_version=2
   info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
-  ${helm} init --wait --override spec.template.spec.automountServiceAccountToken=true
+  ${helm} init --stable-repo-url https://charts.helm.sh/stable --wait --override spec.template.spec.automountServiceAccountToken=true
 # helm v3
 else
   helm_major_version=3

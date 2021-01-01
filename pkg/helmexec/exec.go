@@ -1,6 +1,7 @@
 package helmexec
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -72,13 +73,13 @@ func parseHelmVersion(versionStr string) (semver.Version, error) {
 
 func getHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
 
-	// Autodetect from `helm verison`
-	bytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil)
+	// Autodetect from `helm version`
+	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil)
 	if err != nil {
 		return semver.Version{}, fmt.Errorf("error determining helm version: %w", err)
 	}
 
-	return parseHelmVersion(string(bytes))
+	return parseHelmVersion(string(outBytes))
 }
 
 // New for running helm commands
@@ -153,6 +154,24 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 func (helm *execer) UpdateRepo() error {
 	helm.logger.Info("Updating repo")
 	out, err := helm.exec([]string{"repo", "update"}, map[string]string{})
+	helm.info(out)
+	return err
+}
+
+func (helm *execer) RegistryLogin(repository string, username string, password string) error {
+	helm.logger.Info("Logging in to registry")
+	args := []string{
+		"registry",
+		"login",
+		repository,
+		"--username",
+		username,
+		"--password",
+		password,
+	}
+	buffer := bytes.Buffer{}
+	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+	out, err := helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
 	helm.info(out)
 	return err
 }
@@ -369,6 +388,20 @@ func (helm *execer) Fetch(chart string, flags ...string) error {
 	return err
 }
 
+func (helm *execer) ChartPull(chart string, flags ...string) error {
+	helm.logger.Infof("Pulling %v", chart)
+	out, err := helm.exec(append([]string{"chart", "pull", chart}, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
+	helm.info(out)
+	return err
+}
+
+func (helm *execer) ChartExport(chart string, path string, flags ...string) error {
+	helm.logger.Infof("Exporting %v", chart)
+	out, err := helm.exec(append([]string{"chart", "export", chart, "--destination", path}, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
+	helm.info(out)
+	return err
+}
+
 func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Deleting %v", name)
 	preArgs := context.GetTillerlessArgs(helm)
@@ -398,17 +431,31 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	bytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env)
-	return bytes, err
+	outBytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env)
+	return outBytes, err
+}
+
+func (helm *execer) execStdIn(args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	cmdargs := args
+	if len(helm.extra) > 0 {
+		cmdargs = append(cmdargs, helm.extra...)
+	}
+	if helm.kubeContext != "" {
+		cmdargs = append([]string{"--kube-context", helm.kubeContext}, cmdargs...)
+	}
+	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
+	helm.logger.Debug(cmd)
+	outBytes, err := helm.runner.ExecuteStdIn(helm.helmBinary, cmdargs, env, stdin)
+	return outBytes, err
 }
 
 func (helm *execer) azcli(name string) ([]byte, error) {
 	cmdargs := append(strings.Split("acr helm repo add --name", " "), name)
 	cmd := fmt.Sprintf("exec: az %s", strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	bytes, err := helm.runner.Execute("az", cmdargs, map[string]string{})
-	helm.logger.Debugf("%s: %s", cmd, bytes)
-	return bytes, err
+	outBytes, err := helm.runner.Execute("az", cmdargs, map[string]string{})
+	helm.logger.Debugf("%s: %s", cmd, outBytes)
+	return outBytes, err
 }
 
 func (helm *execer) info(out []byte) {
