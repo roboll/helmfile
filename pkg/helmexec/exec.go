@@ -59,7 +59,7 @@ func parseHelmVersion(versionStr string) (semver.Version, error) {
 
 	ver, err := semver.NewVersion(versionStr)
 	if err != nil {
-		return semver.Version{}, fmt.Errorf("error parsing helm verion '%s'", versionStr)
+		return semver.Version{}, fmt.Errorf("error parsing helm version '%s'", versionStr)
 	}
 
 	// Support explicit helm3 opt-in via environment variable
