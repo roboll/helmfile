@@ -141,7 +141,7 @@ Use Layering to extract the common parts into a dedicated *library helmfile*s, s
 
 Let's assume that your `helmfile.yaml` looks like:
 
-```
+```yaml
 bases:
 - environments.yaml
 
