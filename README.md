@@ -780,7 +780,7 @@ domain: {{ .Values | get "domain" "dev.example.com" }}
 ```
 
 `helmfile sync` installs `myapp` with the value `domain=dev.example.com`,
-whereas `helmfile --environment production sync` installs the app with the value `domain=production.example.com`.
+whereas `helmfile --environment production sync` installs the app with the value `domain=prod.example.com`.
 
 For even more flexibility, you can now use values declared in the `environments:` section in other parts of your helmfiles:
 
