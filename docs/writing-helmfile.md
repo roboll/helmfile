@@ -135,13 +135,13 @@ Please note, that it is not possible to layer `values` sections. If `values` is 
 
 > See **Layering State Template Files** if you're layering templates.
 
-You may occasionally end up with many helmfiles that shares common parts like which repositories to use, and whichi release to be bundled by default.
+You may occasionally end up with many helmfiles that shares common parts like which repositories to use, and which release to be bundled by default.
 
 Use Layering to extract the common parts into a dedicated *library helmfile*s, so that each helmfile becomes DRY.
 
 Let's assume that your `helmfile.yaml` looks like:
 
-```
+```yaml
 bases:
 - environments.yaml
 
