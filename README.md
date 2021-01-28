@@ -1316,16 +1316,18 @@ In order to use OCI chart registries firstly they must be marked in the reposito
 ```yaml
 repositories:
   - name: myOCIRegistry
-    url: https://myregistry.azurecr.io
+    url: myregistry.azurecr.io
     oci: true
 ```
+
+It is important not to include a scheme for the URL as helm requires that these are not present for OCI registries
 
 Secondly the credentials for the OCI registry can either be specified within `helmfile.yaml` similar to
 
 ```yaml
 repositories:
   - name: myOCIRegistry
-    url: https://myregistry.azurecr.io
+    url: myregistry.azurecr.io
     oci: true
     username: spongebob
     password: squarepants
