@@ -18,7 +18,6 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/hashicorp/go-getter/helper/url"
 	"github.com/imdario/mergo"
 	"github.com/variantdev/chartify"
 
@@ -2996,22 +2995,14 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		return isOCI, release.Chart, nil
 	}
 
-	repoUrl, err := url.Parse(repo.URL)
-	if err != nil {
-		return isOCI, release.Chart, err
-	}
-	if repoUrl.Scheme == "" {
-		return isOCI, release.Chart, fmt.Errorf("unable to detect scheme - a valid url must be supplied for OCI registry %s", repo.URL)
-	}
-
 	chartVersion := "latest"
 	if release.Version != "" {
 		chartVersion = release.Version
 	}
 
-	qualifiedChartName := fmt.Sprintf("%s/%s:%s", repoUrl.Host, name, chartVersion)
+	qualifiedChartName := fmt.Sprintf("%s/%s:%s", repo.URL, name, chartVersion)
 
-	err = helm.ChartPull(qualifiedChartName)
+	err := helm.ChartPull(qualifiedChartName)
 	if err != nil {
 		return isOCI, release.Chart, err
 	}
@@ -3030,12 +3021,14 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 
 	pathElems = append(pathElems, release.Name, name, chartVersion)
 
-	dir := filepath.Join(pathElems...)
-	err = helm.ChartExport(qualifiedChartName, dir)
+	chartPath := path.Join(pathElems...)
+	err = helm.ChartExport(qualifiedChartName, chartPath)
 
+	fullChartPath, err := findChartDirectory(chartPath)
 	if err != nil {
 		return isOCI, release.Chart, err
 	}
 
-	return isOCI, filepath.Join(dir, name), nil
+	chartPath = filepath.Dir(fullChartPath)
+	return isOCI, chartPath, nil
 }
