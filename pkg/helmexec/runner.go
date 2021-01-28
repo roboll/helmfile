@@ -22,6 +22,7 @@ const (
 // Runner interface for shell commands
 type Runner interface {
 	Execute(cmd string, args []string, env map[string]string) ([]byte, error)
+	ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
 }
 
 // ShellRunner implemention for shell commands
@@ -36,6 +37,17 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
+	return Output(preparedCmd, &logWriterGenerator{
+		log: shell.Logger,
+	})
+}
+
+// Execute a shell command
+func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	preparedCmd := exec.Command(cmd, args...)
+	preparedCmd.Dir = shell.Dir
+	preparedCmd.Env = mergeEnv(os.Environ(), env)
+	preparedCmd.Stdin = stdin
 	return Output(preparedCmd, &logWriterGenerator{
 		log: shell.Logger,
 	})

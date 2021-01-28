@@ -2,6 +2,7 @@ package event
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"testing"
 
@@ -14,6 +15,10 @@ import (
 var logger = helmexec.NewLogger(os.Stdout, "warn")
 
 type runner struct {
+}
+
+func (r *runner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	return []byte(""), nil
 }
 
 func (r *runner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {

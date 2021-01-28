@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/google/go-cmp/cmp"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -19,6 +20,10 @@ import (
 type mockRunner struct {
 	output []byte
 	err    error
+}
+
+func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	return mock.output, mock.err
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {

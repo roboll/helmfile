@@ -37,7 +37,7 @@ RUN set -x & \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/kubectl
 
-RUN ["helm", "init", "--client-only"]
+RUN ["helm", "init", "--client-only", "--stable-repo-url", "https://charts.helm.sh/stable"]
 RUN helm plugin install https://github.com/databus23/helm-diff && \
     helm plugin install https://github.com/futuresimple/helm-secrets && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git && \
