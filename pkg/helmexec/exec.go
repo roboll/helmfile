@@ -166,8 +166,7 @@ func (helm *execer) RegistryLogin(repository string, username string, password s
 		repository,
 		"--username",
 		username,
-		"--password",
-		password,
+		"--password-stdin",
 	}
 	buffer := bytes.Buffer{}
 	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
