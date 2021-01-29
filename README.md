@@ -461,7 +461,7 @@ COMMANDS:
      apply     apply all resources from state file only when there are changes
      status    retrieve status of releases in state file
      delete    DEPRECATED: delete releases from state file (helm delete)
-     destroy   deletes and then purges releases
+     destroy   uninstalls and then purges releases
      test      test releases from state file (helm test)
      build     output compiled helmfile state(s) as YAML
      list      list releases defined in state file
@@ -531,11 +531,11 @@ An expected use-case of `apply` is to schedule it to run periodically, so that y
 
 ### destroy
 
-The `helmfile destroy` sub-command deletes and purges all the releases defined in the manifests.
+The `helmfile destroy` sub-command uninstalls and purges all the releases defined in the manifests.
 
 `helmfile --interactive destroy` instructs Helmfile to request your confirmation before actually deleting releases.
 
-`destroy` basically runs `helm delete --purge` on all the targeted releases. If you don't want purging, use `helmfile delete` instead.
+`destroy` basically runs `helm uninstall --purge` on all the targeted releases. If you don't want purging, use `helmfile delete` instead.
 
 ### delete (DEPRECATED)
 
