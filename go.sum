@@ -630,6 +630,8 @@ github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363 h1:KrfQBEUn+wEOQ/6U
 github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363/go.mod h1:pH1TQsNSLj2uxMo9NNl9zdGy01Wtn+/2MT96BrKmVyE=
 github.com/variantdev/vals v0.12.0 h1:1fk2nlSzGkoY5/Ij7dyIB6r0eemFGWQMa5TD2ZhDSB8=
 github.com/variantdev/vals v0.12.0/go.mod h1:KHSazZ2M3pFiwu6mw4O56YdjNatCZpJZkk4s23rexW8=
+github.com/variantdev/vals v0.13.0 h1:zdtTBjoWKkUGdFauxETkDVjqWXdjUNwI+ggWcUmpxv8=
+github.com/variantdev/vals v0.13.0/go.mod h1:pBwm+vPLQALN6otkNqiT1fUKdWHfjAm4070UkrNLsVA=
 github.com/vektra/mockery v1.1.2/go.mod h1:VcfZjKaFOPO+MpN4ZvwPjs4c48lkq1o3Ym8yHZJu0jU=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
