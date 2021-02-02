@@ -986,6 +986,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				}
 				chartFetchedByGoGetter := chartPath != chartName
 
+				var isOCI bool
+
 				if !chartFetchedByGoGetter {
 					ociChartPath, err := st.getOCIChart(release, dir, helm)
 					if err != nil {
@@ -996,6 +998,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					if ociChartPath != nil {
 						chartPath = *ociChartPath
+						isOCI = true
 					}
 				}
 
