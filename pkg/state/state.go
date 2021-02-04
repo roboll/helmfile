@@ -986,10 +986,20 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				}
 				chartFetchedByGoGetter := chartPath != chartName
 
-				isOCI, chartPath, err := st.getOCIChart(release, dir, helm)
-				if err != nil {
-					results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
-					return
+				var isOCI bool
+
+				if !chartFetchedByGoGetter {
+					ociChartPath, err := st.getOCIChart(release, dir, helm)
+					if err != nil {
+						results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
+
+						return
+					}
+
+					if ociChartPath != nil {
+						chartPath = *ociChartPath
+						isOCI = true
+					}
 				}
 
 				isLocal := st.directoryExistsAt(normalizeChart(st.basePath, chartName))
@@ -1006,7 +1016,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				skipDepsGlobal := opts.SkipDeps
 				skipDepsRelease := release.SkipDeps != nil && *release.SkipDeps
 				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
-				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault || !isOCI
+				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault || isOCI
 
 				if chartification != nil {
 					c := chartify.New(
@@ -2978,21 +2988,14 @@ func (st *HelmState) Reverse() {
 	}
 }
 
-func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface) (bool, string, error) {
-
-	isOCI := false
-
+func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
 	repo, name := st.GetRepositoryAndNameFromChartName(release.Chart)
 	if repo == nil {
-		return false, release.Chart, nil
+		return nil, nil
 	}
 
-	if repo.OCI {
-		isOCI = true
-	}
-
-	if !isOCI {
-		return isOCI, release.Chart, nil
+	if !repo.OCI {
+		return nil, nil
 	}
 
 	chartVersion := "latest"
@@ -3004,7 +3007,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 
 	err := helm.ChartPull(qualifiedChartName)
 	if err != nil {
-		return isOCI, release.Chart, err
+		return nil, err
 	}
 
 	pathElems := []string{
@@ -3026,9 +3029,10 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 
 	fullChartPath, err := findChartDirectory(chartPath)
 	if err != nil {
-		return isOCI, release.Chart, err
+		return nil, err
 	}
 
 	chartPath = filepath.Dir(fullChartPath)
-	return isOCI, chartPath, nil
+
+	return &chartPath, nil
 }
