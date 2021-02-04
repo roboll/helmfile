@@ -979,14 +979,12 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				chartName := release.Chart
 
-				chartPath, err := st.goGetterChart(chartName, release.Directory, release.ForceGoGetter)
+				chartPath, err := st.downloadChartWithGoGetter(release)
 				if err != nil {
 					results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
 					return
 				}
 				chartFetchedByGoGetter := chartPath != chartName
-
-				var isOCI bool
 
 				if !chartFetchedByGoGetter {
 					ociChartPath, err := st.getOCIChart(release, dir, helm)
@@ -998,7 +996,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					if ociChartPath != nil {
 						chartPath = *ociChartPath
-						isOCI = true
 					}
 				}
 
@@ -1016,7 +1013,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				skipDepsGlobal := opts.SkipDeps
 				skipDepsRelease := release.SkipDeps != nil && *release.SkipDeps
 				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
-				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault || isOCI
+				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault
 
 				if chartification != nil {
 					c := chartify.New(

@@ -39,7 +39,27 @@ type Chartify struct {
 	Clean func()
 }
 
-func (st *HelmState) goGetterChart(chart, dir string, force bool) (string, error) {
+func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
+	pathElems := []string{
+		remote.DefaultCacheDir,
+	}
+
+	if r.Namespace != "" {
+		pathElems = append(pathElems, r.Namespace)
+	}
+
+	if r.KubeContext != "" {
+		pathElems = append(pathElems, r.KubeContext)
+	}
+
+	pathElems = append(pathElems, r.Name, r.Chart)
+
+	cacheDir := filepath.Join(pathElems...)
+
+	return st.goGetterChart(r.Chart, r.Directory, cacheDir, r.ForceGoGetter)
+}
+
+func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (string, error) {
 	if dir != "" && chart == "" {
 		chart = dir
 	}
@@ -52,7 +72,7 @@ func (st *HelmState) goGetterChart(chart, dir string, force bool) (string, error
 	} else {
 		r := remote.NewRemote(st.logger, st.basePath, st.readFile, directoryExistsAt, fileExistsAt)
 
-		fetchedDir, err := r.Fetch(chart)
+		fetchedDir, err := r.Fetch(chart, cacheDir)
 		if err != nil {
 			return "", fmt.Errorf("fetching %q: %v", chart, err)
 		}

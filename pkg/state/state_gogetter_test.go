@@ -41,7 +41,7 @@ func TestGoGetter(t *testing.T) {
 				basePath: d,
 			}
 
-			out, err := st.goGetterChart(tc.chart, tc.dir, false)
+			out, err := st.goGetterChart(tc.chart, tc.dir, "", false)
 
 			if diff := cmp.Diff(tc.out, out); diff != "" {
 				t.Fatalf("Unexpected out:\n%s", diff)
