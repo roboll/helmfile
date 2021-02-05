@@ -39,6 +39,7 @@ type ApplyConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+	SkipRepos() bool
 
 	IncludeTests() bool
 
@@ -65,6 +66,7 @@ type SyncConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+	SkipRepos() bool
 
 	concurrencyConfig
 	loggingConfig
@@ -76,6 +78,7 @@ type DiffConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+	SkipRepos() bool
 
 	IncludeTests() bool
 
@@ -123,6 +126,7 @@ type LintConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+	SkipRepos() bool
 
 	concurrencyConfig
 }
@@ -135,6 +139,7 @@ type TemplateConfigProvider interface {
 	OutputDirTemplate() string
 	Validate() bool
 	SkipDeps() bool
+	SkipRepos() bool
 	SkipCleanup() bool
 	OutputDir() string
 	IncludeCRDs() bool
@@ -147,6 +152,7 @@ type WriteValuesConfigProvider interface {
 	Set() []string
 	OutputFileTemplate() string
 	SkipDeps() bool
+	SkipRepos() bool
 }
 
 type StatusesConfigProvider interface {

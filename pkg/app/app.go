@@ -174,7 +174,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		var errs []error
 
 		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
+			SkipRepos: c.SkipRepos(),
 			SkipDeps:  c.SkipDeps(),
 		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
@@ -236,7 +236,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
 			ForceDownload: !run.helm.IsHelm3(),
-			SkipRepos:     c.SkipDeps(),
+			SkipRepos:     c.SkipRepos(),
 			SkipDeps:      c.SkipDeps(),
 		}, func() {
 			ok, errs = a.template(run, c)
@@ -256,7 +256,7 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
 			ForceDownload: !run.helm.IsHelm3(),
-			SkipRepos:     c.SkipDeps(),
+			SkipRepos:     c.SkipRepos(),
 			SkipDeps:      c.SkipDeps(),
 		}, func() {
 			ok, errs = a.writeValues(run, c)
@@ -275,7 +275,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
 		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
 			ForceDownload: true,
-			SkipRepos:     c.SkipDeps(),
+			SkipRepos:     c.SkipRepos(),
 			SkipDeps:      c.SkipDeps(),
 		}, func() {
 			errs = run.Lint(c)
@@ -292,7 +292,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
+			SkipRepos: c.SkipRepos(),
 			SkipDeps:  c.SkipDeps(),
 		}, func() {
 			ok, errs = a.sync(run, c)
@@ -317,7 +317,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
+			SkipRepos: c.SkipRepos(),
 			SkipDeps:  c.SkipDeps(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)

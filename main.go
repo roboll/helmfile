@@ -186,7 +186,11 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "skip-deps",
-					Usage: `skip running "helm repo update" and "helm dependency build"`,
+					Usage: `skip running "helm dependency build"`,
+				},
+				cli.BoolFlag{
+					Name:  "skip-repos",
+					Usage: `skip running "helm repo update" before running "helm dependency build"`,
 				},
 				cli.BoolFlag{
 					Name:  "detailed-exitcode",
@@ -255,7 +259,11 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "skip-deps",
-					Usage: `skip running "helm repo update" and "helm dependency build"`,
+					Usage: `skip running "helm dependency build"`,
+				},
+				cli.BoolFlag{
+					Name:  "skip-repos",
+					Usage: `skip running "helm repo update" before running "helm dependency build"`,
 				},
 				cli.BoolFlag{
 					Name:  "skip-cleanup",
@@ -289,7 +297,11 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "skip-deps",
-					Usage: `skip running "helm repo update" and "helm dependency build"`,
+					Usage: `skip running "helm dependency build"`,
+				},
+				cli.BoolFlag{
+					Name:  "skip-repos",
+					Usage: `skip running "helm repo update" before running "helm dependency build"`,
 				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
@@ -320,7 +332,11 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "skip-deps",
-					Usage: `skip running "helm repo update" and "helm dependency build"`,
+					Usage: `skip running "helm dependency build"`,
+				},
+				cli.BoolFlag{
+					Name:  "skip-repos",
+					Usage: `skip running "helm repo update" before running "helm dependency build"`,
 				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
@@ -351,7 +367,11 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "skip-deps",
-					Usage: `skip running "helm repo update" and "helm dependency build"`,
+					Usage: `skip running "helm dependency build"`,
+				},
+				cli.BoolFlag{
+					Name:  "skip-repos",
+					Usage: `skip running "helm repo update" before running "helm dependency build"`,
 				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
@@ -415,7 +435,11 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "skip-deps",
-					Usage: `skip running "helm repo update" and "helm dependency build"`,
+					Usage: `skip running "helm dependency build"`,
+				},
+				cli.BoolFlag{
+					Name:  "skip-repos",
+					Usage: `skip running "helm repo update" before running "helm dependency build"`,
 				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
