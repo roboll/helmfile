@@ -46,3 +46,11 @@ releases:
             path: /metadata/annotations
             value:
               foo: bar
+
+  - name: raw2
+    chart: center/incubator/raw
+    version: 0.2.3
+    condition: raw2.enabled
+    values:
+      - mysecret: {{ .Environment.Values.mysecret }}
+      - values.yaml
