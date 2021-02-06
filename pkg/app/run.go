@@ -179,9 +179,9 @@ func (a *App) test(r *Run, c TestConfigProvider) []error {
 	return st.TestReleases(r.helm, cleanup, timeout, concurrency, state.Logs(c.Logs()))
 }
 
-func (run *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfigProvider, diffOpts *state.DiffOpts) (*string, map[string]state.ReleaseSpec, map[string]state.ReleaseSpec, []error) {
-	st := run.state
-	helm := run.helm
+func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfigProvider, diffOpts *state.DiffOpts) (*string, map[string]state.ReleaseSpec, map[string]state.ReleaseSpec, []error) {
+	st := r.state
+	helm := r.helm
 
 	var changedReleases []state.ReleaseSpec
 	var deletingReleases []state.ReleaseSpec
@@ -225,7 +225,7 @@ func (run *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConf
 	for _, r := range changedReleases {
 		id := state.ReleaseToID(&r)
 
-		// If `helm-diff` detected changes but it is not being `helm delete`ed, we should run `helm upgrade`
+		// If `helm-diff` detected changes but it is not being `helm delete`ed, we should r `helm upgrade`
 		if _, ok := releasesToBeDeleted[id]; !ok {
 			releasesToBeUpdated[id] = r
 		}
