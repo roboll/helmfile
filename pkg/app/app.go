@@ -271,14 +271,14 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 }
 
 func (a *App) Lint(c LintConfigProvider) error {
-	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
 		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
 			ForceDownload: true,
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
 		}, func() {
-			errs = run.Lint(c)
+			ok, errs = a.lint(run, c)
 		})
 
 		if prepErr != nil {
@@ -350,12 +350,12 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 }
 
 func (a *App) Status(c StatusesConfigProvider) error {
-	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.withPreparedCharts("status", state.ChartPrepareOptions{
 			SkipRepos: true,
 			SkipDeps:  true,
 		}, func() {
-			errs = run.Status(c)
+			ok, errs = a.status(run, c)
 		})
 
 		if err != nil {
@@ -1273,6 +1273,135 @@ Do you really want to delete?
 		}
 	}
 	affectedReleases.DisplayAffectedReleases(c.Logger())
+	return true, errs
+}
+
+func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error) {
+	st := r.state
+	helm := r.helm
+
+	allReleases := st.GetReleasesWithOverrides()
+
+	selectedReleases, err := a.getSelectedReleases(r)
+	if err != nil {
+		return false, []error{err}
+	}
+	if len(selectedReleases) == 0 {
+		return false, nil
+	}
+
+	// Do build deps and prepare only on selected releases so that we won't waste time
+	// on running various helm commands on unnecessary releases
+	st.Releases = selectedReleases
+
+	releasesToRender := map[string]state.ReleaseSpec{}
+	for _, r := range selectedReleases {
+		id := state.ReleaseToID(&r)
+		if r.Installed != nil && !*r.Installed {
+			continue
+		}
+		releasesToRender[id] = r
+	}
+
+	var errs []error
+
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	st.Releases = allReleases
+
+	args := argparser.GetArgs(c.Args(), st)
+
+	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
+	helm.SetExtraArgs()
+
+	if len(args) > 0 {
+		helm.SetExtraArgs(args...)
+	}
+
+	if len(releasesToRender) > 0 {
+		_, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			var rs []state.ReleaseSpec
+
+			for _, r := range subst.Releases {
+				if r2, ok := releasesToRender[state.ReleaseToID(&r)]; ok {
+					rs = append(rs, r2)
+				}
+			}
+
+			subst.Releases = rs
+
+			opts := &state.LintOpts{
+				Set: c.Set(),
+			}
+			return subst.LintReleases(helm, c.Values(), args, c.Concurrency(), opts)
+		}))
+
+		if templateErrs != nil && len(templateErrs) > 0 {
+			errs = append(errs, templateErrs...)
+		}
+	}
+	return true, errs
+}
+
+func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
+	st := r.state
+	helm := r.helm
+
+	allReleases := st.GetReleasesWithOverrides()
+
+	selectedReleases, err := a.getSelectedReleases(r)
+	if err != nil {
+		return false, []error{err}
+	}
+	if len(selectedReleases) == 0 {
+		return false, nil
+	}
+
+	// Do build deps and prepare only on selected releases so that we won't waste time
+	// on running various helm commands on unnecessary releases
+	st.Releases = selectedReleases
+
+	releasesToRender := map[string]state.ReleaseSpec{}
+	for _, r := range selectedReleases {
+		id := state.ReleaseToID(&r)
+		if r.Installed != nil && !*r.Installed {
+			continue
+		}
+		releasesToRender[id] = r
+	}
+
+	var errs []error
+
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	st.Releases = allReleases
+
+	args := argparser.GetArgs(c.Args(), st)
+
+	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
+	helm.SetExtraArgs()
+
+	if len(args) > 0 {
+		helm.SetExtraArgs(args...)
+	}
+
+	if len(releasesToRender) > 0 {
+		_, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			var rs []state.ReleaseSpec
+
+			for _, r := range subst.Releases {
+				if r2, ok := releasesToRender[state.ReleaseToID(&r)]; ok {
+					rs = append(rs, r2)
+				}
+			}
+
+			subst.Releases = rs
+
+			return subst.ReleaseStatuses(helm, c.Concurrency())
+		}))
+
+		if templateErrs != nil && len(templateErrs) > 0 {
+			errs = append(errs, templateErrs...)
+		}
+	}
 	return true, errs
 }
 
