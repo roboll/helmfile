@@ -2,13 +2,14 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/argparser"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/state"
 	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/roboll/helmfile/pkg/argparser"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
 )
 
 type Run struct {
@@ -104,14 +105,6 @@ func (r *Run) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) []error {
 	return errs
 }
 
-func (r *Run) Status(c StatusesConfigProvider) []error {
-	workers := c.Concurrency()
-
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-
-	return r.state.ReleaseStatuses(r.helm, workers)
-}
-
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
 
@@ -184,19 +177,6 @@ func (a *App) test(r *Run, c TestConfigProvider) []error {
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	return st.TestReleases(r.helm, cleanup, timeout, concurrency, state.Logs(c.Logs()))
-}
-
-func (r *Run) Lint(c LintConfigProvider) []error {
-	st := r.state
-	helm := r.helm
-
-	values := c.Values()
-	args := argparser.GetArgs(c.Args(), st)
-	workers := c.Concurrency()
-	opts := &state.LintOpts{
-		Set: c.Set(),
-	}
-	return st.LintReleases(helm, values, args, workers, opts)
 }
 
 func (run *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfigProvider, diffOpts *state.DiffOpts) (*string, map[string]state.ReleaseSpec, map[string]state.ReleaseSpec, []error) {
