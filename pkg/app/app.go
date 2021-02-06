@@ -1276,6 +1276,55 @@ Do you really want to delete?
 	return true, errs
 }
 
+func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
+	st := r.state
+
+	allReleases := st.GetReleasesWithOverrides()
+
+	toDiff, err := a.getSelectedReleases(r)
+	if err != nil {
+		return nil, false, false, []error{err}
+	}
+
+	if len(toDiff) == 0 {
+		return nil, false, false, nil
+	}
+
+	// Do build deps and prepare only on selected releases so that we won't waste time
+	// on running various helm commands on unnecessary releases
+	st.Releases = toDiff
+
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
+	opts := &state.DiffOpts{
+		Context: c.Context(),
+		NoColor: c.NoColor(),
+		Set:     c.Set(),
+	}
+
+	// Validate all releases for missing `needs` targets
+	st.Releases = allReleases
+
+	if _, err := st.PlanReleases(false); err != nil {
+		return nil, false, false, []error{err}
+	}
+
+	// Diff only targeted releases
+
+	st.Releases = toDiff
+
+	filtered := &Run{
+		state: st,
+		helm:  r.helm,
+		ctx:   r.ctx,
+		Ask:   r.Ask,
+	}
+
+	infoMsg, updated, deleted, errs := filtered.diff(true, c.DetailedExitcode(), c, opts)
+
+	return infoMsg, true, len(deleted) > 0 || len(updated) > 0, errs
+}
+
 func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
@@ -1602,6 +1651,31 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		}
 	}
 	return true, errs
+}
+
+func (a *App) test(r *Run, c TestConfigProvider) []error {
+	cleanup := c.Cleanup()
+	timeout := c.Timeout()
+	concurrency := c.Concurrency()
+
+	st := r.state
+
+	toTest, err := a.getSelectedReleases(r)
+	if err != nil {
+		return []error{err}
+	}
+
+	if len(toTest) == 0 {
+		return nil
+	}
+
+	// Do test only on selected releases, because that's what the user intended
+	// with conditions and selectors
+	st.Releases = toTest
+
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
+	return st.TestReleases(r.helm, cleanup, timeout, concurrency, state.Logs(c.Logs()))
 }
 
 func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
