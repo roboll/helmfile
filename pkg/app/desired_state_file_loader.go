@@ -72,9 +72,6 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 	}
 
 	if ld.overrideKubeContext != "" {
-		if st.HelmDefaults.KubeContext != "" {
-			return nil, errors.New("err: Cannot use option --kube-context and set attribute helmDefaults.kubeContext.")
-		}
 		st.HelmDefaults.KubeContext = ld.overrideKubeContext
 	}
 
