@@ -291,6 +291,8 @@ environments:
     # Use "Warn", "Info", or "Debug" if you want helmfile to not fail when a values file is missing, while just leaving
     # a message about the missing file at the log-level.
     missingFileHandler: Error
+    # kubeContext to use for this environment
+    kubeContext: kube-context
 
 #
 # Advanced Configuration: Layering

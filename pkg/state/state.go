@@ -2172,6 +2172,8 @@ func (st *HelmState) connectionFlags(helm helmexec.Interface, release *ReleaseSp
 
 		if release.KubeContext != "" {
 			flags = append(flags, "--kube-context", release.KubeContext)
+		} else if st.Environments[st.Env.Name].KubeContext != "" {
+			flags = append(flags, "--kube-context", st.Environments[st.Env.Name].KubeContext)
 		} else if st.HelmDefaults.KubeContext != "" {
 			flags = append(flags, "--kube-context", st.HelmDefaults.KubeContext)
 		}
