@@ -353,6 +353,10 @@ func main() {
 					Name:  "skip-deps",
 					Usage: `skip running "helm repo update" and "helm dependency build"`,
 				},
+				cli.BoolFlag{
+					Name:  "wait",
+					Usage: `Override helmDefaults.wait setting "helm upgrade --install --wait"`,
+				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
 				return run.Sync(c)
@@ -416,6 +420,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "skip-deps",
 					Usage: `skip running "helm repo update" and "helm dependency build"`,
+				},
+				cli.BoolFlag{
+					Name:  "wait",
+					Usage: `Override helmDefaults.wait setting "helm upgrade --install --wait"`,
 				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
@@ -601,6 +609,10 @@ func (c configImpl) Set() []string {
 
 func (c configImpl) SkipRepos() bool {
 	return c.c.Bool("skip-repos")
+}
+
+func (c configImpl) Wait() bool {
+	return c.c.Bool("wait")
 }
 
 func (c configImpl) Values() []string {
