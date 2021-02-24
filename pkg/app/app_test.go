@@ -2315,10 +2315,15 @@ type applyConfig struct {
 	interactive       bool
 	skipDiffOnInstall bool
 	logger            *zap.SugaredLogger
+	wait              bool
 }
 
 func (a applyConfig) Args() string {
 	return a.args
+}
+
+func (a applyConfig) Wait() bool {
+	return a.wait
 }
 
 func (a applyConfig) Values() []string {

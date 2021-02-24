@@ -294,6 +294,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
 			SkipRepos: c.SkipDeps(),
 			SkipDeps:  c.SkipDeps(),
+			Wait:      c.Wait(),
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
@@ -319,6 +320,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
 			SkipRepos: c.SkipDeps(),
 			SkipDeps:  c.SkipDeps(),
+			Wait:      c.Wait(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -1179,6 +1181,7 @@ Do you really want to apply?
 				syncOpts := state.SyncOpts{
 					Set:         c.Set(),
 					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
+					Wait:        c.Wait(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
 			}))
@@ -1393,7 +1396,8 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 			subst.Releases = rs
 
 			opts := &state.SyncOpts{
-				Set: c.Set(),
+				Set:  c.Set(),
+				Wait: c.Wait(),
 			}
 			return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 		}))

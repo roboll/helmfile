@@ -504,6 +504,10 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					}
 				}
 
+				if opts.Wait {
+					flags = append(flags, "--wait")
+				}
+
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs, files: files}
 					continue
@@ -578,6 +582,7 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 type SyncOpts struct {
 	Set         []string
 	SkipCleanup bool
+	Wait        bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -876,6 +881,7 @@ type ChartPrepareOptions struct {
 	SkipRepos     bool
 	SkipDeps      bool
 	SkipResolve   bool
+	Wait          bool
 }
 
 type chartPrepareResult struct {

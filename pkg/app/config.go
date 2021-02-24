@@ -39,6 +39,7 @@ type ApplyConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+	Wait() bool
 
 	IncludeTests() bool
 
@@ -65,6 +66,7 @@ type SyncConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+	Wait() bool
 
 	concurrencyConfig
 	loggingConfig
