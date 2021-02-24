@@ -335,7 +335,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	}
 
 	out, err := helm.exec(append(args, flags...), map[string]string{})
-	helm.write(nil, out)
+	helm.info(out)
 	return err
 }
 
