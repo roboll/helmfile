@@ -33,6 +33,10 @@ type releaseTemplateData struct {
 	// You should better use Release.Namespace as it might work as you'd expect even if OverrideNamespace is not set.
 	// See releaseTemplateDataRelease.Namespace for more information.
 	Namespace string
+	// Chart is HelmState.OverrideChart.
+	// You should better use Release.Chart as it might work as you'd expect even if OverrideChart is not set.
+	// See releaseTemplateDataRelease.Chart for more information.
+	Chart string
 }
 
 type releaseTemplateDataRelease struct {

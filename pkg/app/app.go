@@ -30,6 +30,7 @@ type App struct {
 	Logger      *zap.SugaredLogger
 	Env         string
 	Namespace   string
+	Chart       string
 	Selectors   []string
 	Args        string
 	ValuesFiles []string
@@ -72,6 +73,7 @@ func New(conf ConfigProvider) *App {
 		Logger:              conf.Logger(),
 		Env:                 conf.Env(),
 		Namespace:           conf.Namespace(),
+		Chart:               conf.Chart(),
 		Selectors:           conf.Selectors(),
 		Args:                conf.Args(),
 		FileOrDir:           conf.FileOrDir(),
@@ -640,6 +642,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		directoryExistsAt: a.directoryExistsAt,
 		env:               a.Env,
 		namespace:         a.Namespace,
+		chart:             a.Chart,
 		logger:            a.Logger,
 		abs:               a.abs,
 		remote:            a.remote,

@@ -20,6 +20,7 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 	return releaseTemplateData{
 		Environment: st.Env,
 		Namespace:   st.OverrideNamespace,
+		Chart:       st.OverrideChart,
 		Values:      vals,
 		Release: releaseTemplateDataRelease{
 			Name:      release.Name,
