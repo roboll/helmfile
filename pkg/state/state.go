@@ -1966,8 +1966,12 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 			if len(conditionSplit) != 2 {
 				return nil, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
 			}
-			if values[conditionSplit[0]].(map[string]interface{})["enabled"] == true {
-				conditionMatch = true
+			if v, ok := values[conditionSplit[0]]; ok {
+				if v.(map[string]interface{})["enabled"] == true {
+					conditionMatch = true
+				}
+			} else {
+				panic(fmt.Sprintf("environment values does not contain field %s", conditionSplit[0]))
 			}
 		}
 		res := Release{
