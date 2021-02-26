@@ -7,3 +7,5 @@ templates:
       name: common-secret
     stringData:
       mykey: {{ .Values.mysecret }}
+      my_other_key: {{ .Values.my_other_secret }}
+      my_templated_key: {{ .Values.my_templated_secret }}

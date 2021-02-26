@@ -11,3 +11,5 @@ metadata:
   name: common-secret
 stringData:
   mykey: MYSECRET
+  my_other_key: MY_OTHER_SECRET
+  my_templated_key: MY_TEMPLATED_SECRET
