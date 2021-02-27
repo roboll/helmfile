@@ -15,6 +15,7 @@ type Hook struct {
 	Name     string   `yaml:"name"`
 	Events   []string `yaml:"events"`
 	Command  string   `yaml:"command"`
+	Class    string   `yaml:"class"`
 	Args     []string `yaml:"args"`
 	ShowLogs bool     `yaml:"showlogs"`
 }
@@ -58,6 +59,15 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 		}
 
 		var err error
+
+		switch class := hook.Class; class {
+			case "apply":
+				hook.Command = "kubectl"
+				hook.Args = append([]string{"apply", "-f"}, hook.Args...)
+			case "kustomize":
+				hook.Command = "kubectl"
+				hook.Args = append([]string{"apply", "-k"}, hook.Args...)
+		}
 
 		name := hook.Name
 		if name == "" {
