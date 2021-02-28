@@ -63,10 +63,10 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 		switch class := hook.Class; class {
 			case "apply":
 				hook.Command = "kubectl"
-				hook.Args = append([]string{"apply", "-f"}, hook.Args...)
+				hook.Args = append([]string{"apply", "-n" , "{{.Release.Namespace}}", "-f"}, hook.Args...)
 			case "kustomize":
 				hook.Command = "kubectl"
-				hook.Args = append([]string{"apply", "-k"}, hook.Args...)
+				hook.Args = append([]string{"apply", "-n" , "{{.Release.Namespace}}", "-k"}, hook.Args...)
 		}
 
 		name := hook.Name
