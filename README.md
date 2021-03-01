@@ -550,8 +550,7 @@ Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync`
 The `secrets` parameter in a `helmfile.yaml` causes the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin to be executed to decrypt the file.
 
 To supply the secret functionality Helmfile needs the `helm secrets` plugin installed. For Helm 2.3+
-you should be able to simply execute `helm plugin install https://github.com/futuresimple/helm-secrets
-`.
+you should be able to simply execute `helm plugin install https://github.com/jkroepke/helm-secrets`.
 
 ### test
 
