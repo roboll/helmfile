@@ -3049,6 +3049,7 @@ func (st *HelmState) getOCIChart(pullChan chan *PullCommand, release *ReleaseSpe
 
 	return &chartPath, nil
 }
+
 // Pull charts one by one to prevent concurrent pull problems with Helm
 func (st *HelmState) pullChartWorker(pullChan chan *PullCommand, helm helmexec.Interface) {
 	for {
@@ -3061,6 +3062,7 @@ func (st *HelmState) pullChartWorker(pullChan chan *PullCommand, helm helmexec.I
 		}
 	}
 }
+
 // Send a pull command to the pull worker
 func (st *HelmState) pullChart(pullChan chan *PullCommand, chartRef string) error {
 	response := make(chan error, 1)
