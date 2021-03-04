@@ -73,6 +73,11 @@ type ReleaseSetSpec struct {
 	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
 }
 
+type PullCommand struct {
+	ChartRef     string
+	responseChan chan error
+}
+
 // HelmState structure for the helmfile
 type HelmState struct {
 	basePath string
@@ -504,6 +509,10 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					}
 				}
 
+				if opts.Wait {
+					flags = append(flags, "--wait")
+				}
+
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs, files: files}
 					continue
@@ -578,6 +587,7 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 type SyncOpts struct {
 	Set         []string
 	SkipCleanup bool
+	Wait        bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -876,10 +886,13 @@ type ChartPrepareOptions struct {
 	SkipRepos     bool
 	SkipDeps      bool
 	SkipResolve   bool
+	Wait          bool
 }
 
 type chartPrepareResult struct {
 	releaseName            string
+	releaseNamespace       string
+	releaseContext         string
 	chartName              string
 	chartPath              string
 	err                    error
@@ -901,6 +914,10 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 	return nil, chartName
 }
 
+type PrepareChartKey struct {
+	Namespace, Name, KubeContext string
+}
+
 // PrepareCharts creates temporary directories of charts.
 //
 // Each resulting "chart" can be one of the followings:
@@ -915,7 +932,7 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 // Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[string]string, []error) {
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
 	var selected []ReleaseSpec
 
 	if len(st.Selectors) > 0 {
@@ -933,7 +950,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	releases := releasesNeedCharts(selected)
 
-	temp := make(map[string]string, len(releases))
+	temp := make(map[PrepareChartKey]string, len(releases))
 
 	errs := []error{}
 
@@ -955,6 +972,11 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	}
 
 	var builds []*chartPrepareResult
+	pullChan := make(chan *PullCommand)
+	defer func() {
+		pullChan <- nil
+	}()
+	go st.pullChartWorker(pullChan, helm)
 
 	st.scatterGather(
 		concurrency,
@@ -987,7 +1009,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				chartFetchedByGoGetter := chartPath != chartName
 
 				if !chartFetchedByGoGetter {
-					ociChartPath, err := st.getOCIChart(release, dir, helm)
+					ociChartPath, err := st.getOCIChart(pullChan, release, dir, helm)
 					if err != nil {
 						results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
 
@@ -1123,6 +1145,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				results <- &chartPrepareResult{
 					releaseName:            release.Name,
 					chartName:              chartName,
+					releaseNamespace:       release.Namespace,
+					releaseContext:         release.KubeContext,
 					chartPath:              chartPath,
 					buildDeps:              buildDeps,
 					chartFetchedByGoGetter: chartFetchedByGoGetter,
@@ -1138,7 +1162,11 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					return
 				}
-				temp[downloadRes.releaseName] = downloadRes.chartPath
+				temp[PrepareChartKey{
+					Namespace:   downloadRes.releaseNamespace,
+					KubeContext: downloadRes.releaseContext,
+					Name:        downloadRes.releaseName,
+				}] = downloadRes.chartPath
 
 				if downloadRes.buildDeps {
 					builds = append(builds, downloadRes)
@@ -1960,8 +1988,12 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 			if len(conditionSplit) != 2 {
 				return nil, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
 			}
-			if values[conditionSplit[0]].(map[string]interface{})["enabled"] == true {
-				conditionMatch = true
+			if v, ok := values[conditionSplit[0]]; ok {
+				if v.(map[string]interface{})["enabled"] == true {
+					conditionMatch = true
+				}
+			} else {
+				panic(fmt.Sprintf("environment values does not contain field %s", conditionSplit[0]))
 			}
 		}
 		res := Release{
@@ -2985,7 +3017,7 @@ func (st *HelmState) Reverse() {
 	}
 }
 
-func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
+func (st *HelmState) getOCIChart(pullChan chan *PullCommand, release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
 	repo, name := st.GetRepositoryAndNameFromChartName(release.Chart)
 	if repo == nil {
 		return nil, nil
@@ -3002,7 +3034,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 
 	qualifiedChartName := fmt.Sprintf("%s/%s:%s", repo.URL, name, chartVersion)
 
-	err := helm.ChartPull(qualifiedChartName)
+	err := st.pullChart(pullChan, qualifiedChartName)
 	if err != nil {
 		return nil, err
 	}
@@ -3032,4 +3064,28 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	chartPath = filepath.Dir(fullChartPath)
 
 	return &chartPath, nil
+}
+
+// Pull charts one by one to prevent concurrent pull problems with Helm
+func (st *HelmState) pullChartWorker(pullChan chan *PullCommand, helm helmexec.Interface) {
+	for {
+		pullCmd := <-pullChan
+		if pullCmd != nil {
+			err := helm.ChartPull(pullCmd.ChartRef)
+			pullCmd.responseChan <- err
+		} else {
+			return
+		}
+	}
+}
+
+// Send a pull command to the pull worker
+func (st *HelmState) pullChart(pullChan chan *PullCommand, chartRef string) error {
+	response := make(chan error, 1)
+	cmd := &PullCommand{
+		responseChan: response,
+		ChartRef:     chartRef,
+	}
+	pullChan <- cmd
+	return <-response
 }

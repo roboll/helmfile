@@ -16,7 +16,7 @@ type Run struct {
 	helm  helmexec.Interface
 	ctx   Context
 
-	ReleaseToChart map[string]string
+	ReleaseToChart map[state.PrepareChartKey]string
 
 	Ask func(string) bool
 }
@@ -68,7 +68,12 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	for i := range r.state.Releases {
 		rel := &r.state.Releases[i]
 
-		if chart := releaseToChart[rel.Name]; chart != "" {
+		key := state.PrepareChartKey{
+			Name:        rel.Name,
+			Namespace:   rel.Namespace,
+			KubeContext: rel.KubeContext,
+		}
+		if chart := releaseToChart[key]; chart != "" {
 			rel.Chart = chart
 		}
 	}
