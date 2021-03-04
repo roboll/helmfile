@@ -1989,11 +1989,14 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 				return nil, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
 			}
 			if v, ok := values[conditionSplit[0]]; ok {
+				if v == nil {
+					panic(fmt.Sprintf("environment values field '%s' is nil", conditionSplit[0]))
+				}
 				if v.(map[string]interface{})["enabled"] == true {
 					conditionMatch = true
 				}
 			} else {
-				panic(fmt.Sprintf("environment values does not contain field %s", conditionSplit[0]))
+				panic(fmt.Sprintf("environment values does not contain field '%s'", conditionSplit[0]))
 			}
 		}
 		res := Release{
