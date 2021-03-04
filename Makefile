@@ -30,7 +30,7 @@ integration:
 .PHONY: integration
 
 cross:
-	env CGO_ENABLED=0 gox -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/arm64' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/arm64 !darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:
