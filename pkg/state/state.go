@@ -972,9 +972,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	}
 
 	var builds []*chartPrepareResult
-	pullChan := make(chan *PullCommand)
+	pullChan := make(chan PullCommand)
 	defer func() {
-		pullChan <- nil
+		close(pullChan)
 	}()
 	go st.pullChartWorker(pullChan, helm)
 
@@ -3017,7 +3017,7 @@ func (st *HelmState) Reverse() {
 	}
 }
 
-func (st *HelmState) getOCIChart(pullChan chan *PullCommand, release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
+func (st *HelmState) getOCIChart(pullChan chan PullCommand, release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
 	repo, name := st.GetRepositoryAndNameFromChartName(release.Chart)
 	if repo == nil {
 		return nil, nil
@@ -3067,22 +3067,17 @@ func (st *HelmState) getOCIChart(pullChan chan *PullCommand, release *ReleaseSpe
 }
 
 // Pull charts one by one to prevent concurrent pull problems with Helm
-func (st *HelmState) pullChartWorker(pullChan chan *PullCommand, helm helmexec.Interface) {
-	for {
-		pullCmd := <-pullChan
-		if pullCmd != nil {
-			err := helm.ChartPull(pullCmd.ChartRef)
-			pullCmd.responseChan <- err
-		} else {
-			return
-		}
+func (st *HelmState) pullChartWorker(pullChan chan PullCommand, helm helmexec.Interface) {
+	for pullCmd := range pullChan {
+		err := helm.ChartPull(pullCmd.ChartRef)
+		pullCmd.responseChan <- err
 	}
 }
 
 // Send a pull command to the pull worker
-func (st *HelmState) pullChart(pullChan chan *PullCommand, chartRef string) error {
+func (st *HelmState) pullChart(pullChan chan PullCommand, chartRef string) error {
 	response := make(chan error, 1)
-	cmd := &PullCommand{
+	cmd := PullCommand{
 		responseChan: response,
 		ChartRef:     chartRef,
 	}
