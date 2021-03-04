@@ -891,6 +891,8 @@ type ChartPrepareOptions struct {
 
 type chartPrepareResult struct {
 	releaseName            string
+	releaseNamespace       string
+	releaseContext         string
 	chartName              string
 	chartPath              string
 	err                    error
@@ -912,6 +914,10 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 	return nil, chartName
 }
 
+type PrepareChartKey struct {
+	Namespace, Name, KubeContext string
+}
+
 // PrepareCharts creates temporary directories of charts.
 //
 // Each resulting "chart" can be one of the followings:
@@ -926,7 +932,7 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 // Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[string]string, []error) {
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
 	var selected []ReleaseSpec
 
 	if len(st.Selectors) > 0 {
@@ -944,7 +950,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	releases := releasesNeedCharts(selected)
 
-	temp := make(map[string]string, len(releases))
+	temp := make(map[PrepareChartKey]string, len(releases))
 
 	errs := []error{}
 
@@ -1139,6 +1145,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				results <- &chartPrepareResult{
 					releaseName:            release.Name,
 					chartName:              chartName,
+					releaseNamespace:       release.Namespace,
+					releaseContext:         release.KubeContext,
 					chartPath:              chartPath,
 					buildDeps:              buildDeps,
 					chartFetchedByGoGetter: chartFetchedByGoGetter,
@@ -1154,7 +1162,11 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					return
 				}
-				temp[downloadRes.releaseName] = downloadRes.chartPath
+				temp[PrepareChartKey{
+					Namespace:   downloadRes.releaseNamespace,
+					KubeContext: downloadRes.releaseContext,
+					Name:        downloadRes.releaseName,
+				}] = downloadRes.chartPath
 
 				if downloadRes.buildDeps {
 					builds = append(builds, downloadRes)
