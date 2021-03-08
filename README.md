@@ -452,33 +452,36 @@ USAGE:
    helmfile [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.92.1
+   v0.138.6
 
 COMMANDS:
-     deps      update charts based on the contents of requirements.yaml
-     repos     sync repositories from state file (helm repo add && helm repo update)
-     charts    DEPRECATED: sync releases from state file (helm upgrade --install)
-     diff      diff releases from state file against env (helm diff)
-     template  template releases from state file against env (helm template)
-     lint      lint charts from state file (helm lint)
-     sync      sync all resources from state file (repos, releases and chart deps)
-     apply     apply all resources from state file only when there are changes
-     status    retrieve status of releases in state file
-     delete    DEPRECATED: delete releases from state file (helm delete)
-     destroy   uninstalls and then purges releases
-     test      test releases from state file (helm test)
-     build     output compiled helmfile state(s) as YAML
-     list      list releases defined in state file
-     help, h   Shows a list of commands or help for one command
+   deps          update charts based on their requirements
+   repos         sync repositories from state file (helm repo add && helm repo update)
+   charts        DEPRECATED: sync releases from state file (helm upgrade --install)
+   diff          diff releases from state file against env (helm diff)
+   template      template releases from state file against env (helm template)
+   write-values  write values files for releases. Similar to `helmfile template`, write values files instead of manifests.
+   lint          lint charts from state file (helm lint)
+   sync          sync all resources from state file (repos, releases and chart deps)
+   apply         apply all resources from state file only when there are changes
+   status        retrieve status of releases in state file
+   delete        DEPRECATED: delete releases from state file (helm delete)
+   destroy       deletes and then purges releases
+   test          test releases from state file (helm test)
+   build         output compiled helmfile state(s) as YAML
+   list          list releases defined in state file
+   version       Show the version for Helmfile.
+   help, h       Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --helm-binary value, -b value           path to helm binary (default: "helm")
    --file helmfile.yaml, -f helmfile.yaml  load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
-   --environment default, -e default       specify the environment name. defaults to default
+   --environment value, -e value           specify the environment name. defaults to "default"
    --state-values-set value                set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
    --state-values-file value               specify state values in a YAML file
    --quiet, -q                             Silence output. Equivalent to log-level warn
    --kube-context value                    Set kubectl context. Uses current context by default
+   --debug                                 Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
    --no-color                              Output without color
    --log-level value                       Set log level, default info
    --namespace value, -n value             Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
@@ -490,9 +493,6 @@ GLOBAL OPTIONS:
    --interactive, -i                       Request confirmation before attempting to modify clusters
    --help, -h                              show help
    --version, -v                           print the version
-
-Environment variables:
-  HELMFILE_ENVIRONMENT                     specify the environment name, the command line option '-e' have precedence
 ```
 
 ### sync
