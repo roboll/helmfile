@@ -382,13 +382,12 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 		if shouldSkip[repo.Name] {
 			continue
 		}
-		var err error
+		var err error = nil
 		if repo.OCI {
 			username, password := gatherOCIUsernamePassword(repo.Name, repo.Username, repo.Password)
-			if username == "" || password == "" {
-				return nil, fmt.Errorf("username and password are required fields for logging in to OCI registries with helm")
+			if username != "" && password != "" {
+				err = helm.RegistryLogin(repo.URL, username, password)
 			}
-			err = helm.RegistryLogin(repo.URL, username, password)
 		} else {
 			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed)
 		}
