@@ -382,7 +382,7 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 		if shouldSkip[repo.Name] {
 			continue
 		}
-		var err error = nil
+		var err error
 		if repo.OCI {
 			username, password := gatherOCIUsernamePassword(repo.Name, repo.Username, repo.Password)
 			if username != "" && password != "" {
