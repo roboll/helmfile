@@ -554,7 +554,8 @@ Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync`
 The `secrets` parameter in a `helmfile.yaml` causes the [helm-secrets](https://github.com/jkroepke/helm-secrets) plugin to be executed to decrypt the file.
 
 To supply the secret functionality Helmfile needs the `helm secrets` plugin installed. For Helm 2.3+
-you should be able to simply execute `helm plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0`.
+you should be able to simply execute `helm plugin install https://github.com/jkroepke/helm-secrets
+`.
 
 ### test
 
@@ -852,7 +853,7 @@ Environment Secrets (not to be confused with Kubernetes Secrets) are encrypted v
 You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
 Helmfile could automatically decrypt and merge the secrets into the environment values.
 
-First you must have the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin installed along with a
+First you must have the [helm-secrets](https://github.com/jkroepke/helm-secrets) plugin installed along with a
 `.sops.yaml` file to configure the method of encryption (this can be in the same directory as your helmfile or
 in the sub-directory containing your secrets files).
 
