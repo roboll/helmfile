@@ -215,6 +215,7 @@ func TestVisitDesiredStatesWithReleasesFiltered_Issue1008_MissingNonDefaultEnvIn
 		"/path/to/base.yaml": `
 helmDefaults:
   wait: true
+  waitForJobs: true
 `,
 		"/path/to/helmfile.yaml": `
 bases:
@@ -2316,6 +2317,7 @@ type applyConfig struct {
 	skipDiffOnInstall bool
 	logger            *zap.SugaredLogger
 	wait              bool
+	waitForJobs       bool
 }
 
 func (a applyConfig) Args() string {
@@ -2324,6 +2326,10 @@ func (a applyConfig) Args() string {
 
 func (a applyConfig) Wait() bool {
 	return a.wait
+}
+
+func (a applyConfig) WaitForJobs() bool {
+	return a.waitForJobs
 }
 
 func (a applyConfig) Values() []string {

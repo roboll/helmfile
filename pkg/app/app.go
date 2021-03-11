@@ -292,9 +292,10 @@ func (a *App) Lint(c LintConfigProvider) error {
 func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
-			SkipDeps:  c.SkipDeps(),
-			Wait:      c.Wait(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			Wait:        c.Wait(),
+			WaitForJobs: c.WaitForJobs(),
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
@@ -318,9 +319,10 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
-			SkipDeps:  c.SkipDeps(),
-			Wait:      c.Wait(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			Wait:        c.Wait(),
+			WaitForJobs: c.WaitForJobs(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -1182,6 +1184,7 @@ Do you really want to apply?
 					Set:         c.Set(),
 					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 					Wait:        c.Wait(),
+					WaitForJobs: c.WaitForJobs(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
 			}))
@@ -1396,8 +1399,9 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 			subst.Releases = rs
 
 			opts := &state.SyncOpts{
-				Set:  c.Set(),
-				Wait: c.Wait(),
+				Set:         c.Set(),
+				Wait:        c.Wait(),
+				WaitForJobs: c.WaitForJobs(),
 			}
 			return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 		}))
