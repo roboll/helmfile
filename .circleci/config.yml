@@ -153,7 +153,7 @@ jobs:
     - run:
         name: Install helm
         environment:
-          HELM_VERSION: v3.4.2
+          HELM_VERSION: v3.5.3
         command: |
           HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
           curl -Lo ${HELM_FILENAME} "https://get.helm.sh/${HELM_FILENAME}"
@@ -163,7 +163,7 @@ jobs:
     - run:
         name: Install kustomize
         environment:
-          KUSTOMIZE_VERSION: v3.6.1
+          KUSTOMIZE_VERSION: v3.8.8
         command: |
           KUSTOMIZE_FILENAME="kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
           curl -Lo ${KUSTOMIZE_FILENAME} "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}"
