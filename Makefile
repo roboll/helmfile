@@ -34,7 +34,7 @@ cross:
 .PHONY: cross
 
 static-linux:
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=vendor go build -o "dist/helmfile_linux_amd64" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=readonly go build -o "dist/helmfile_linux_amd64" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: static-linux
 
 install:
@@ -62,7 +62,6 @@ run: image
 
 push: image
 	docker push quay.io/${ORG}/helmfile:${TAG}
-
 
 image/helm3:
 	docker build -f Dockerfile.helm3 -t quay.io/${ORG}/helmfile:helm3-${TAG} .
