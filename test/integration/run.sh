@@ -56,7 +56,8 @@ else
   info "Using Helm version: $(helm version --short | grep -o v.*$)"
 fi
 info "Using Kustomize version: $(kustomize version --short | grep -o 'v[^ ]+')"
-${helm} plugin install https://github.com/databus23/helm-diff --version v3.0.0-rc.7
+${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v3.1.3
+${helm} plugin ls | grep secrets || ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
 $kubectl create namespace ${test_ns} || fail "Could not create namespace ${test_ns}"
 trap "{ $kubectl delete namespace ${test_ns}; }" EXIT # remove namespace whenever we exit this script
