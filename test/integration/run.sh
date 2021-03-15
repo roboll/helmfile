@@ -136,6 +136,7 @@ if [[ helm_major_version -eq 3 ]]; then
   export VAULT_ADDR=http://127.0.0.1:8200
   export VAULT_TOKEN=toor
   sops="sops --hc-vault-transit $VAULT_ADDR/v1/sops/keys/key"
+  mkdir -p ${dir}/tmp
 
   test_start "secretssops"
 
