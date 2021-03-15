@@ -3,11 +3,15 @@ HELM2_VERSION ?= v2.17.0
 KUSTOMIZE_VERSION ?= v3.8.8
 K8S_VERSION ?= v1.13.12
 MINIKUBE_VERSION ?= v0.30.0
+SOPS_VERSION ?= v3.6.1
 
 # ---
 CHANGE_MINIKUBE_NONE_USER ?= true
 MINIKUBE_WANTUPDATENOTIFICATION ?= false
 MINIKUBE_WANTREPORTERRORPROMPT ?= false
+
+VAULT_ADDR := http://127.0.0.1:8200
+VAULT_TOKEN := toor
 
 tmp := $(shell mktemp -d)
 HELM_FILENAME := helm-${HELM_VERSION}-linux-amd64.tar.gz
@@ -15,7 +19,7 @@ HELM2_FILENAME := helm-${HELM2_VERSION}-linux-amd64.tar.gz
 KUSTOMIZE_FILENAME := kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz
 
 
-all: helm kustomize minikube/destroy minikube
+all: vault sops helm kustomize minikube/destroy minikube
 
 helm:
 	curl -sSLo $(tmp)/${HELM_FILENAME} "https://get.helm.sh/${HELM_FILENAME}"
@@ -58,3 +62,16 @@ minikube:
 	kubectl wait node/minikube --for=condition=Ready
 .PHONY: minikube
 .EXPORT_ALL_VARIABLES: minikube
+
+vault:
+	docker kill $$(docker ps -a --filter "name=vault" -q)
+	docker run -d -p8200:8200 --rm --name vault vault:1.2.0 server -dev -dev-root-token-id=toor
+	docker run --rm --network="host" -e VAULT_ADDR=$$VAULT_ADDR -e VAULT_TOKEN=$$VAULT_TOKEN  vault:1.2.0 secrets enable -path=sops transit
+	docker run --rm --network="host" -e VAULT_ADDR=$$VAULT_ADDR -e VAULT_TOKEN=$$VAULT_TOKEN  vault:1.2.0 write sops/keys/key type=rsa-4096
+.PHONY: vault
+
+sops:
+	curl -sSLo $(tmp)/sops "https://github.com/mozilla/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux"
+	chmod +x $(tmp)/sops	
+	sudo mv ${tmp}/sops /usr/local/bin/
+.PHONY: sops
