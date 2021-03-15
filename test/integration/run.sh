@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # vim: set tabstop=4 shiftwidth=4
 
+set -e
+set -o pipefail
+
 # IMPORTS -----------------------------------------------------------------------------------------------------------
 
 # determine working directory to use to relative paths irrespective of starting directory
@@ -137,10 +140,10 @@ if [[ helm_major_version -eq 3 ]]; then
   test_start "secretssops"
 
   info "Ensure helm-secrets is not installed"
-  ${helm} plugin rm secrets
+  ${helm} plugin rm secrets || true
 
   info "Ensure helmfile fails when no helm-secrets is installed"
-  ${helmfile} -f ${dir}/secretssops.yaml -e direct build && fail "\"helmfile build\" should fail without secrets plugin"
+  ${helmfile} -f ${dir}/secretssops.yaml -e direct build; code="$?"; echo Code: "$code"; [ "${code}" -ne 0 ] || fail "\"helmfile build\" should fail without secrets plugin"
 
   info "Ensure helm-secrets is installed"
   ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0
