@@ -1,4 +1,5 @@
 HELM_VERSION ?= v3.5.3
+HELM2_VERSION ?= v2.17.0
 KUSTOMIZE_VERSION ?= v3.8.8
 K8S_VERSION ?= v1.13.12
 MINIKUBE_VERSION ?= v0.30.0
@@ -10,6 +11,7 @@ MINIKUBE_WANTREPORTERRORPROMPT ?= false
 
 tmp := $(shell mktemp -d)
 HELM_FILENAME := helm-${HELM_VERSION}-linux-amd64.tar.gz
+HELM2_FILENAME := helm-${HELM2_VERSION}-linux-amd64.tar.gz
 KUSTOMIZE_FILENAME := kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz
 
 
@@ -21,6 +23,13 @@ helm:
 	chmod +x ${tmp}/linux-amd64/helm
 	sudo mv ${tmp}/linux-amd64/helm /usr/local/bin/
 .PHONY: helm
+
+helm2:
+	curl -sSLo $(tmp)/${HELM2_FILENAME} "https://kubernetes-helm.storage.googleapis.com/${HELM2_FILENAME}"
+	tar zxf $(tmp)/${HELM2_FILENAME} --directory ${tmp} linux-amd64/helm
+	chmod +x ${tmp}/linux-amd64/helm
+	sudo mv ${tmp}/linux-amd64/helm /usr/local/bin/
+.PHONY: helm2
 
 kustomize:
 	curl -sSLo $(tmp)/${KUSTOMIZE_FILENAME} "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}"
