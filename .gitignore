@@ -2,5 +2,8 @@ dist/
 .idea/
 helmfile
 helmfile.lock
+diff-yamls
 test/integration/tmp
 vendor/
+*.log
+.vagrant/
