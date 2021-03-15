@@ -88,22 +88,14 @@ jobs:
           command: |
             cp ~/build/helmfile ~/project/helmfile
             cp ~/build/diff-yamls ~/project/diff-yamls
-      - run:
-          name: Install helm
-          environment:
-            HELM_VERSION: v2.17.0
-          command: |
-            HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
-            curl -Lo ${HELM_FILENAME} "https://kubernetes-helm.storage.googleapis.com/${HELM_FILENAME}"
-            tar zxf ${HELM_FILENAME} linux-amd64/helm
-            chmod +x linux-amd64/helm
-            sudo mv linux-amd64/helm /usr/local/bin/
+      - run: make -C .circleci helm2
       - run: make -C .circleci kustomize
       - run: make -C .circleci minikube
       - run:
           name: Execute integration tests
+          environment:
+            TERM: "xterm"
           command: |
-            export TERM=xterm
             make integration
 
   integration_tests_helm3:
@@ -123,9 +115,11 @@ jobs:
     - run: make -C .circleci minikube
     - run:
         name: Execute integration tests
+        environment:
+          HELMFILE_HELM3: "1"
+          TERM: "xterm"
         command: |
-          export TERM=xterm
-          HELMFILE_HELM3=1 make integration
+          make integration
 
 # GITHUB_TOKEN env var must be setup in circleci console
 
