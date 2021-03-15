@@ -111,6 +111,8 @@ jobs:
           cp ~/build/helmfile ~/project/helmfile
           cp ~/build/diff-yamls ~/project/diff-yamls
     - run: make -C .circleci helm
+    - run: make -C .circleci vault
+    - run: make -C .circleci sops
     - run: make -C .circleci kustomize
     - run: make -C .circleci minikube
     - run:
