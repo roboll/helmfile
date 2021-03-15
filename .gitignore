@@ -7,3 +7,4 @@ test/integration/tmp
 vendor/
 *.log
 .vagrant/
+*.lock
