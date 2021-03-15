@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# vim: set tabstop=4 shiftwidth=4
 
 # IMPORTS -----------------------------------------------------------------------------------------------------------
 
@@ -47,16 +48,15 @@ set -e
 info "Using namespace: ${test_ns}"
 # helm v2
 if helm version --client 2>/dev/null | grep '"v2\.'; then
-  helm_major_version=2
-  info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
-  ${helm} init --stable-repo-url https://charts.helm.sh/stable --wait --override spec.template.spec.automountServiceAccountToken=true
-  ${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v2.11.0+5
-# helm v3
-else
-  helm_major_version=3
-  info "Using Helm version: $(helm version --short | grep -o v.*$)"
-  ${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v3.1.3
-  ${helm} plugin ls | grep secrets || ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0
+    helm_major_version=2
+    info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
+    ${helm} init --stable-repo-url https://charts.helm.sh/stable --wait --override spec.template.spec.automountServiceAccountToken=true
+    ${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v2.11.0+5
+else # helm v3
+    helm_major_version=3
+    info "Using Helm version: $(helm version --short | grep -o v.*$)"
+    ${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v3.1.3
+    # ${helm} plugin ls | grep secrets || ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0
 fi
 info "Using Kustomize version: $(kustomize version --short | grep -o 'v[^ ]+')"
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
@@ -66,69 +66,94 @@ trap "{ $kubectl delete namespace ${test_ns}; }" EXIT # remove namespace wheneve
 
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
-test_start "happypath - simple rollout of httpbin chart"
+# test_start "happypath - simple rollout of httpbin chart"
 
-info "Diffing ${dir}/happypath.yaml"
-bash -c "${helmfile} -f ${dir}/happypath.yaml diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+# info "Diffing ${dir}/happypath.yaml"
+# bash -c "${helmfile} -f ${dir}/happypath.yaml diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
-info "Diffing ${dir}/happypath.yaml without color"
-bash -c "${helmfile} -f ${dir}/happypath.yaml --no-color diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+# info "Diffing ${dir}/happypath.yaml without color"
+# bash -c "${helmfile} -f ${dir}/happypath.yaml --no-color diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
-info "Diffing ${dir}/happypath.yaml with limited context"
-bash -c "${helmfile} -f ${dir}/happypath.yaml diff --context 3 --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+# info "Diffing ${dir}/happypath.yaml with limited context"
+# bash -c "${helmfile} -f ${dir}/happypath.yaml diff --context 3 --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
-info "Templating ${dir}/happypath.yaml"
-rm -rf ${dir}/tmp
-${helmfile} -f ${dir}/happypath.yaml --debug template --output-dir tmp
-code=$?
-[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile template: ${code}"
-for output in $(ls -d ${dir}/tmp/*); do
-    # e.g. test/integration/tmp/happypath-877c0dd4-helmx/helmx
-    for release_dir in $(ls -d ${output}/*); do
-        release_name=$(basename ${release_dir})
-        golden_dir=${dir}/templates-golden/v${helm_major_version}/${release_name}
-        info "Comparing template output ${release_dir}/templates with ${golden_dir}"
-        ./diff-yamls ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
-    done
-done
+# info "Templating ${dir}/happypath.yaml"
+# rm -rf ${dir}/tmp
+# ${helmfile} -f ${dir}/happypath.yaml --debug template --output-dir tmp
+# code=$?
+# [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile template: ${code}"
+# for output in $(ls -d ${dir}/tmp/*); do
+#     # e.g. test/integration/tmp/happypath-877c0dd4-helmx/helmx
+#     for release_dir in $(ls -d ${output}/*); do
+#         release_name=$(basename ${release_dir})
+#         golden_dir=${dir}/templates-golden/v${helm_major_version}/${release_name}
+#         info "Comparing template output ${release_dir}/templates with ${golden_dir}"
+#         ./diff-yamls ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
+#     done
+# done
 
-info "Applying ${dir}/happypath.yaml"
-bash -c "${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode; code="'$?'"; echo Code: "'$code'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile apply"
+# info "Applying ${dir}/happypath.yaml"
+# bash -c "${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode; code="'$?'"; echo Code: "'$code'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile apply"
 
-info "Syncing ${dir}/happypath.yaml"
-${helmfile} -f ${dir}/happypath.yaml sync
-wait_deploy_ready httpbin-httpbin
-retry 5 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-httpbin)/status/200"
-[ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
+# info "Syncing ${dir}/happypath.yaml"
+# ${helmfile} -f ${dir}/happypath.yaml sync
+# wait_deploy_ready httpbin-httpbin
+# retry 5 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-httpbin)/status/200"
+# [ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
 
-info "Applying ${dir}/happypath.yaml"
-${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode
-code=$?
-[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
+# info "Applying ${dir}/happypath.yaml"
+# ${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode
+# code=$?
+# [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
 
-info "Locking dependencies"
-${helmfile} -f ${dir}/happypath.yaml deps
-code=$?
-[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile deps: ${code}"
+# info "Locking dependencies"
+# ${helmfile} -f ${dir}/happypath.yaml deps
+# code=$?
+# [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile deps: ${code}"
 
-info "Applying ${dir}/happypath.yaml with locked dependencies"
-${helmfile} -f ${dir}/happypath.yaml apply
-code=$?
-[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
-${helm} list --namespace=${test_ns} || fail "unable to list releases"
+# info "Applying ${dir}/happypath.yaml with locked dependencies"
+# ${helmfile} -f ${dir}/happypath.yaml apply
+# code=$?
+# [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
+# ${helm} list --namespace=${test_ns} || fail "unable to list releases"
 
-info "Deleting release"
-${helmfile} -f ${dir}/happypath.yaml delete
-${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a delete"
+# info "Deleting release"
+# ${helmfile} -f ${dir}/happypath.yaml delete
+# ${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a delete"
 
-info "Ensuring \"helmfile delete\" doesn't fail when no releases installed"
-${helmfile} -f ${dir}/happypath.yaml delete || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
+# info "Ensuring \"helmfile delete\" doesn't fail when no releases installed"
+# ${helmfile} -f ${dir}/happypath.yaml delete || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
 
-info "Ensuring \"helmfile template\" output does contain only YAML docs"
-(${helmfile} -f ${dir}/happypath.yaml template | kubectl apply -f -) || fail "\"helmfile template | kubectl apply -f -\" shouldn't fail"
+# info "Ensuring \"helmfile template\" output does contain only YAML docs"
+# (${helmfile} -f ${dir}/happypath.yaml template | kubectl apply -f -) || fail "\"helmfile template | kubectl apply -f -\" shouldn't fail"
 
-test_pass "happypath"
+# test_pass "happypath"
 
+if [[ helm_major_version -eq 3 ]]; then
+  export VAULT_ADDR=http://127.0.0.1:8200
+  export VAULT_TOKEN=toor
+  sops="sops --hc-vault-transit $VAULT_ADDR/v1/sops/keys/key"
+
+  test_start "secretssops"
+
+  info "Ensure helm-secrets is not installed"
+  ${helm} plugin rm secrets
+
+  info "Ensure helmfile fails when no helm-secrets is installed"
+  ${helmfile} -f ${dir}/secretssops.yaml -e direct build && fail "\"helmfile build\" should fail without secrets plugin"
+
+  info "Ensure helm-secrets is installed"
+  ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0
+
+  info "Encrypt secrets"
+  ${sops} -e ${dir}/env-1.secrets.yaml > ${dir}/tmp/env-1.secrets.sops.yaml || fail "${sops} failed"
+  ${sops} -e ${dir}/env-2.secrets.yaml > ${dir}/tmp/env-2.secrets.sops.yaml || fail "${sops} failed"
+
+  info "Ensure helmfile succeed when helm-secrets is installed"
+  ${helmfile} -f ${dir}/secretssops.yaml -e direct build || fail "\"helmfile build\" shouldn't fail"
+
+  test_pass "secretssops"
+fi
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 
