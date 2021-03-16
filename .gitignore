@@ -2,8 +2,8 @@ dist/
 .idea/
 helmfile
 helmfile.lock
-diff-yamls
-yamldiff
+/diff-yamls
+/yamldiff
 test/integration/tmp
 vendor/
 *.log
