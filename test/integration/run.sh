@@ -177,16 +177,16 @@ if [[ helm_major_version -eq 3 ]]; then
     info "Comparing build/direct output ${direct} with ${golden_dir}"
     for i in $(seq 10); do
         info "Comparing build/direct #$i"
-        ${helmfile} -f ${dir}/secretssops.yaml -e direct template --skip-deps > ${direct}
-        ./yamldiff ${golden_dir}/direct.build.yaml ${direct}
+        ${helmfile} -f ${dir}/secretssops.yaml -e direct template --skip-deps > ${direct} || fail "\"helmfile template\" shouldn't fail"
+        ./yamldiff ${golden_dir}/direct.build.yaml ${direct} || fail "\"helmfile template\" should be consistent"
         echo code=$?
     done
 
     info "Comparing build/reverse output ${direct} with ${golden_dir}"
     for i in $(seq 10); do
         info "Comparing build/reverse #$i"
-        ${helmfile} -f ${dir}/secretssops.yaml -e reverse template --skip-deps > ${reverse}
-        ./yamldiff ${golden_dir}/reverse.build.yaml ${reverse}
+        ${helmfile} -f ${dir}/secretssops.yaml -e reverse template --skip-deps > ${reverse} || fail "\"helmfile template\" shouldn't fail"
+        ./yamldiff ${golden_dir}/reverse.build.yaml ${reverse} || fail "\"helmfile template\" should be consistent"
         echo code=$?
     done
 
