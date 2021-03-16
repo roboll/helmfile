@@ -19,6 +19,9 @@ require (
 	github.com/hashicorp/go-version v1.2.1
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c // indirect
 	github.com/imdario/mergo v0.3.11
+	github.com/jessevdk/go-flags v1.4.0 // indirect
+	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
 	github.com/r3labs/diff v1.1.0
 	github.com/spf13/cobra v1.1.1

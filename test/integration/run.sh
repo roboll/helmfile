@@ -164,6 +164,34 @@ if [[ helm_major_version -eq 3 ]]; then
   ${helmfile} -f ${dir}/secretssops.yaml -e direct build || fail "\"helmfile build\" shouldn't fail"
 
   test_pass "secretssops.2"
+
+    test_start "secretssops.3 - should order secrets correctly"
+
+    tmp=$(mktemp -d)
+    direct=${tmp}/direct.build.yaml
+    reverse=${tmp}/reverse.build.yaml
+    golden_dir=${dir}/secrets-golden
+
+    info "Building secrets output"
+
+    info "Comparing build/direct output ${direct} with ${golden_dir}"
+    for i in $(seq 10); do
+        info "Comparing build/direct #$i"
+        ${helmfile} -f ${dir}/secretssops.yaml -e direct template --skip-deps > ${direct}
+        ./yamldiff ${golden_dir}/direct.build.yaml ${direct}
+        echo code=$?
+    done
+
+    info "Comparing build/reverse output ${direct} with ${golden_dir}"
+    for i in $(seq 10); do
+        info "Comparing build/reverse #$i"
+        ${helmfile} -f ${dir}/secretssops.yaml -e reverse template --skip-deps > ${reverse}
+        ./yamldiff ${golden_dir}/reverse.build.yaml ${reverse}
+        echo code=$?
+    done
+
+    test_pass "secretssops.3"
+
 fi
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------

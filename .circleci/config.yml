@@ -88,6 +88,7 @@ jobs:
           command: |
             cp ~/build/helmfile ~/project/helmfile
             cp ~/build/diff-yamls ~/project/diff-yamls
+            cp ~/build/yamldiff ~/project/yamldiff
       - run: make -C .circleci helm2
       - run: make -C .circleci kustomize
       - run: make -C .circleci minikube
@@ -110,6 +111,7 @@ jobs:
         command: |
           cp ~/build/helmfile ~/project/helmfile
           cp ~/build/diff-yamls ~/project/diff-yamls
+          cp ~/build/yamldiff ~/project/yamldiff
     - run: make -C .circleci helm
     - run: make -C .circleci vault
     - run: make -C .circleci sops

@@ -1,0 +1,15 @@
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app: raw
+    chart: raw-0.2.3
+    heritage: Helm
+    release: raw
+  name: common-secret
+stringData:
+  key_1: value_1
+  key_2: value_2
+  key_shared: value_1
