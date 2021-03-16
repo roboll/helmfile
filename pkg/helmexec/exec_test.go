@@ -3,13 +3,14 @@ package helmexec
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
@@ -282,8 +283,7 @@ Decrypting secret %s/secretName
 exec: helm --kube-context dev secrets dec %s/secretName
 Preparing to decrypt secret %s/secretName
 Found secret in cache %s/secretName
-Decrypted %s/secretName into path/to/temp/file
-`, cwd, cwd, cwd, cwd, cwd, cwd)
+`, cwd, cwd, cwd, cwd, cwd)
 	if d := cmp.Diff(expected, buffer.String()); d != "" {
 		t.Errorf("helmexec.DecryptSecret(): want (-), got (+):\n%s", d)
 	}
