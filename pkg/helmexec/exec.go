@@ -19,6 +19,7 @@ import (
 type decryptedSecret struct {
 	mutex sync.RWMutex
 	bytes []byte
+	err   error
 }
 
 type execer struct {
@@ -268,6 +269,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		out, err := helm.exec(append(append(preArgs, "secrets", "dec", absPath), flags...), env)
 		helm.info(out)
 		if err != nil {
+			secret.err = err
 			return "", err
 		}
 
@@ -280,6 +282,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 
 		secretBytes, err := ioutil.ReadFile(decFilename)
 		if err != nil {
+			secret.err = err
 			return "", err
 		}
 		secret.bytes = secretBytes
@@ -295,6 +298,10 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		secret.mutex.RLock()
 		helm.decryptedSecretMutex.Unlock()
 		defer secret.mutex.RUnlock()
+
+		if secret.err != nil {
+			return "", secret.err
+		}
 	}
 
 	tempFile := helm.writeTempFile
