@@ -29,6 +29,13 @@ integration:
 	bash test/integration/run.sh
 .PHONY: integration
 
+integration/vagrant:
+	$(MAKE) build GOOS=linux GOARCH=amd64
+	$(MAKE) build-test-tools GOOS=linux GOARCH=amd64
+	vagrant up
+	vagrant ssh -c 'HELMFILE_HELM3=1 make -C /vagrant integration'
+.PHONY: integration/vagrant
+
 cross:
 	env CGO_ENABLED=0 gox -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/arm64 !darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: cross
