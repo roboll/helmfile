@@ -896,6 +896,7 @@ type ChartPrepareOptions struct {
 	SkipResolve   bool
 	Wait          bool
 	WaitForJobs   bool
+	OutputDir     string
 }
 
 type chartPrepareResult struct {

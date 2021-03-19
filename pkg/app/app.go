@@ -291,6 +291,24 @@ func (a *App) Lint(c LintConfigProvider) error {
 	}, SetFilter(true))
 }
 
+func (a *App) Fetch(c FetchConfigProvider) error {
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
+			ForceDownload: true,
+			SkipRepos:     c.SkipDeps(),
+			SkipDeps:      c.SkipDeps(),
+			OutputDir:     c.OutputDir(),
+		}, func() {
+		})
+
+		if prepErr != nil {
+			errs = append(errs, prepErr)
+		}
+
+		return
+	}, SetFilter(true))
+}
+
 func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
