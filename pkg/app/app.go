@@ -61,6 +61,8 @@ type HelmRelease struct {
 	Namespace string `json:"namespace"`
 	Enabled   bool   `json:"enabled"`
 	Labels    string `json:"labels"`
+	Chart     string `json:"chart"`
+	Version   string `json:"version"`
 }
 
 func New(conf ConfigProvider) *App {
@@ -507,6 +509,8 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 					Namespace: r.Namespace,
 					Enabled:   installed,
 					Labels:    labels,
+					Chart:     r.Chart,
+					Version:   r.Version,
 				})
 			}
 		})
