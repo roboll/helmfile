@@ -277,28 +277,34 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 	inputsSize := len(inputs)
 
 	type secretResult struct {
+		id     int
 		result map[string]interface{}
 		err    error
 		path   string
 	}
 
-	secrets := make(chan string, inputsSize)
+	type secretInput struct {
+		id   int
+		path string
+	}
+
+	secrets := make(chan secretInput, inputsSize)
 	results := make(chan secretResult, inputsSize)
 
 	st.scatterGather(0, inputsSize,
 		func() {
-			for _, secretFile := range envSecretFiles {
-				secrets <- secretFile
+			for i, secretFile := range envSecretFiles {
+				secrets <- secretInput{i, secretFile}
 			}
 			close(secrets)
 		},
 		func(id int) {
-			for path := range secrets {
+			for secret := range secrets {
 				release := &ReleaseSpec{}
 				flags := st.appendConnectionFlags([]string{}, helm, release)
-				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), path, flags...)
+				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), secret.path, flags...)
 				if err != nil {
-					results <- secretResult{nil, err, path}
+					results <- secretResult{secret.id, nil, err, secret.path}
 					continue
 				}
 				defer func() {
@@ -308,12 +314,12 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 				}()
 				bytes, err := readFile(decFile)
 				if err != nil {
-					results <- secretResult{nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err), path}
+					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
 					continue
 				}
 				m := map[string]interface{}{}
 				if err := yaml.Unmarshal(bytes, &m); err != nil {
-					results <- secretResult{nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err), path}
+					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
 					continue
 				}
 				// All the nested map key should be string. Otherwise we get strange errors due to that
@@ -321,15 +327,22 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 				// See https://github.com/roboll/helmfile/issues/677
 				vals, err := maputil.CastKeysToStrings(m)
 				if err != nil {
-					results <- secretResult{nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", path, err), path}
+					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
 					continue
 				}
-				results <- secretResult{vals, nil, path}
+				results <- secretResult{secret.id, vals, nil, secret.path}
 			}
 		},
 		func() {
+			sortedSecrets := make([]secretResult, inputsSize)
+
 			for i := 0; i < inputsSize; i++ {
 				result := <-results
+				sortedSecrets[result.id] = result
+			}
+			close(results)
+
+			for _, result := range sortedSecrets {
 				if result.err != nil {
 					errs = append(errs, result.err)
 				} else {
@@ -338,7 +351,6 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 					}
 				}
 			}
-			close(results)
 		},
 	)
 

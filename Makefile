@@ -18,7 +18,8 @@ check:
 .PHONY: check
 
 build-test-tools:
-	go build test/diff-yamls.go
+	go build test/diff-yamls/diff-yamls.go
+	go build test/yamldiff/yamldiff.go
 .PHONY: build-test-tools
 
 test:
