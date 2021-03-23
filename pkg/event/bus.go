@@ -12,12 +12,14 @@ import (
 )
 
 type Hook struct {
-	Name     string   `yaml:"name"`
-	Events   []string `yaml:"events"`
-	Command  string   `yaml:"command"`
-	Kubectl  string   `yaml:"kubectlApply"`
-	Args     []string `yaml:"args"`
-	ShowLogs bool     `yaml:"showlogs"`
+	Name      string   `yaml:"name"`
+	Events    []string `yaml:"events"`
+	Command   string   `yaml:"command"`
+	Kubectl   string   `yaml:"kubectlApply"`
+	Args      []string `yaml:"args"`
+	Kustomize string   `yaml:"kustomize"`
+	Filename  string   `yaml:"filename"`
+	ShowLogs  bool     `yaml:"showlogs"`
 }
 
 type event struct {
@@ -62,6 +64,12 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 
 		if hook.Kubectl != "" {
 			hook.Command = "kubectl"
+			if hook.Filename != "" {
+				hook.Args = append([]string{"apply", "-f"}, hook.Filename...)
+			}
+			if hook.Kustomize != "" {
+				hook.Args = append([]string{"apply", "-k"}, hook.Kustomize...)
+			}
 		}
 
 		name := hook.Name
