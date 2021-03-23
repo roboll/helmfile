@@ -357,6 +357,10 @@ func main() {
 					Name:  "wait",
 					Usage: `Override helmDefaults.wait setting "helm upgrade --install --wait"`,
 				},
+				cli.BoolFlag{
+					Name:  "wait-for-jobs",
+					Usage: `Override helmDefaults.waitForJobs setting "helm upgrade --install --wait-for-jobs"`,
+				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
 				return run.Sync(c)
@@ -424,6 +428,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "wait",
 					Usage: `Override helmDefaults.wait setting "helm upgrade --install --wait"`,
+				},
+				cli.BoolFlag{
+					Name:  "wait-for-jobs",
+					Usage: `Override helmDefaults.waitForJobs setting "helm upgrade --install --wait-for-jobs"`,
 				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
@@ -613,6 +621,10 @@ func (c configImpl) SkipRepos() bool {
 
 func (c configImpl) Wait() bool {
 	return c.c.Bool("wait")
+}
+
+func (c configImpl) WaitForJobs() bool {
+	return c.c.Bool("wait-for-jobs")
 }
 
 func (c configImpl) Values() []string {
