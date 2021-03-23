@@ -43,21 +43,21 @@ func TestTrigger(t *testing.T) {
 	}{
 		{
 			"okhook1",
-			&Hook{"okhook1", []string{"foo"}, "ok", []string{}, true},
+			&Hook{"okhook1", []string{"foo"}, "ok", nil, []string{}, true},
 			"foo",
 			true,
 			"",
 		},
 		{
 			"okhooké",
-			&Hook{"okhook2", []string{"foo"}, "ok", []string{}, false},
+			&Hook{"okhook2", []string{"foo"}, "ok", nil, []string{}, false},
 			"foo",
 			true,
 			"",
 		},
 		{
 			"missinghook1",
-			&Hook{"okhook1", []string{"foo"}, "ok", []string{}, false},
+			&Hook{"okhook1", []string{"foo"}, "ok", nil, []string{}, false},
 			"bar",
 			false,
 			"",
@@ -71,14 +71,14 @@ func TestTrigger(t *testing.T) {
 		},
 		{
 			"nghook1",
-			&Hook{"nghook1", []string{"foo"}, "ng", []string{}, false},
+			&Hook{"nghook1", []string{"foo"}, "ng", nil, []string{}, false},
 			"foo",
 			false,
 			"hook[nghook1]: command `ng` failed: cmd failed due to invalid cmd: ng",
 		},
 		{
 			"nghook2",
-			&Hook{"nghook2", []string{"foo"}, "ok", []string{"ng"}, false},
+			&Hook{"nghook2", []string{"foo"}, "ok", nil, []string{"ng"}, false},
 			"foo",
 			false,
 			"hook[nghook2]: command `ok` failed: cmd failed due to invalid arg: ng",
