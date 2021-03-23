@@ -111,6 +111,20 @@ func TestTrigger(t *testing.T) {
 			true,
 			"warn: ignoring command 'ok' given within a kubectlApply hook",
 		},
+		{
+			"warnkubeapply2",
+			&Hook{"warnkubeapply2", []string{"foo"}, "", map[string]string{"filename": "resource.yaml"}, []string{"ng"}, true},
+			"foo",
+			true,
+			"warn: ignoring command/args given for kubectlApply hook",
+		},
+		{
+			"warnkubeapply3",
+			&Hook{"warnkubeapply3", []string{"foo"}, "ok", map[string]string{"filename": "resource.yaml"}, []string{"ng"}, true},
+			"foo",
+			true,
+			"warn: ignoring command/args given for kubectlApply hook",
+		},
 	}
 	readFile := func(filename string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected call to readFile: %s", filename)
