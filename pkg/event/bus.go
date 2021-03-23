@@ -63,11 +63,17 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 		var err error
 
 		if hook.Kubectl != "" {
+			if hook.Command != "" {
+				bus.Logger.Warnf("warn: ignoring command '%s' given within a kubectlApply hook", hook.Command)
+			}
 			hook.Command = "kubectl"
+			if hook.Filename != "" && hook.Kustomize != "" {
+				bus.logger.Errorf("err: kustomize & filename cannot be used together, skipping kubectlApply hook")
+				continue
+			}
 			if hook.Filename != "" {
 				hook.Args = append([]string{"apply", "-f"}, hook.Filename...)
-			}
-			if hook.Kustomize != "" {
+			} else if hook.Kustomize != "" {
 				hook.Args = append([]string{"apply", "-k"}, hook.Kustomize...)
 			}
 		}
