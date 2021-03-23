@@ -9,10 +9,10 @@ import (
 
 func FormatAsTable(releases []*HelmRelease) error {
 	table := uitable.New()
-	table.AddRow("NAME", "NAMESPACE", "ENABLED", "LABELS")
+	table.AddRow("NAME", "NAMESPACE", "ENABLED", "LABELS", "CHART", "VERSION")
 
 	for _, r := range releases {
-		table.AddRow(r.Name, r.Namespace, fmt.Sprintf("%t", r.Enabled), r.Labels)
+		table.AddRow(r.Name, r.Namespace, fmt.Sprintf("%t", r.Enabled), r.Labels, r.Chart, r.Version)
 	}
 
 	fmt.Println(table.String())

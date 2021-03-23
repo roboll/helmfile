@@ -130,7 +130,7 @@ func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, err
 			}
 		}
 	}
-	return "", fmt.Errorf("no resolved dependency found for \"%s\"", chart)
+	return "", fmt.Errorf("no resolved dependency found for \"%s\", running \"helmfile deps\" may resolve the issue", chart)
 }
 
 func (st *HelmState) mergeLockedDependencies() (*HelmState, error) {

@@ -215,6 +215,7 @@ func TestVisitDesiredStatesWithReleasesFiltered_Issue1008_MissingNonDefaultEnvIn
 		"/path/to/base.yaml": `
 helmDefaults:
   wait: true
+  waitForJobs: true
 `,
 		"/path/to/helmfile.yaml": `
 bases:
@@ -2316,6 +2317,7 @@ type applyConfig struct {
 	skipDiffOnInstall bool
 	logger            *zap.SugaredLogger
 	wait              bool
+	waitForJobs       bool
 }
 
 func (a applyConfig) Args() string {
@@ -2324,6 +2326,10 @@ func (a applyConfig) Args() string {
 
 func (a applyConfig) Wait() bool {
 	return a.wait
+}
+
+func (a applyConfig) WaitForJobs() bool {
+	return a.waitForJobs
 }
 
 func (a applyConfig) Values() []string {
@@ -4519,11 +4525,11 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := `NAME      	NAMESPACE	ENABLED	LABELS                    
-myrelease1	         	false  	common:label,id:myrelease1
-myrelease2	         	true   	common:label              
-myrelease3	         	true   	                          
-myrelease4	         	true   	id:myrelease1             
+	expected := `NAME      	NAMESPACE	ENABLED	LABELS                    	CHART   	VERSION
+myrelease1	         	false  	common:label,id:myrelease1	mychart1	       
+myrelease2	         	true   	common:label              	mychart1	       
+myrelease3	         	true   	                          	mychart1	       
+myrelease4	         	true   	id:myrelease1             	mychart1	       
 `
 	assert.Equal(t, expected, out)
 }
@@ -4576,7 +4582,7 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := `[{"name":"myrelease1","namespace":"","enabled":false,"labels":"id:myrelease1"},{"name":"myrelease2","namespace":"","enabled":true,"labels":""},{"name":"myrelease3","namespace":"","enabled":true,"labels":""},{"name":"myrelease4","namespace":"","enabled":true,"labels":"id:myrelease1"}]
+	expected := `[{"name":"myrelease1","namespace":"","enabled":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"","enabled":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"","enabled":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"","enabled":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
 `
 	assert.Equal(t, expected, out)
 }
