@@ -130,6 +130,8 @@ type HelmSpec struct {
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait bool `yaml:"wait"`
+	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
+	WaitForJobs bool `yaml:"waitForJobs"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
 	Timeout int `yaml:"timeout"`
 	// RecreatePods, when set to true, instruct helmfile to perform pods restart for the resource if applicable
@@ -186,6 +188,8 @@ type ReleaseSpec struct {
 	Devel *bool `yaml:"devel,omitempty"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait *bool `yaml:"wait,omitempty"`
+	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
+	WaitForJobs *bool `yaml:"waitForJobs,omitempty"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
 	Timeout *int `yaml:"timeout,omitempty"`
 	// RecreatePods, when set to true, instruct helmfile to perform pods restart for the resource if applicable
@@ -512,6 +516,10 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--wait")
 				}
 
+				if opts.WaitForJobs {
+					flags = append(flags, "--wait-for-jobs")
+				}
+
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs, files: files}
 					continue
@@ -587,6 +595,7 @@ type SyncOpts struct {
 	Set         []string
 	SkipCleanup bool
 	Wait        bool
+	WaitForJobs bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -886,6 +895,7 @@ type ChartPrepareOptions struct {
 	SkipDeps      bool
 	SkipResolve   bool
 	Wait          bool
+	WaitForJobs   bool
 }
 
 type chartPrepareResult struct {
@@ -2241,6 +2251,10 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
 		flags = append(flags, "--wait")
+	}
+
+	if release.WaitForJobs != nil && *release.WaitForJobs || release.WaitForJobs == nil && st.HelmDefaults.WaitForJobs {
+		flags = append(flags, "--wait-for-jobs")
 	}
 
 	flags = append(flags, st.timeoutFlags(helm, release)...)
