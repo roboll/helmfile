@@ -83,6 +83,34 @@ func TestTrigger(t *testing.T) {
 			false,
 			"hook[nghook2]: command `ok` failed: cmd failed due to invalid arg: ng",
 		},
+		{
+			"okkubeapply1",
+			&Hook{"okkubeapply1", []string{"foo"}, "", map[string]string{"kustomize": "kustodir"}, []string{}, false},
+			"foo",
+			true,
+			"",
+		},
+		{
+			"okkubeapply2",
+			&Hook{"okkubeapply2", []string{"foo"}, "", map[string]string{"filename": "resource.yaml"}, []string{}, false},
+			"foo",
+			true,
+			"",
+		},
+		{
+			"kokubeapply",
+			&Hook{"kokubeapply", []string{"foo"}, "", map[string]string{"kustomize": "kustodir", "filename": "resource.yaml"}, []string{}, true},
+			"foo",
+			false,
+			"err: kustomize & filename cannot be used together, skipping kubectlApply hook",
+		},
+		{
+			"warnkubeapply1",
+			&Hook{"warnkubeapply1", []string{"foo"}, "ok", map[string]string{"filename": "resource.yaml"}, []string{}, true},
+			"foo",
+			true,
+			"warn: ignoring command 'ok' given within a kubectlApply hook",
+		},
 	}
 	readFile := func(filename string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected call to readFile: %s", filename)
