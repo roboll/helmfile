@@ -15,7 +15,7 @@ type Hook struct {
 	Name     string            `yaml:"name"`
 	Events   []string          `yaml:"events"`
 	Command  string            `yaml:"command"`
-	Kubectl  map[string]string `yaml:"kubectlApply"`
+	Kubectl  map[string]string `yaml:"kubectlApply,omitempty"`
 	Args     []string          `yaml:"args"`
 	ShowLogs bool              `yaml:"showlogs"`
 }
