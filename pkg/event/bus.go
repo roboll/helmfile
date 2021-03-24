@@ -73,8 +73,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 			} else if val, found := hook.Kubectl["kustomize"]; found {
 				hook.Args = append([]string{"apply", "-k"}, val)
 			} else {
-				bus.Logger.Errorf("err: either kustomize or filename must be given to kubectlApply hook")
-				continue
+				return false, fmt.Errorf("hook[%s]: either kustomize or filename must be given to kubectlApply hook", hook.Name)
 			}
 		}
 
