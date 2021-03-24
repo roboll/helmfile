@@ -102,7 +102,7 @@ func TestTrigger(t *testing.T) {
 			&Hook{"kokubeapply", []string{"foo"}, "", map[string]string{"kustomize": "kustodir", "filename": "resource.yaml"}, []string{}, true},
 			"foo",
 			false,
-			"err: kustomize & filename cannot be used together, skipping kubectlApply hook",
+			"hook[kokubeapply]: kustomize & filename cannot be used together on kubectlApply hook",
 		},
 		{
 			"warnkubeapply1",

@@ -67,8 +67,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 			hook.Command = "kubectl"
 			if val, found := hook.Kubectl["filename"]; found {
 				if _, found := hook.Kubectl["kustomize"]; found {
-					bus.Logger.Errorf("err: kustomize & filename cannot be used together, skipping kubectlApply hook")
-					continue
+					return false, fmt.Errorf("hook[%s]: kustomize & filename cannot be used together on kubectlApply hook", hook.Name)
 				}
 				hook.Args = append([]string{"apply", "-f"}, val)
 			} else if val, found := hook.Kubectl["kustomize"]; found {
