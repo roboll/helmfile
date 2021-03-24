@@ -173,7 +173,7 @@ func TestTrigger(t *testing.T) {
 
 		if c.expectedErr != "" {
 			if err == nil {
-				t.Error("error expected, but not occurred")
+				t.Errorf("error expected for case \"%s\", but not occurred", c.name)
 			} else if err.Error() != c.expectedErr {
 				t.Errorf("unexpected error for case \"%s\": expected=%s, actual=%v", c.name, c.expectedErr, err)
 			}
