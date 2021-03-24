@@ -60,6 +60,15 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 
 		var err error
 
+		name := hook.Name
+		if name == "" {
+			if hook.Kubectl != nil {
+				name = "kubectlApply"
+			} else {
+				name = hook.Command
+			}
+		}
+
 		if hook.Kubectl != nil {
 			if hook.Command != "" {
 				bus.Logger.Warnf("warn: ignoring command '%s' given within a kubectlApply hook", hook.Command)
@@ -67,19 +76,14 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 			hook.Command = "kubectl"
 			if val, found := hook.Kubectl["filename"]; found {
 				if _, found := hook.Kubectl["kustomize"]; found {
-					return false, fmt.Errorf("hook[%s]: kustomize & filename cannot be used together on kubectlApply hook", hook.Name)
+					return false, fmt.Errorf("hook[%s]: kustomize & filename cannot be used together", name)
 				}
 				hook.Args = append([]string{"apply", "-f"}, val)
 			} else if val, found := hook.Kubectl["kustomize"]; found {
 				hook.Args = append([]string{"apply", "-k"}, val)
 			} else {
-				return false, fmt.Errorf("hook[%s]: either kustomize or filename must be given to kubectlApply hook", hook.Name)
+				return false, fmt.Errorf("hook[%s]: either kustomize or filename must be given", name)
 			}
-		}
-
-		name := hook.Name
-		if name == "" {
-			name = hook.Command
 		}
 
 		fmt.Fprintf(os.Stderr, "%s: basePath=%s\n", bus.StateFilePath, bus.BasePath)
