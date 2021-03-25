@@ -342,7 +342,31 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	}
 
 	out, err := helm.exec(append(args, flags...), map[string]string{})
-	helm.info(out)
+
+	var outputToFile bool
+
+	for _, f := range flags {
+		if strings.HasPrefix("--output-dir", f) {
+			outputToFile = true
+			break
+		}
+	}
+
+	if outputToFile {
+		// With --output-dir is passed to helm-template,
+		// we can safely direct all the logs from it to our logger.
+		//
+		// It's safe because anything written to stdout by helm-template with output-dir is logs,
+		// like excessive `wrote path/to/output/dir/chart/template/file.yaml` messages,
+		// but manifets.
+		//
+		// See https://github.com/roboll/helmfile/pull/1691#issuecomment-805636021 for more information.
+		helm.info(out)
+	} else {
+		// Always write to stdout for use with e.g. `helmfile template | kubectl apply -f -`
+		helm.write(nil, out)
+	}
+
 	return err
 }
 
