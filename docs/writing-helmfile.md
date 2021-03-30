@@ -2,6 +2,23 @@
 
 This guide covers the Helmfile’s considered patterns for writing advanced helmfiles. It focuses on how helmfile should be structured and executed.
 
+## Helmfile .Values vs Helm .Values
+
+Templating engine of Helmfile uses the same pipeline name `.Values` as Helm, so in some use-cases `.Vaues` of Helmfile and
+Helm can be seen in the same file. To distinguish these two kinds of `.Values`, Helmfile provides an alias `.StateValues`
+for its `.Values`.
+
+```
+app:
+  project: {{.Environmont.Name}}-{{.StateValues.project}} # Same as {{.Environmont.Name}}-{{.Values.project}}
+
+{{`
+extraEnvVars:
+- name: APP_PROJECT
+  value: {{.Values.app.project}}
+`}}
+```
+
 ## Missing keys and Default values
 
 helmfile tries its best to inform users for noticing potential mistakes.
@@ -314,7 +331,7 @@ helmDefaults:
   force: true
 ```
 
-Each go template is rendered in the context where `.Values` is inherited from the previous part. 
+Each go template is rendered in the context where `.Values` is inherited from the previous part.
 
 So in `mydefaults.yaml.gotmpl`, both `.Values.kubeContext` and `.Values.wait` are valid as they do exist in the environment values inherited from the previous part(=the first part) of your `helmfile.yaml.gotmpl`, and therefore the template is rendered to:
 
