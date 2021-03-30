@@ -328,6 +328,28 @@ func main() {
 			}),
 		},
 		{
+			Name:  "fetch",
+			Usage: "fetch charts from state file",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "concurrency",
+					Value: 0,
+					Usage: "maximum number of concurrent downloads of release charts",
+				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: `skip running "helm repo update" and "helm dependency build"`,
+				},
+				cli.StringFlag{
+					Name:  "output-dir",
+					Usage: "directory to store charts (default: temporary directory which is deleted when the command terminates)",
+				},
+			},
+			Action: action(func(a *app.App, c configImpl) error {
+				return a.Fetch(c)
+			}),
+		},
+		{
 			Name:  "sync",
 			Usage: "sync all resources from state file (repos, releases and chart deps)",
 			Flags: []cli.Flag{
@@ -553,6 +575,10 @@ func main() {
 					Value: "",
 					Usage: "output releases list as a json string",
 				},
+				cli.BoolFlag{
+					Name:  "keep-temp-dir",
+					Usage: "Keep temporary directory",
+				},
 			},
 			Action: action(func(run *app.App, c configImpl) error {
 				return run.ListReleases(c)
@@ -718,6 +744,10 @@ func (c configImpl) Timeout() int {
 
 func (c configImpl) Output() string {
 	return c.c.String("output")
+}
+
+func (c configImpl) KeepTempDir() bool {
+	return c.c.Bool("keep-temp-dir")
 }
 
 // GlobalConfig

@@ -131,6 +131,13 @@ type LintConfigProvider interface {
 	concurrencyConfig
 }
 
+type FetchConfigProvider interface {
+	SkipDeps() bool
+	OutputDir() string
+
+	concurrencyConfig
+}
+
 type TemplateConfigProvider interface {
 	Args() string
 
