@@ -2417,9 +2417,21 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 	return flags, files, nil
 }
 
-func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
+func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) releaseTemplateData {
 	vals := st.Values()
 	templateData := st.createReleaseTemplateData(release, vals)
+
+	return templateData
+}
+
+func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
+	r := tmpl.NewFileRenderer(st.readFile, dir, nil)
+
+	return r.Context.CreateFuncMap()
+}
+
+func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
+	templateData := st.newReleaseTemplateData(release)
 
 	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), templateData)
 	rawBytes, err := r.RenderToBytes(path)
