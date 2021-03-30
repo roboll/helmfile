@@ -1,6 +1,6 @@
 # Secrets 
 
-helmfile can handle secrets using [helm-secrets](https://github.com/zendesk/helm-secrets) plugin or using remote secrets storage 
+helmfile can handle secrets using [helm-secrets](https://github.com/jkroepke/helm-secrets) plugin or using remote secrets storage 
 (everything that package [vals](https://github.com/variantdev/vals) can handle vault, AWS SSM etc)  
 This section will describe the second use case. 
 

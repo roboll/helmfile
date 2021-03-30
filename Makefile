@@ -18,7 +18,8 @@ check:
 .PHONY: check
 
 build-test-tools:
-	go build test/diff-yamls.go
+	go build test/diff-yamls/diff-yamls.go
+	go build test/yamldiff/yamldiff.go
 .PHONY: build-test-tools
 
 test:
@@ -29,12 +30,19 @@ integration:
 	bash test/integration/run.sh
 .PHONY: integration
 
+integration/vagrant:
+	$(MAKE) build GOOS=linux GOARCH=amd64
+	$(MAKE) build-test-tools GOOS=linux GOARCH=amd64
+	vagrant up
+	vagrant ssh -c 'HELMFILE_HELM3=1 make -C /vagrant integration'
+.PHONY: integration/vagrant
+
 cross:
-	env CGO_ENABLED=0 gox -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/arm64' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/arm64 !darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=vendor go build -o "dist/helmfile_linux_amd64" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=readonly go build -o "dist/helmfile_linux_amd64" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: static-linux
 
 install:
@@ -62,7 +70,6 @@ run: image
 
 push: image
 	docker push quay.io/${ORG}/helmfile:${TAG}
-
 
 image/helm3:
 	docker build -f Dockerfile.helm3 -t quay.io/${ORG}/helmfile:helm3-${TAG} .

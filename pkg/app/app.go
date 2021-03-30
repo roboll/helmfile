@@ -61,6 +61,8 @@ type HelmRelease struct {
 	Namespace string `json:"namespace"`
 	Enabled   bool   `json:"enabled"`
 	Labels    string `json:"labels"`
+	Chart     string `json:"chart"`
+	Version   string `json:"version"`
 }
 
 func New(conf ConfigProvider) *App {
@@ -289,12 +291,31 @@ func (a *App) Lint(c LintConfigProvider) error {
 	}, SetFilter(true))
 }
 
+func (a *App) Fetch(c FetchConfigProvider) error {
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
+			ForceDownload: true,
+			SkipRepos:     c.SkipDeps(),
+			SkipDeps:      c.SkipDeps(),
+			OutputDir:     c.OutputDir(),
+		}, func() {
+		})
+
+		if prepErr != nil {
+			errs = append(errs, prepErr)
+		}
+
+		return
+	}, SetFilter(true))
+}
+
 func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
-			SkipDeps:  c.SkipDeps(),
-			Wait:      c.Wait(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			Wait:        c.Wait(),
+			WaitForJobs: c.WaitForJobs(),
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
@@ -318,9 +339,10 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
-			SkipDeps:  c.SkipDeps(),
-			Wait:      c.Wait(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			Wait:        c.Wait(),
+			WaitForJobs: c.WaitForJobs(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -509,6 +531,8 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 					Namespace: r.Namespace,
 					Enabled:   installed,
 					Labels:    labels,
+					Chart:     r.Chart,
+					Version:   r.Version,
 				})
 			}
 		})
@@ -1027,7 +1051,7 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		} else if defaultFile != "" {
 			return []string{defaultFile}, nil
 		} else {
-			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml}, %s, or %s, or otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DeprecatedHelmfile)
+			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml} or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile)
 		}
 	}
 
@@ -1182,6 +1206,7 @@ Do you really want to apply?
 					Set:         c.Set(),
 					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 					Wait:        c.Wait(),
+					WaitForJobs: c.WaitForJobs(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
 			}))
@@ -1396,8 +1421,9 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 			subst.Releases = rs
 
 			opts := &state.SyncOpts{
-				Set:  c.Set(),
-				Wait: c.Wait(),
+				Set:         c.Set(),
+				Wait:        c.Wait(),
+				WaitForJobs: c.WaitForJobs(),
 			}
 			return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 		}))

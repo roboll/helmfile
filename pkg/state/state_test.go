@@ -314,6 +314,24 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "wait-for-jobs",
+			defaults: HelmSpec{
+				WaitForJobs: false,
+			},
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				WaitForJobs: &enable,
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--wait-for-jobs",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "devel",
 			defaults: HelmSpec{
 				Devel: true,

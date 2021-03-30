@@ -88,6 +88,8 @@ helmDefaults:
   verify: true
   # wait for k8s resources via --wait. (default false)
   wait: true
+  # if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout (default false, Implemented in Helm3.5)
+  waitForJobs: true
   # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
   timeout: 600
   # performs pods restart for the resource if applicable (default false)
@@ -169,9 +171,10 @@ releases:
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
       - vault_secret.yaml
-    # Override helmDefaults options for verify, wait, timeout, recreatePods and force.
+    # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods and force.
     verify: true
     wait: true
+    waitForJobs: true
     timeout: 60
     recreatePods: true
     force: false
@@ -202,6 +205,10 @@ releases:
     # It may be helpful to deploy charts with helm api v1 CRDS
     # https://github.com/roboll/helmfile/pull/1373
     disableValidation: false
+    # passes --disable-validation to helm 3 diff plugin, this requires diff plugin >= 3.1.2
+    # It is useful when any release contains custom resources for CRDs that is not yet installed onto the cluster.
+    # https://github.com/roboll/helmfile/pull/1618
+    disableValidationOnInstall: false
     # passes --disable-openapi-validation to helm 3 diff plugin, this requires diff plugin >= 3.1.2
     # It may be helpful to deploy charts with helm api v1 CRDS
     # https://github.com/roboll/helmfile/pull/1373
@@ -291,6 +298,8 @@ environments:
     # Use "Warn", "Info", or "Debug" if you want helmfile to not fail when a values file is missing, while just leaving
     # a message about the missing file at the log-level.
     missingFileHandler: Error
+    # kubeContext to use for this environment
+    kubeContext: kube-context
 
 #
 # Advanced Configuration: Layering
@@ -448,33 +457,36 @@ USAGE:
    helmfile [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.92.1
+   v0.138.6
 
 COMMANDS:
-     deps      update charts based on the contents of requirements.yaml
-     repos     sync repositories from state file (helm repo add && helm repo update)
-     charts    DEPRECATED: sync releases from state file (helm upgrade --install)
-     diff      diff releases from state file against env (helm diff)
-     template  template releases from state file against env (helm template)
-     lint      lint charts from state file (helm lint)
-     sync      sync all resources from state file (repos, releases and chart deps)
-     apply     apply all resources from state file only when there are changes
-     status    retrieve status of releases in state file
-     delete    DEPRECATED: delete releases from state file (helm delete)
-     destroy   uninstalls and then purges releases
-     test      test releases from state file (helm test)
-     build     output compiled helmfile state(s) as YAML
-     list      list releases defined in state file
-     help, h   Shows a list of commands or help for one command
+   deps          update charts based on their requirements
+   repos         sync repositories from state file (helm repo add && helm repo update)
+   charts        DEPRECATED: sync releases from state file (helm upgrade --install)
+   diff          diff releases from state file against env (helm diff)
+   template      template releases from state file against env (helm template)
+   write-values  write values files for releases. Similar to `helmfile template`, write values files instead of manifests.
+   lint          lint charts from state file (helm lint)
+   sync          sync all resources from state file (repos, releases and chart deps)
+   apply         apply all resources from state file only when there are changes
+   status        retrieve status of releases in state file
+   delete        DEPRECATED: delete releases from state file (helm delete)
+   destroy       deletes and then purges releases
+   test          test releases from state file (helm test)
+   build         output compiled helmfile state(s) as YAML
+   list          list releases defined in state file
+   version       Show the version for Helmfile.
+   help, h       Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --helm-binary value, -b value           path to helm binary (default: "helm")
    --file helmfile.yaml, -f helmfile.yaml  load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
-   --environment default, -e default       specify the environment name. defaults to default
+   --environment value, -e value           specify the environment name. defaults to "default"
    --state-values-set value                set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
    --state-values-file value               specify state values in a YAML file
    --quiet, -q                             Silence output. Equivalent to log-level warn
    --kube-context value                    Set kubectl context. Uses current context by default
+   --debug                                 Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
    --no-color                              Output without color
    --log-level value                       Set log level, default info
    --namespace value, -n value             Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
@@ -486,9 +498,6 @@ GLOBAL OPTIONS:
    --interactive, -i                       Request confirmation before attempting to modify clusters
    --help, -h                              show help
    --version, -v                           print the version
-
-Environment variables:
-  HELMFILE_ENVIRONMENT                     specify the environment name, the command line option '-e' have precedence
 ```
 
 ### sync
@@ -547,10 +556,10 @@ Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync`
 
 ### secrets
 
-The `secrets` parameter in a `helmfile.yaml` causes the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin to be executed to decrypt the file.
+The `secrets` parameter in a `helmfile.yaml` causes the [helm-secrets](https://github.com/jkroepke/helm-secrets) plugin to be executed to decrypt the file.
 
 To supply the secret functionality Helmfile needs the `helm secrets` plugin installed. For Helm 2.3+
-you should be able to simply execute `helm plugin install https://github.com/futuresimple/helm-secrets
+you should be able to simply execute `helm plugin install https://github.com/jkroepke/helm-secrets
 `.
 
 ### test
@@ -849,7 +858,7 @@ Environment Secrets (not to be confused with Kubernetes Secrets) are encrypted v
 You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
 Helmfile could automatically decrypt and merge the secrets into the environment values.
 
-First you must have the [helm-secrets](https://github.com/futuresimple/helm-secrets) plugin installed along with a
+First you must have the [helm-secrets](https://github.com/jkroepke/helm-secrets) plugin installed along with a
 `.sops.yaml` file to configure the method of encryption (this can be in the same directory as your helmfile or
 in the sub-directory containing your secrets files).
 

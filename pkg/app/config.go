@@ -40,6 +40,7 @@ type ApplyConfigProvider interface {
 	Set() []string
 	SkipDeps() bool
 	Wait() bool
+	WaitForJobs() bool
 
 	IncludeTests() bool
 
@@ -67,6 +68,7 @@ type SyncConfigProvider interface {
 	Set() []string
 	SkipDeps() bool
 	Wait() bool
+	WaitForJobs() bool
 
 	concurrencyConfig
 	loggingConfig
@@ -125,6 +127,13 @@ type LintConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+
+	concurrencyConfig
+}
+
+type FetchConfigProvider interface {
+	SkipDeps() bool
+	OutputDir() string
 
 	concurrencyConfig
 }

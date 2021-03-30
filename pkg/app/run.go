@@ -2,13 +2,14 @@ package app
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/argparser"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/state"
 	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/roboll/helmfile/pkg/argparser"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/state"
 )
 
 type Run struct {
@@ -16,7 +17,7 @@ type Run struct {
 	helm  helmexec.Interface
 	ctx   Context
 
-	ReleaseToChart map[string]string
+	ReleaseToChart map[state.PrepareChartKey]string
 
 	Ask func(string) bool
 }
@@ -49,13 +50,20 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	}
 
 	// Create tmp directory and bail immediately if it fails
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		return err
+	var dir string
+	if len(opts.OutputDir) == 0 {
+		tempDir, err := ioutil.TempDir("", "helmfile*")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tempDir)
+		dir = tempDir
+	} else {
+		dir = opts.OutputDir
+		fmt.Printf("Charts will be downloaded to: %s\n", dir)
 	}
-	defer os.RemoveAll(dir)
 
-	if _, err = r.state.TriggerGlobalPrepareEvent(helmfileCommand); err != nil {
+	if _, err := r.state.TriggerGlobalPrepareEvent(helmfileCommand); err != nil {
 		return err
 	}
 
@@ -68,7 +76,12 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	for i := range r.state.Releases {
 		rel := &r.state.Releases[i]
 
-		if chart := releaseToChart[rel.Name]; chart != "" {
+		key := state.PrepareChartKey{
+			Name:        rel.Name,
+			Namespace:   rel.Namespace,
+			KubeContext: rel.KubeContext,
+		}
+		if chart := releaseToChart[key]; chart != "" {
 			rel.Chart = chart
 		}
 	}
@@ -77,7 +90,7 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 	f()
 
-	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand)
+	_, err := r.state.TriggerGlobalCleanupEvent(helmfileCommand)
 
 	return err
 }

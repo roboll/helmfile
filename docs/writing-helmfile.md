@@ -91,7 +91,7 @@ releases:
 
 Release Templating supports the following parts of release definition:
 - basic fields: `name`, `namespace`, `chart`, `version`
-- boolean fields: `installed`, `wait`, `tillerless`, `verify` by the means of additional text
+- boolean fields: `installed`, `wait`, `waitForJobs`, `tillerless`, `verify` by the means of additional text
   fields designed for templating only: `installedTemplate`, `waitTemplate`, `tillerlessTemplate`, `verifyTemplate`
   ```yaml
   # ...
