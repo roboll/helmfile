@@ -32,9 +32,6 @@ releases:
     values:
       - mysecret: {{ .Environment.Values.mysecret }}
       - values.yaml
-    secrets:
-      - secrets.yaml
-      - secrets_templated.yaml.gotmpl
 
   - name: helmx
     chart: ./charts/helmx
