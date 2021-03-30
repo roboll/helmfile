@@ -95,9 +95,9 @@ jobs:
             cp ~/build/yamldiff ~/project/yamldiff
             if [[ "<< parameters.helm-version >>" == v3* ]]
             then
-              make -C .circleci helm3
-            else
               make -C .circleci helm
+            else
+              make -C .circleci helm2
             fi            
             make -C .circleci vault
             make -C .circleci sops
