@@ -475,6 +475,7 @@ COMMANDS:
    test          test releases from state file (helm test)
    build         output compiled helmfile state(s) as YAML
    list          list releases defined in state file
+   fetch         fetch charts from state file
    version       Show the version for Helmfile.
    help, h       Shows a list of commands or help for one command
 
@@ -571,6 +572,11 @@ Use `--cleanup` to delete pods upon completion.
 ### lint
 
 The `helmfile lint` sub-command runs a `helm lint` across all of the charts/releases defined in the manifest. Non local charts will be fetched into a temporary folder which will be deleted once the task is completed.
+
+### fetch
+
+The `helmfile fetch` sub-command downloads or copies local charts to a local directory for debug purpose. The local directory
+must be specified with `--output-dir`.
 
 ## Paths Overview
 
