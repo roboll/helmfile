@@ -23,6 +23,7 @@ type diffConfig struct {
 	skipDeps          bool
 	includeTests      bool
 	suppressSecrets   bool
+	showSecrets       bool
 	suppressDiff      bool
 	noColor           bool
 	context           int
@@ -58,6 +59,10 @@ func (a diffConfig) IncludeTests() bool {
 
 func (a diffConfig) SuppressSecrets() bool {
 	return a.suppressSecrets
+}
+
+func (a diffConfig) ShowSecrets() bool {
+	return a.showSecrets
 }
 
 func (a diffConfig) SuppressDiff() bool {

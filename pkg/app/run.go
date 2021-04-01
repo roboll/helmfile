@@ -222,7 +222,7 @@ func (run *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConf
 
 	// TODO Better way to detect diff on only filtered releases
 	{
-		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.IncludeTests(), c.SuppressSecrets(), c.SuppressDiff(), triggerCleanupEvent, diffOpts)
+		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.IncludeTests(), c.SuppressSecrets(), c.ShowSecrets(), c.SuppressDiff(), triggerCleanupEvent, diffOpts)
 
 		var err error
 		deletingReleases, err = st.DetectReleasesToBeDeletedForSync(helm, st.Releases)

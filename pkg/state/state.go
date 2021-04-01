@@ -1525,7 +1525,7 @@ type diffPrepareResult struct {
 	upgradeDueToSkippedDiff bool
 }
 
-func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, includeTests, suppressSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
+func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, includeTests, suppressSecrets bool, showSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -1628,6 +1628,10 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				if suppressSecrets {
 					flags = append(flags, "--suppress-secrets")
+				}
+
+				if showSecrets {
+					flags = append(flags, "--show-secrets")
 				}
 
 				if opts.NoColor {
@@ -1735,13 +1739,13 @@ type DiffOpt interface{ Apply(*DiffOpts) }
 // For example, terraform-provider-helmfile runs a helmfile-diff on `terraform plan` and another on `terraform apply`.
 // `terraform`, by design, fails when helmfile-diff outputs were not equivalent.
 // Stabilized helmfile-diff output rescues that.
-func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, includeTests, suppressSecrets, suppressDiff, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
+func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, includeTests, suppressSecrets, showSecrets, suppressDiff, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
 	}
 
-	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppressSecrets, opts)
+	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppressSecrets, showSecrets, opts)
 
 	defer func() {
 		if opts.SkipCleanup {

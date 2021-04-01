@@ -1570,7 +1570,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]interface{}{},
 			}
-			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false)
+			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false, false)
 			if errs != nil && len(errs) > 0 {
 				t.Errorf("unexpected error: %v", errs)
 			}
@@ -1741,7 +1741,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 `,
 			})
 			state = injectFs(state, testfs)
-			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false); errs != nil && len(errs) > 0 {
+			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false, false); errs != nil && len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
 

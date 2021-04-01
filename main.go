@@ -200,6 +200,10 @@ func main() {
 					Name:  "suppress-secrets",
 					Usage: "suppress secrets in the output. highly recommended to specify on CI/CD use-cases",
 				},
+				cli.BoolFlag{
+					Name:  "show-secrets",
+					Usage: "do not redact secret values in the output. should be used for debug purpose only",
+				},
 				cli.IntFlag{
 					Name:  "concurrency",
 					Value: 0,
@@ -438,6 +442,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "suppress-secrets",
 					Usage: "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases",
+				},
+				cli.BoolFlag{
+					Name:  "show-secrets",
+					Usage: "do not redact secret values in the diff output. should be used for debug purpose only",
 				},
 				cli.BoolFlag{
 					Name:  "suppress-diff",
@@ -711,6 +719,10 @@ func (c configImpl) IncludeTests() bool {
 
 func (c configImpl) SuppressSecrets() bool {
 	return c.c.Bool("suppress-secrets")
+}
+
+func (c configImpl) ShowSecrets() bool {
+	return c.c.Bool("show-secrets")
 }
 
 func (c configImpl) SuppressDiff() bool {

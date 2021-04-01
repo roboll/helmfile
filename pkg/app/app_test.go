@@ -2308,6 +2308,7 @@ type applyConfig struct {
 	skipDeps          bool
 	includeTests      bool
 	suppressSecrets   bool
+	showSecrets       bool
 	suppressDiff      bool
 	noColor           bool
 	context           int
@@ -2358,6 +2359,10 @@ func (a applyConfig) IncludeTests() bool {
 
 func (a applyConfig) SuppressSecrets() bool {
 	return a.suppressSecrets
+}
+
+func (a applyConfig) ShowSecrets() bool {
+	return a.showSecrets
 }
 
 func (a applyConfig) SuppressDiff() bool {
