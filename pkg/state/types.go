@@ -28,7 +28,8 @@ type releaseTemplateData struct {
 	// It contains a subset of ReleaseSpec that is known to be useful to dynamically render values.
 	Release releaseTemplateDataRelease
 	// Values is accessible as `.Values` and it contains default state values overrode by environment values and override values.
-	Values map[string]interface{}
+	Values      map[string]interface{}
+	StateValues *map[string]interface{}
 	// Namespace is HelmState.OverrideNamespace.
 	// You should better use Release.Namespace as it might work as you'd expect even if OverrideNamespace is not set.
 	// See releaseTemplateDataRelease.Namespace for more information.
