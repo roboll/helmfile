@@ -2601,7 +2601,7 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 }
 
 func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
-	var generatedFiles []string
+	var generatedDecryptedFiles []interface{}
 
 	for _, v := range release.Secrets {
 		var (
@@ -2652,8 +2652,16 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 		if err != nil {
 			return nil, err
 		}
+		defer func() {
+			_ = os.Remove(valfile)
+		}()
 
-		generatedFiles = append(generatedFiles, valfile)
+		generatedDecryptedFiles = append(generatedDecryptedFiles, valfile)
+	}
+
+	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, generatedDecryptedFiles, release.MissingFileHandler)
+	if err != nil {
+		return nil, err
 	}
 
 	return generatedFiles, nil

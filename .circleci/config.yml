@@ -1,4 +1,4 @@
-version: 2
+version: 2.1
 
 jobs:
 
@@ -78,52 +78,43 @@ jobs:
   # thanks to https://raw.githubusercontent.com/weaveworks/launcher/master/.circleci/config.yml
   integration_tests:
     machine:
-      image: circleci/classic:201808-01
+      image: ubuntu-2004:202010-01
+    parameters:
+      helm-version:
+        type: string
     steps:
       - checkout
       - run: mkdir ~/build
       - attach_workspace:
           at: ~/build
       - run:
+          name: Install test dependencies
           command: |
             cp ~/build/helmfile ~/project/helmfile
             cp ~/build/diff-yamls ~/project/diff-yamls
             cp ~/build/yamldiff ~/project/yamldiff
-      - run: make -C .circleci helm2
-      - run: make -C .circleci kustomize
-      - run: make -C .circleci minikube
+            if [[ "<< parameters.helm-version >>" == v3* ]]
+            then
+              make -C .circleci helm
+            else
+              make -C .circleci helm2
+            fi            
+            make -C .circleci vault
+            make -C .circleci sops
+            make -C .circleci kustomize
+            make -C .circleci minikube
       - run:
           name: Execute integration tests
           environment:
             TERM: "xterm"
           command: |
-            make integration
-
-  integration_tests_helm3:
-    machine:
-      image: circleci/classic:201808-01
-    steps:
-    - checkout
-    - run: mkdir ~/build
-    - attach_workspace:
-        at: ~/build
-    - run:
-        command: |
-          cp ~/build/helmfile ~/project/helmfile
-          cp ~/build/diff-yamls ~/project/diff-yamls
-          cp ~/build/yamldiff ~/project/yamldiff
-    - run: make -C .circleci helm
-    - run: make -C .circleci vault
-    - run: make -C .circleci sops
-    - run: make -C .circleci kustomize
-    - run: make -C .circleci minikube
-    - run:
-        name: Execute integration tests
-        environment:
-          HELMFILE_HELM3: "1"
-          TERM: "xterm"
-        command: |
-          make integration
+            export TERM=xterm
+            if [[ "<< parameters.helm-version >>" == v3* ]]
+            then
+              HELMFILE_HELM3=1 make integration
+            else
+              make integration
+            fi
 
 # GITHUB_TOKEN env var must be setup in circleci console
 
@@ -156,9 +147,9 @@ workflows:
       - integration_tests:
           requires:
             - build
-      - integration_tests_helm3:
-          requires:
-            - build
+          matrix:
+            parameters:
+              helm-version: ["v2.17.0", "v3.4.2"]
       - release:
           filters:
             branches:

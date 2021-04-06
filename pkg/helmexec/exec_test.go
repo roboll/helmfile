@@ -289,6 +289,29 @@ Found secret in cache %s/secretName
 	}
 }
 
+func Test_DecryptSecretWithGotmpl(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := MockExecer(logger, "dev")
+
+	tmpFilePath := "path/to/temp/file"
+	helm.writeTempFile = func(content []byte) (string, error) {
+		return tmpFilePath, nil
+	}
+
+	secretName := "secretName.yaml.gotmpl"
+	_, decryptErr := helm.DecryptSecret(HelmContext{}, secretName)
+	cwd, err := filepath.Abs(".")
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+
+	expected := fmt.Sprintf(`%s/%s.yaml.dec`, cwd, secretName)
+	if d := cmp.Diff(expected, decryptErr.(*os.PathError).Path); d != "" {
+		t.Errorf("helmexec.DecryptSecret(): want (-), got (+):\n%s", d)
+	}
+}
+
 func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")

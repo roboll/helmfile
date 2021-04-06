@@ -278,7 +278,14 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		if len(decSuffix) == 0 {
 			decSuffix = ".yaml.dec"
 		}
-		decFilename := strings.Replace(absPath, ".yaml", decSuffix, 1)
+
+		// helm secrets replaces the extension with its suffix ONLY when the extension is ".yaml"
+		var decFilename string
+		if strings.HasSuffix(absPath, ".yaml") {
+			decFilename = strings.Replace(absPath, ".yaml", decSuffix, 1)
+		} else {
+			decFilename = absPath + decSuffix
+		}
 
 		secretBytes, err := ioutil.ReadFile(decFilename)
 		if err != nil {
@@ -308,7 +315,9 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 
 	if tempFile == nil {
 		tempFile = func(content []byte) (string, error) {
-			tmpFile, err := ioutil.TempFile("", "secret")
+			dir := filepath.Dir(name)
+			extension := filepath.Ext(name)
+			tmpFile, err := ioutil.TempFile(dir, "secret*"+extension)
 			if err != nil {
 				return "", err
 			}

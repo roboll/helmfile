@@ -20,6 +20,15 @@ test_ns="helmfile-tests-$(date +"%Y%m%d-%H%M%S")"
 helmfile="./helmfile --namespace=${test_ns}"
 helm="helm --kube-context=minikube"
 kubectl="kubectl --context=minikube --namespace=${test_ns}"
+helm_dir="${PWD}/${dir}/.helm"
+export HELM_DATA_HOME="${helm_dir}/data"
+export HELM_HOME="${HELM_DATA_HOME}"
+export HELM_PLUGINS="${HELM_DATA_HOME}/plugins"
+export HELM_CONFIG_HOME="${helm_dir}/config"
+HELM_SECRETS_VERSION=3.5.0
+HELM_DIFF_VERSION=3.0.0-rc.7
+export GNUPGHOME="${PWD}/${dir}/.gnupg"
+export SOPS_PGP_FP="B2D6D7BBEC03B2E66571C8C00AD18E16CFDEF700"
 
 # FUNCTIONS ----------------------------------------------------------------------------------------------------------
 
@@ -45,26 +54,32 @@ function retry() {
     done
 }
 
+function cleanup() {
+    set +e
+    info "Deleting ${helm_dir}"
+    rm -rf ${helm_dir} # remove helm data so reinstalling plugins does not fail
+    info "Deleting minikube namespace ${test_ns}"
+    $kubectl delete namespace ${test_ns} # remove namespace whenever we exit this script
+}
+
 # SETUP --------------------------------------------------------------------------------------------------------------
 
 set -e
+trap cleanup EXIT
 info "Using namespace: ${test_ns}"
 # helm v2
 if helm version --client 2>/dev/null | grep '"v2\.'; then
     helm_major_version=2
     info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
     ${helm} init --stable-repo-url https://charts.helm.sh/stable --wait --override spec.template.spec.automountServiceAccountToken=true
-    ${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v2.11.0+5
 else # helm v3
     helm_major_version=3
     info "Using Helm version: $(helm version --short | grep -o v.*$)"
-    ${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v3.1.3
-    # ${helm} plugin ls | grep secrets || ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0
 fi
-info "Using Kustomize version: $(kustomize version --short | grep -o 'v[^ ]+')"
+${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v${HELM_DIFF_VERSION}
+info "Using Kustomize version: $(kustomize version --short | grep -o 'v[0-9.]\+')"
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
 $kubectl create namespace ${test_ns} || fail "Could not create namespace ${test_ns}"
-trap "{ $kubectl delete namespace ${test_ns}; }" EXIT # remove namespace whenever we exit this script
 
 
 # TEST CASES----------------------------------------------------------------------------------------------------------

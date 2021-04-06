@@ -1,6 +1,6 @@
 ---
 # Source: httpbin/templates/deployment.yaml
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
 metadata:
@@ -12,6 +12,9 @@ metadata:
     heritage: Helm  
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
   strategy: {}
   template:
     metadata:

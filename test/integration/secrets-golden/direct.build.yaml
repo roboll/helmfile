@@ -13,3 +13,5 @@ stringData:
   key_1: value_1
   key_2: value_2
   key_shared: value_2
+  my_other_key: MY_OTHER_SECRET
+  my_templated_key: MY_TEMPLATED_SECRET
