@@ -151,7 +151,7 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 	for _, r := range changedReleases {
 		id := state.ReleaseToID(&r)
 
-		// If `helm-diff` detected changes but it is not being `helm delete`ed, we should r `helm upgrade`
+		// If `helm-diff` detected changes but it is not being `helm delete`ed, we should run `helm upgrade`
 		if _, ok := releasesToBeDeleted[id]; !ok {
 			releasesToBeUpdated[id] = r
 		}
