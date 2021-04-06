@@ -54,6 +54,7 @@ type ReleaseSetSpec struct {
 	DeprecatedContext  string            `yaml:"context,omitempty"`
 	DeprecatedReleases []ReleaseSpec     `yaml:"charts,omitempty"`
 	OverrideNamespace  string            `yaml:"namespace,omitempty"`
+	OverrideChart      string            `yaml:"chart,omitempty"`
 	Repositories       []RepositorySpec  `yaml:"repositories,omitempty"`
 	CommonLabels       map[string]string `yaml:"commonLabels,omitempty"`
 	Releases           []ReleaseSpec     `yaml:"releases,omitempty"`
@@ -999,6 +1000,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		},
 		func(workerIndex int) {
 			for release := range jobQueue {
+				if st.OverrideChart != "" {
+					release.Chart = st.OverrideChart
+				}
 				// Call user-defined `prepare` hooks to create/modify local charts to be used by
 				// the later process.
 				//
@@ -2062,6 +2066,7 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 		StateFilePath: st.FilePath,
 		BasePath:      st.basePath,
 		Namespace:     st.OverrideNamespace,
+		Chart:         st.OverrideChart,
 		Env:           st.Env,
 		Logger:        st.logger,
 		ReadFile:      st.readFile,
@@ -2094,6 +2099,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		StateFilePath: st.FilePath,
 		BasePath:      st.basePath,
 		Namespace:     st.OverrideNamespace,
+		Chart:         st.OverrideChart,
 		Env:           st.Env,
 		Logger:        st.logger,
 		ReadFile:      st.readFile,

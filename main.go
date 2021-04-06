@@ -89,6 +89,10 @@ func main() {
 			Name:  "namespace, n",
 			Usage: "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}",
 		},
+		cli.StringFlag{
+			Name:  "chart, c",
+			Usage: "Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}",
+		},
 		cli.StringSliceFlag{
 			Name: "selector, l",
 			Usage: `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
@@ -774,6 +778,10 @@ func (c configImpl) KubeContext() string {
 
 func (c configImpl) Namespace() string {
 	return c.c.GlobalString("namespace")
+}
+
+func (c configImpl) Chart() string {
+	return c.c.GlobalString("chart")
 }
 
 func (c configImpl) FileOrDir() string {

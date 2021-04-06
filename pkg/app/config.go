@@ -9,6 +9,7 @@ type ConfigProvider interface {
 	FileOrDir() string
 	KubeContext() string
 	Namespace() string
+	Chart() string
 	Selectors() []string
 	StateValuesSet() map[string]interface{}
 	StateValuesFiles() []string

@@ -32,6 +32,7 @@ type Bus struct {
 	BasePath      string
 	StateFilePath string
 	Namespace     string
+	Chart         string
 
 	Env environment.Environment
 

@@ -3,11 +3,12 @@ package app
 import (
 	"bytes"
 	"fmt"
+	"strings"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/roboll/helmfile/pkg/tmpl"
-	"strings"
 )
 
 func prependLineNumbers(text string) string {
