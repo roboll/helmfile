@@ -12,11 +12,12 @@ import (
 )
 
 type Hook struct {
-	Name     string   `yaml:"name"`
-	Events   []string `yaml:"events"`
-	Command  string   `yaml:"command"`
-	Args     []string `yaml:"args"`
-	ShowLogs bool     `yaml:"showlogs"`
+	Name     string            `yaml:"name"`
+	Events   []string          `yaml:"events"`
+	Command  string            `yaml:"command"`
+	Kubectl  map[string]string `yaml:"kubectlApply,omitempty"`
+	Args     []string          `yaml:"args"`
+	ShowLogs bool              `yaml:"showlogs"`
 }
 
 type event struct {
@@ -61,7 +62,28 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 
 		name := hook.Name
 		if name == "" {
-			name = hook.Command
+			if hook.Kubectl != nil {
+				name = "kubectlApply"
+			} else {
+				name = hook.Command
+			}
+		}
+
+		if hook.Kubectl != nil {
+			if hook.Command != "" {
+				bus.Logger.Warnf("warn: ignoring command '%s' given within a kubectlApply hook", hook.Command)
+			}
+			hook.Command = "kubectl"
+			if val, found := hook.Kubectl["filename"]; found {
+				if _, found := hook.Kubectl["kustomize"]; found {
+					return false, fmt.Errorf("hook[%s]: kustomize & filename cannot be used together", name)
+				}
+				hook.Args = append([]string{"apply", "-f"}, val)
+			} else if val, found := hook.Kubectl["kustomize"]; found {
+				hook.Args = append([]string{"apply", "-k"}, val)
+			} else {
+				return false, fmt.Errorf("hook[%s]: either kustomize or filename must be given", name)
+			}
 		}
 
 		fmt.Fprintf(os.Stderr, "%s: basePath=%s\n", bus.StateFilePath, bus.BasePath)

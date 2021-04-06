@@ -43,21 +43,21 @@ func TestTrigger(t *testing.T) {
 	}{
 		{
 			"okhook1",
-			&Hook{"okhook1", []string{"foo"}, "ok", []string{}, true},
+			&Hook{"okhook1", []string{"foo"}, "ok", nil, []string{}, true},
 			"foo",
 			true,
 			"",
 		},
 		{
 			"okhooké",
-			&Hook{"okhook2", []string{"foo"}, "ok", []string{}, false},
+			&Hook{"okhook2", []string{"foo"}, "ok", nil, []string{}, false},
 			"foo",
 			true,
 			"",
 		},
 		{
 			"missinghook1",
-			&Hook{"okhook1", []string{"foo"}, "ok", []string{}, false},
+			&Hook{"okhook1", []string{"foo"}, "ok", nil, []string{}, false},
 			"bar",
 			false,
 			"",
@@ -71,17 +71,73 @@ func TestTrigger(t *testing.T) {
 		},
 		{
 			"nghook1",
-			&Hook{"nghook1", []string{"foo"}, "ng", []string{}, false},
+			&Hook{"nghook1", []string{"foo"}, "ng", nil, []string{}, false},
 			"foo",
 			false,
 			"hook[nghook1]: command `ng` failed: cmd failed due to invalid cmd: ng",
 		},
 		{
 			"nghook2",
-			&Hook{"nghook2", []string{"foo"}, "ok", []string{"ng"}, false},
+			&Hook{"nghook2", []string{"foo"}, "ok", nil, []string{"ng"}, false},
 			"foo",
 			false,
 			"hook[nghook2]: command `ok` failed: cmd failed due to invalid arg: ng",
+		},
+		{
+			"okkubeapply1",
+			&Hook{"okkubeapply1", []string{"foo"}, "", map[string]string{"kustomize": "kustodir"}, []string{}, false},
+			"foo",
+			true,
+			"",
+		},
+		{
+			"okkubeapply2",
+			&Hook{"okkubeapply2", []string{"foo"}, "", map[string]string{"filename": "resource.yaml"}, []string{}, false},
+			"foo",
+			true,
+			"",
+		},
+		{
+			"kokubeapply",
+			&Hook{"kokubeapply", []string{"foo"}, "", map[string]string{"kustomize": "kustodir", "filename": "resource.yaml"}, []string{}, true},
+			"foo",
+			false,
+			"hook[kokubeapply]: kustomize & filename cannot be used together",
+		},
+		{
+			"kokubeapply2",
+			&Hook{"kokubeapply2", []string{"foo"}, "", map[string]string{}, []string{}, true},
+			"foo",
+			false,
+			"hook[kokubeapply2]: either kustomize or filename must be given",
+		},
+		{
+			"kokubeapply3",
+			&Hook{"", []string{"foo"}, "", map[string]string{}, []string{}, true},
+			"foo",
+			false,
+			"hook[kubectlApply]: either kustomize or filename must be given",
+		},
+		{
+			"warnkubeapply1",
+			&Hook{"warnkubeapply1", []string{"foo"}, "ok", map[string]string{"filename": "resource.yaml"}, []string{}, true},
+			"foo",
+			true,
+			"",
+		},
+		{
+			"warnkubeapply2",
+			&Hook{"warnkubeapply2", []string{"foo"}, "", map[string]string{"filename": "resource.yaml"}, []string{"ng"}, true},
+			"foo",
+			true,
+			"",
+		},
+		{
+			"warnkubeapply3",
+			&Hook{"warnkubeapply3", []string{"foo"}, "ok", map[string]string{"filename": "resource.yaml"}, []string{"ng"}, true},
+			"foo",
+			true,
+			"",
 		},
 	}
 	readFile := func(filename string) ([]byte, error) {
@@ -117,7 +173,7 @@ func TestTrigger(t *testing.T) {
 
 		if c.expectedErr != "" {
 			if err == nil {
-				t.Error("error expected, but not occurred")
+				t.Errorf("error expected for case \"%s\", but not occurred", c.name)
 			} else if err.Error() != c.expectedErr {
 				t.Errorf("unexpected error for case \"%s\": expected=%s, actual=%v", c.name, c.expectedErr, err)
 			}
