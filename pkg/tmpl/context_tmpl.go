@@ -6,7 +6,7 @@ import (
 	"text/template"
 )
 
-func (c *Context) newTemplate() *template.Template {
+func (c *Context) CreateFuncMap() template.FuncMap {
 	aliased := template.FuncMap{}
 
 	aliases := map[string]string{
@@ -26,6 +26,12 @@ func (c *Context) newTemplate() *template.Template {
 	for name, f := range aliased {
 		funcMap[name] = f
 	}
+
+	return funcMap
+}
+
+func (c *Context) newTemplate() *template.Template {
+	funcMap := c.CreateFuncMap()
 
 	tmpl := template.New("stringTemplate").Funcs(funcMap)
 	if c.preRender {

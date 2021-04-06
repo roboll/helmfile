@@ -2,12 +2,13 @@ package state
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/remote"
-	"github.com/variantdev/chartify"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
+	"github.com/variantdev/chartify"
 )
 
 type Dependency struct {
@@ -195,6 +196,8 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		filesNeedCleaning = append(filesNeedCleaning, generatedFiles...)
 
 		chartify.Opts.ValuesFiles = generatedFiles
+		chartify.Opts.TemplateData = st.newReleaseTemplateData(release)
+		chartify.Opts.TemplateFuncs = st.newReleaseTemplateFuncMap(dir)
 
 		return chartify, clean, nil
 	}
