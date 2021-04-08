@@ -895,6 +895,7 @@ type ChartPrepareOptions struct {
 	SkipRepos     bool
 	SkipDeps      bool
 	SkipResolve   bool
+	IncludeCRDs   *bool
 	Wait          bool
 	WaitForJobs   bool
 	OutputDir     string
@@ -1062,6 +1063,13 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					if skipDeps {
 						chartifyOpts.SkipDeps = true
 					}
+
+					includeCRDs := true
+					if opts.IncludeCRDs != nil {
+						includeCRDs = *opts.IncludeCRDs
+					}
+
+					chartifyOpts.IncludeCRDs = includeCRDs
 
 					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
