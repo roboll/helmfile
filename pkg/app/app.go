@@ -236,12 +236,15 @@ func (a *App) Template(c TemplateConfigProvider) error {
 	opts := []LoadOption{SetRetainValuesFiles(c.SkipCleanup())}
 
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		includeCRDs := c.IncludeCRDs()
+
 		// `helm template` in helm v2 does not support local chart.
 		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
 			ForceDownload: !run.helm.IsHelm3(),
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
+			IncludeCRDs:   &includeCRDs,
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
