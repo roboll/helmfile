@@ -2128,9 +2128,26 @@ func (st *HelmState) ResolveDeps() (*HelmState, error) {
 
 // UpdateDeps wrapper for updating dependencies on the releases
 func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
+	var selected []ReleaseSpec
+
+	if len(st.Selectors) > 0 {
+		var err error
+
+		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
+		// releases that are (1) selected by the selectors and (2) to be installed.
+		selected, err = st.GetSelectedReleasesWithOverrides()
+		if err != nil {
+			return []error{err}
+		}
+	} else {
+		selected = st.Releases
+	}
+
+	releases := releasesNeedCharts(selected)
+
 	var errs []error
 
-	for _, release := range st.Releases {
+	for _, release := range releases {
 		if st.directoryExistsAt(release.Chart) {
 			if err := helm.UpdateDeps(release.Chart); err != nil {
 				errs = append(errs, err)
