@@ -3,6 +3,7 @@
 - [Import Configuration Parameters into Helmfile](#import-configuration-parameters-into-helmfile)
 - [Deploy Kustomization with Helmfile](#deploy-kustomizations-with-helmfile)
 - [Adhoc Kustomization of Helm Charts](#adhoc-kustomization-of-helm-charts)
+- [Adding dependencies without forking the chart](#adding-dependencies-without-forking-the-chart)
 
 ### Import Configuration Parameters into Helmfile
 
@@ -209,3 +210,90 @@ transformers:
 ```
 
 Please see https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead for more information on how to declare transformers.
+
+### Adding dependencies without forking the chart
+
+With Helmfile, you can add chart dependencies to a Helm chart without forking it.
+
+An example `helmfile.yaml` that adds a `stable/envoy` dependency to the release `foo` looks like the below:
+
+```
+repositories:
+- name: stable
+  url: https://charts.helm.sh/stable
+
+releases:
+- name: foo
+  chart: ./path/to/foo
+  dependencies:
+  - chart: stable/envoy
+    version: 1.5
+```
+
+When Helmfile encounters `releases[].dependencies`, it creates a another temporary chart from `./path/to/foo` and adds the following `dependencies` to the `Chart.yaml`, so that you don't need to fork the chart.
+
+```
+dependencies:
+- name: envoy
+  repo: https://charts.helm.sh/stable
+  condition: envoy.enabled
+```
+
+A Helm chart can have two or more dependencies for the same chart with different `alias`es. To give your dependency an `alias`, defien it like you would do in a standard `Chart.yaml`:
+
+```
+repositories:
+- name: stable
+  url: https://charts.helm.sh/stable
+
+releases:
+- name: foo
+  chart: ./path/to/foo
+  dependencies:
+  - chart: stable/envoy
+    version: 1.5
+    alias: bar
+  - chart: stable/envoy
+    version: 1.5
+    alias: baz
+```
+
+which will tweaks the temporary chart's `Chart.yaml` to have:
+
+
+```
+dependencies:
+- alias: bar
+  name: envoy
+  repo: https://charts.helm.sh/stable
+  condition: bar.enabled
+- alias: baz
+  name: envoy
+  repo: https://charts.helm.sh/stable
+  condition: baz.enabled
+```
+
+Please see #649 for more context around this feature.
+
+After the support for adhoc dependency to local chart (#1765),
+you can even write local file paths relative to `helmfile.yaml` in `chart`:
+
+```
+releases:
+- name: foo
+  chart: ./path/to/foo
+  dependencies:
+  - chart: ./path/to/bar
+```
+
+Internally, Helmfile creates another temporary chart from the local chart `./path/to/foo`, and modifies the chart's `Chart.yaml` dependencies to look like:
+
+```
+dependencies:
+- alias: bar
+  name: bar
+  repo: file:///abs/path/to/bar
+  condition: bar.enabled
+```
+
+Please read https://github.com/roboll/helmfile/issues/1762#issuecomment-816341251 for more details.
