@@ -125,21 +125,10 @@ func (a *App) Deps(c DepsConfigProvider) error {
 
 func (a *App) Repos(c ReposConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		var reposErr error
-
-		err := run.withPreparedCharts("repos", state.ChartPrepareOptions{
-			SkipRepos: true,
-			SkipDeps:  true,
-		}, func() {
-			reposErr = run.Repos(c)
-		})
+		reposErr := run.Repos(c)
 
 		if reposErr != nil {
 			errs = append(errs, reposErr)
-		}
-
-		if err != nil {
-			errs = append(errs, err)
 		}
 
 		return
