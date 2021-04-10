@@ -2,7 +2,6 @@ package event
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/roboll/helmfile/pkg/environment"
@@ -87,7 +86,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 			}
 		}
 
-		fmt.Fprintf(os.Stderr, "%s: basePath=%s\n", bus.StateFilePath, bus.BasePath)
+		bus.Logger.Debugf("hook[%s]: stateFilePath=%s, basePath=%s\n", name, bus.StateFilePath, bus.BasePath)
 
 		data := map[string]interface{}{
 			"Environment": bus.Env,
