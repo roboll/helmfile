@@ -1200,6 +1200,7 @@ Do you really want to apply?
 				syncOpts := state.SyncOpts{
 					Set:         c.Set(),
 					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
+					SkipCRDs:    c.SkipCRDs(),
 					Wait:        c.Wait(),
 					WaitForJobs: c.WaitForJobs(),
 				}
@@ -1595,6 +1596,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 			opts := &state.SyncOpts{
 				Set:         c.Set(),
+				SkipCRDs:    c.SkipCRDs(),
 				Wait:        c.Wait(),
 				WaitForJobs: c.WaitForJobs(),
 			}

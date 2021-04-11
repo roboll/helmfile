@@ -2243,6 +2243,7 @@ type configImpl struct {
 	output      string
 	includeCRDs bool
 	skipCleanup bool
+	skipCRDs    bool
 	skipDeps    bool
 }
 
@@ -2268,6 +2269,10 @@ func (c configImpl) Validate() bool {
 
 func (c configImpl) SkipCleanup() bool {
 	return c.skipCleanup
+}
+
+func (c configImpl) SkipCRDs() bool {
+	return c.skipCRDs
 }
 
 func (c configImpl) SkipDeps() bool {
@@ -2305,6 +2310,7 @@ type applyConfig struct {
 	set               []string
 	validate          bool
 	skipCleanup       bool
+	skipCRDs          bool
 	skipDeps          bool
 	includeTests      bool
 	suppressSecrets   bool
@@ -2347,6 +2353,10 @@ func (a applyConfig) Validate() bool {
 
 func (a applyConfig) SkipCleanup() bool {
 	return a.skipCleanup
+}
+
+func (a applyConfig) SkipCRDs() bool {
+	return a.skipCRDs
 }
 
 func (a applyConfig) SkipDeps() bool {

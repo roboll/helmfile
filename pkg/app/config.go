@@ -39,6 +39,7 @@ type ApplyConfigProvider interface {
 
 	Values() []string
 	Set() []string
+	SkipCRDs() bool
 	SkipDeps() bool
 	Wait() bool
 	WaitForJobs() bool
@@ -68,6 +69,7 @@ type SyncConfigProvider interface {
 
 	Values() []string
 	Set() []string
+	SkipCRDs() bool
 	SkipDeps() bool
 	Wait() bool
 	WaitForJobs() bool

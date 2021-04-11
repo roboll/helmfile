@@ -513,6 +513,10 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					}
 				}
 
+				if opts.SkipCRDs {
+					flags = append(flags, "--skip-crds")
+				}
+
 				if opts.Wait {
 					flags = append(flags, "--wait")
 				}
@@ -595,6 +599,7 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 type SyncOpts struct {
 	Set         []string
 	SkipCleanup bool
+	SkipCRDs    bool
 	Wait        bool
 	WaitForJobs bool
 }
