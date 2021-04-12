@@ -3,15 +3,16 @@ package app
 import (
 	"bufio"
 	"bytes"
+	"io"
+	"path/filepath"
+	"sync"
+	"testing"
+
 	"github.com/roboll/helmfile/pkg/exectest"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-	"io"
-	"path/filepath"
-	"sync"
-	"testing"
 )
 
 type diffConfig struct {
@@ -20,6 +21,7 @@ type diffConfig struct {
 	retainValuesFiles bool
 	set               []string
 	validate          bool
+	skipCRDs          bool
 	skipDeps          bool
 	includeTests      bool
 	suppressSecrets   bool
@@ -47,6 +49,10 @@ func (a diffConfig) Set() []string {
 
 func (a diffConfig) Validate() bool {
 	return a.validate
+}
+
+func (a diffConfig) SkipCRDs() bool {
+	return a.skipCRDs
 }
 
 func (a diffConfig) SkipDeps() bool {
