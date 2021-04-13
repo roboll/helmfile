@@ -874,6 +874,10 @@ func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.Su
 		return false, []error{err}
 	}
 
+	return withBatches(templated, batches, helm, logger, converge)
+}
+
+func withBatches(templated *state.HelmState, batches [][]state.Release, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
 	numBatches := len(batches)
 
 	logger.Debugf("processing %d groups of releases in this order:\n%s", numBatches, printBatches(batches))
@@ -1543,6 +1547,19 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 		return false, nil
 	}
 
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toSync, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()})
+	if err != nil {
+		return false, []error{err}
+	}
+
+	var toSyncWithNeeds []state.ReleaseSpec
+
+	for _, rs := range batches {
+		for _, r := range rs {
+			toSyncWithNeeds = append(toSyncWithNeeds, r.ReleaseSpec)
+		}
+	}
+
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
 	st.Releases = toSync
@@ -1559,7 +1576,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	var toUpdate []state.ReleaseSpec
-	for _, r := range toSync {
+	for _, r := range toSyncWithNeeds {
 		if _, deleted := releasesToDelete[state.ReleaseToID(&r)]; !deleted {
 			toUpdate = append(toUpdate, r)
 		}
@@ -1572,7 +1589,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
-	for _, r := range toSync {
+	for _, r := range toSyncWithNeeds {
 		id := state.ReleaseToID(&r)
 		_, uninstalled := releasesToDelete[id]
 		_, updated := releasesToUpdate[id]
@@ -1634,12 +1651,12 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	if len(releasesToUpdate) > 0 {
-		_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: false, SelectedReleases: toSync, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, syncErrs := withBatches(st, batches, helm, a.Logger, a.Wrap2(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if r2, ok := releasesToUpdate[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r2)
+				if _, ok := releasesToDelete[state.ReleaseToID(&r)]; !ok {
+					rs = append(rs, r)
 				}
 			}
 
