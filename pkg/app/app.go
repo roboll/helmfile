@@ -166,9 +166,12 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		var errs []error
 
+		includeCRDs := !c.SkipCRDs()
+
 		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
-			SkipDeps:  c.SkipDeps(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			IncludeCRDs: &includeCRDs,
 		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
 		})
@@ -305,11 +308,14 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 
 func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		includeCRDs := !c.SkipCRDs()
+
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
 			SkipRepos:   c.SkipDeps(),
 			SkipDeps:    c.SkipDeps(),
 			Wait:        c.Wait(),
 			WaitForJobs: c.WaitForJobs(),
+			IncludeCRDs: &includeCRDs,
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
@@ -332,11 +338,14 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles() || c.SkipCleanup()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		includeCRDs := !c.SkipCRDs()
+
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
 			SkipRepos:   c.SkipDeps(),
 			SkipDeps:    c.SkipDeps(),
 			Wait:        c.Wait(),
 			WaitForJobs: c.WaitForJobs(),
+			IncludeCRDs: &includeCRDs,
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 

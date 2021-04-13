@@ -83,6 +83,7 @@ type DiffConfigProvider interface {
 
 	Values() []string
 	Set() []string
+	SkipCRDs() bool
 	SkipDeps() bool
 
 	IncludeTests() bool
