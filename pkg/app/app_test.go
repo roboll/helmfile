@@ -2245,6 +2245,9 @@ type configImpl struct {
 	skipCleanup bool
 	skipCRDs    bool
 	skipDeps    bool
+
+	skipNeeds    bool
+	includeNeeds bool
 }
 
 func (a configImpl) Selectors() []string {
@@ -2277,6 +2280,14 @@ func (c configImpl) SkipCRDs() bool {
 
 func (c configImpl) SkipDeps() bool {
 	return c.skipDeps
+}
+
+func (c configImpl) SkipNeeds() bool {
+	return c.skipNeeds
+}
+
+func (c configImpl) IncludeNeeds() bool {
+	return c.includeNeeds
 }
 
 func (c configImpl) OutputDir() string {
@@ -2312,6 +2323,8 @@ type applyConfig struct {
 	skipCleanup       bool
 	skipCRDs          bool
 	skipDeps          bool
+	skipNeeds         bool
+	includeNeeds      bool
 	includeTests      bool
 	suppressSecrets   bool
 	showSecrets       bool
@@ -2361,6 +2374,14 @@ func (a applyConfig) SkipCRDs() bool {
 
 func (a applyConfig) SkipDeps() bool {
 	return a.skipDeps
+}
+
+func (c applyConfig) SkipNeeds() bool {
+	return c.skipNeeds
+}
+
+func (c applyConfig) IncludeNeeds() bool {
+	return c.includeNeeds
 }
 
 func (a applyConfig) IncludeTests() bool {

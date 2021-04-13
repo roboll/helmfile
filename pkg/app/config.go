@@ -59,6 +59,9 @@ type ApplyConfigProvider interface {
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
 
+	SkipNeeds() bool
+	IncludeNeeds() bool
+
 	concurrencyConfig
 	interactive
 	loggingConfig
@@ -73,6 +76,9 @@ type SyncConfigProvider interface {
 	SkipDeps() bool
 	Wait() bool
 	WaitForJobs() bool
+
+	SkipNeeds() bool
+	IncludeNeeds() bool
 
 	concurrencyConfig
 	loggingConfig
@@ -91,6 +97,9 @@ type DiffConfigProvider interface {
 	SuppressSecrets() bool
 	ShowSecrets() bool
 	SuppressDiff() bool
+
+	SkipNeeds() bool
+	IncludeNeeds() bool
 
 	DetailedExitcode() bool
 	NoColor() bool
