@@ -1062,7 +1062,7 @@ releases:
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which is not included in the selector. Please indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:       `in ./helmfile.yaml: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			log: `processing file "helmfile.yaml" in directory "."
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
@@ -1126,7 +1126,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
-err: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which is not included in the selector. Please indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+err: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
 `,
 		},
 		{

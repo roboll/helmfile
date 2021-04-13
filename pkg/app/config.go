@@ -164,6 +164,7 @@ type TemplateConfigProvider interface {
 	SkipCleanup() bool
 	OutputDir() string
 	IncludeCRDs() bool
+	IncludeNeeds() bool
 
 	concurrencyConfig
 }

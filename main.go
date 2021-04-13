@@ -200,6 +200,14 @@ func main() {
 					Usage: "enable the diffing of the helm test hooks",
 				},
 				cli.BoolFlag{
+					Name:  "skip-needs",
+					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+				},
+				cli.BoolFlag{
+					Name:  "include-needs",
+					Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+				},
+				cli.BoolFlag{
 					Name:  "suppress-secrets",
 					Usage: "suppress secrets in the output. highly recommended to specify on CI/CD use-cases",
 				},
@@ -259,6 +267,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "include-crds",
 					Usage: "include CRDs in the templated output",
+				},
+				cli.BoolFlag{
+					Name:  "include-needs",
+					Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
 				},
 				cli.BoolFlag{
 					Name:  "skip-deps",
@@ -386,7 +398,7 @@ func main() {
 					Name:  "skip-deps",
 					Usage: `skip running "helm repo update" and "helm dependency build"`,
 				},
-				cli.BoolTFlag{
+				cli.BoolFlag{
 					Name:  "skip-needs",
 					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
 				},
@@ -450,7 +462,7 @@ func main() {
 					Name:  "skip-crds",
 					Usage: "if set, no CRDs will be installed on sync. By default, CRDs are installed if not already present",
 				},
-				cli.BoolTFlag{
+				cli.BoolFlag{
 					Name:  "skip-needs",
 					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
 				},

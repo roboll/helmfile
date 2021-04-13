@@ -966,12 +966,24 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 		}
 	}
 
+	if err := checkDuplicates(helm, st, st.Releases); err != nil {
+		return false, []error{err}
+	}
+
+	errs := converge(st)
+
+	processed := len(st.Releases) != 0 && len(errs) == 0
+
+	return processed, errs
+}
+
+func checkDuplicates(helm helmexec.Interface, st *state.HelmState, releases []state.ReleaseSpec) error {
 	type Key struct {
 		TillerNamespace, Name, KubeContext string
 	}
 
 	releaseNameCounts := map[Key]int{}
-	for _, r := range st.Releases {
+	for _, r := range releases {
 		namespace := r.Namespace
 		if !helm.IsHelm3() {
 			if r.TillerNamespace != "" {
@@ -994,15 +1006,11 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 				msg += fmt.Sprintf(" in kubecontext %q", name.KubeContext)
 			}
 
-			return false, []error{fmt.Errorf("duplicate release %q found%s: there were %d releases named \"%s\" matching specified selector", name.Name, msg, c, name.Name)}
+			return fmt.Errorf("duplicate release %q found%s: there were %d releases named \"%s\" matching specified selector", name.Name, msg, c, name.Name)
 		}
 	}
 
-	errs := converge(st)
-
-	processed := len(st.Releases) != 0 && len(errs) == 0
-
-	return processed, errs
+	return nil
 }
 
 func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
@@ -1010,6 +1018,14 @@ func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) 
 		return processFilteredReleases(st, helm, func(st *state.HelmState) []error {
 			return converge(st, helm)
 		})
+	}
+}
+
+func (a *App) Wrap2(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+	return func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+		errs := converge(st, helm)
+		processed := len(st.Releases) != 0 && len(errs) == 0
+		return processed, errs
 	}
 }
 
@@ -1078,6 +1094,10 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 func (a *App) getSelectedReleases(r *Run) ([]state.ReleaseSpec, error) {
 	releases, err := r.state.GetSelectedReleasesWithOverrides()
 	if err != nil {
+		return nil, err
+	}
+
+	if err := checkDuplicates(r.helm, r.state, releases); err != nil {
 		return nil, err
 	}
 
@@ -1647,13 +1667,12 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	// on running various helm commands on unnecessary releases
 	st.Releases = toRender
 
-	releasesToRender := map[string]state.ReleaseSpec{}
+	releasesDisabled := map[string]state.ReleaseSpec{}
 	for _, r := range toRender {
 		id := state.ReleaseToID(&r)
 		if r.Installed != nil && !*r.Installed {
-			continue
+			releasesDisabled[id] = r
 		}
-		releasesToRender[id] = r
 	}
 
 	var errs []error
@@ -1670,13 +1689,13 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		helm.SetExtraArgs(args...)
 	}
 
-	if len(releasesToRender) > 0 {
-		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: false, SkipNeeds: true}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+	if len(releasesDisabled) != len(toRender) {
+		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: !c.IncludeNeeds(), IncludeNeeds: c.IncludeNeeds()}, a.Wrap2(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if r2, ok := releasesToRender[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r2)
+				if _, disabled := releasesDisabled[state.ReleaseToID(&r)]; !disabled {
+					rs = append(rs, r)
 				}
 			}
 

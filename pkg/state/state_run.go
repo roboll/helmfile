@@ -204,12 +204,16 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 					verb = "depend"
 				}
 
+				idComponents := strings.Split(id, "/")
+				name := idComponents[len(idComponents)-1]
+
 				msg := fmt.Sprintf(
-					"release %s %s on %q which is not included in the selector. "+
-						"Please indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies",
+					"release %s %s on %q which does not match the selectors. "+
+						"Please add a selector like \"--selector name=%s\", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies",
 					dsHumanized,
 					verb,
 					id,
+					name,
 				)
 				msgs[i] = msg
 			}
