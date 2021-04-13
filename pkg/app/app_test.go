@@ -2717,9 +2717,14 @@ releases:
 }
 
 func TestApply(t *testing.T) {
+	type fields struct {
+		skipNeeds    bool
+		includeNeeds bool
+	}
 	testcases := []struct {
 		name              string
 		loc               string
+		fields            fields
 		ns                string
 		concurrency       int
 		skipDiffOnInstall bool
@@ -3835,8 +3840,11 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 		//
 		{
 			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
-			name: "upgrades with good selector",
+			name: "upgrades with good selector with --skip-needs=true",
 			loc:  location(),
+			fields: fields{
+				skipNeeds: true,
+			},
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
 {{ $mark := "a" }}
@@ -3941,16 +3949,14 @@ Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
 
-processing 3 groups of releases in this order:
+processing 2 groups of releases in this order:
 GROUP RELEASES
-1     kube-system/kubernetes-external-secrets
-2     default/external-secrets
-3     default/my-release
+1     default/external-secrets
+2     default/my-release
 
-processing releases in group 1/3: kube-system/kubernetes-external-secrets
-processing releases in group 2/3: default/external-secrets
+processing releases in group 1/2: default/external-secrets
 getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
-processing releases in group 3/3: default/my-release
+processing releases in group 2/2: default/my-release
 getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
 
 UPDATED RELEASES:
@@ -3958,6 +3964,115 @@ NAME               CHART           VERSION
 external-secrets   incubator/raw          
 my-release         incubator/raw          
 
+`,
+		},
+		{
+			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
+			name: "upgrades with good selector with --skip-needs=false --include-needs=true",
+			loc:  location(),
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
+			error: `in ./helmfile.yaml: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+{{ $mark := "a" }}
+
+releases:
+- name: kubernetes-external-secrets
+  chart: incubator/raw
+  namespace: kube-system
+
+- name: external-secrets
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - kube-system/kubernetes-external-secrets
+
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - default/external-secrets
+`,
+			},
+			selectors: []string{"app=test"},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+			},
+			upgraded: []exectest.Release{},
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23: 
+
+merged environment: &{default map[] map[]}
+2 release(s) matching app=test found in helmfile.yaml
+
+err: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
 `,
 		},
 		{
@@ -4123,10 +4238,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-Affected releases are:
-  baz (mychart3) UPDATED
-  foo (mychart1) UPDATED
-
 err: "foo" depends on nonexistent release "bar"
 `,
 		},
@@ -4206,6 +4317,7 @@ err: "foo" depends on nonexistent release "bar"
 					concurrency:       tc.concurrency,
 					logger:            logger,
 					skipDiffOnInstall: tc.skipDiffOnInstall,
+					skipNeeds:         tc.fields.skipNeeds,
 				})
 				if tc.error == "" && applyErr != nil {
 					t.Fatalf("unexpected error for data defined at %s: %v", tc.loc, applyErr)

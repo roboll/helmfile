@@ -1126,9 +1126,22 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		return false, false, nil
 	}
 
+	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toApply, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
+	if err != nil {
+		return false, false, []error{err}
+	}
+
+	var toApplyWithNeeds []state.ReleaseSpec
+
+	for _, rs := range plan {
+		for _, r := range rs {
+			toApplyWithNeeds = append(toApplyWithNeeds, r.ReleaseSpec)
+		}
+	}
+
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
-	st.Releases = toApply
+	st.Releases = toApplyWithNeeds
 
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
 	detailedExitCode := true
@@ -1147,7 +1160,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	}
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
-	for _, r := range toApply {
+	for _, r := range toApplyWithNeeds {
 		id := state.ReleaseToID(&r)
 		_, uninstalled := releasesToBeUpdated[id]
 		_, updated := releasesToBeDeleted[id]
@@ -1215,7 +1228,7 @@ Do you really want to apply?
 
 		// We upgrade releases by traversing the DAG
 		if len(releasesToBeUpdated) > 0 {
-			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: false, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toApplyWithNeeds, Reverse: false, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1601,7 +1614,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	affectedReleases := state.AffectedReleases{}
 
 	if len(releasesToDelete) > 0 {
-		_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SkipNeeds: true}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toSync, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
@@ -1621,7 +1634,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	if len(releasesToUpdate) > 0 {
-		_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: false, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: false, SelectedReleases: toSync, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
