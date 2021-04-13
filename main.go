@@ -392,7 +392,7 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "include-needs",
-					Usage: `automaticlaly include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+					Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
 				},
 				cli.BoolFlag{
 					Name:  "wait",
@@ -456,7 +456,7 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "include-needs",
-					Usage: `automaticlaly include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+					Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
 				},
 				cli.BoolFlag{
 					Name:  "skip-diff-on-install",
