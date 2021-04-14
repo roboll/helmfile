@@ -1564,7 +1564,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	// on running various helm commands on unnecessary releases
 	st.Releases = toSync
 
-	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSync)
+	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSyncWithNeeds)
 	if err != nil {
 		return false, []error{err}
 	}
