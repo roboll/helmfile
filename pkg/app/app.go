@@ -1578,7 +1578,9 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	var toUpdate []state.ReleaseSpec
 	for _, r := range toSyncWithNeeds {
 		if _, deleted := releasesToDelete[state.ReleaseToID(&r)]; !deleted {
-			toUpdate = append(toUpdate, r)
+			if r.Installed == nil || *r.Installed {
+				toUpdate = append(toUpdate, r)
+			}
 		}
 	}
 
@@ -1631,7 +1633,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	affectedReleases := state.AffectedReleases{}
 
 	if len(releasesToDelete) > 0 {
-		_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toSync, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.Wrap2(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
@@ -1651,7 +1653,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	if len(releasesToUpdate) > 0 {
-		_, syncErrs := withBatches(st, batches, helm, a.Logger, a.Wrap2(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true}, a.Wrap2(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {

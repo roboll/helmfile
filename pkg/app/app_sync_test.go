@@ -530,25 +530,153 @@ Affected releases are:
   kubernetes-external-secrets (incubator/raw) DELETED
   my-release (incubator/raw) UPDATED
 
-processing 3 groups of releases in this order:
-GROUP RELEASES
-1     default/my-release
-2     default/external-secrets
-3     kube-system/kubernetes-external-secrets
-
-processing releases in group 1/3: default/my-release
-processing releases in group 2/3: default/external-secrets
-processing releases in group 3/3: kube-system/kubernetes-external-secrets
-processing 3 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
 1     kube-system/kubernetes-external-secrets
-2     default/external-secrets
-3     default/my-release
 
-processing releases in group 1/3: kube-system/kubernetes-external-secrets
-processing releases in group 2/3: default/external-secrets
+processing releases in group 1/1: kube-system/kubernetes-external-secrets
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     default/external-secrets
+2     default/my-release
+
+processing releases in group 1/2: default/external-secrets
 getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
-processing releases in group 3/3: default/my-release
+processing releases in group 2/2: default/my-release
+getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
+
+UPDATED RELEASES:
+NAME               CHART           VERSION
+external-secrets   incubator/raw          
+my-release         incubator/raw          
+
+
+DELETED RELEASES:
+NAME
+kubernetes-external-secrets
+`,
+		})
+	})
+
+	t.Run("skip-needs=false include-needs=true with not installed and disabled release", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
+			error: ``,
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+{{ $mark := "a" }}
+
+releases:
+- name: kubernetes-external-secrets
+  chart: incubator/raw
+  namespace: kube-system
+  installed: false
+
+- name: external-secrets
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - kube-system/kubernetes-external-secrets
+
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - default/external-secrets
+`,
+			},
+			selectors: []string{"app=test"},
+			upgraded:  []exectest.Release{},
+			lists: map[exectest.ListKey]string{
+				// delete frontend-v1 and backend-v1
+				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: "--kube-contextdefault--deployed--failed--pending"}: ``,
+			},
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7:   installed: false
+ 8: 
+ 9: - name: external-secrets
+10:   chart: incubator/raw
+11:   namespace: default
+12:   labels:
+13:     app: test
+14:   needs:
+15:   - kube-system/kubernetes-external-secrets
+16: 
+17: - name: my-release
+18:   chart: incubator/raw
+19:   namespace: default
+20:   labels:
+21:     app: test
+22:   needs:
+23:   - default/external-secrets
+24: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7:   installed: false
+ 8: 
+ 9: - name: external-secrets
+10:   chart: incubator/raw
+11:   namespace: default
+12:   labels:
+13:     app: test
+14:   needs:
+15:   - kube-system/kubernetes-external-secrets
+16: 
+17: - name: my-release
+18:   chart: incubator/raw
+19:   namespace: default
+20:   labels:
+21:     app: test
+22:   needs:
+23:   - default/external-secrets
+24: 
+
+merged environment: &{default map[] map[]}
+2 release(s) matching app=test found in helmfile.yaml
+
+Affected releases are:
+  external-secrets (incubator/raw) UPDATED
+  my-release (incubator/raw) UPDATED
+
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     default/external-secrets
+2     default/my-release
+
+processing releases in group 1/2: default/external-secrets
+getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
+processing releases in group 2/2: default/my-release
 getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
 
 UPDATED RELEASES:
