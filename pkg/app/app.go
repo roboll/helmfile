@@ -1580,6 +1580,10 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 		if _, deleted := releasesToDelete[state.ReleaseToID(&r)]; !deleted {
 			if r.Installed == nil || *r.Installed {
 				toUpdate = append(toUpdate, r)
+			} else {
+				// TODO Emit error when the user opted to fail when the needed release is disabled,
+				// instead of silently ignoring it.
+				// See https://github.com/roboll/helmfile/issues/1018
 			}
 		}
 	}
