@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/roboll/helmfile/pkg/exectest"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
@@ -24,6 +25,8 @@ type diffConfig struct {
 	skipCRDs          bool
 	skipDeps          bool
 	includeTests      bool
+	includeNeeds      bool
+	skipNeeds         bool
 	suppressSecrets   bool
 	showSecrets       bool
 	suppressDiff      bool
@@ -61,6 +64,14 @@ func (a diffConfig) SkipDeps() bool {
 
 func (a diffConfig) IncludeTests() bool {
 	return a.includeTests
+}
+
+func (a diffConfig) IncludeNeeds() bool {
+	return a.includeNeeds
+}
+
+func (a diffConfig) SkipNeeds() bool {
+	return a.skipNeeds
 }
 
 func (a diffConfig) SuppressSecrets() bool {
@@ -104,6 +115,10 @@ func (a diffConfig) RetainValuesFiles() bool {
 }
 
 func TestDiff(t *testing.T) {
+	type flags struct {
+		skipNeeds bool
+	}
+
 	testcases := []struct {
 		name             string
 		loc              string
@@ -111,6 +126,7 @@ func TestDiff(t *testing.T) {
 		concurrency      int
 		detailedExitcode bool
 		error            string
+		flags            flags
 		files            map[string]string
 		selectors        []string
 		lists            map[exectest.ListKey]string
@@ -899,8 +915,9 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 		//
 		{
 			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
-			name: "upgrades with good selector",
-			loc:  location(),
+			name:  "upgrades with good selector with --skip-needs=true",
+			loc:   location(),
+			flags: flags{skipNeeds: true},
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
 {{ $mark := "a" }}
@@ -1004,6 +1021,112 @@ Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
 
+`,
+		},
+		{
+			name:  "upgrades with good selector with --skip-needs=false",
+			loc:   location(),
+			flags: flags{skipNeeds: false},
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+{{ $mark := "a" }}
+
+releases:
+- name: kubernetes-external-secrets
+  chart: incubator/raw
+  namespace: kube-system
+
+- name: external-secrets
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - kube-system/kubernetes-external-secrets
+
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - default/external-secrets
+`,
+			},
+			selectors:        []string{"app=test"},
+			detailedExitcode: true,
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+			},
+			upgraded: []exectest.Release{},
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			error:       `in ./helmfile.yaml: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23: 
+
+merged environment: &{default map[] map[]}
+2 release(s) matching app=test found in helmfile.yaml
+
+err: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
 `,
 		},
 		{
@@ -1250,13 +1373,16 @@ err: "foo" depends on nonexistent release "bar"
 					concurrency:      tc.concurrency,
 					logger:           logger,
 					detailedExitcode: tc.detailedExitcode,
+					skipNeeds:        tc.flags.skipNeeds,
 				})
-				if tc.error == "" && diffErr != nil {
-					t.Fatalf("unexpected error for data defined at %s: %v", tc.loc, diffErr)
-				} else if tc.error != "" && diffErr == nil {
-					t.Fatalf("expected error did not occur for data defined at %s", tc.loc)
-				} else if tc.error != "" && diffErr != nil && tc.error != diffErr.Error() {
-					t.Fatalf("invalid error: expected %q, got %q", tc.error, diffErr.Error())
+
+				var diffErrStr string
+				if diffErr != nil {
+					diffErrStr = diffErr.Error()
+				}
+
+				if d := cmp.Diff(tc.error, diffErrStr); d != "" {
+					t.Fatalf("invalid error: want (-), got (+): %s", d)
 				}
 
 				if len(wantUpgrades) > len(helm.Releases) {

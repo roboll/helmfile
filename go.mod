@@ -29,7 +29,7 @@ require (
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.22.5
 	github.com/variantdev/chartify v0.8.0
-	github.com/variantdev/dag v0.0.0-20191028002400-bb0b3c785363
+	github.com/variantdev/dag v1.0.0
 	github.com/variantdev/vals v0.13.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0

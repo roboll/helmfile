@@ -868,12 +868,16 @@ func printBatches(batches [][]state.Release) string {
 	return buf.String()
 }
 
-func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.SugaredLogger, reverse bool, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
-	batches, err := templated.PlanReleases(reverse)
+func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.SugaredLogger, opts state.PlanOptions, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
+	batches, err := templated.PlanReleases(opts)
 	if err != nil {
 		return false, []error{err}
 	}
 
+	return withBatches(templated, batches, helm, logger, converge)
+}
+
+func withBatches(templated *state.HelmState, batches [][]state.Release, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
 	numBatches := len(batches)
 
 	logger.Debugf("processing %d groups of releases in this order:\n%s", numBatches, printBatches(batches))
@@ -966,12 +970,24 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 		}
 	}
 
+	if err := checkDuplicates(helm, st, st.Releases); err != nil {
+		return false, []error{err}
+	}
+
+	errs := converge(st)
+
+	processed := len(st.Releases) != 0 && len(errs) == 0
+
+	return processed, errs
+}
+
+func checkDuplicates(helm helmexec.Interface, st *state.HelmState, releases []state.ReleaseSpec) error {
 	type Key struct {
 		TillerNamespace, Name, KubeContext string
 	}
 
 	releaseNameCounts := map[Key]int{}
-	for _, r := range st.Releases {
+	for _, r := range releases {
 		namespace := r.Namespace
 		if !helm.IsHelm3() {
 			if r.TillerNamespace != "" {
@@ -994,15 +1010,11 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 				msg += fmt.Sprintf(" in kubecontext %q", name.KubeContext)
 			}
 
-			return false, []error{fmt.Errorf("duplicate release %q found%s: there were %d releases named \"%s\" matching specified selector", name.Name, msg, c, name.Name)}
+			return fmt.Errorf("duplicate release %q found%s: there were %d releases named \"%s\" matching specified selector", name.Name, msg, c, name.Name)
 		}
 	}
 
-	errs := converge(st)
-
-	processed := len(st.Releases) != 0 && len(errs) == 0
-
-	return processed, errs
+	return nil
 }
 
 func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
@@ -1010,6 +1022,14 @@ func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) 
 		return processFilteredReleases(st, helm, func(st *state.HelmState) []error {
 			return converge(st, helm)
 		})
+	}
+}
+
+func (a *App) WrapWithoutSelector(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+	return func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+		errs := converge(st, helm)
+		processed := len(st.Releases) != 0 && len(errs) == 0
+		return processed, errs
 	}
 }
 
@@ -1081,6 +1101,10 @@ func (a *App) getSelectedReleases(r *Run) ([]state.ReleaseSpec, error) {
 		return nil, err
 	}
 
+	if err := checkDuplicates(r.helm, r.state, releases); err != nil {
+		return nil, err
+	}
+
 	var extra string
 
 	if len(r.state.Selectors) > 0 {
@@ -1106,9 +1130,22 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		return false, false, nil
 	}
 
+	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toApply, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
+	if err != nil {
+		return false, false, []error{err}
+	}
+
+	var toApplyWithNeeds []state.ReleaseSpec
+
+	for _, rs := range plan {
+		for _, r := range rs {
+			toApplyWithNeeds = append(toApplyWithNeeds, r.ReleaseSpec)
+		}
+	}
+
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
-	st.Releases = toApply
+	st.Releases = toApplyWithNeeds
 
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
 	detailedExitCode := true
@@ -1126,11 +1163,21 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		return false, false, errs
 	}
 
+	var toDelete []state.ReleaseSpec
+	for _, r := range releasesToBeDeleted {
+		toDelete = append(toDelete, r)
+	}
+
+	var toUpdate []state.ReleaseSpec
+	for _, r := range releasesToBeUpdated {
+		toUpdate = append(toUpdate, r)
+	}
+
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
-	for _, r := range toApply {
+	for _, r := range toApplyWithNeeds {
 		id := state.ReleaseToID(&r)
-		_, uninstalled := releasesToBeUpdated[id]
-		_, updated := releasesToBeDeleted[id]
+		_, uninstalled := releasesToBeDeleted[id]
+		_, updated := releasesToBeUpdated[id]
 		if !uninstalled && !updated {
 			releasesWithNoChange[id] = r
 		}
@@ -1174,7 +1221,7 @@ Do you really want to apply?
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
-			_, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1195,7 +1242,7 @@ Do you really want to apply?
 
 		// We upgrade releases by traversing the DAG
 		if len(releasesToBeUpdated) > 0 {
-			_, updateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1286,7 +1333,7 @@ Do you really want to delete?
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 		if len(releasesToDelete) > 0 {
-			_, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SkipNeeds: true}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1338,13 +1385,22 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 	// Validate all releases for missing `needs` targets
 	st.Releases = allReleases
 
-	if _, err := st.PlanReleases(false); err != nil {
+	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toDiff, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
+	if err != nil {
 		return nil, false, false, []error{err}
+	}
+
+	var toDiffWithNeeds []state.ReleaseSpec
+
+	for _, rs := range plan {
+		for _, r := range rs {
+			toDiffWithNeeds = append(toDiffWithNeeds, r.ReleaseSpec)
+		}
 	}
 
 	// Diff only targeted releases
 
-	st.Releases = toDiff
+	st.Releases = toDiffWithNeeds
 
 	filtered := &Run{
 		state: st,
@@ -1400,7 +1456,7 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error) {
 	}
 
 	if len(releasesToRender) > 0 {
-		_, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: false, SkipNeeds: true}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
@@ -1466,7 +1522,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	}
 
 	if len(releasesToRender) > 0 {
-		_, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: false, SkipNeeds: true}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
@@ -1501,11 +1557,24 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 		return false, nil
 	}
 
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toSync, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()})
+	if err != nil {
+		return false, []error{err}
+	}
+
+	var toSyncWithNeeds []state.ReleaseSpec
+
+	for _, rs := range batches {
+		for _, r := range rs {
+			toSyncWithNeeds = append(toSyncWithNeeds, r.ReleaseSpec)
+		}
+	}
+
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
 	st.Releases = toSync
 
-	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSync)
+	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSyncWithNeeds)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1517,9 +1586,15 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	var toUpdate []state.ReleaseSpec
-	for _, r := range toSync {
+	for _, r := range toSyncWithNeeds {
 		if _, deleted := releasesToDelete[state.ReleaseToID(&r)]; !deleted {
-			toUpdate = append(toUpdate, r)
+			if r.Installed == nil || *r.Installed {
+				toUpdate = append(toUpdate, r)
+			} else {
+				// TODO Emit error when the user opted to fail when the needed release is disabled,
+				// instead of silently ignoring it.
+				// See https://github.com/roboll/helmfile/issues/1018
+			}
 		}
 	}
 
@@ -1530,7 +1605,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
-	for _, r := range toSync {
+	for _, r := range toSyncWithNeeds {
 		id := state.ReleaseToID(&r)
 		_, uninstalled := releasesToDelete[id]
 		_, updated := releasesToUpdate[id]
@@ -1572,7 +1647,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	affectedReleases := state.AffectedReleases{}
 
 	if len(releasesToDelete) > 0 {
-		_, deletionErrs := withDAG(st, helm, a.Logger, true, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
@@ -1592,12 +1667,12 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	if len(releasesToUpdate) > 0 {
-		_, syncErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if r2, ok := releasesToUpdate[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r2)
+				if _, ok := releasesToDelete[state.ReleaseToID(&r)]; !ok {
+					rs = append(rs, r)
 				}
 			}
 
@@ -1626,25 +1701,37 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 	allReleases := st.GetReleasesWithOverrides()
 
-	toRender, err := a.getSelectedReleases(r)
+	selectedReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
 	}
-	if len(toRender) == 0 {
+	if len(selectedReleases) == 0 {
 		return false, nil
 	}
 
-	// Do build deps and prepare only on selected releases so that we won't waste time
-	// on running various helm commands on unnecessary releases
-	st.Releases = toRender
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: !c.IncludeNeeds()})
+	if err != nil {
+		return false, []error{err}
+	}
 
-	releasesToRender := map[string]state.ReleaseSpec{}
-	for _, r := range toRender {
+	var selectedReleasesWithNeeds []state.ReleaseSpec
+
+	for _, rs := range batches {
+		for _, r := range rs {
+			selectedReleasesWithNeeds = append(selectedReleasesWithNeeds, r.ReleaseSpec)
+		}
+	}
+
+	var toRender []state.ReleaseSpec
+
+	releasesDisabled := map[string]state.ReleaseSpec{}
+	for _, r := range selectedReleasesWithNeeds {
 		id := state.ReleaseToID(&r)
 		if r.Installed != nil && !*r.Installed {
-			continue
+			releasesDisabled[id] = r
+		} else {
+			toRender = append(toRender, r)
 		}
-		releasesToRender[id] = r
 	}
 
 	var errs []error
@@ -1661,18 +1748,8 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		helm.SetExtraArgs(args...)
 	}
 
-	if len(releasesToRender) > 0 {
-		_, templateErrs := withDAG(st, helm, a.Logger, false, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
-			var rs []state.ReleaseSpec
-
-			for _, r := range subst.Releases {
-				if r2, ok := releasesToRender[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r2)
-				}
-			}
-
-			subst.Releases = rs
-
+	if len(toRender) > 0 {
+		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			opts := &state.TemplateOpts{
 				Set:               c.Set(),
 				IncludeCRDs:       c.IncludeCRDs(),
@@ -1682,7 +1759,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 		}))
 
-		if templateErrs != nil && len(templateErrs) > 0 {
+		if len(templateErrs) > 0 {
 			errs = append(errs, templateErrs...)
 		}
 	}

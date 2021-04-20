@@ -1,8 +1,10 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
@@ -97,17 +99,20 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 	return nil
 }
 
-type PlanOpts struct {
-	Reverse bool
+type PlanOptions struct {
+	Reverse          bool
+	IncludeNeeds     bool
+	SkipNeeds        bool
+	SelectedReleases []ReleaseSpec
 }
 
-func (st *HelmState) PlanReleases(reverse bool) ([][]Release, error) {
+func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
 	marked, err := st.SelectReleasesWithOverrides()
 	if err != nil {
 		return nil, err
 	}
 
-	groups, err := SortedReleaseGroups(marked, reverse)
+	groups, err := SortedReleaseGroups(marked, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +120,10 @@ func (st *HelmState) PlanReleases(reverse bool) ([][]Release, error) {
 	return groups, nil
 }
 
-func SortedReleaseGroups(releases []Release, reverse bool) ([][]Release, error) {
-	groups, err := GroupReleasesByDependency(releases)
+func SortedReleaseGroups(releases []Release, opts PlanOptions) ([][]Release, error) {
+	reverse := opts.Reverse
+
+	groups, err := GroupReleasesByDependency(releases, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +137,7 @@ func SortedReleaseGroups(releases []Release, reverse bool) ([][]Release, error) 
 	return groups, nil
 }
 
-func GroupReleasesByDependency(releases []Release) ([][]Release, error) {
+func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Release, error) {
 	idToReleases := map[string][]Release{}
 	idToIndex := map[string]int{}
 
@@ -159,8 +166,59 @@ func GroupReleasesByDependency(releases []Release) ([][]Release, error) {
 		}
 	}
 
-	plan, err := d.Plan()
+	var selectedReleaseIDs []string
+
+	for _, r := range opts.SelectedReleases {
+		id := ReleaseToID(&r)
+		selectedReleaseIDs = append(selectedReleaseIDs, id)
+	}
+
+	plan, err := d.Plan(dag.SortOptions{
+		Only:                selectedReleaseIDs,
+		WithDependencies:    opts.IncludeNeeds,
+		WithoutDependencies: opts.SkipNeeds,
+	})
 	if err != nil {
+		if ude, ok := err.(*dag.UnhandledDependencyError); ok {
+			msgs := make([]string, len(ude.UnhandledDependencies))
+			for i, ud := range ude.UnhandledDependencies {
+				id := ud.Id
+
+				ds := make([]string, len(ud.Dependents))
+				for i, d := range ud.Dependents {
+					ds[i] = fmt.Sprintf("%q", d)
+				}
+
+				var dsHumanized string
+				if len(ds) < 3 {
+					dsHumanized = strings.Join(ds, " and ")
+				} else {
+					dsHumanized = strings.Join(ds[:len(ds)-1], ", ")
+					dsHumanized += ", and " + ds[len(ds)-1]
+				}
+
+				var verb string
+				if len(ds) == 1 {
+					verb = "depends"
+				} else {
+					verb = "depend"
+				}
+
+				idComponents := strings.Split(id, "/")
+				name := idComponents[len(idComponents)-1]
+
+				msg := fmt.Sprintf(
+					"release %s %s on %q which does not match the selectors. "+
+						"Please add a selector like \"--selector name=%s\", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies",
+					dsHumanized,
+					verb,
+					id,
+					name,
+				)
+				msgs[i] = msg
+			}
+			return nil, errors.New(msgs[0])
+		}
 		return nil, err
 	}
 
