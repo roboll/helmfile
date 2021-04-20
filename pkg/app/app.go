@@ -1701,23 +1701,36 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 	allReleases := st.GetReleasesWithOverrides()
 
-	toRender, err := a.getSelectedReleases(r)
+	selectedReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
 	}
-	if len(toRender) == 0 {
+	if len(selectedReleases) == 0 {
 		return false, nil
 	}
 
-	// Do build deps and prepare only on selected releases so that we won't waste time
-	// on running various helm commands on unnecessary releases
-	st.Releases = toRender
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: !c.IncludeNeeds()})
+	if err != nil {
+		return false, []error{err}
+	}
+
+	var selectedReleasesWithNeeds []state.ReleaseSpec
+
+	for _, rs := range batches {
+		for _, r := range rs {
+			selectedReleasesWithNeeds = append(selectedReleasesWithNeeds, r.ReleaseSpec)
+		}
+	}
+
+	var toRender []state.ReleaseSpec
 
 	releasesDisabled := map[string]state.ReleaseSpec{}
-	for _, r := range toRender {
+	for _, r := range selectedReleasesWithNeeds {
 		id := state.ReleaseToID(&r)
 		if r.Installed != nil && !*r.Installed {
 			releasesDisabled[id] = r
+		} else {
+			toRender = append(toRender, r)
 		}
 	}
 
@@ -1735,18 +1748,8 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		helm.SetExtraArgs(args...)
 	}
 
-	if len(releasesDisabled) != len(toRender) {
-		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: !c.IncludeNeeds(), IncludeNeeds: c.IncludeNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-			var rs []state.ReleaseSpec
-
-			for _, r := range subst.Releases {
-				if _, disabled := releasesDisabled[state.ReleaseToID(&r)]; !disabled {
-					rs = append(rs, r)
-				}
-			}
-
-			subst.Releases = rs
-
+	if len(toRender) > 0 {
+		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			opts := &state.TemplateOpts{
 				Set:               c.Set(),
 				IncludeCRDs:       c.IncludeCRDs(),
@@ -1756,7 +1759,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 		}))
 
-		if templateErrs != nil && len(templateErrs) > 0 {
+		if len(templateErrs) > 0 {
 			errs = append(errs, templateErrs...)
 		}
 	}
