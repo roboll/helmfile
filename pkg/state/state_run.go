@@ -122,9 +122,9 @@ func SortedReleaseGroups(releases []Release, reverse bool) ([][]Release, error) 
 	}
 
 	if reverse {
-		sort.Slice(groups, func(i, j int) bool {
-			return j < i
-		})
+		for i, j := 0, len(groups)-1; i < j; i, j = i+1, j-1 {
+			groups[i], groups[j] = groups[j], groups[i]
+		}
 	}
 
 	return groups, nil
