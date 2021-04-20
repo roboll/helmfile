@@ -2972,26 +2972,20 @@ Affected releases are:
   logging (charts/fluent-bit) UPDATED
   servicemesh (charts/istio) UPDATED
 
-processing 5 groups of releases in this order:
+processing 2 groups of releases in this order:
 GROUP RELEASES
-1     frontend-v1, frontend-v2, frontend-v3
-2     backend-v1, backend-v2
-3     anotherbackend
-4     database, servicemesh
-5     logging, front-proxy
+1     frontend-v1
+2     backend-v1
 
-processing releases in group 1/5: frontend-v1, frontend-v2, frontend-v3
-processing releases in group 2/5: backend-v1, backend-v2
-processing releases in group 3/5: anotherbackend
-processing releases in group 4/5: database, servicemesh
-processing releases in group 5/5: logging, front-proxy
+processing releases in group 1/2: frontend-v1
+processing releases in group 2/2: backend-v1
 processing 5 groups of releases in this order:
 GROUP RELEASES
 1     logging, front-proxy
 2     database, servicemesh
 3     anotherbackend
-4     backend-v1, backend-v2
-5     frontend-v1, frontend-v2, frontend-v3
+4     backend-v2
+5     frontend-v3
 
 processing releases in group 1/5: logging, front-proxy
 getting deployed release version failed:unexpected list key: {^logging$ --kube-contextdefault--deployed--failed--pending}
@@ -3001,9 +2995,9 @@ getting deployed release version failed:unexpected list key: {^database$ --kube-
 getting deployed release version failed:unexpected list key: {^servicemesh$ --kube-contextdefault--deployed--failed--pending}
 processing releases in group 3/5: anotherbackend
 getting deployed release version failed:unexpected list key: {^anotherbackend$ --kube-contextdefault--deployed--failed--pending}
-processing releases in group 4/5: backend-v1, backend-v2
+processing releases in group 4/5: backend-v2
 getting deployed release version failed:unexpected list key: {^backend-v2$ --kube-contextdefault--deployed--failed--pending}
-processing releases in group 5/5: frontend-v1, frontend-v2, frontend-v3
+processing releases in group 5/5: frontend-v3
 getting deployed release version failed:unexpected list key: {^frontend-v3$ --kube-contextdefault--deployed--failed--pending}
 
 UPDATED RELEASES:
