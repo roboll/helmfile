@@ -236,6 +236,19 @@ releases:
 `,
 	}
 
+	filesForTwoReleases := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: backend-v1
+  chart: charts/backend
+  installed: false
+- name: frontend-v1
+  chart: charts/frontend
+  needs:
+  - backend-v1
+`,
+	}
+
 	t.Run("smoke", func(t *testing.T) {
 		//
 		// complex test cases for smoke testing
@@ -629,6 +642,75 @@ release "logging" processed
 DELETED RELEASES:
 NAME
 logging
+`,
+		})
+	})
+
+	t.Run("destroy installed but disabled release", func(t *testing.T) {
+		check(t, testcase{
+			files: filesForTwoReleases,
+			diffs: map[exectest.DiffKey]error{},
+			lists: map[exectest.ListKey]string{
+				exectest.ListKey{Filter: "^frontend-v1$", Flags: "--kube-contextdefault--deployed--failed--pending"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+`,
+				exectest.ListKey{Filter: "^backend-v1$", Flags: "--kube-contextdefault--deployed--failed--pending"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+`,
+			},
+			// Disable concurrency to avoid in-deterministic result
+			concurrency: 1,
+			upgraded:    []exectest.Release{},
+			deleted: []exectest.Release{
+				{Name: "frontend-v1", Flags: []string{}},
+			},
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: backend-v1
+ 3:   chart: charts/backend
+ 4:   installed: false
+ 5: - name: frontend-v1
+ 6:   chart: charts/frontend
+ 7:   needs:
+ 8:   - backend-v1
+ 9: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: backend-v1
+ 3:   chart: charts/backend
+ 4:   installed: false
+ 5: - name: frontend-v1
+ 6:   chart: charts/frontend
+ 7:   needs:
+ 8:   - backend-v1
+ 9: 
+
+merged environment: &{default map[] map[]}
+2 release(s) found in helmfile.yaml
+
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     frontend-v1
+2     backend-v1
+
+processing releases in group 1/2: frontend-v1
+release "frontend-v1" processed
+processing releases in group 2/2: backend-v1
+release "backend-v1" processed
+
+DELETED RELEASES:
+NAME
+frontend-v1
+backend-v1
 `,
 		})
 	})
