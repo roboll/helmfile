@@ -1025,7 +1025,7 @@ func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) 
 	}
 }
 
-func (a *App) Wrap2(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
+func (a *App) WrapWithoutSelector(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 	return func(st *state.HelmState, helm helmexec.Interface) (bool, []error) {
 		errs := converge(st, helm)
 		processed := len(st.Releases) != 0 && len(errs) == 0
@@ -1163,11 +1163,21 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		return false, false, errs
 	}
 
+	var toDelete []state.ReleaseSpec
+	for _, r := range releasesToBeDeleted {
+		toDelete = append(toDelete, r)
+	}
+
+	var toUpdate []state.ReleaseSpec
+	for _, r := range releasesToBeUpdated {
+		toUpdate = append(toUpdate, r)
+	}
+
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
 	for _, r := range toApplyWithNeeds {
 		id := state.ReleaseToID(&r)
-		_, uninstalled := releasesToBeUpdated[id]
-		_, updated := releasesToBeDeleted[id]
+		_, uninstalled := releasesToBeDeleted[id]
+		_, updated := releasesToBeUpdated[id]
 		if !uninstalled && !updated {
 			releasesWithNoChange[id] = r
 		}
@@ -1211,7 +1221,7 @@ Do you really want to apply?
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
-			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SkipNeeds: true}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1232,7 +1242,7 @@ Do you really want to apply?
 
 		// We upgrade releases by traversing the DAG
 		if len(releasesToBeUpdated) > 0 {
-			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toApplyWithNeeds, Reverse: false, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1637,7 +1647,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	affectedReleases := state.AffectedReleases{}
 
 	if len(releasesToDelete) > 0 {
-		_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.Wrap2(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
@@ -1657,7 +1667,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	if len(releasesToUpdate) > 0 {
-		_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true}, a.Wrap2(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
@@ -1726,7 +1736,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	}
 
 	if len(releasesDisabled) != len(toRender) {
-		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: !c.IncludeNeeds(), IncludeNeeds: c.IncludeNeeds()}, a.Wrap2(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: !c.IncludeNeeds(), IncludeNeeds: c.IncludeNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
