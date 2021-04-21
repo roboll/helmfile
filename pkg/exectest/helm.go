@@ -38,6 +38,8 @@ type Helm struct {
 	DiffMutex     *sync.Mutex
 	ChartsMutex   *sync.Mutex
 	ReleasesMutex *sync.Mutex
+
+	Helm3 bool
 }
 
 type Release struct {
@@ -168,7 +170,7 @@ func (helm *Helm) ChartExport(chart string, path string, flags ...string) error 
 	return nil
 }
 func (helm *Helm) IsHelm3() bool {
-	return false
+	return helm.Helm3
 }
 
 func (helm *Helm) GetVersion() helmexec.Version {
