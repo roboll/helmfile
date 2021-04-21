@@ -857,8 +857,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 
 func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
 	flags := st.connectionFlags(helm, release)
-	if helm.IsHelm3() && release.Namespace != "" {
-		flags = append(flags, "--namespace", release.Namespace)
+	if helm.IsHelm3() {
+		if release.Namespace != "" {
+			flags = append(flags, "--namespace", release.Namespace)
+		}
+		flags = append(flags, "--uninstalling")
+	} else {
+		flags = append(flags, "--deleting")
 	}
 	flags = append(flags, "--deployed", "--failed", "--pending")
 	return helm.List(context, "^"+release.Name+"$", flags...)

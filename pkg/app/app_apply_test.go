@@ -281,9 +281,9 @@ GROUP RELEASES
 2     default/my-release
 
 processing releases in group 1/2: default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/2: default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
@@ -330,7 +330,7 @@ releases:
 				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^external-secrets$", Flags: "--kube-contextdefault--deployed--failed--pending"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 ^external-secrets$ 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
@@ -537,11 +537,11 @@ GROUP RELEASES
 3     default/my-release
 
 processing releases in group 1/3: kube-system/kubernetes-external-secrets
-getting deployed release version failed:unexpected list key: {^kubernetes-external-secrets$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^kubernetes-external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/3: default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 3/3: default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME                          CHART           VERSION
@@ -669,9 +669,9 @@ GROUP RELEASES
 2     default/my-release
 
 processing releases in group 1/2: default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/2: default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
@@ -720,7 +720,7 @@ releases:
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
-				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: "--kube-contextdefault--deployed--failed--pending"}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 ^kubernetes-external-secrets$ 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
 			},
@@ -811,9 +811,9 @@ GROUP RELEASES
 2     default/my-release
 
 processing releases in group 1/2: default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/2: default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
@@ -866,7 +866,7 @@ releases:
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
-				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: "--kube-contextdefault--deployed--failed--pending"}: ``,
+				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: ``,
 			},
 			diffs: map[exectest.DiffKey]error{
 				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -949,9 +949,9 @@ GROUP RELEASES
 2     default/my-release
 
 processing releases in group 1/2: default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/2: default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deployed--failed--pending}
+getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
