@@ -435,25 +435,25 @@ merged environment: &{default map[] map[]}
 
 processing 5 groups of releases in this order:
 GROUP RELEASES
-1     frontend-v3, frontend-v2, frontend-v1
-2     backend-v2, backend-v1
-3     anotherbackend
-4     servicemesh, database
-5     front-proxy, logging
+1     default/frontend-v3, default/frontend-v2, default/frontend-v1
+2     default/backend-v2, default/backend-v1
+3     default/anotherbackend
+4     default/servicemesh, default/database
+5     default/front-proxy, default/logging
 
-processing releases in group 1/5: frontend-v3, frontend-v2, frontend-v1
+processing releases in group 1/5: default/frontend-v3, default/frontend-v2, default/frontend-v1
 release "frontend-v3" processed
 release "frontend-v2" processed
 release "frontend-v1" processed
-processing releases in group 2/5: backend-v2, backend-v1
+processing releases in group 2/5: default/backend-v2, default/backend-v1
 release "backend-v2" processed
 release "backend-v1" processed
-processing releases in group 3/5: anotherbackend
+processing releases in group 3/5: default/anotherbackend
 release "anotherbackend" processed
-processing releases in group 4/5: servicemesh, database
+processing releases in group 4/5: default/servicemesh, default/database
 release "servicemesh" processed
 release "database" processed
-processing releases in group 5/5: front-proxy, logging
+processing releases in group 5/5: default/front-proxy, default/logging
 release "front-proxy" processed
 release "logging" processed
 
@@ -641,9 +641,9 @@ merged environment: &{default map[] map[]}
 
 processing 1 groups of releases in this order:
 GROUP RELEASES
-1     logging
+1     default/logging
 
-processing releases in group 1/1: logging
+processing releases in group 1/1: default/logging
 release "logging" processed
 
 DELETED RELEASES:
@@ -706,12 +706,12 @@ merged environment: &{default map[] map[]}
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     frontend-v1
-2     backend-v1
+1     default/frontend-v1
+2     default/backend-v1
 
-processing releases in group 1/2: frontend-v1
+processing releases in group 1/2: default/frontend-v1
 release "frontend-v1" processed
-processing releases in group 2/2: backend-v1
+processing releases in group 2/2: default/backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
@@ -776,12 +776,12 @@ merged environment: &{default map[] map[]}
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     frontend-v1
-2     backend-v1
+1     default/frontend-v1
+2     default/backend-v1
 
-processing releases in group 1/2: frontend-v1
+processing releases in group 1/2: default/frontend-v1
 release "frontend-v1" processed
-processing releases in group 2/2: backend-v1
+processing releases in group 2/2: default/backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:

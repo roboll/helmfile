@@ -271,12 +271,12 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/external-secrets
-2     default/my-release
+1     default/default/external-secrets
+2     default/default/my-release
 
-processing releases in group 1/2: default/external-secrets
+processing releases in group 1/2: default/default/external-secrets
 getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default/my-release
+processing releases in group 2/2: default/default/my-release
 getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
@@ -395,15 +395,15 @@ Affected releases are:
 
 processing 3 groups of releases in this order:
 GROUP RELEASES
-1     kube-system/kubernetes-external-secrets
-2     default/external-secrets
-3     default/my-release
+1     default/kube-system/kubernetes-external-secrets
+2     default/default/external-secrets
+3     default/default/my-release
 
-processing releases in group 1/3: kube-system/kubernetes-external-secrets
+processing releases in group 1/3: default/kube-system/kubernetes-external-secrets
 getting deployed release version failed:unexpected list key: {^kubernetes-external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/3: default/external-secrets
+processing releases in group 2/3: default/default/external-secrets
 getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 3/3: default/my-release
+processing releases in group 3/3: default/default/my-release
 getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
@@ -532,17 +532,17 @@ Affected releases are:
 
 processing 1 groups of releases in this order:
 GROUP RELEASES
-1     kube-system/kubernetes-external-secrets
+1     default/kube-system/kubernetes-external-secrets
 
-processing releases in group 1/1: kube-system/kubernetes-external-secrets
+processing releases in group 1/1: default/kube-system/kubernetes-external-secrets
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/external-secrets
-2     default/my-release
+1     default/default/external-secrets
+2     default/default/my-release
 
-processing releases in group 1/2: default/external-secrets
+processing releases in group 1/2: default/default/external-secrets
 getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default/my-release
+processing releases in group 2/2: default/default/my-release
 getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
@@ -671,12 +671,12 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/external-secrets
-2     default/my-release
+1     default/default/external-secrets
+2     default/default/my-release
 
-processing releases in group 1/2: default/external-secrets
+processing releases in group 1/2: default/default/external-secrets
 getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default/my-release
+processing releases in group 2/2: default/default/my-release
 getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:

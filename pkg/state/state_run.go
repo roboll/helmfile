@@ -151,13 +151,27 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 
 		// Only compute dependencies from non-filtered releases
 		if !r.Filtered {
-			d.Add(id, dag.Dependencies(r.Needs))
+			// Since the representation differs between needs and id,
+			// correct it by prepending KubeContext.
+			var needs []string
+			for i := 0; i < len(r.Needs); i++ {
+				n := r.Needs[i]
+				if r.KubeContext != "" {
+					n = r.KubeContext + "/" + n
+				}
+				needs = append(needs, n)
+			}
+			d.Add(id, dag.Dependencies(needs))
 		}
 	}
 
 	for _, r := range releases {
 		if !r.Filtered {
 			for _, n := range r.Needs {
+				// To map n into idToReleases correctly, prepend KubeContext to n.
+				if r.KubeContext != "" {
+					n = r.KubeContext + "/" + n
+				}
 				if _, ok := idToReleases[n]; !ok {
 					id := ReleaseToID(&r.ReleaseSpec)
 					return nil, fmt.Errorf("%q depends on nonexistent release %q", id, n)
