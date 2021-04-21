@@ -4,7 +4,7 @@ This guide covers the Helmfile’s considered patterns for writing advanced helm
 
 ## Helmfile .Values vs Helm .Values
 
-Templating engine of Helmfile uses the same pipeline name `.Values` as Helm, so in some use-cases `.Vaues` of Helmfile and
+Templating engine of Helmfile uses the same pipeline name `.Values` as Helm, so in some use-cases `.Values` of Helmfile and
 Helm can be seen in the same file. To distinguish these two kinds of `.Values`, Helmfile provides an alias `.StateValues`
 for its `.Values`.
 
