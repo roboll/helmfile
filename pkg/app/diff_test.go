@@ -32,6 +32,7 @@ type diffConfig struct {
 	suppressDiff      bool
 	noColor           bool
 	context           int
+	diffOutput        string
 	concurrency       int
 	detailedExitcode  bool
 	interactive       bool
@@ -92,6 +93,10 @@ func (a diffConfig) NoColor() bool {
 
 func (a diffConfig) Context() int {
 	return a.context
+}
+
+func (a diffConfig) DiffOutput() string {
+	return a.diffOutput
 }
 
 func (a diffConfig) Concurrency() int {

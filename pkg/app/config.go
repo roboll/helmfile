@@ -54,6 +54,7 @@ type ApplyConfigProvider interface {
 
 	NoColor() bool
 	Context() int
+	DiffOutput() string
 
 	RetainValuesFiles() bool
 	SkipCleanup() bool
@@ -104,6 +105,7 @@ type DiffConfigProvider interface {
 	DetailedExitcode() bool
 	NoColor() bool
 	Context() int
+	DiffOutput() string
 
 	concurrencyConfig
 }

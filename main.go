@@ -225,6 +225,11 @@ func main() {
 					Value: 0,
 					Usage: "output NUM lines of context around changes",
 				},
+				cli.StringFlag{
+					Name:  "diff-output",
+					Value: "",
+					Usage: "output format for diff plugin",
+				},
 			},
 			Action: action(func(a *app.App, c configImpl) error {
 				return a.Diff(c)
@@ -440,6 +445,11 @@ func main() {
 					Name:  "context",
 					Value: 0,
 					Usage: "output NUM lines of context around changes",
+				},
+				cli.StringFlag{
+					Name:  "diff-output",
+					Value: "",
+					Usage: "output format for diff plugin",
 				},
 				cli.BoolFlag{
 					Name:  "detailed-exitcode",
@@ -853,6 +863,10 @@ func (c configImpl) NoColor() bool {
 
 func (c configImpl) Context() int {
 	return c.c.Int("context")
+}
+
+func (c configImpl) DiffOutput() string {
+	return c.c.String("diff-output")
 }
 
 func (c configImpl) SkipCleanup() bool {

@@ -1664,6 +1664,10 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--context", fmt.Sprintf("%d", opts.Context))
 				}
 
+				if opts.Output != "" {
+					flags = append(flags, "--output", fmt.Sprintf("%s", opts.Output))
+				}
+
 				if opts.Set != nil {
 					for _, s := range opts.Set {
 						flags = append(flags, "--set", s)
@@ -1739,6 +1743,7 @@ func (st *HelmState) createHelmContextWithWriter(spec *ReleaseSpec, w io.Writer)
 
 type DiffOpts struct {
 	Context int
+	Output  string
 	NoColor bool
 	Set     []string
 
