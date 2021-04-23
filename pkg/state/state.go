@@ -1066,6 +1066,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
 						chartify.UseHelm3(helm3),
+						chartify.WithLogf(st.logger.Debugf),
 					)
 
 					chartifyOpts := chartification.Opts
