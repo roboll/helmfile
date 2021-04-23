@@ -9,3 +9,4 @@ vendor/
 *.log
 .vagrant/
 *.lock
+test/integration/.gnupg/

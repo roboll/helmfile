@@ -1153,6 +1153,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	diffOpts := &state.DiffOpts{
 		NoColor:           c.NoColor(),
 		Context:           c.Context(),
+		Output:            c.DiffOutput(),
 		Set:               c.Set(),
 		SkipCleanup:       c.RetainValuesFiles() || c.SkipCleanup(),
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
@@ -1378,6 +1379,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 
 	opts := &state.DiffOpts{
 		Context: c.Context(),
+		Output:  c.DiffOutput(),
 		NoColor: c.NoColor(),
 		Set:     c.Set(),
 	}
