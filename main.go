@@ -226,7 +226,7 @@ func main() {
 					Usage: "output NUM lines of context around changes",
 				},
 				cli.StringFlag{
-					Name:  "diff-output",
+					Name:  "output",
 					Value: "",
 					Usage: "output format for diff plugin",
 				},
@@ -447,7 +447,7 @@ func main() {
 					Usage: "output NUM lines of context around changes",
 				},
 				cli.StringFlag{
-					Name:  "diff-output",
+					Name:  "output",
 					Value: "",
 					Usage: "output format for diff plugin",
 				},
