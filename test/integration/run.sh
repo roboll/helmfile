@@ -96,7 +96,7 @@ info "Diffing ${dir}/happypath.yaml with limited context"
 bash -c "${helmfile} -f ${dir}/happypath.yaml diff --context 3 --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
 info "Diffing ${dir}/happypath.yaml with altered output"
-bash -c "${helmfile} -f ${dir}/happypath.yaml diff --diff-output simple --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+bash -c "${helmfile} -f ${dir}/happypath.yaml diff --output simple --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
 info "Templating ${dir}/happypath.yaml"
 rm -rf ${dir}/tmp

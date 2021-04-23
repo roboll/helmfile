@@ -866,7 +866,7 @@ func (c configImpl) Context() int {
 }
 
 func (c configImpl) DiffOutput() string {
-	return c.c.String("diff-output")
+	return c.c.String("output")
 }
 
 func (c configImpl) SkipCleanup() bool {
