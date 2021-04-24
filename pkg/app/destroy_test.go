@@ -26,6 +26,7 @@ type destroyConfig struct {
 	args        string
 	concurrency int
 	interactive bool
+	skipDeps    bool
 	logger      *zap.SugaredLogger
 }
 
@@ -43,6 +44,10 @@ func (d destroyConfig) Logger() *zap.SugaredLogger {
 
 func (d destroyConfig) Concurrency() int {
 	return d.concurrency
+}
+
+func (d destroyConfig) SkipDeps() bool {
+	return d.skipDeps
 }
 
 func TestDestroy(t *testing.T) {

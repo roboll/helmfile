@@ -396,8 +396,8 @@ func (a *App) Status(c StatusesConfigProvider) error {
 func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
-			SkipRepos: true,
-			SkipDeps:  true,
+			SkipRepos: c.SkipDeps(),
+			SkipDeps:  c.SkipDeps(),
 		}, func() {
 			ok, errs = a.delete(run, c.Purge(), c)
 		})
@@ -413,8 +413,8 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
-			SkipRepos: true,
-			SkipDeps:  true,
+			SkipRepos: c.SkipDeps(),
+			SkipDeps:  c.SkipDeps(),
 		}, func() {
 			ok, errs = a.delete(run, true, c)
 		})
@@ -436,8 +436,8 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
-			SkipRepos: true,
-			SkipDeps:  true,
+			SkipRepos: c.SkipDeps(),
+			SkipDeps:  c.SkipDeps(),
 		}, func() {
 			errs = a.test(run, c)
 		})

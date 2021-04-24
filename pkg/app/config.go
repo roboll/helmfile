@@ -114,6 +114,7 @@ type DeleteConfigProvider interface {
 	Args() string
 
 	Purge() bool
+	SkipDeps() bool
 
 	interactive
 	loggingConfig
@@ -123,6 +124,8 @@ type DeleteConfigProvider interface {
 type DestroyConfigProvider interface {
 	Args() string
 
+	SkipDeps() bool
+
 	interactive
 	loggingConfig
 	concurrencyConfig
@@ -131,6 +134,7 @@ type DestroyConfigProvider interface {
 type TestConfigProvider interface {
 	Args() string
 
+	SkipDeps() bool
 	Timeout() int
 	Cleanup() bool
 	Logs() bool
