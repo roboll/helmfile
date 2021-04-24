@@ -2759,28 +2759,12 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	}
 
 	if len(release.SetValues) > 0 {
-		for _, set := range release.SetValues {
-			if set.Value != "" {
-				renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
-				if err != nil {
-					return nil, files, fmt.Errorf("Failed to render set value entry in %s for release %s: %v", st.FilePath, release.Name, err)
-				}
-				flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
-			} else if set.File != "" {
-				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizePath(set.File)))
-			} else if len(set.Values) > 0 {
-				renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
-				if err != nil {
-					return nil, files, fmt.Errorf("Failed to render set values entry in %s for release %s: %v", st.FilePath, release.Name, err)
-				}
-				items := make([]string, len(renderedValues))
-				for i, raw := range renderedValues {
-					items[i] = escape(raw)
-				}
-				v := strings.Join(items, ",")
-				flags = append(flags, "--set", fmt.Sprintf("%s={%s}", escape(set.Name), v))
-			}
+		setFlags, err := st.setFlags(release.SetValues)
+		if err != nil {
+			return nil, files, fmt.Errorf("Failed to render set value entry in %s for release %s: %v", st.FilePath, release.Name, err)
 		}
+
+		flags = append(flags, setFlags...)
 	}
 
 	/***********
@@ -2811,6 +2795,35 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	 **************/
 
 	return flags, files, nil
+}
+
+func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
+	var flags []string
+
+	for _, set := range setValues {
+		if set.Value != "" {
+			renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
+			if err != nil {
+				return nil, err
+			}
+			flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
+		} else if set.File != "" {
+			flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizePath(set.File)))
+		} else if len(set.Values) > 0 {
+			renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
+			if err != nil {
+				return nil, err
+			}
+			items := make([]string, len(renderedValues))
+			for i, raw := range renderedValues {
+				items[i] = escape(raw)
+			}
+			v := strings.Join(items, ",")
+			flags = append(flags, "--set", fmt.Sprintf("%s={%s}", escape(set.Name), v))
+		}
+	}
+
+	return flags, nil
 }
 
 // renderValsSecrets helper function which renders 'ref+.*' secrets
