@@ -13,113 +13,9 @@ import (
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
 	"github.com/variantdev/vals"
-	"go.uber.org/zap"
 )
 
-type diffConfig struct {
-	args              string
-	values            []string
-	retainValuesFiles bool
-	set               []string
-	validate          bool
-	skipCRDs          bool
-	skipDeps          bool
-	includeTests      bool
-	includeNeeds      bool
-	skipNeeds         bool
-	suppressSecrets   bool
-	showSecrets       bool
-	suppressDiff      bool
-	noColor           bool
-	context           int
-	diffOutput        string
-	concurrency       int
-	detailedExitcode  bool
-	interactive       bool
-	logger            *zap.SugaredLogger
-}
-
-func (a diffConfig) Args() string {
-	return a.args
-}
-
-func (a diffConfig) Values() []string {
-	return a.values
-}
-
-func (a diffConfig) Set() []string {
-	return a.set
-}
-
-func (a diffConfig) Validate() bool {
-	return a.validate
-}
-
-func (a diffConfig) SkipCRDs() bool {
-	return a.skipCRDs
-}
-
-func (a diffConfig) SkipDeps() bool {
-	return a.skipDeps
-}
-
-func (a diffConfig) IncludeTests() bool {
-	return a.includeTests
-}
-
-func (a diffConfig) IncludeNeeds() bool {
-	return a.includeNeeds
-}
-
-func (a diffConfig) SkipNeeds() bool {
-	return a.skipNeeds
-}
-
-func (a diffConfig) SuppressSecrets() bool {
-	return a.suppressSecrets
-}
-
-func (a diffConfig) ShowSecrets() bool {
-	return a.showSecrets
-}
-
-func (a diffConfig) SuppressDiff() bool {
-	return a.suppressDiff
-}
-
-func (a diffConfig) NoColor() bool {
-	return a.noColor
-}
-
-func (a diffConfig) Context() int {
-	return a.context
-}
-
-func (a diffConfig) DiffOutput() string {
-	return a.diffOutput
-}
-
-func (a diffConfig) Concurrency() int {
-	return a.concurrency
-}
-
-func (a diffConfig) DetailedExitcode() bool {
-	return a.detailedExitcode
-}
-
-func (a diffConfig) Interactive() bool {
-	return a.interactive
-}
-
-func (a diffConfig) Logger() *zap.SugaredLogger {
-	return a.logger
-}
-
-func (a diffConfig) RetainValuesFiles() bool {
-	return a.retainValuesFiles
-}
-
-func TestDiff(t *testing.T) {
+func TestDiff_2(t *testing.T) {
 	type flags struct {
 		skipNeeds bool
 	}
@@ -207,23 +103,23 @@ releases:
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				// noop on frontend-v2
-				exectest.DiffKey{Name: "frontend-v2", Chart: "charts/frontend", Flags: "--kube-contextdefault--detailed-exitcode"}: nil,
+				exectest.DiffKey{Name: "frontend-v2", Chart: "charts/frontend", Flags: "--detailed-exitcode"}: nil,
 				// install frontend-v3
-				exectest.DiffKey{Name: "frontend-v3", Chart: "charts/frontend", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "frontend-v3", Chart: "charts/frontend", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				// upgrades
-				exectest.DiffKey{Name: "logging", Chart: "charts/fluent-bit", Flags: "--kube-contextdefault--detailed-exitcode"}:            helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "front-proxy", Chart: "stable/envoy", Flags: "--kube-contextdefault--detailed-exitcode"}:             helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "servicemesh", Chart: "charts/istio", Flags: "--kube-contextdefault--detailed-exitcode"}:             helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "database", Chart: "charts/mysql", Flags: "--kube-contextdefault--detailed-exitcode"}:                helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "backend-v2", Chart: "charts/backend", Flags: "--kube-contextdefault--detailed-exitcode"}:            helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "anotherbackend", Chart: "charts/anotherbackend", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "logging", Chart: "charts/fluent-bit", Flags: "--detailed-exitcode"}:            helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "front-proxy", Chart: "stable/envoy", Flags: "--detailed-exitcode"}:             helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "servicemesh", Chart: "charts/istio", Flags: "--detailed-exitcode"}:             helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "database", Chart: "charts/mysql", Flags: "--detailed-exitcode"}:                helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "backend-v2", Chart: "charts/backend", Flags: "--detailed-exitcode"}:            helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "anotherbackend", Chart: "charts/anotherbackend", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
-				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 backend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
 			},
@@ -390,11 +286,11 @@ releases:
 			detailedExitcode: true,
 			error:            "",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: nil,
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: nil,
 			},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlags}: ``,
-				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlagsWithoutKubeContext}: ``,
+				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -423,9 +319,9 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "baz", Chart: "mychart3", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "baz", Chart: "mychart3", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists:       map[exectest.ListKey]string{},
 			upgraded:    []exectest.Release{},
@@ -495,8 +391,8 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 		},
@@ -517,8 +413,8 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 		},
@@ -540,8 +436,8 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 		},
@@ -563,8 +459,8 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 		},
@@ -587,8 +483,8 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 		},
@@ -611,8 +507,8 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 		},
@@ -638,8 +534,8 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--tiller-namespacetns2--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--tiller-namespacetns1--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 		},
@@ -664,8 +560,8 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--tiller-namespacetns2--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--tiller-namespacetns1--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -739,14 +635,14 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -771,14 +667,14 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -805,14 +701,14 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -837,14 +733,14 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -869,14 +765,14 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -901,14 +797,14 @@ releases:
 			detailedExitcode: true,
 			error:            "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^foo$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^bar$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -952,8 +848,8 @@ releases:
 			selectors:        []string{"app=test"},
 			detailedExitcode: true,
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -1061,13 +957,13 @@ releases:
 			selectors:        []string{"app=test"},
 			detailedExitcode: true,
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:       `in ./helmfile.yaml: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			log: `processing file "helmfile.yaml" in directory "."
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
@@ -1131,7 +1027,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
-err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+err: release "default/external-secrets" depends on "kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
 `,
 		},
 		{
@@ -1256,14 +1152,14 @@ releases:
 			},
 			detailedExitcode: true,
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "baz", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "baz", Chart: "mychart3", Flags: "--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
 			},
 			lists:       map[exectest.ListKey]string{},
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: "default/foo" depends on nonexistent release "default/bar"`,
+			error:       `in ./helmfile.yaml: "foo" depends on nonexistent release "bar"`,
 			log: `processing file "helmfile.yaml" in directory "."
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
@@ -1299,7 +1195,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-err: "default/foo" depends on nonexistent release "default/bar"
+err: "foo" depends on nonexistent release "bar"
 `,
 		},
 	}
@@ -1356,11 +1252,11 @@ err: "default/foo" depends on nonexistent release "default/bar"
 					OverrideHelmBinary:  DefaultHelmBinary,
 					glob:                filepath.Glob,
 					abs:                 filepath.Abs,
-					OverrideKubeContext: "default",
+					OverrideKubeContext: "",
 					Env:                 "default",
 					Logger:              logger,
 					helms: map[helmKey]helmexec.Interface{
-						createHelmKey("helm", "default"): helm,
+						createHelmKey("helm", ""): helm,
 					},
 					valsRuntime: valsRuntime,
 				}, tc.files)

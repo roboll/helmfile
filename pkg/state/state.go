@@ -332,6 +332,9 @@ const MissingFileHandlerWarn = "Warn"
 const MissingFileHandlerDebug = "Debug"
 
 func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
+	if spec.KubeContext == "" {
+		spec.KubeContext = st.HelmDefaults.KubeContext
+	}
 	if st.OverrideNamespace != "" {
 		spec.Namespace = st.OverrideNamespace
 

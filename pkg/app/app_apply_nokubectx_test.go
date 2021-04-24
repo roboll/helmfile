@@ -15,7 +15,7 @@ import (
 	"github.com/variantdev/vals"
 )
 
-func TestApply_2(t *testing.T) {
+func TestApply_3(t *testing.T) {
 	type fields struct {
 		skipNeeds    bool
 		includeNeeds bool
@@ -90,11 +90,11 @@ func TestApply_2(t *testing.T) {
 				OverrideHelmBinary:  DefaultHelmBinary,
 				glob:                filepath.Glob,
 				abs:                 filepath.Abs,
-				OverrideKubeContext: "default",
+				OverrideKubeContext: "",
 				Env:                 "default",
 				Logger:              logger,
 				helms: map[helmKey]helmexec.Interface{
-					createHelmKey("helm", "default"): helm,
+					createHelmKey("helm", ""): helm,
 				},
 				valsRuntime: valsRuntime,
 			}, tc.files)
@@ -199,12 +199,12 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			upgraded: []exectest.Release{
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
+				{Name: "my-release", Flags: []string{"--namespace", "default"}},
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -277,13 +277,13 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/external-secrets
+2     default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
+processing releases in group 1/2: default/external-secrets
+getting deployed release version failed:unexpected list key: {^external-secrets$ --deleting--deployed--failed--pending}
+processing releases in group 2/2: default/my-release
+getting deployed release version failed:unexpected list key: {^my-release$ --deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
@@ -327,16 +327,16 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			upgraded: []exectest.Release{
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
 			},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 ^external-secrets$ 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       nil,
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:       nil,
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -408,9 +408,9 @@ Affected releases are:
 
 processing 1 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
+1     default/external-secrets
 
-processing releases in group 1/1: default/default/external-secrets
+processing releases in group 1/1: default/external-secrets
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
@@ -456,9 +456,9 @@ releases:
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "kubernetes-external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacekube-system--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:                helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "kubernetes-external-secrets", Chart: "incubator/raw", Flags: "--namespacekube-system--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:                helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -532,16 +532,16 @@ Affected releases are:
 
 processing 3 groups of releases in this order:
 GROUP RELEASES
-1     default/kube-system/kubernetes-external-secrets
-2     default/default/external-secrets
-3     default/default/my-release
+1     kube-system/kubernetes-external-secrets
+2     default/external-secrets
+3     default/my-release
 
-processing releases in group 1/3: default/kube-system/kubernetes-external-secrets
-getting deployed release version failed:unexpected list key: {^kubernetes-external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/3: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 3/3: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
+processing releases in group 1/3: kube-system/kubernetes-external-secrets
+getting deployed release version failed:unexpected list key: {^kubernetes-external-secrets$ --deleting--deployed--failed--pending}
+processing releases in group 2/3: default/external-secrets
+getting deployed release version failed:unexpected list key: {^external-secrets$ --deleting--deployed--failed--pending}
+processing releases in group 3/3: default/my-release
+getting deployed release version failed:unexpected list key: {^my-release$ --deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME                          CHART           VERSION
@@ -590,9 +590,9 @@ releases:
 			upgraded:  []exectest.Release{},
 			lists:     nil,
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "kubernetes-external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacekube-system--detailed-exitcode"}: nil,
-				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:                helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "kubernetes-external-secrets", Chart: "incubator/raw", Flags: "--namespacekube-system--detailed-exitcode"}: nil,
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:                helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -665,13 +665,13 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/external-secrets
+2     default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
+processing releases in group 1/2: default/external-secrets
+getting deployed release version failed:unexpected list key: {^external-secrets$ --deleting--deployed--failed--pending}
+processing releases in group 2/2: default/my-release
+getting deployed release version failed:unexpected list key: {^my-release$ --deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
@@ -720,13 +720,13 @@ releases:
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
-				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 ^kubernetes-external-secrets$ 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -802,18 +802,18 @@ Affected releases are:
 
 processing 1 groups of releases in this order:
 GROUP RELEASES
-1     default/kube-system/kubernetes-external-secrets
+1     kube-system/kubernetes-external-secrets
 
-processing releases in group 1/1: default/kube-system/kubernetes-external-secrets
+processing releases in group 1/1: kube-system/kubernetes-external-secrets
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/external-secrets
+2     default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
+processing releases in group 1/2: default/external-secrets
+getting deployed release version failed:unexpected list key: {^external-secrets$ --deleting--deployed--failed--pending}
+processing releases in group 2/2: default/my-release
+getting deployed release version failed:unexpected list key: {^my-release$ --deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
@@ -866,11 +866,11 @@ releases:
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
-				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: ``,
+				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: ``,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -945,13 +945,13 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/external-secrets
+2     default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
+processing releases in group 1/2: default/external-secrets
+getting deployed release version failed:unexpected list key: {^external-secrets$ --deleting--deployed--failed--pending}
+processing releases in group 2/2: default/my-release
+getting deployed release version failed:unexpected list key: {^my-release$ --deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION

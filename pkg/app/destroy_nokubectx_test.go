@@ -12,40 +12,9 @@ import (
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/testhelper"
 	"github.com/variantdev/vals"
-	"go.uber.org/zap"
 )
 
-const (
-	helmV2ListFlags = "--kube-contextdefault--deleting--deployed--failed--pending"
-	helmV2ListFlagsWithoutKubeContext = "--deleting--deployed--failed--pending"
-	helmV3ListFlags = "--kube-contextdefault--uninstalling--deployed--failed--pending"
-	helmV3ListFlagsWithoutKubeContext = "--uninstalling--deployed--failed--pending"
-)
-
-type destroyConfig struct {
-	args        string
-	concurrency int
-	interactive bool
-	logger      *zap.SugaredLogger
-}
-
-func (d destroyConfig) Args() string {
-	return d.args
-}
-
-func (d destroyConfig) Interactive() bool {
-	return d.interactive
-}
-
-func (d destroyConfig) Logger() *zap.SugaredLogger {
-	return d.logger
-}
-
-func (d destroyConfig) Concurrency() int {
-	return d.concurrency
-}
-
-func TestDestroy(t *testing.T) {
+func TestDestroy_2(t *testing.T) {
 	type testcase struct {
 		helm3       bool
 		ns          string
@@ -115,11 +84,11 @@ func TestDestroy(t *testing.T) {
 				OverrideHelmBinary:  DefaultHelmBinary,
 				glob:                filepath.Glob,
 				abs:                 filepath.Abs,
-				OverrideKubeContext: "default",
+				OverrideKubeContext: "",
 				Env:                 "default",
 				Logger:              logger,
 				helms: map[helmKey]helmexec.Interface{
-					createHelmKey("helm", "default"): helm,
+					createHelmKey("helm", ""): helm,
 				},
 				valsRuntime: valsRuntime,
 			}, tc.files)
@@ -266,32 +235,32 @@ releases:
 			files: files,
 			diffs: map[exectest.DiffKey]error{},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				exectest.ListKey{Filter: "^frontend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^frontend-v2$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^frontend-v3$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^frontend-v3$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				exectest.ListKey{Filter: "^backend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^backend-v2$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^logging$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^logging$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 logging	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^front-proxy$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^front-proxy$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^servicemesh$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^servicemesh$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^database$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^database$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^anotherbackend$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^anotherbackend$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
 `,
 			},
@@ -437,25 +406,25 @@ merged environment: &{default map[] map[]}
 
 processing 5 groups of releases in this order:
 GROUP RELEASES
-1     default/frontend-v3, default/frontend-v2, default/frontend-v1
-2     default/backend-v2, default/backend-v1
-3     default/anotherbackend
-4     default/servicemesh, default/database
-5     default/front-proxy, default/logging
+1     frontend-v3, frontend-v2, frontend-v1
+2     backend-v2, backend-v1
+3     anotherbackend
+4     servicemesh, database
+5     front-proxy, logging
 
-processing releases in group 1/5: default/frontend-v3, default/frontend-v2, default/frontend-v1
+processing releases in group 1/5: frontend-v3, frontend-v2, frontend-v1
 release "frontend-v3" processed
 release "frontend-v2" processed
 release "frontend-v1" processed
-processing releases in group 2/5: default/backend-v2, default/backend-v1
+processing releases in group 2/5: backend-v2, backend-v1
 release "backend-v2" processed
 release "backend-v1" processed
-processing releases in group 3/5: default/anotherbackend
+processing releases in group 3/5: anotherbackend
 release "anotherbackend" processed
-processing releases in group 4/5: default/servicemesh, default/database
+processing releases in group 4/5: servicemesh, database
 release "servicemesh" processed
 release "database" processed
-processing releases in group 5/5: default/front-proxy, default/logging
+processing releases in group 5/5: front-proxy, logging
 release "front-proxy" processed
 release "logging" processed
 
@@ -481,32 +450,32 @@ logging
 			selectors: []string{"name=logging"},
 			diffs:     map[exectest.DiffKey]error{},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				exectest.ListKey{Filter: "^frontend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^frontend-v2$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^frontend-v3$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^frontend-v3$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				exectest.ListKey{Filter: "^backend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^backend-v2$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^logging$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^logging$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 logging	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^front-proxy$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^front-proxy$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^servicemesh$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^servicemesh$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^database$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^database$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
 `,
-				exectest.ListKey{Filter: "^anotherbackend$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^anotherbackend$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
 `,
 			},
@@ -643,9 +612,9 @@ merged environment: &{default map[] map[]}
 
 processing 1 groups of releases in this order:
 GROUP RELEASES
-1     default/logging
+1     logging
 
-processing releases in group 1/1: default/logging
+processing releases in group 1/1: logging
 release "logging" processed
 
 DELETED RELEASES:
@@ -660,9 +629,9 @@ logging
 			files: filesForTwoReleases,
 			diffs: map[exectest.DiffKey]error{},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
 			},
 			// Disable concurrency to avoid in-deterministic result
@@ -708,12 +677,12 @@ merged environment: &{default map[] map[]}
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/frontend-v1
-2     default/backend-v1
+1     frontend-v1
+2     backend-v1
 
-processing releases in group 1/2: default/frontend-v1
+processing releases in group 1/2: frontend-v1
 release "frontend-v1" processed
-processing releases in group 2/2: default/backend-v1
+processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
@@ -730,9 +699,9 @@ backend-v1
 			files: filesForTwoReleases,
 			diffs: map[exectest.DiffKey]error{},
 			lists: map[exectest.ListKey]string{
-				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV3ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^frontend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV3ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				exectest.ListKey{Filter: "^backend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
 			},
 			// Disable concurrency to avoid in-deterministic result
@@ -778,12 +747,12 @@ merged environment: &{default map[] map[]}
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/frontend-v1
-2     default/backend-v1
+1     frontend-v1
+2     backend-v1
 
-processing releases in group 1/2: default/frontend-v1
+processing releases in group 1/2: frontend-v1
 release "frontend-v1" processed
-processing releases in group 2/2: default/backend-v1
+processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
