@@ -52,4 +52,7 @@ type releaseTemplateDataRelease struct {
 
 	// Chart is ReleaseSpec.Chart
 	Chart string
+
+	// KubeContext is ReleaseSpec.KubeContext
+	KubeContext string
 }
