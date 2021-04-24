@@ -23,10 +23,11 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 		Chart:       st.OverrideChart,
 		Values:      vals,
 		Release: releaseTemplateDataRelease{
-			Name:      release.Name,
-			Chart:     release.Chart,
-			Namespace: release.Namespace,
-			Labels:    release.Labels,
+			Name:        release.Name,
+			Chart:       release.Chart,
+			Namespace:   release.Namespace,
+			Labels:      release.Labels,
+			KubeContext: release.KubeContext,
 		},
 	}
 	tmplData.StateValues = &tmplData.Values
