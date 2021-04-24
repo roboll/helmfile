@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	helmV2ListFlags = "--kube-contextdefault--deleting--deployed--failed--pending"
+	helmV2ListFlags                   = "--kube-contextdefault--deleting--deployed--failed--pending"
 	helmV2ListFlagsWithoutKubeContext = "--deleting--deployed--failed--pending"
-	helmV3ListFlags = "--kube-contextdefault--uninstalling--deployed--failed--pending"
+	helmV3ListFlags                   = "--kube-contextdefault--uninstalling--deployed--failed--pending"
 	helmV3ListFlagsWithoutKubeContext = "--uninstalling--deployed--failed--pending"
 )
 
