@@ -90,6 +90,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			EnableKustomizeAlphaPlugins: true,
 			ChartVersion:                release.Version,
 			Namespace:                   release.Namespace,
+			ID:                          ReleaseToID(release),
 		},
 	}
 
