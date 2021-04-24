@@ -554,6 +554,10 @@ func main() {
 					Name:  "purge",
 					Usage: "purge releases i.e. free release names and histories",
 				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: `skip running "helm repo update" and "helm dependency build"`,
+				},
 			},
 			Action: action(func(a *app.App, c configImpl) error {
 				return a.Delete(c)
@@ -572,6 +576,10 @@ func main() {
 					Name:  "args",
 					Value: "",
 					Usage: "pass args to helm exec",
+				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: `skip running "helm repo update" and "helm dependency build"`,
 				},
 			},
 			Action: action(func(a *app.App, c configImpl) error {
@@ -604,6 +612,10 @@ func main() {
 					Name:  "concurrency",
 					Value: 0,
 					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
+				cli.BoolFlag{
+					Name:  "skip-deps",
+					Usage: `skip running "helm repo update" and "helm dependency build"`,
 				},
 			},
 			Action: action(func(a *app.App, c configImpl) error {
