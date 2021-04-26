@@ -394,7 +394,8 @@ helmfiles:
 - path: releases/myrelease/helmfile.yaml
   values:
   - {{ toYaml .Values | nindent 4 }}
-  # add other values sources if want to use overlay logic here
+  # pass the current state values to the sub-helmfile
+  # add other values to use overlay logic here
 ```
 
 and `releases/myrelease/helmfile.yaml` is as DRY as
