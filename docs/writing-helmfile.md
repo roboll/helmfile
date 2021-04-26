@@ -409,6 +409,6 @@ releases:
   labels:
     chart: mychart
   values:
-    - values.yaml.gotmpl
-    # values templates would also inheret the values passed from upstream
+  - values.yaml.gotmpl
+  # templated values would also inherit the values passed from upstream
 ```
