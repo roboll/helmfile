@@ -404,7 +404,6 @@ and `releases/myrelease/helmfile.yaml` is as DRY as
 releases:
 - name: mychart-{{ .Values.myrelease.myname }}
   installed: {{ .Values | get "myrelease.enabled" false }}
-
   chart: mychart
   version: {{ .Values.myrelease.version }}
   labels:
