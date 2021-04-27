@@ -1,0 +1,49 @@
+site_name: helmfile
+site_author: Rob Boll
+
+repo_name: roboll/helmfile/
+repo_url: https://github.com/roboll/helmfile/
+edit_uri: ''
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Paths Overview: paths.md
+  - Advanced Features:
+    - Best Practices Guide: writing-helmfile.md
+    - Advanced Features: advanced-features.md
+    - Secrets: remote-secrets.md
+    - Shared Configuration Across Teams: shared-configuration-across-teams.md
+  - About:
+    - Users: users.md
+    - License: LICENSE.md
+    - Contributing: CONTRIBUTING.md
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+  collapse_navigation: false
+  hljs_languages:
+    - yaml
+    - dockerfile
+
+markdown_extensions:
+  # meta, toc, table and fenced_code extensions are included by default
+  - extra
+  - admonition
+  - smarty
+  - sane_lists
+  - nl2br
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      type: date
+      fallback_to_build_date: true
+
+extra:
+  version:
+    provider: mike

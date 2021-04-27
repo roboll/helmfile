@@ -10,3 +10,8 @@ vendor/
 .vagrant/
 *.lock
 test/integration/.gnupg/
+
+docs/LICENSE.md
+docs/CONTRIBUTING.md
+docs/index.md
+site/

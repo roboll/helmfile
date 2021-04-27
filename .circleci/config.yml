@@ -98,7 +98,7 @@ jobs:
               make -C .circleci helm
             else
               make -C .circleci helm2
-            fi            
+            fi
             make -C .circleci vault
             make -C .circleci sops
             make -C .circleci kustomize
@@ -115,6 +115,36 @@ jobs:
             else
               make integration
             fi
+
+  deploy_docs:
+    docker:
+      - image: squidfunk/mkdocs-material:7.1.3
+    working_directory: /home/circleci/workspace/helmfile
+    steps:
+      - checkout
+      - run:
+          name: Install plugins
+          command: |
+            pip install -r .circleci/docs/requirements.txt
+      - run:
+          name: Copy files for docs
+          command: |
+            ./.circleci/docs/copy_docs.sh
+      - when:
+          condition: << parameters.prerelease_version >>
+          steps:
+           - run:
+              name: Deploy prerelease docs
+              command: |
+                mike deploy --push vNext
+      - when:
+          condition: << parameters.release_version >>
+          steps:
+           - run:
+              name: Deploy release docs
+              command: |
+                mike deploy --push --update-aliases << pipeline.git.tag >> latest
+
 
 # GITHUB_TOKEN env var must be setup in circleci console
 
@@ -150,6 +180,16 @@ workflows:
           matrix:
             parameters:
               helm-version: ["v2.17.0", "v3.4.2"]
+      - deploy_docs:
+          prerelease_version: true
+          filters:
+            branches:
+              only: docs-deployment
+      - deploy_docs:
+          release_version: true
+          filters:
+            tags:
+              only: /v.*/
       - release:
           filters:
             branches:

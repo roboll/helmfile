@@ -1,0 +1,1 @@
+mkdocs-git-revision-date-localized-plugin == 0.9
