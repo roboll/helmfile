@@ -2,119 +2,119 @@ version: 2.1
 
 jobs:
 
-  build:
-    docker:
-      - image: circleci/golang:1.14.2
-    environment:
-      GOPATH: /go
-    working_directory: /home/circleci/workspace/helmfile
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-          - go-mod-cache-v1-{{ checksum "./go.sum" }}
-          - go-mod-cache-v1-
-      - run: go env
-      - run: make build
-      - run: make build-test-tools
-      - save_cache:
-          key: go-mod-cache-v1-{{ checksum "./go.sum" }}
-          paths:
-          - /go/pkg/mod
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - .
-  image:
-    docker:
-    - image: circleci/golang:1.14.2
-    working_directory: /home/circleci/workspace/helmfile
-    steps:
-    - checkout
-    - restore_cache:
-        keys:
-        - go-mod-cache-v1-{{ checksum "./go.sum" }}
-        - go-mod-cache-v1-
-    - setup_remote_docker
-    - run:
-        command: |
-          make tools
-          go mod vendor
-          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image
+  # build:
+  #   docker:
+  #     - image: circleci/golang:1.14.2
+  #   environment:
+  #     GOPATH: /go
+  #   working_directory: /home/circleci/workspace/helmfile
+  #   steps:
+  #     - checkout
+  #     - restore_cache:
+  #         keys:
+  #         - go-mod-cache-v1-{{ checksum "./go.sum" }}
+  #         - go-mod-cache-v1-
+  #     - run: go env
+  #     - run: make build
+  #     - run: make build-test-tools
+  #     - save_cache:
+  #         key: go-mod-cache-v1-{{ checksum "./go.sum" }}
+  #         paths:
+  #         - /go/pkg/mod
+  #     - persist_to_workspace:
+  #         root: ./
+  #         paths:
+  #           - .
+  # image:
+  #   docker:
+  #   - image: circleci/golang:1.14.2
+  #   working_directory: /home/circleci/workspace/helmfile
+  #   steps:
+  #   - checkout
+  #   - restore_cache:
+  #       keys:
+  #       - go-mod-cache-v1-{{ checksum "./go.sum" }}
+  #       - go-mod-cache-v1-
+  #   - setup_remote_docker
+  #   - run:
+  #       command: |
+  #         make tools
+  #         go mod vendor
+  #         ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image
 
-  image_helm3:
-    docker:
-    - image: circleci/golang:1.14.2
-    working_directory: /home/circleci/workspace/helmfile
-    steps:
-    - checkout
-    - restore_cache:
-        keys:
-        - go-mod-cache-v1-{{ checksum "./go.sum" }}
-        - go-mod-cache-v1-
-    - setup_remote_docker
-    - run:
-        command: |
-          make tools
-          go mod vendor
-          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image/helm3
+  # image_helm3:
+  #   docker:
+  #   - image: circleci/golang:1.14.2
+  #   working_directory: /home/circleci/workspace/helmfile
+  #   steps:
+  #   - checkout
+  #   - restore_cache:
+  #       keys:
+  #       - go-mod-cache-v1-{{ checksum "./go.sum" }}
+  #       - go-mod-cache-v1-
+  #   - setup_remote_docker
+  #   - run:
+  #       command: |
+  #         make tools
+  #         go mod vendor
+  #         ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image/helm3
 
-  test:
-    environment:
-      GOPATH: /go
-    docker:
-      - image: circleci/golang:1.14.2
-    working_directory: /home/circleci/workspace/helmfile
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-          - go-mod-cache-v1-{{ checksum "./go.sum" }}
-          - go-mod-cache-v1-
-      - run: make check
-      - run: make pristine
-      - run: make test
+  # test:
+  #   environment:
+  #     GOPATH: /go
+  #   docker:
+  #     - image: circleci/golang:1.14.2
+  #   working_directory: /home/circleci/workspace/helmfile
+  #   steps:
+  #     - checkout
+  #     - restore_cache:
+  #         keys:
+  #         - go-mod-cache-v1-{{ checksum "./go.sum" }}
+  #         - go-mod-cache-v1-
+  #     - run: make check
+  #     - run: make pristine
+  #     - run: make test
 
-  # thanks to https://raw.githubusercontent.com/weaveworks/launcher/master/.circleci/config.yml
-  integration_tests:
-    machine:
-      image: ubuntu-2004:202010-01
-    parameters:
-      helm-version:
-        type: string
-    steps:
-      - checkout
-      - run: mkdir ~/build
-      - attach_workspace:
-          at: ~/build
-      - run:
-          name: Install test dependencies
-          command: |
-            cp ~/build/helmfile ~/project/helmfile
-            cp ~/build/diff-yamls ~/project/diff-yamls
-            cp ~/build/yamldiff ~/project/yamldiff
-            if [[ "<< parameters.helm-version >>" == v3* ]]
-            then
-              make -C .circleci helm
-            else
-              make -C .circleci helm2
-            fi
-            make -C .circleci vault
-            make -C .circleci sops
-            make -C .circleci kustomize
-            make -C .circleci minikube
-      - run:
-          name: Execute integration tests
-          environment:
-            TERM: "xterm"
-          command: |
-            export TERM=xterm
-            if [[ "<< parameters.helm-version >>" == v3* ]]
-            then
-              HELMFILE_HELM3=1 make integration
-            else
-              make integration
-            fi
+  # # thanks to https://raw.githubusercontent.com/weaveworks/launcher/master/.circleci/config.yml
+  # integration_tests:
+  #   machine:
+  #     image: ubuntu-2004:202010-01
+  #   parameters:
+  #     helm-version:
+  #       type: string
+  #   steps:
+  #     - checkout
+  #     - run: mkdir ~/build
+  #     - attach_workspace:
+  #         at: ~/build
+  #     - run:
+  #         name: Install test dependencies
+  #         command: |
+  #           cp ~/build/helmfile ~/project/helmfile
+  #           cp ~/build/diff-yamls ~/project/diff-yamls
+  #           cp ~/build/yamldiff ~/project/yamldiff
+  #           if [[ "<< parameters.helm-version >>" == v3* ]]
+  #           then
+  #             make -C .circleci helm
+  #           else
+  #             make -C .circleci helm2
+  #           fi
+  #           make -C .circleci vault
+  #           make -C .circleci sops
+  #           make -C .circleci kustomize
+  #           make -C .circleci minikube
+  #     - run:
+  #         name: Execute integration tests
+  #         environment:
+  #           TERM: "xterm"
+  #         command: |
+  #           export TERM=xterm
+  #           if [[ "<< parameters.helm-version >>" == v3* ]]
+  #           then
+  #             HELMFILE_HELM3=1 make integration
+  #           else
+  #             make integration
+  #           fi
 
   deploy_docs:
     parameters:
@@ -177,16 +177,16 @@ workflows:
   version: 2
   build_and_test:
     jobs:
-      - build
-      - image
-      - image_helm3
-      - test
-      - integration_tests:
-          requires:
-            - build
-          matrix:
-            parameters:
-              helm-version: ["v2.17.0", "v3.4.2"]
+      # - build
+      # - image
+      # - image_helm3
+      # - test
+      # - integration_tests:
+      #     requires:
+      #       - build
+      #     matrix:
+      #       parameters:
+      #         helm-version: ["v2.17.0", "v3.4.2"]
       - deploy_docs:
           prerelease_version: true
           filters:
