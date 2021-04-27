@@ -129,6 +129,9 @@ jobs:
     working_directory: /home/circleci/workspace/helmfile
     steps:
       - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "5f:86:df:f0:e7:47:db:50:74:ac:f7:8a:f2:90:67:42"
       - run:
           name: Install plugins
           command: |
@@ -137,6 +140,11 @@ jobs:
           name: Copy files for docs
           command: |
             .circleci/docs/copy_docs.sh
+      - run:
+          name: git config
+          command: |
+            git config user.email "helmfile-ci@circleci.com"
+            git config user.name "helmfile-ci"
       - when:
           condition: << parameters.prerelease_version >>
           steps:
