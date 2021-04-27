@@ -185,7 +185,8 @@ workflows:
   version: 2
   build_and_test:
     when:
-      equal: [gh-pages, << pipeline.git.branch >>]
+      not:
+        equal: [gh-pages, << pipeline.git.branch >>]
     jobs:
       # - build
       # - image
