@@ -8,14 +8,14 @@ edit_uri: ''
 nav:
   - Home: index.md
   - Getting Started:
-    - Paths Overview: paths.md
+    - Paths Overview: PATHS.md
   - Advanced Features:
     - Best Practices Guide: writing-helmfile.md
     - Advanced Features: advanced-features.md
     - Secrets: remote-secrets.md
     - Shared Configuration Across Teams: shared-configuration-across-teams.md
   - About:
-    - Users: users.md
+    - Users: USERS.md
     - License: LICENSE.md
     - Contributing: CONTRIBUTING.md
 
