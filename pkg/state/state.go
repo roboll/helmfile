@@ -48,18 +48,19 @@ type ReleaseSetSpec struct {
 
 	Environments map[string]EnvironmentSpec `yaml:"environments,omitempty"`
 
-	Bases              []string          `yaml:"bases,omitempty"`
-	HelmDefaults       HelmSpec          `yaml:"helmDefaults,omitempty"`
-	Helmfiles          []SubHelmfileSpec `yaml:"helmfiles,omitempty"`
-	DeprecatedContext  string            `yaml:"context,omitempty"`
-	DeprecatedReleases []ReleaseSpec     `yaml:"charts,omitempty"`
-	OverrideNamespace  string            `yaml:"namespace,omitempty"`
-	OverrideChart      string            `yaml:"chart,omitempty"`
-	Repositories       []RepositorySpec  `yaml:"repositories,omitempty"`
-	CommonLabels       map[string]string `yaml:"commonLabels,omitempty"`
-	Releases           []ReleaseSpec     `yaml:"releases,omitempty"`
-	Selectors          []string          `yaml:"-"`
-	ApiVersions        []string          `yaml:"apiVersions,omitempty"`
+	Bases               []string          `yaml:"bases,omitempty"`
+	HelmDefaults        HelmSpec          `yaml:"helmDefaults,omitempty"`
+	Helmfiles           []SubHelmfileSpec `yaml:"helmfiles,omitempty"`
+	DeprecatedContext   string            `yaml:"context,omitempty"`
+	DeprecatedReleases  []ReleaseSpec     `yaml:"charts,omitempty"`
+	OverrideKubeContext string            `yaml:"kubeContext,omitempty"`
+	OverrideNamespace   string            `yaml:"namespace,omitempty"`
+	OverrideChart       string            `yaml:"chart,omitempty"`
+	Repositories        []RepositorySpec  `yaml:"repositories,omitempty"`
+	CommonLabels        map[string]string `yaml:"commonLabels,omitempty"`
+	Releases            []ReleaseSpec     `yaml:"releases,omitempty"`
+	Selectors           []string          `yaml:"-"`
+	ApiVersions         []string          `yaml:"apiVersions,omitempty"`
 
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
 	Hooks []event.Hook `yaml:"hooks,omitempty"`
@@ -332,8 +333,8 @@ const MissingFileHandlerWarn = "Warn"
 const MissingFileHandlerDebug = "Debug"
 
 func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
-	if spec.KubeContext == "" {
-		spec.KubeContext = st.HelmDefaults.KubeContext
+	if st.OverrideKubeContext != "" {
+		spec.KubeContext = st.OverrideKubeContext
 	}
 	if st.OverrideNamespace != "" {
 		spec.Namespace = st.OverrideNamespace
