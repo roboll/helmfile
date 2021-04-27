@@ -195,6 +195,8 @@ workflows:
       - deploy_docs:
           release_version: true
           filters:
+            branches:
+              ignore: /.*/
             tags:
               only: /v.*/
       - release:
