@@ -136,7 +136,7 @@ jobs:
       - run:
           name: Copy files for docs
           command: |
-            ./.circleci/docs/copy_docs.sh
+            .circleci/docs/copy_docs.sh
       - when:
           condition: << parameters.prerelease_version >>
           steps:
