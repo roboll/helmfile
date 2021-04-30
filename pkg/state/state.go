@@ -348,6 +348,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 }
 
 type RepoUpdater interface {
+	IsHelm3() bool
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error
 	UpdateRepo() error
 	RegistryLogin(name string, username string, password string) error
