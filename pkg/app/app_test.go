@@ -1500,7 +1500,7 @@ releases:
 		SetFilter(true),
 	)
 
-	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\" in kubecontext \"foo\": there were 2 releases named \"foo\" matching specified selector"
+	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"
 	if err == nil {
 		t.Errorf("error expected but not happened")
 	} else if err.Error() != expected {
