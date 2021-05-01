@@ -1101,17 +1101,27 @@ func (a *App) getSelectedReleases(r *Run) ([]state.ReleaseSpec, []state.ReleaseS
 		return nil, nil, err
 	}
 
+	selectedIds := map[string]struct{}{}
+	for _, r := range selected {
+		selectedIds[state.ReleaseToID(&r)] = struct{}{}
+	}
+
 	allReleases := r.state.GetReleasesWithOverrides()
 
 	needed := map[string]struct{}{}
 	for _, r := range selected {
-		needed[state.ReleaseToID(&r)] = struct{}{}
 		for _, id := range r.Needs {
-			needed[id] = struct{}{}
+			// Avoids duplicating a release that is selected AND also needed by another selected release
+			if _, ok := selectedIds[id]; !ok {
+				needed[id] = struct{}{}
+			}
 		}
 	}
 
 	var releases []state.ReleaseSpec
+
+	releases = append(releases, selected...)
+
 	for _, r := range allReleases {
 		if _, ok := needed[state.ReleaseToID(&r)]; ok {
 			releases = append(releases, r)

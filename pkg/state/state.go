@@ -340,6 +340,8 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 		spec.Namespace = st.OverrideNamespace
 	}
 
+	var needs []string
+
 	// Since the representation differs between needs and id,
 	// correct it by prepending Namespace and KubeContext.
 	for i := 0; i < len(spec.Needs); i++ {
@@ -353,6 +355,8 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 
 		if len(components) > 1 {
 			ns = components[len(components)-2]
+		} else if spec.TillerNamespace != "" {
+			ns = spec.TillerNamespace
 		} else {
 			ns = spec.Namespace
 		}
@@ -369,14 +373,21 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 			componentsAfterOverride = append(componentsAfterOverride, kubecontext)
 		}
 
-		if ns != "" {
+		// This is intentionally `kubecontext != "" || ns != ""`, but "ns != ""
+		// To avoid conflating kubecontext=,namespace=foo,name=bar and kubecontext=foo,namespace=,name=bar
+		// as they are both `foo/bar`, we explicitly differentiate each with `foo//bar` and `foo/bar`.
+		// Note that `foo//bar` is not always a equivalent to `foo/default/bar` as the default namespace is depedent on
+		// the user's kubeconfig.
+		if kubecontext != "" || ns != "" {
 			componentsAfterOverride = append(componentsAfterOverride, ns)
 		}
 
 		componentsAfterOverride = append(componentsAfterOverride, name)
 
-		spec.Needs[i] = strings.Join(componentsAfterOverride, "/")
+		needs = append(needs, strings.Join(componentsAfterOverride, "/"))
 	}
+
+	spec.Needs = needs
 }
 
 type RepoUpdater interface {
@@ -655,13 +666,22 @@ func ReleaseToID(r *ReleaseSpec) string {
 	}
 
 	tns := r.TillerNamespace
+	ns := r.Namespace
+
 	if tns != "" {
 		id += tns + "/"
+	} else if ns != "" {
+		id += ns + "/"
 	}
 
-	ns := r.Namespace
-	if ns != "" {
-		id += ns + "/"
+	if kc != "" {
+		if tns == "" && ns == "" {
+			// This is intentionalt to avoid conflating kubecontext=,namespace=foo,name=bar and kubecontext=foo,namespace=,name=bar
+			// as they are both `foo/bar`, we explicitly differentiate each with `foo//bar` and `foo/bar`.
+			// Note that `foo//bar` is not always a equivalent to `foo/default/bar` as the default namespace is depedent on
+			// the user's kubeconfig.
+			id += "/"
+		}
 	}
 
 	id += r.Name

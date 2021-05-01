@@ -2979,30 +2979,30 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/frontend-v1
-2     default/backend-v1
+1     default//frontend-v1
+2     default//backend-v1
 
-processing releases in group 1/2: default/frontend-v1
-processing releases in group 2/2: default/backend-v1
+processing releases in group 1/2: default//frontend-v1
+processing releases in group 2/2: default//backend-v1
 processing 5 groups of releases in this order:
 GROUP RELEASES
-1     default/logging, default/front-proxy
-2     default/database, default/servicemesh
-3     default/anotherbackend
-4     default/backend-v2
-5     default/frontend-v3
+1     default//logging, default//front-proxy
+2     default//database, default//servicemesh
+3     default//anotherbackend
+4     default//backend-v2
+5     default//frontend-v3
 
-processing releases in group 1/5: default/logging, default/front-proxy
+processing releases in group 1/5: default//logging, default//front-proxy
 getting deployed release version failed:unexpected list key: {^logging$ --kube-contextdefault--deleting--deployed--failed--pending}
 getting deployed release version failed:unexpected list key: {^front-proxy$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/5: default/database, default/servicemesh
+processing releases in group 2/5: default//database, default//servicemesh
 getting deployed release version failed:unexpected list key: {^database$ --kube-contextdefault--deleting--deployed--failed--pending}
 getting deployed release version failed:unexpected list key: {^servicemesh$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 3/5: default/anotherbackend
+processing releases in group 3/5: default//anotherbackend
 getting deployed release version failed:unexpected list key: {^anotherbackend$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 4/5: default/backend-v2
+processing releases in group 4/5: default//backend-v2
 getting deployed release version failed:unexpected list key: {^backend-v2$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 5/5: default/frontend-v3
+processing releases in group 5/5: default//frontend-v3
 getting deployed release version failed:unexpected list key: {^frontend-v3$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
@@ -3128,13 +3128,13 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/baz, default/bar
-2     default/foo
+1     default//baz, default//bar
+2     default//foo
 
-processing releases in group 1/2: default/baz, default/bar
+processing releases in group 1/2: default//baz, default//bar
 getting deployed release version failed:unexpected list key: {^baz$ --kube-contextdefault--deleting--deployed--failed--pending}
 getting deployed release version failed:unexpected list key: {^bar$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default/foo
+processing releases in group 2/2: default//foo
 getting deployed release version failed:unexpected list key: {^foo$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
@@ -3238,11 +3238,11 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/baz, default/bar
-2     default/foo
+1     default//baz, default//bar
+2     default//foo
 
-processing releases in group 1/2: default/baz, default/bar
-processing releases in group 2/2: default/foo
+processing releases in group 1/2: default//baz, default//bar
+processing releases in group 2/2: default//foo
 getting deployed release version failed:Failed to get the version for:mychart1
 
 UPDATED RELEASES:
@@ -3346,11 +3346,11 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/baz, default/bar
-2     default/foo
+1     default//baz, default//bar
+2     default//foo
 
-processing releases in group 1/2: default/baz, default/bar
-processing releases in group 2/2: default/foo
+processing releases in group 1/2: default//baz, default//bar
+processing releases in group 2/2: default//foo
 getting deployed release version failed:Failed to get the version for:mychart1
 
 UPDATED RELEASES:
@@ -3509,7 +3509,7 @@ releases:
 			},
 		},
 		{
-			name: "upgrade when tns1/ns1/foo needs tns2/ns2/bar",
+			name: "helm2: upgrade when tns1/foo needs tns2/bar",
 			loc:  location(),
 
 			files: map[string]string{
@@ -3520,7 +3520,7 @@ releases:
   namespace: ns1
   tillerNamespace: tns1
   needs:
-  - tns2/ns2/bar
+  - tns2/bar
 - name: bar
   chart: stable/mychart2
   namespace: ns2
@@ -3537,7 +3537,7 @@ releases:
 			},
 		},
 		{
-			name: "upgrade when tns2/ns2/bar needs tns1/ns1/foo",
+			name: "helm2: upgrade when tns2/bar needs tns1/foo",
 			loc:  location(),
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
@@ -3547,7 +3547,7 @@ releases:
   namespace: ns2
   tillerNamespace: tns2
   needs:
-  - tns1/ns1/foo
+  - tns1/foo
 - name: foo
   chart: stable/mychart1
   namespace: ns1
@@ -3575,7 +3575,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
  4:   namespace: ns2
  5:   tillerNamespace: tns2
  6:   needs:
- 7:   - tns1/ns1/foo
+ 7:   - tns1/foo
  8: - name: foo
  9:   chart: stable/mychart1
 10:   namespace: ns1
@@ -3595,7 +3595,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  4:   namespace: ns2
  5:   tillerNamespace: tns2
  6:   needs:
- 7:   - tns1/ns1/foo
+ 7:   - tns1/foo
  8: - name: foo
  9:   chart: stable/mychart1
 10:   namespace: ns1
@@ -3611,12 +3611,12 @@ Affected releases are:
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/tns1/ns1/foo
-2     default/tns2/ns2/bar
+1     default/tns1/foo
+2     default/tns2/bar
 
-processing releases in group 1/2: default/tns1/ns1/foo
+processing releases in group 1/2: default/tns1/foo
 getting deployed release version failed:unexpected list key: {^foo$ --tiller-namespacetns1--kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default/tns2/ns2/bar
+processing releases in group 2/2: default/tns2/bar
 getting deployed release version failed:unexpected list key: {^bar$ --tiller-namespacetns2--kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
@@ -4201,7 +4201,7 @@ releases:
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: release "default/foo" depends on "default/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:       `in ./helmfile.yaml: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			log: `processing file "helmfile.yaml" in directory "."
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
@@ -4237,7 +4237,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-err: release "default/foo" depends on "default/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+err: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
 `,
 		},
 	}

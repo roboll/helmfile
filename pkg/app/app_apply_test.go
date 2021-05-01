@@ -163,6 +163,8 @@ func TestApply_2(t *testing.T) {
 			if exists {
 				t.Errorf("unexpected log:\nDIFF\n%s\nEOD", diff)
 			}
+		} else {
+			assertEqualsToSnapshot(t, "log", bs.String())
 		}
 	}
 
@@ -1074,12 +1076,6 @@ releases:
     app: test
     component: raw
     index: '1'
-  values:
-  - resources:
-    - apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: cm1
 
 - name: foo
   chart: incubator/raw
@@ -1088,83 +1084,16 @@ releases:
     app: test
     component: raw
     index: '2'
-    values:
-    - resources:
-      - apiVersion: v1
-	    kind: ConfigMap
-        metadata:
-          name: cm2  
 `,
 			},
 			selectors: []string{"index=1"},
 			upgraded:  []exectest.Release{},
-			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-merged environment: &{default map[] map[]}
-0 release(s) matching app=test_non_existent found in helmfile.yaml
-
-`,
 		})
 	})
 }

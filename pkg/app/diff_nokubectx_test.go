@@ -513,7 +513,7 @@ releases:
 			upgraded: []exectest.Release{},
 		},
 		{
-			name: "upgrade when tns1/ns1/foo needs tns2/ns2/bar",
+			name: "helm2: upgrade when tns1/foo needs tns2/bar",
 			loc:  location(),
 
 			files: map[string]string{
@@ -524,7 +524,7 @@ releases:
   namespace: ns1
   tillerNamespace: tns1
   needs:
-  - tns2/ns2/bar
+  - tns2/bar
 - name: bar
   chart: mychart2
   namespace: ns2
@@ -540,7 +540,7 @@ releases:
 			upgraded: []exectest.Release{},
 		},
 		{
-			name: "upgrade when tns2/ns2/bar needs tns1/ns1/foo",
+			name: "helm2: upgrade when tns2/bar needs tns1/foo",
 			loc:  location(),
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
@@ -550,7 +550,7 @@ releases:
   namespace: ns2
   tillerNamespace: tns2
   needs:
-  - tns1/ns1/foo
+  - tns1/foo
 - name: foo
   chart: mychart1
   namespace: ns1
@@ -577,7 +577,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
  4:   namespace: ns2
  5:   tillerNamespace: tns2
  6:   needs:
- 7:   - tns1/ns1/foo
+ 7:   - tns1/foo
  8: - name: foo
  9:   chart: mychart1
 10:   namespace: ns1
@@ -597,12 +597,80 @@ second-pass rendering result of "helmfile.yaml.part.0":
  4:   namespace: ns2
  5:   tillerNamespace: tns2
  6:   needs:
- 7:   - tns1/ns1/foo
+ 7:   - tns1/foo
  8: - name: foo
  9:   chart: mychart1
 10:   namespace: ns1
 11:   tillerNamespace: tns1
 12: 
+
+merged environment: &{default map[] map[]}
+2 release(s) found in helmfile.yaml
+
+Affected releases are:
+  bar (mychart2) UPDATED
+  foo (mychart1) UPDATED
+
+`,
+		},
+		{
+			name: "helm3: upgrade when ns2/bar needs ns1/foo",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  chart: mychart2
+  namespace: ns2
+  needs:
+  - ns1/foo
+- name: foo
+  chart: mychart1
+  namespace: ns1
+`,
+			},
+			detailedExitcode: true,
+			error:            "Identified at least one change",
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "bar", Chart: "mychart2", Flags: "--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			upgraded: []exectest.Release{},
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   chart: mychart2
+ 4:   namespace: ns2
+ 5:   needs:
+ 6:   - ns1/foo
+ 7: - name: foo
+ 8:   chart: mychart1
+ 9:   namespace: ns1
+10: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   chart: mychart2
+ 4:   namespace: ns2
+ 5:   needs:
+ 6:   - ns1/foo
+ 7: - name: foo
+ 8:   chart: mychart1
+ 9:   namespace: ns1
+10: 
 
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
