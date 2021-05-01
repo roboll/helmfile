@@ -165,21 +165,6 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		}
 	}
 
-	for _, r := range releases {
-		if !r.Filtered {
-			for _, n := range r.Needs {
-				// To map n into idToReleases correctly, prepend KubeContext to n.
-				if r.KubeContext != "" {
-					n = r.KubeContext + "/" + n
-				}
-				if _, ok := idToReleases[n]; !ok {
-					id := ReleaseToID(&r.ReleaseSpec)
-					return nil, fmt.Errorf("%q depends on nonexistent release %q", id, n)
-				}
-			}
-		}
-	}
-
 	var selectedReleaseIDs []string
 
 	for _, r := range opts.SelectedReleases {

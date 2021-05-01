@@ -1120,8 +1120,6 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	allReleases := st.GetReleasesWithOverrides()
-
 	toApply, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, false, []error{err}
@@ -1213,9 +1211,6 @@ Do you really want to apply?
 	syncErrs := []error{}
 
 	affectedReleases := state.AffectedReleases{}
-
-	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
-	st.Releases = allReleases
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
@@ -1360,8 +1355,6 @@ Do you really want to delete?
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
 
-	allReleases := st.GetReleasesWithOverrides()
-
 	toDiff, err := a.getSelectedReleases(r)
 	if err != nil {
 		return nil, false, false, []error{err}
@@ -1371,10 +1364,6 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		return nil, false, false, nil
 	}
 
-	// Do build deps and prepare only on selected releases so that we won't waste time
-	// on running various helm commands on unnecessary releases
-	st.Releases = toDiff
-
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	opts := &state.DiffOpts{
@@ -1383,9 +1372,6 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		NoColor: c.NoColor(),
 		Set:     c.Set(),
 	}
-
-	// Validate all releases for missing `needs` targets
-	st.Releases = allReleases
 
 	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toDiff, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
 	if err != nil {
@@ -1549,8 +1535,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	allReleases := st.GetReleasesWithOverrides()
-
 	toSync, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
@@ -1574,7 +1558,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
-	st.Releases = toSync
+	st.Releases = toSyncWithNeeds
 
 	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSyncWithNeeds)
 	if err != nil {
@@ -1644,7 +1628,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
-	st.Releases = allReleases
+	st.Releases = toSyncWithNeeds
 
 	affectedReleases := state.AffectedReleases{}
 
@@ -1701,8 +1685,6 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	allReleases := st.GetReleasesWithOverrides()
-
 	selectedReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
@@ -1739,7 +1721,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	var errs []error
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
-	st.Releases = allReleases
+	st.Releases = selectedReleasesWithNeeds
 
 	args := argparser.GetArgs(c.Args(), st)
 
