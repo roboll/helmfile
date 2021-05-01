@@ -373,3 +373,42 @@ releases:
         repository: "nginx"
         tag: "latest"
 ```
+
+## Re-using environment state in sub-helmfiles
+
+Do you want to decouple the environment state loading from the sub-helmfiles and load it only once?
+
+This example shows how to do this:
+
+```yaml
+environments:
+  stage:
+    values:
+    - env/stage.yaml
+  prod:
+    values:
+    - env/prod.yaml
+---
+
+helmfiles:
+- path: releases/myrelease/helmfile.yaml
+  values:
+  - {{ toYaml .Values | nindent 4 }}
+  # pass the current state values to the sub-helmfile
+  # add other values to use overlay logic here
+```
+
+and `releases/myrelease/helmfile.yaml` is as DRY as
+
+```yaml
+releases:
+- name: mychart-{{ .Values.myrelease.myname }}
+  installed: {{ .Values | get "myrelease.enabled" false }}
+  chart: mychart
+  version: {{ .Values.myrelease.version }}
+  labels:
+    chart: mychart
+  values:
+  - values.yaml.gotmpl
+  # templated values would also inherit the values passed from upstream
+```
