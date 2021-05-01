@@ -151,18 +151,18 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 
 		// Only compute dependencies from non-filtered releases
 		if !r.Filtered {
-			// Since the representation differs between needs and id,
-			// correct it by prepending KubeContext.
 			var needs []string
 			for i := 0; i < len(r.Needs); i++ {
 				n := r.Needs[i]
-				if r.KubeContext != "" {
-					n = r.KubeContext + "/" + n
-				}
 				needs = append(needs, n)
 			}
 			d.Add(id, dag.Dependencies(needs))
 		}
+	}
+
+	var ids []string
+	for id := range idToReleases {
+		ids = append(ids, id)
 	}
 
 	var selectedReleaseIDs []string
@@ -243,11 +243,11 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		})
 
 		for _, id := range idsInGroup {
-			releases, ok := idToReleases[id]
+			rs, ok := idToReleases[id]
 			if !ok {
-				panic(fmt.Errorf("bug: unexpectedly failed to get releases for id %q", id))
+				panic(fmt.Errorf("bug: unexpectedly failed to get releases for id %q: %v", id, ids))
 			}
-			releasesInGroup = append(releasesInGroup, releases...)
+			releasesInGroup = append(releasesInGroup, rs...)
 		}
 
 		result = append(result, releasesInGroup)

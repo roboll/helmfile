@@ -338,13 +338,44 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 	}
 	if st.OverrideNamespace != "" {
 		spec.Namespace = st.OverrideNamespace
+	}
 
-		for i := 0; i < len(spec.Needs); i++ {
-			n := spec.Needs[i]
-			if len(strings.Split(n, "/")) == 1 {
-				spec.Needs[i] = st.OverrideNamespace + "/" + n
-			}
+	// Since the representation differs between needs and id,
+	// correct it by prepending Namespace and KubeContext.
+	for i := 0; i < len(spec.Needs); i++ {
+		n := spec.Needs[i]
+
+		var kubecontext, ns, name string
+
+		components := strings.Split(n, "/")
+
+		name = components[len(components)-1]
+
+		if len(components) > 1 {
+			ns = components[len(components)-2]
+		} else {
+			ns = spec.Namespace
 		}
+
+		if len(components) > 2 {
+			kubecontext = components[len(components)-3]
+		} else {
+			kubecontext = spec.KubeContext
+		}
+
+		var componentsAfterOverride []string
+
+		if kubecontext != "" {
+			componentsAfterOverride = append(componentsAfterOverride, kubecontext)
+		}
+
+		if ns != "" {
+			componentsAfterOverride = append(componentsAfterOverride, ns)
+		}
+
+		componentsAfterOverride = append(componentsAfterOverride, name)
+
+		spec.Needs[i] = strings.Join(componentsAfterOverride, "/")
 	}
 }
 
