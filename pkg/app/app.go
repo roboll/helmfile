@@ -1120,15 +1120,21 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	toApply, err := a.getSelectedReleases(r)
+	selectedReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, false, []error{err}
 	}
-	if len(toApply) == 0 {
+	if len(selectedReleases) == 0 {
 		return false, false, nil
 	}
 
-	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toApply, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
+	// This is required when you're trying to deduplicate releases by the selector.
+	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
+	// even if we provided `SelectedReleases: selectedReleases`.
+	// See https://github.com/roboll/helmfile/issues/1818 for more context.
+	st.Releases = selectedReleases
+
+	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
 	if err != nil {
 		return false, false, []error{err}
 	}
@@ -1355,12 +1361,12 @@ Do you really want to delete?
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
 
-	toDiff, err := a.getSelectedReleases(r)
+	selectedReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return nil, false, false, []error{err}
 	}
 
-	if len(toDiff) == 0 {
+	if len(selectedReleases) == 0 {
 		return nil, false, false, nil
 	}
 
@@ -1373,7 +1379,9 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		Set:     c.Set(),
 	}
 
-	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toDiff, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
+	st.Releases = selectedReleases
+
+	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
 	if err != nil {
 		return nil, false, false, []error{err}
 	}
@@ -1535,15 +1543,21 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	toSync, err := a.getSelectedReleases(r)
+	selectedReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
 	}
-	if len(toSync) == 0 {
+	if len(selectedReleases) == 0 {
 		return false, nil
 	}
 
-	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toSync, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()})
+	// This is required when you're trying to deduplicate releases by the selector.
+	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
+	// even if we provided `SelectedReleases: selectedReleases`.
+	// See https://github.com/roboll/helmfile/issues/1818 for more context.
+	st.Releases = selectedReleases
+
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()})
 	if err != nil {
 		return false, []error{err}
 	}
