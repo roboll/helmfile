@@ -676,10 +676,13 @@ func ReleaseToID(r *ReleaseSpec) string {
 
 	if kc != "" {
 		if tns == "" && ns == "" {
-			// This is intentionalt to avoid conflating kubecontext=,namespace=foo,name=bar and kubecontext=foo,namespace=,name=bar
-			// as they are both `foo/bar`, we explicitly differentiate each with `foo//bar` and `foo/bar`.
+			// This is intentional to avoid conflating kc=,ns=foo,name=bar and kc=foo,ns=,name=bar.
+			// Before https://github.com/roboll/helmfile/pull/1823 they were both `foo/bar` which turned out to break `needs` in many ways.
+			//
+			// We now explicitly differentiate each with `foo//bar` and `foo/bar`.
 			// Note that `foo//bar` is not always a equivalent to `foo/default/bar` as the default namespace is depedent on
 			// the user's kubeconfig.
+			// That's why we use `foo//bar` even if it looked unintuitive.
 			id += "/"
 		}
 	}
