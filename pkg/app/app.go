@@ -970,7 +970,7 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 		}
 	}
 
-	if err := checkDuplicates(helm, st, st.Releases); err != nil {
+	if err := checkDuplicates(helm, st, st.GetReleasesWithOverrides()); err != nil {
 		return false, []error{err}
 	}
 

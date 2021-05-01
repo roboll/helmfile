@@ -500,7 +500,7 @@ releases:
 		{label: "name", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: Malformed label: name. Expected label in form k=v or k!=v"},
 		// See https://github.com/roboll/helmfile/issues/193
 		{label: "duplicatedNs=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in namespace \"zoo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"},
-		{label: "duplicatedCtx=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in namespace \"zoo\" in kubecontext \"baz\": there were 2 releases named \"foo\" matching specified selector"},
+		{label: "duplicatedCtx=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in namespace \"zoo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"},
 		{label: "duplicatedOK=yes", expectedCount: 2, expectErr: false},
 	}
 
@@ -1319,7 +1319,7 @@ releases:
 		SetFilter(true),
 	)
 
-	expected := "in ./helmfile.yaml: duplicate release \"foo\" found: there were 2 releases named \"foo\" matching specified selector"
+	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"
 	if err == nil {
 		t.Errorf("error expected but not happened")
 	} else if err.Error() != expected {
@@ -1453,7 +1453,7 @@ releases:
 		SetFilter(true),
 	)
 
-	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\": there were 2 releases named \"foo\" matching specified selector"
+	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"
 	if err == nil {
 		t.Errorf("error expected but not happened")
 	} else if err.Error() != expected {
@@ -1500,7 +1500,7 @@ releases:
 		SetFilter(true),
 	)
 
-	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\" in kubecontext \"foo\": there were 2 releases named \"foo\" matching specified selector"
+	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"
 	if err == nil {
 		t.Errorf("error expected but not happened")
 	} else if err.Error() != expected {

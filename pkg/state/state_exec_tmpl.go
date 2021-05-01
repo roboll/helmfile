@@ -17,8 +17,13 @@ func (st *HelmState) Values() map[string]interface{} {
 }
 
 func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[string]interface{}) releaseTemplateData {
+	kubeContext := release.KubeContext
+	if kubeContext == "" {
+		kubeContext = st.HelmDefaults.KubeContext
+	}
 	tmplData := releaseTemplateData{
 		Environment: st.Env,
+		KubeContext: st.OverrideKubeContext,
 		Namespace:   st.OverrideNamespace,
 		Chart:       st.OverrideChart,
 		Values:      vals,
@@ -27,7 +32,7 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 			Chart:       release.Chart,
 			Namespace:   release.Namespace,
 			Labels:      release.Labels,
-			KubeContext: release.KubeContext,
+			KubeContext: kubeContext,
 		},
 	}
 	tmplData.StateValues = &tmplData.Values
