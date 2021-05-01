@@ -1095,14 +1095,41 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 	return files, nil
 }
 
-func (a *App) getSelectedReleases(r *Run) ([]state.ReleaseSpec, error) {
-	releases, err := r.state.GetSelectedReleasesWithOverrides()
+func (a *App) getSelectedReleases(r *Run) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
+	selected, err := r.state.GetSelectedReleasesWithOverrides()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	selectedIds := map[string]struct{}{}
+	for _, r := range selected {
+		selectedIds[state.ReleaseToID(&r)] = struct{}{}
+	}
+
+	allReleases := r.state.GetReleasesWithOverrides()
+
+	needed := map[string]struct{}{}
+	for _, r := range selected {
+		for _, id := range r.Needs {
+			// Avoids duplicating a release that is selected AND also needed by another selected release
+			if _, ok := selectedIds[id]; !ok {
+				needed[id] = struct{}{}
+			}
+		}
+	}
+
+	var releases []state.ReleaseSpec
+
+	releases = append(releases, selected...)
+
+	for _, r := range allReleases {
+		if _, ok := needed[state.ReleaseToID(&r)]; ok {
+			releases = append(releases, r)
+		}
 	}
 
 	if err := checkDuplicates(r.helm, r.state, releases); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var extra string
@@ -1111,24 +1138,30 @@ func (a *App) getSelectedReleases(r *Run) ([]state.ReleaseSpec, error) {
 		extra = " matching " + strings.Join(r.state.Selectors, ",")
 	}
 
-	a.Logger.Debugf("%d release(s)%s found in %s\n", len(releases), extra, r.state.FilePath)
+	a.Logger.Debugf("%d release(s)%s found in %s\n", len(selected), extra, r.state.FilePath)
 
-	return releases, nil
+	return selected, releases, nil
 }
 
 func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	toApply, err := a.getSelectedReleases(r)
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, false, []error{err}
 	}
-	if len(toApply) == 0 {
+	if len(selectedReleases) == 0 {
 		return false, false, nil
 	}
 
-	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toApply, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
+	// This is required when you're trying to deduplicate releases by the selector.
+	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
+	// even if we provided `SelectedReleases: selectedReleases`.
+	// See https://github.com/roboll/helmfile/issues/1818 for more context.
+	st.Releases = selectedAndNeededReleases
+
+	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
 	if err != nil {
 		return false, false, []error{err}
 	}
@@ -1275,7 +1308,7 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 
 	affectedReleases := state.AffectedReleases{}
 
-	toSync, err := a.getSelectedReleases(r)
+	toSync, _, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1315,6 +1348,8 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
 	}
 
+	st.Releases = st.GetReleasesWithOverrides()
+
 	var errs []error
 
 	msg := fmt.Sprintf(`Affected releases are:
@@ -1329,17 +1364,7 @@ Do you really want to delete?
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 		if len(releasesToDelete) > 0 {
-			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SkipNeeds: true}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
-				var rs []state.ReleaseSpec
-
-				for _, r := range subst.Releases {
-					if _, ok := releasesToDelete[state.ReleaseToID(&r)]; ok {
-						rs = append(rs, r)
-					}
-				}
-
-				subst.Releases = rs
-
+			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toDelete, Reverse: true, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				return subst.DeleteReleases(&affectedReleases, helm, c.Concurrency(), purge)
 			}))
 
@@ -1355,12 +1380,12 @@ Do you really want to delete?
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
 
-	toDiff, err := a.getSelectedReleases(r)
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return nil, false, false, []error{err}
 	}
 
-	if len(toDiff) == 0 {
+	if len(selectedReleases) == 0 {
 		return nil, false, false, nil
 	}
 
@@ -1373,7 +1398,9 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		Set:     c.Set(),
 	}
 
-	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toDiff, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
+	st.Releases = selectedAndNeededReleases
+
+	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()})
 	if err != nil {
 		return nil, false, false, []error{err}
 	}
@@ -1408,7 +1435,7 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error) {
 
 	allReleases := st.GetReleasesWithOverrides()
 
-	selectedReleases, err := a.getSelectedReleases(r)
+	selectedReleases, _, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1474,7 +1501,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 
 	allReleases := st.GetReleasesWithOverrides()
 
-	selectedReleases, err := a.getSelectedReleases(r)
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1484,7 +1511,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
-	st.Releases = selectedReleases
+	st.Releases = selectedAndNeededReleases
 
 	releasesToRender := map[string]state.ReleaseSpec{}
 	for _, r := range selectedReleases {
@@ -1535,15 +1562,21 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	toSync, err := a.getSelectedReleases(r)
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
 	}
-	if len(toSync) == 0 {
+	if len(selectedReleases) == 0 {
 		return false, nil
 	}
 
-	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: toSync, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()})
+	// This is required when you're trying to deduplicate releases by the selector.
+	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
+	// even if we provided `SelectedReleases: selectedReleases`.
+	// See https://github.com/roboll/helmfile/issues/1818 for more context.
+	st.Releases = selectedAndNeededReleases
+
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: c.SkipNeeds()})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1685,13 +1718,19 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	selectedReleases, err := a.getSelectedReleases(r)
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
 	}
 	if len(selectedReleases) == 0 {
 		return false, nil
 	}
+
+	// This is required when you're trying to deduplicate releases by the selector.
+	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
+	// even if we provided `SelectedReleases: selectedReleases`.
+	// See https://github.com/roboll/helmfile/issues/1818 for more context.
+	st.Releases = selectedAndNeededReleases
 
 	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: !c.IncludeNeeds()})
 	if err != nil {
@@ -1757,7 +1796,7 @@ func (a *App) test(r *Run, c TestConfigProvider) []error {
 
 	st := r.state
 
-	toTest, err := a.getSelectedReleases(r)
+	toTest, _, err := a.getSelectedReleases(r)
 	if err != nil {
 		return []error{err}
 	}
@@ -1779,7 +1818,7 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	toRender, err := a.getSelectedReleases(r)
+	toRender, _, err := a.getSelectedReleases(r)
 	if err != nil {
 		return false, []error{err}
 	}

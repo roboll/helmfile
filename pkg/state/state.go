@@ -338,14 +338,56 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 	}
 	if st.OverrideNamespace != "" {
 		spec.Namespace = st.OverrideNamespace
-
-		for i := 0; i < len(spec.Needs); i++ {
-			n := spec.Needs[i]
-			if len(strings.Split(n, "/")) == 1 {
-				spec.Needs[i] = st.OverrideNamespace + "/" + n
-			}
-		}
 	}
+
+	var needs []string
+
+	// Since the representation differs between needs and id,
+	// correct it by prepending Namespace and KubeContext.
+	for i := 0; i < len(spec.Needs); i++ {
+		n := spec.Needs[i]
+
+		var kubecontext, ns, name string
+
+		components := strings.Split(n, "/")
+
+		name = components[len(components)-1]
+
+		if len(components) > 1 {
+			ns = components[len(components)-2]
+		} else if spec.TillerNamespace != "" {
+			ns = spec.TillerNamespace
+		} else {
+			ns = spec.Namespace
+		}
+
+		if len(components) > 2 {
+			kubecontext = components[len(components)-3]
+		} else {
+			kubecontext = spec.KubeContext
+		}
+
+		var componentsAfterOverride []string
+
+		if kubecontext != "" {
+			componentsAfterOverride = append(componentsAfterOverride, kubecontext)
+		}
+
+		// This is intentionally `kubecontext != "" || ns != ""`, but "ns != ""
+		// To avoid conflating kubecontext=,namespace=foo,name=bar and kubecontext=foo,namespace=,name=bar
+		// as they are both `foo/bar`, we explicitly differentiate each with `foo//bar` and `foo/bar`.
+		// Note that `foo//bar` is not always a equivalent to `foo/default/bar` as the default namespace is depedent on
+		// the user's kubeconfig.
+		if kubecontext != "" || ns != "" {
+			componentsAfterOverride = append(componentsAfterOverride, ns)
+		}
+
+		componentsAfterOverride = append(componentsAfterOverride, name)
+
+		needs = append(needs, strings.Join(componentsAfterOverride, "/"))
+	}
+
+	spec.Needs = needs
 }
 
 type RepoUpdater interface {
@@ -624,13 +666,25 @@ func ReleaseToID(r *ReleaseSpec) string {
 	}
 
 	tns := r.TillerNamespace
+	ns := r.Namespace
+
 	if tns != "" {
 		id += tns + "/"
+	} else if ns != "" {
+		id += ns + "/"
 	}
 
-	ns := r.Namespace
-	if ns != "" {
-		id += ns + "/"
+	if kc != "" {
+		if tns == "" && ns == "" {
+			// This is intentional to avoid conflating kc=,ns=foo,name=bar and kc=foo,ns=,name=bar.
+			// Before https://github.com/roboll/helmfile/pull/1823 they were both `foo/bar` which turned out to break `needs` in many ways.
+			//
+			// We now explicitly differentiate each with `foo//bar` and `foo/bar`.
+			// Note that `foo//bar` is not always a equivalent to `foo/default/bar` as the default namespace is depedent on
+			// the user's kubeconfig.
+			// That's why we use `foo//bar` even if it looked unintuitive.
+			id += "/"
+		}
 	}
 
 	id += r.Name

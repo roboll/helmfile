@@ -163,6 +163,8 @@ func TestApply_2(t *testing.T) {
 			if exists {
 				t.Errorf("unexpected log:\nDIFF\n%s\nEOD", diff)
 			}
+		} else {
+			assertEqualsToSnapshot(t, "log", bs.String())
 		}
 	}
 
@@ -1059,6 +1061,39 @@ merged environment: &{default map[] map[]}
 0 release(s) matching app=test_non_existent found in helmfile.yaml
 
 `,
+		})
+	})
+
+	t.Run("deduplicate by --selector", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+    component: raw
+    index: '1'
+
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+    component: raw
+    index: '2'
+`,
+			},
+			selectors: []string{"index=1"},
+			upgraded:  []exectest.Release{},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			error: "",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
 		})
 	})
 }
