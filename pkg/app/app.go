@@ -1693,6 +1693,12 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		return false, nil
 	}
 
+	// This is required when you're trying to deduplicate releases by the selector.
+	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
+	// even if we provided `SelectedReleases: selectedReleases`.
+	// See https://github.com/roboll/helmfile/issues/1818 for more context.
+	st.Releases = selectedReleases
+
 	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), SkipNeeds: !c.IncludeNeeds()})
 	if err != nil {
 		return false, []error{err}
