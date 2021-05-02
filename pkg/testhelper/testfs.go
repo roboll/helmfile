@@ -21,7 +21,7 @@ type TestFs struct {
 func NewTestFs(files map[string]string) *TestFs {
 	dirs := map[string]bool{}
 	for abs, _ := range files {
-		for d := filepath.Dir(abs); !dirs[d]; d = filepath.Dir(d) {
+		for d := filepath.ToSlash(filepath.Dir(abs)); !dirs[d]; d = filepath.ToSlash(filepath.Dir(d)) {
 			dirs[d] = true
 			fmt.Fprintf(os.Stderr, "testfs: recognized dir: %s\n", d)
 		}
@@ -42,7 +42,7 @@ func (f *TestFs) FileExistsAt(path string) bool {
 	if strings.HasPrefix(path, "/") {
 		_, ok = f.files[path]
 	} else {
-		_, ok = f.files[filepath.Join(f.Cwd, path)]
+		_, ok = f.files[filepath.ToSlash(filepath.Join(f.Cwd, path))]
 	}
 	return ok
 }
@@ -56,7 +56,7 @@ func (f *TestFs) DirectoryExistsAt(path string) bool {
 	if strings.HasPrefix(path, "/") {
 		_, ok = f.dirs[path]
 	} else {
-		_, ok = f.dirs[filepath.Join(f.Cwd, path)]
+		_, ok = f.dirs[filepath.ToSlash(filepath.Join(f.Cwd, path))]
 	}
 	return ok
 }
@@ -67,7 +67,7 @@ func (f *TestFs) ReadFile(filename string) ([]byte, error) {
 	if strings.HasPrefix(filename, "/") {
 		str, ok = f.files[filename]
 	} else {
-		str, ok = f.files[filepath.Join(f.Cwd, filename)]
+		str, ok = f.files[filepath.ToSlash(filepath.Join(f.Cwd, filename))]
 	}
 	if !ok {
 		return []byte(nil), os.ErrNotExist
@@ -93,7 +93,7 @@ func (f *TestFs) Glob(relPattern string) ([]string, error) {
 	if strings.HasPrefix(relPattern, "/") {
 		pattern = relPattern
 	} else {
-		pattern = filepath.Join(f.Cwd, relPattern)
+		pattern = filepath.ToSlash(filepath.Join(f.Cwd, relPattern))
 	}
 
 	fixtures, ok := f.GlobFixtures[pattern]
@@ -115,13 +115,14 @@ func (f *TestFs) Glob(relPattern string) ([]string, error) {
 }
 
 func (f *TestFs) Abs(path string) (string, error) {
+	path = filepath.ToSlash(path)
 	var p string
 	if strings.HasPrefix(path, "/") {
 		p = path
 	} else {
 		p = filepath.Join(f.Cwd, path)
 	}
-	return filepath.Clean(p), nil
+	return filepath.ToSlash(filepath.Clean(p)), nil
 }
 
 func (f *TestFs) Getwd() (string, error) {

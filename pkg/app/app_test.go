@@ -1522,7 +1522,7 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
     stage: post
 `)
 	readFile := func(filename string) ([]byte, error) {
-		if filename != yamlFile {
+		if filepath.ToSlash(filename) != yamlFile {
 			return nil, fmt.Errorf("unexpected filename: %s", filename)
 		}
 		return yamlContent, nil
