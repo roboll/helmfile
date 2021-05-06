@@ -17,10 +17,6 @@ func (st *HelmState) Values() map[string]interface{} {
 }
 
 func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[string]interface{}) releaseTemplateData {
-	kubeContext := release.KubeContext
-	if kubeContext == "" {
-		kubeContext = st.HelmDefaults.KubeContext
-	}
 	tmplData := releaseTemplateData{
 		Environment: st.Env,
 		KubeContext: st.OverrideKubeContext,
@@ -32,7 +28,7 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 			Chart:       release.Chart,
 			Namespace:   release.Namespace,
 			Labels:      release.Labels,
-			KubeContext: kubeContext,
+			KubeContext: release.KubeContext,
 		},
 	}
 	tmplData.StateValues = &tmplData.Values
@@ -94,6 +90,9 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 	vals := st.Values()
 
 	for i, rt := range st.Releases {
+		if rt.KubeContext == "" {
+			rt.KubeContext = r.HelmDefaults.KubeContext
+		}
 		if rt.Labels == nil {
 			rt.Labels = map[string]string{}
 		}
