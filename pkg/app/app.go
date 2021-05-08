@@ -1447,13 +1447,12 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error) {
 	// on running various helm commands on unnecessary releases
 	st.Releases = selectedReleases
 
-	releasesToRender := map[string]state.ReleaseSpec{}
+	var toLint []state.ReleaseSpec
 	for _, r := range selectedReleases {
-		id := state.ReleaseToID(&r)
 		if r.Installed != nil && !*r.Installed {
 			continue
 		}
-		releasesToRender[id] = r
+		toLint = append(toLint, r)
 	}
 
 	var errs []error
@@ -1470,18 +1469,8 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error) {
 		helm.SetExtraArgs(args...)
 	}
 
-	if len(releasesToRender) > 0 {
-		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: false, SkipNeeds: true}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
-			var rs []state.ReleaseSpec
-
-			for _, r := range subst.Releases {
-				if r2, ok := releasesToRender[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r2)
-				}
-			}
-
-			subst.Releases = rs
-
+	if len(toLint) > 0 {
+		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toLint, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			opts := &state.LintOpts{
 				Set: c.Set(),
 			}
@@ -1513,13 +1502,12 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	// on running various helm commands on unnecessary releases
 	st.Releases = selectedAndNeededReleases
 
-	releasesToRender := map[string]state.ReleaseSpec{}
+	var toStatus []state.ReleaseSpec
 	for _, r := range selectedReleases {
-		id := state.ReleaseToID(&r)
 		if r.Installed != nil && !*r.Installed {
 			continue
 		}
-		releasesToRender[id] = r
+		toStatus = append(toStatus, r)
 	}
 
 	var errs []error
@@ -1536,18 +1524,8 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 		helm.SetExtraArgs(args...)
 	}
 
-	if len(releasesToRender) > 0 {
-		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: false, SkipNeeds: true}, a.Wrap(func(subst *state.HelmState, helm helmexec.Interface) []error {
-			var rs []state.ReleaseSpec
-
-			for _, r := range subst.Releases {
-				if r2, ok := releasesToRender[state.ReleaseToID(&r)]; ok {
-					rs = append(rs, r2)
-				}
-			}
-
-			subst.Releases = rs
-
+	if len(toStatus) > 0 {
+		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toStatus, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			return subst.ReleaseStatuses(helm, c.Concurrency())
 		}))
 
