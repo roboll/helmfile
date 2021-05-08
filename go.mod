@@ -11,8 +11,8 @@ require (
 	github.com/frankban/quicktest v1.11.2 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-test/deep v1.0.7
-	github.com/golang/mock v1.4.4
-	github.com/google/go-cmp v0.5.2
+	github.com/golang/mock v1.5.0
+	github.com/google/go-cmp v0.5.5
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.5.0
 	github.com/hashicorp/go-retryablehttp v0.6.3 // indirect
@@ -30,10 +30,10 @@ require (
 	github.com/urfave/cli v1.22.5
 	github.com/variantdev/chartify v0.8.5
 	github.com/variantdev/dag v1.0.0
-	github.com/variantdev/vals v0.13.0
+	github.com/variantdev/vals v0.14.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/square/go-jose.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	gotest.tools v2.2.0+incompatible
