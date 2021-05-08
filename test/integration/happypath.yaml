@@ -4,8 +4,8 @@ environments:
       - environment.values.yaml
 ---
 repositories:
-  - name: center
-    url: https://repo.chartcenter.io
+  - name: incubator
+    url: https://charts.helm.sh/incubator
 
 helmDefaults:
   kubeContext: minikube
@@ -27,7 +27,7 @@ releases:
       - "{{`{{.HelmfileCommand}}`}}"
 
   - name: raw
-    chart: center/incubator/raw
+    chart: incubator/raw
     version: 0.2.3
     values:
       - mysecret: {{ .Environment.Values.mysecret }}
@@ -48,7 +48,7 @@ releases:
               foo: bar
 
   - name: raw2
-    chart: center/incubator/raw
+    chart: incubator/raw
     version: 0.2.3
     condition: raw2.enabled
     values:
