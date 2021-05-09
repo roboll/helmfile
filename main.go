@@ -199,9 +199,9 @@ func main() {
 					Name:  "include-tests",
 					Usage: "enable the diffing of the helm test hooks",
 				},
-				cli.BoolFlag{
+				cli.BoolTFlag{
 					Name:  "skip-needs",
-					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs is not provided`,
 				},
 				cli.BoolFlag{
 					Name:  "include-needs",
@@ -403,9 +403,9 @@ func main() {
 					Name:  "skip-deps",
 					Usage: `skip running "helm repo update" and "helm dependency build"`,
 				},
-				cli.BoolFlag{
+				cli.BoolTFlag{
 					Name:  "skip-needs",
-					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs is not provided`,
 				},
 				cli.BoolFlag{
 					Name:  "include-needs",
@@ -472,9 +472,9 @@ func main() {
 					Name:  "skip-crds",
 					Usage: "if set, no CRDs will be installed on sync. By default, CRDs are installed if not already present",
 				},
-				cli.BoolFlag{
+				cli.BoolTFlag{
 					Name:  "skip-needs",
-					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs is not provided`,
 				},
 				cli.BoolFlag{
 					Name:  "include-needs",
@@ -761,7 +761,11 @@ func (c configImpl) HasCommandName(name string) bool {
 }
 
 func (c configImpl) SkipNeeds() bool {
-	return c.c.Bool("skip-needs")
+	if !c.IncludeNeeds() {
+		return c.c.Bool("skip-needs")
+	}
+
+	return false
 }
 
 func (c configImpl) IncludeNeeds() bool {
