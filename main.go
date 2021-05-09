@@ -946,6 +946,8 @@ func toCliError(c *cli.Context, err error) error {
 				noMatchingExitCode = 0
 			}
 			return cli.NewExitError(e.Error(), noMatchingExitCode)
+		case *app.MultiError:
+			return cli.NewExitError(e.Error(), 1)
 		case *app.Error:
 			return cli.NewExitError(e.Error(), e.Code())
 		default:

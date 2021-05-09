@@ -269,23 +269,67 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	}, SetFilter(true))
 }
 
+type MultiError struct {
+	Errors []error
+}
+
+func (e *MultiError) Error() string {
+	indent := func(text string, indent string) string {
+		lines := strings.Split(text, "\n")
+
+		var buf bytes.Buffer
+		for _, l := range lines {
+			buf.WriteString(indent)
+			buf.WriteString(l)
+			buf.WriteString("\n")
+		}
+
+		return buf.String()
+	}
+
+	lines := []string{fmt.Sprintf("Failed with %d errors:", len(e.Errors))}
+	for i, err := range e.Errors {
+		lines = append(lines, fmt.Sprintf("Error %d:\n\n%v", i+1, indent(err.Error(), "  ")))
+	}
+
+	return strings.Join(lines, "\n\n")
+}
+
 func (a *App) Lint(c LintConfigProvider) error {
-	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+	var deferredLintErrors []error
+
+	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		var lintErrs []error
+
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
 		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
 			ForceDownload: true,
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
 		}, func() {
-			ok, errs = a.lint(run, c)
+			ok, lintErrs, errs = a.lint(run, c)
 		})
 
 		if prepErr != nil {
 			errs = append(errs, prepErr)
 		}
 
+		if len(lintErrs) > 0 {
+			deferredLintErrors = append(deferredLintErrors, lintErrs...)
+		}
+
 		return
 	}, SetFilter(true))
+
+	if err != nil {
+		return err
+	}
+
+	if len(deferredLintErrors) > 0 {
+		return &MultiError{Errors: deferredLintErrors}
+	}
+
+	return nil
 }
 
 func (a *App) Fetch(c FetchConfigProvider) error {
@@ -1429,7 +1473,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 	return infoMsg, true, len(deleted) > 0 || len(updated) > 0, errs
 }
 
-func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error) {
+func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {
 	st := r.state
 	helm := r.helm
 
@@ -1437,10 +1481,10 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error) {
 
 	selectedReleases, _, err := a.getSelectedReleases(r)
 	if err != nil {
-		return false, []error{err}
+		return false, nil, []error{err}
 	}
 	if len(selectedReleases) == 0 {
-		return false, nil
+		return false, nil, nil
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
@@ -1469,19 +1513,32 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error) {
 		helm.SetExtraArgs(args...)
 	}
 
+	var deferredLintErrs []error
+
 	if len(toLint) > 0 {
 		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toLint, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			opts := &state.LintOpts{
 				Set: c.Set(),
 			}
-			return subst.LintReleases(helm, c.Values(), args, c.Concurrency(), opts)
+			lintErrs := subst.LintReleases(helm, c.Values(), args, c.Concurrency(), opts)
+			if len(lintErrs) == 1 {
+				if err, ok := lintErrs[0].(helmexec.ExitError); ok {
+					if err.Code > 0 {
+						deferredLintErrs = append(deferredLintErrs, err)
+
+						return nil
+					}
+				}
+			}
+
+			return lintErrs
 		}))
 
 		if templateErrs != nil && len(templateErrs) > 0 {
 			errs = append(errs, templateErrs...)
 		}
 	}
-	return true, errs
+	return true, deferredLintErrs, errs
 }
 
 func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
