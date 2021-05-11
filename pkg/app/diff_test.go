@@ -36,6 +36,7 @@ type diffConfig struct {
 	concurrency       int
 	detailedExitcode  bool
 	interactive       bool
+	skipDiffOnInstall bool
 	logger            *zap.SugaredLogger
 }
 
@@ -111,6 +112,10 @@ func (a diffConfig) Interactive() bool {
 	return a.interactive
 }
 
+func (a diffConfig) SkipDiffOnInstall() bool {
+	return a.skipDiffOnInstall
+}
+
 func (a diffConfig) Logger() *zap.SugaredLogger {
 	return a.logger
 }
@@ -129,6 +134,7 @@ func TestDiff(t *testing.T) {
 		loc              string
 		ns               string
 		concurrency      int
+		skipDiffOnInstall bool
 		detailedExitcode bool
 		error            string
 		flags            flags

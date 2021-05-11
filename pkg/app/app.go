@@ -1440,6 +1440,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		Output:  c.DiffOutput(),
 		NoColor: c.NoColor(),
 		Set:     c.Set(),
+		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 	}
 
 	st.Releases = selectedAndNeededReleases

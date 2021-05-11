@@ -98,6 +98,7 @@ type DiffConfigProvider interface {
 	SuppressSecrets() bool
 	ShowSecrets() bool
 	SuppressDiff() bool
+	SkipDiffOnInstall() bool
 
 	SkipNeeds() bool
 	IncludeNeeds() bool
