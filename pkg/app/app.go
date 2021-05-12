@@ -1079,6 +1079,7 @@ func (a *App) WrapWithoutSelector(converge func(*state.HelmState, helmexec.Inter
 
 func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]string, error) {
 	path, err := a.remote.Locate(specifiedPath)
+	path = strings.TrimSuffix(path, ".tar.gz")
 	if err != nil {
 		return nil, fmt.Errorf("locate: %v", err)
 	}

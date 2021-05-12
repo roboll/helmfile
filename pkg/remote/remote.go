@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 const DefaultCacheDir = ".helmfile/cache"
@@ -213,6 +214,10 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 			getterSrc = fmt.Sprintf("%s://%s@%s%s", u.Scheme, u.User, u.Host, u.Dir)
 		} else {
 			getterSrc = fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.Dir)
+		}
+
+		if strings.HasSuffix(u.File, ".tar.gz") {
+			getterSrc = fmt.Sprintf("%s/%s", getterSrc, u.File)
 		}
 
 		if len(query) > 0 {
