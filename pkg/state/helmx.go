@@ -52,7 +52,7 @@ func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
 		pathElems = append(pathElems, r.KubeContext)
 	}
 
-	pathElems = append(pathElems, r.Name, r.Chart)
+	pathElems = append(pathElems, r.Name)
 
 	cacheDir := filepath.Join(pathElems...)
 
