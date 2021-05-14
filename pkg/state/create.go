@@ -354,7 +354,7 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 		},
 	)
 
-	if len(errs) > 1 {
+	if len(errs) > 0 {
 		for _, err := range errs {
 			st.logger.Error(err)
 		}
