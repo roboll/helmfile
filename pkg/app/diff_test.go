@@ -130,21 +130,21 @@ func TestDiff(t *testing.T) {
 	}
 
 	testcases := []struct {
-		name             string
-		loc              string
-		ns               string
-		concurrency      int
+		name              string
+		loc               string
+		ns                string
+		concurrency       int
 		skipDiffOnInstall bool
-		detailedExitcode bool
-		error            string
-		flags            flags
-		files            map[string]string
-		selectors        []string
-		lists            map[exectest.ListKey]string
-		diffs            map[exectest.DiffKey]error
-		upgraded         []exectest.Release
-		deleted          []exectest.Release
-		log              string
+		detailedExitcode  bool
+		error             string
+		flags             flags
+		files             map[string]string
+		selectors         []string
+		lists             map[exectest.ListKey]string
+		diffs             map[exectest.DiffKey]error
+		upgraded          []exectest.Release
+		deleted           []exectest.Release
+		log               string
 	}{
 		//
 		// complex test cases for smoke testing
