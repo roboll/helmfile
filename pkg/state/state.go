@@ -1119,7 +1119,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				skipDepsGlobal := opts.SkipDeps
 				skipDepsRelease := release.SkipDeps != nil && *release.SkipDeps
 				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
-				skipDeps := !isLocal || skipDepsGlobal || skipDepsRelease || skipDepsDefault
+				skipDeps := (!isLocal && !chartFetchedByGoGetter) || skipDepsGlobal || skipDepsRelease || skipDepsDefault
 
 				if chartification != nil {
 					c := chartify.New(
