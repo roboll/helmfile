@@ -1436,10 +1436,11 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	opts := &state.DiffOpts{
-		Context: c.Context(),
-		Output:  c.DiffOutput(),
-		NoColor: c.NoColor(),
-		Set:     c.Set(),
+		Context:           c.Context(),
+		Output:            c.DiffOutput(),
+		NoColor:           c.NoColor(),
+		Set:               c.Set(),
+		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 	}
 
 	st.Releases = selectedAndNeededReleases

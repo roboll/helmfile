@@ -36,6 +36,7 @@ type diffConfig struct {
 	concurrency       int
 	detailedExitcode  bool
 	interactive       bool
+	skipDiffOnInstall bool
 	logger            *zap.SugaredLogger
 }
 
@@ -111,6 +112,10 @@ func (a diffConfig) Interactive() bool {
 	return a.interactive
 }
 
+func (a diffConfig) SkipDiffOnInstall() bool {
+	return a.skipDiffOnInstall
+}
+
 func (a diffConfig) Logger() *zap.SugaredLogger {
 	return a.logger
 }
@@ -125,20 +130,21 @@ func TestDiff(t *testing.T) {
 	}
 
 	testcases := []struct {
-		name             string
-		loc              string
-		ns               string
-		concurrency      int
-		detailedExitcode bool
-		error            string
-		flags            flags
-		files            map[string]string
-		selectors        []string
-		lists            map[exectest.ListKey]string
-		diffs            map[exectest.DiffKey]error
-		upgraded         []exectest.Release
-		deleted          []exectest.Release
-		log              string
+		name              string
+		loc               string
+		ns                string
+		concurrency       int
+		skipDiffOnInstall bool
+		detailedExitcode  bool
+		error             string
+		flags             flags
+		files             map[string]string
+		selectors         []string
+		lists             map[exectest.ListKey]string
+		diffs             map[exectest.DiffKey]error
+		upgraded          []exectest.Release
+		deleted           []exectest.Release
+		log               string
 	}{
 		//
 		// complex test cases for smoke testing
