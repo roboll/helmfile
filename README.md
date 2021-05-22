@@ -753,6 +753,8 @@ environments:
   default:
   production:
 
+---
+
 releases:
 - name: newrelic-agent
   installed: {{ eq .Environment.Name "production" | toYaml }}
@@ -775,6 +777,8 @@ environments:
   production:
     values:
     - production.yaml
+
+---
 
 releases:
 - name: myapp
@@ -818,6 +822,8 @@ environments:
     - production.yaml #  bare .yaml file, content will be used verbatim
     - other.yaml.gotmpl  #  template directives with potential side-effects like `exec` and `readFile` will be honoured
 
+---
+
 releases:
 - name: myapp-{{ .Values.releaseName }} # release name will be one of `dev` or `prod` depending on selected environment
   values:
@@ -852,6 +858,8 @@ environments:
       - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
       - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
 
+---
+
 releases:
   - ...
 ```
@@ -881,6 +889,8 @@ environments:
   production:
     secrets:
     - environments/production/secrets.yaml
+
+---
 
 releases:
 - name: myapp
