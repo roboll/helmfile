@@ -964,6 +964,7 @@ type ChartPrepareOptions struct {
 	SkipRepos     bool
 	SkipDeps      bool
 	SkipResolve   bool
+	SkipCleanup   bool
 	IncludeCRDs   *bool
 	Wait          bool
 	WaitForJobs   bool
@@ -1108,7 +1109,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				isLocal := st.directoryExistsAt(normalizeChart(st.basePath, chartName))
 
 				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
-				defer clean()
+				if !opts.SkipCleanup {
+					defer clean()
+				}
 				if err != nil {
 					results <- &chartPrepareResult{err: err}
 					return

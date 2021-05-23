@@ -237,6 +237,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
 			IncludeCRDs:   &includeCRDs,
+			SkipCleanup:   c.SkipCleanup(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -390,6 +391,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Wait:        c.Wait(),
 			WaitForJobs: c.WaitForJobs(),
 			IncludeCRDs: &includeCRDs,
+			SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
