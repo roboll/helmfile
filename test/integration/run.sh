@@ -150,6 +150,21 @@ info "Ensuring \"helmfile template\" output does contain only YAML docs"
 
 test_pass "happypath"
 
+test_start "regression tests"
+
+if [[ helm_major_version -eq 3 ]]; then
+  info "https://github.com/roboll/helmfile/issues/1857"
+  (${helmfile} -f ${dir}/issue.1857.yaml --state-values-set grafanaEnabled=true template | grep grafana 1>/dev/null) || fail "\"helmfile template\" shouldn't include grafana"
+  ! (${helmfile} -f ${dir}/issue.1857.yaml --state-values-set grafanaEnabled=false template | grep grafana) || fail "\"helmfile template\" shouldn't include grafana"
+
+  info "https://github.com/roboll/helmfile/issues/1867"
+  (${helmfile} -f ${dir}/issue.1867.yaml template 1>/dev/null) || fail "\"helmfile template\" shouldn't fail"
+else
+  info "There are no regression tests for helm 2 because all the target charts have dropped helm 2 support."
+fi
+
+test_pass "regression tests"
+
 if [[ helm_major_version -eq 3 ]]; then
   export VAULT_ADDR=http://127.0.0.1:8200
   export VAULT_TOKEN=toor
