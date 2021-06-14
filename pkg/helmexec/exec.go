@@ -315,7 +315,10 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 
 	if tempFile == nil {
 		tempFile = func(content []byte) (string, error) {
-			dir := filepath.Dir(name)
+			dir, err := ioutil.TempDir(os.TempDir(), "helmfile")
+			if err != nil {
+				panic(err)
+			}
 			extension := filepath.Ext(name)
 			tmpFile, err := ioutil.TempFile(dir, "secret*"+extension)
 			if err != nil {
