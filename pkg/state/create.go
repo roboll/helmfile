@@ -205,7 +205,12 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmState, baseDir string) (*HelmState, error) {
 	layers := []*HelmState{}
 	for _, b := range st.Bases {
-		base, err := c.LoadFile(envValues, baseDir, b, false)
+		basePath, err := c.remote.Locate(b)
+		if err != nil {
+			return nil, err
+		}
+
+		base, err := c.LoadFile(envValues, baseDir, basePath, false)
 		if err != nil {
 			return nil, err
 		}
