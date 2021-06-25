@@ -10,7 +10,7 @@ for its `.Values`.
 
 ```
 app:
-  project: {{.Environmont.Name}}-{{.StateValues.project}} # Same as {{.Environmont.Name}}-{{.Values.project}}
+  project: {{.Environment.Name}}-{{.StateValues.project}} # Same as {{.Environment.Name}}-{{.Values.project}}
 
 {{`
 extraEnvVars:
