@@ -163,15 +163,16 @@ type HelmSpec struct {
 
 // RepositorySpec that defines values for a helm repo
 type RepositorySpec struct {
-	Name     string `yaml:"name,omitempty"`
-	URL      string `yaml:"url,omitempty"`
-	CaFile   string `yaml:"caFile,omitempty"`
-	CertFile string `yaml:"certFile,omitempty"`
-	KeyFile  string `yaml:"keyFile,omitempty"`
-	Username string `yaml:"username,omitempty"`
-	Password string `yaml:"password,omitempty"`
-	Managed  string `yaml:"managed,omitempty"`
-	OCI      bool   `yaml:"oci,omitempty"`
+	Name            string `yaml:"name,omitempty"`
+	URL             string `yaml:"url,omitempty"`
+	CaFile          string `yaml:"caFile,omitempty"`
+	CertFile        string `yaml:"certFile,omitempty"`
+	KeyFile         string `yaml:"keyFile,omitempty"`
+	Username        string `yaml:"username,omitempty"`
+	Password        string `yaml:"password,omitempty"`
+	Managed         string `yaml:"managed,omitempty"`
+	OCI             bool   `yaml:"oci,omitempty"`
+	PassCredentials string `yaml:"passCredentials,omitempty"`
 }
 
 // ReleaseSpec defines the structure of a helm release
@@ -392,7 +393,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 
 type RepoUpdater interface {
 	IsHelm3() bool
-	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error
+	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string) error
 	UpdateRepo() error
 	RegistryLogin(name string, username string, password string) error
 }
@@ -441,7 +442,7 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 				err = helm.RegistryLogin(repo.URL, username, password)
 			}
 		} else {
-			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed)
+			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed, repo.PassCredentials)
 		}
 
 		if err != nil {

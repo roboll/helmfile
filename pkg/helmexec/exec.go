@@ -108,7 +108,7 @@ func (helm *execer) SetHelmBinary(bin string) {
 	helm.helmBinary = bin
 }
 
-func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string) error {
+func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string) error {
 	var args []string
 	var out []byte
 	var err error
@@ -140,6 +140,9 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		}
 		if username != "" && password != "" {
 			args = append(args, "--username", username, "--password", password)
+		}
+		if passCredentials == "true" {
+			args = append(args, "--pass-credentials")
 		}
 		helm.logger.Infof("Adding repo %v %v", name, repository)
 		out, err = helm.exec(args, map[string]string{})

@@ -62,6 +62,7 @@ repositories:
   username: optional_username
   password: optional_password
   oci: true
+  passCredentials: true
 # Advanced configuration: You can use a ca bundle to use an https repo
 # with a self-signed certificate
 - name: insecure
