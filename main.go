@@ -741,6 +741,7 @@ func (c configImpl) Args() string {
 }
 
 func (c configImpl) OutputDir() string {
+	// TODO Make output-dir a global flag
 	return c.c.String("output-dir")
 }
 

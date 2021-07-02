@@ -9,6 +9,7 @@ import (
 
 	"github.com/roboll/helmfile/pkg/argparser"
 	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/state"
 )
 
@@ -50,14 +51,19 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	}
 
 	// Create tmp directory and bail immediately if it fails
+	var useTemporaryDir bool
 	var dir string
 	if len(opts.OutputDir) == 0 {
-		tempDir, err := ioutil.TempDir("", "helmfile*")
-		if err != nil {
-			return err
+		if useTemporaryDir {
+			tempDir, err := ioutil.TempDir("", "helmfile*")
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(tempDir)
+			dir = tempDir
+		} else {
+			dir = remote.DefaultCacheDir
 		}
-		defer os.RemoveAll(tempDir)
-		dir = tempDir
 	} else {
 		dir = opts.OutputDir
 		fmt.Printf("Charts will be downloaded to: %s\n", dir)
