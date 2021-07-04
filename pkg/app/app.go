@@ -1192,6 +1192,7 @@ func (a *App) getSelectedReleases(r *Run) ([]state.ReleaseSpec, []state.ReleaseS
 func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
+	helm.SetExtraArgs(argparser.GetArgs(c.Args(), st)...)
 
 	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r)
 	if err != nil {
@@ -1292,8 +1293,6 @@ Do you really want to apply?
 	affectedReleases := state.AffectedReleases{}
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
-		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
@@ -1351,6 +1350,7 @@ Do you really want to apply?
 func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
+	helm.SetExtraArgs(argparser.GetArgs(c.Args(), st)...)
 
 	affectedReleases := state.AffectedReleases{}
 
@@ -1407,8 +1407,6 @@ Do you really want to delete?
 `, strings.Join(names, "\n"))
 	interactive := c.Interactive()
 	if !interactive || interactive && r.askForConfirmation(msg) {
-		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-
 		if len(releasesToDelete) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toDelete, Reverse: true, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				return subst.DeleteReleases(&affectedReleases, helm, c.Concurrency(), purge)
@@ -1547,6 +1545,7 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {
 func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
+	helm.SetExtraArgs(argparser.GetArgs(c.Args(), st)...)
 
 	allReleases := st.GetReleasesWithOverrides()
 
@@ -1695,8 +1694,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	a.Logger.Info(infoMsg)
 
 	var errs []error
-
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = toSyncWithNeeds
