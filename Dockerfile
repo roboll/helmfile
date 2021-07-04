@@ -44,6 +44,9 @@ RUN helm plugin install https://github.com/databus23/helm-diff && \
     helm plugin install https://github.com/aslafy-z/helm-git.git && \
     helm plugin install https://github.com/rimusz/helm-tiller
 
+# Allow users other than root to use helm plugins located in root home
+RUN chmod 751 /root
+
 COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 
 CMD ["/usr/local/bin/helmfile", "--help"]
