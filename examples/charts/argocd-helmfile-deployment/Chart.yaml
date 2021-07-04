@@ -1,0 +1,11 @@
+apiVersion: v2
+name: argo-cd
+description: Kubernetes continuous deployment system
+type: application
+version: 3.2.0
+appVersion: "3.2.0"  # ArgoCD version
+
+dependencies:
+- name: argo-cd
+  version: 3.2.0
+  repository: https://argoproj.github.io/argo-helm
