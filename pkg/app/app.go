@@ -61,6 +61,7 @@ type HelmRelease struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 	Enabled   bool   `json:"enabled"`
+	Installed bool   `json:"installed"`
 	Labels    string `json:"labels"`
 	Chart     string `json:"chart"`
 	Version   string `json:"version"`
@@ -574,11 +575,17 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 				}
 				labels = strings.Trim(labels, ",")
 
+				enabled, err := state.ConditionEnabled(r, run.state.Values())
+				if err != nil {
+					panic(err)
+				}
+
 				installed := r.Installed == nil || *r.Installed
 				releases = append(releases, &HelmRelease{
 					Name:      r.Name,
 					Namespace: r.Namespace,
-					Enabled:   installed,
+					Installed: installed,
+					Enabled:   enabled,
 					Labels:    labels,
 					Chart:     r.Chart,
 					Version:   r.Version,

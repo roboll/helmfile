@@ -16,15 +16,18 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/roboll/helmfile/pkg/remote"
 
-	"github.com/roboll/helmfile/pkg/exectest"
 	"gotest.tools/v3/assert"
+
+	"github.com/roboll/helmfile/pkg/exectest"
+
+	"github.com/variantdev/vals"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/roboll/helmfile/pkg/testhelper"
-	"github.com/variantdev/vals"
 
 	"go.uber.org/zap"
 	"gotest.tools/v3/env"
@@ -4629,6 +4632,11 @@ func TestList(t *testing.T) {
 		"/path/to/helmfile.d/first.yaml": `
 commonLabels:
   common: label
+environments:
+  default:
+    values:
+     - myrelease2:
+         enabled: false
 releases:
 - name: myrelease1
   chart: mychart1
@@ -4637,6 +4645,7 @@ releases:
     id: myrelease1
 - name: myrelease2
   chart: mychart1
+  condition: myrelease2.enabled
 `,
 		"/path/to/helmfile.d/second.yaml": `
 releases:
@@ -4672,18 +4681,24 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := `NAME      	NAMESPACE	ENABLED	LABELS                    	CHART   	VERSION
-myrelease1	         	false  	common:label,id:myrelease1	mychart1	       
-myrelease2	         	true   	common:label              	mychart1	       
-myrelease3	         	true   	                          	mychart1	       
-myrelease4	         	true   	id:myrelease1             	mychart1	       
+	expected := `NAME      	NAMESPACE	ENABLED	INSTALLED	LABELS                    	CHART   	VERSION
+myrelease1	         	true   	false    	common:label,id:myrelease1	mychart1	       
+myrelease2	         	false  	true     	common:label              	mychart1	       
+myrelease3	         	true   	true     	                          	mychart1	       
+myrelease4	         	true   	true     	id:myrelease1             	mychart1	       
 `
+
 	assert.Equal(t, expected, out)
 }
 
 func TestListWithJsonOutput(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.d/first.yaml": `
+environments:
+  default:
+    values:
+     - myrelease2:
+         enabled: false
 releases:
 - name: myrelease1
   chart: mychart1
@@ -4692,6 +4707,7 @@ releases:
     id: myrelease1
 - name: myrelease2
   chart: mychart1
+  condition: myrelease2.enabled
 `,
 		"/path/to/helmfile.d/second.yaml": `
 releases:
@@ -4729,7 +4745,7 @@ releases:
 		assert.NilError(t, err)
 	})
 
-	expected := `[{"name":"myrelease1","namespace":"","enabled":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"","enabled":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"","enabled":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"","enabled":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
+	expected := `[{"name":"myrelease1","namespace":"","enabled":true,"installed":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"","enabled":false,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"","enabled":true,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"","enabled":true,"installed":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
 `
 	assert.Equal(t, expected, out)
 }
