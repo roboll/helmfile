@@ -130,6 +130,7 @@ jobs:
         - go-mod-cache-v1-
     - setup_remote_docker
     - run:
+        no_output_timeout: 30m
         command: |
           docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
           make tools
