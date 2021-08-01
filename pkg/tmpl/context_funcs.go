@@ -20,6 +20,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 	funcMap := template.FuncMap{
 		"exec":             c.Exec,
 		"readFile":         c.ReadFile,
+		"readDir":          ReadDir,
 		"toYaml":           ToYaml,
 		"fromYaml":         FromYaml,
 		"setValueAtPath":   SetValueAtPath,
@@ -128,6 +129,21 @@ func (c *Context) ReadFile(filename string) (string, error) {
 		return "", err
 	}
 	return string(bytes), nil
+}
+
+func ReadDir(path string) ([]string, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	var filenames []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		filenames = append(filenames, filepath.Join(path, entry.Name()))
+	}
+	return filenames, nil
 }
 
 func (c *Context) Tpl(text string, data interface{}) (string, error) {
