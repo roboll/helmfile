@@ -4,7 +4,7 @@ jobs:
 
   build:
     docker:
-      - image: circleci/golang:1.16.3
+      - image: circleci/golang:1.17.0
     environment:
       GOPATH: /go
     working_directory: /home/circleci/workspace/helmfile
@@ -27,7 +27,7 @@ jobs:
             - .
   image:
     docker:
-    - image: circleci/golang:1.16.3
+    - image: circleci/golang:1.17.0
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
@@ -44,7 +44,7 @@ jobs:
 
   image_helm3:
     docker:
-    - image: circleci/golang:1.16.3
+    - image: circleci/golang:1.17.0
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
@@ -63,7 +63,7 @@ jobs:
     environment:
       GOPATH: /go
     docker:
-      - image: circleci/golang:1.16.3
+      - image: circleci/golang:1.17.0
     working_directory: /home/circleci/workspace/helmfile
     steps:
       - checkout
@@ -98,7 +98,7 @@ jobs:
               make -C .circleci helm
             else
               make -C .circleci helm2
-            fi            
+            fi
             make -C .circleci vault
             make -C .circleci sops
             make -C .circleci kustomize
@@ -120,7 +120,7 @@ jobs:
 
   release:
     docker:
-      - image: circleci/golang:1.16.3
+      - image: circleci/golang:1.17.0
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
