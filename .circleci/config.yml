@@ -42,7 +42,7 @@ jobs:
           go mod vendor
           ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image
 
-  image_helm3:
+  image_debian:
     docker:
     - image: circleci/golang:1.16.3
     working_directory: /home/circleci/workspace/helmfile
@@ -57,7 +57,7 @@ jobs:
         command: |
           make tools
           go mod vendor
-          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image/helm3
+          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image/debian
 
   test:
     environment:
@@ -135,7 +135,7 @@ jobs:
           docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io
           make tools
           go mod vendor
-          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make push push/helm3 release
+          ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make push push/debian release
 
 workflows:
   version: 2
@@ -143,14 +143,14 @@ workflows:
     jobs:
       - build
       - image
-      - image_helm3
+      - image_debian
       - test
       - integration_tests:
           requires:
             - build
           matrix:
             parameters:
-              helm-version: ["v2.17.0", "v3.4.2", "v3.5.4"]
+              helm-version: ["v2.17.0", "v3.4.2", "v3.5.4", "v3.6.3"]
       - release:
           filters:
             branches:
