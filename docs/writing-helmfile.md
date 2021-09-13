@@ -273,7 +273,7 @@ In the following example `helmfile.yaml.gotmpl`, each `---` separated part of th
 `helmfile.yaml.gotmpl`:
 
 ```yaml
-# Part 1: Reused Enviroment Values
+# Part 1: Reused Environment Values
 bases:
   - myenv.yaml
 ---
