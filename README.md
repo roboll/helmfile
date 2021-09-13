@@ -854,16 +854,20 @@ environments:
     values:
       - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
       - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
+      - git::https://gitlab.com/org/repository-name.git@/config/config.test.yaml?ref=main # Public Gilab Repo
   cluster-gcp-europe-west:
     values:
       - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
       - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
+      - git::https://ci:{{ env "CI_JOB_TOKEN" }}@gitlab.com/org/repository-name.git@/config.dev.yaml?ref={{ env "APP_COMMIT_SHA" }}  # Private Gitlab Repo
 
 ---
 
 releases:
   - ...
 ```
+
+For more information about the supported protocols see: [go-getter Protocol-Specific Options](https://github.com/hashicorp/go-getter#protocol-specific-options-1).
 
 This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
 
