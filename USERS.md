@@ -30,4 +30,5 @@ information to this file.
 | [Trend Micro](https://www.trendmicro.com) | production | We manage 9 k8s clusters in a mono git repository with Helmfile | Taipei, Taiwan |  December 2019 |
 | [William Hill](https://www.williamhill.com) | production | We have standardised on Helmfile for managing both our application services and our Kubernetes platform components. | International |  March 2021 |
 | [The Hyve](https://www.thehyve.nl) | production | We've been using Helmfile since 2019 to deploy [Radar-base applications](https://github.com/RADAR-base/RADAR-Kubernetes). [Blog Post](https://www.thehyve.nl/articles/kubernetes-added-to-radar-base) | Utrecht, Netherlands |  April 2021 |
+| [IKEA US](https://www.ikea.com) | production | We started using Helmfile this year to shrink the boilerplate involved in deploying or microservices to cloud Kubernetes clusters. | Utrecht, Netherlands |  April 2021 |
 <!-- TABLE_END -->
