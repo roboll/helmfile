@@ -966,10 +966,13 @@ type ChartPrepareOptions struct {
 	SkipDeps      bool
 	SkipResolve   bool
 	SkipCleanup   bool
-	IncludeCRDs   *bool
-	Wait          bool
-	WaitForJobs   bool
-	OutputDir     string
+	// Validate is a helm-3-only option. When it is set to true, it configures chartify to pass --validate to helm-template run by it.
+	// It's required when one of your chart relies on Capabilities.APIVersions in a template
+	Validate    bool
+	IncludeCRDs *bool
+	Wait        bool
+	WaitForJobs bool
+	OutputDir   string
 }
 
 type chartPrepareResult struct {
@@ -1142,8 +1145,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					if opts.IncludeCRDs != nil {
 						includeCRDs = *opts.IncludeCRDs
 					}
-
 					chartifyOpts.IncludeCRDs = includeCRDs
+
+					chartifyOpts.Validate = opts.Validate
 
 					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
