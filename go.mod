@@ -28,7 +28,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.22.5
-	github.com/variantdev/chartify v0.8.9
+	github.com/variantdev/chartify v0.9.0
 	github.com/variantdev/dag v1.0.0
 	github.com/variantdev/vals v0.14.0
 	go.uber.org/multierr v1.6.0

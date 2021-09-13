@@ -172,6 +172,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			SkipRepos:   c.SkipDeps(),
 			SkipDeps:    c.SkipDeps(),
 			IncludeCRDs: &includeCRDs,
+			Validate:    c.Validate(),
 		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
 		})
@@ -238,6 +239,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			SkipDeps:      c.SkipDeps(),
 			IncludeCRDs:   &includeCRDs,
 			SkipCleanup:   c.SkipCleanup(),
+			Validate:      c.Validate(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -392,6 +394,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			WaitForJobs: c.WaitForJobs(),
 			IncludeCRDs: &includeCRDs,
 			SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
+			Validate:    c.Validate(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 

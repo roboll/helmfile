@@ -57,6 +57,7 @@ type ApplyConfigProvider interface {
 	DiffOutput() string
 
 	RetainValuesFiles() bool
+	Validate() bool
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
 
@@ -90,6 +91,7 @@ type DiffConfigProvider interface {
 
 	Values() []string
 	Set() []string
+	Validate() bool
 	SkipCRDs() bool
 	SkipDeps() bool
 

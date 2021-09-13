@@ -224,6 +224,11 @@ func main() {
 					Value: 0,
 					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
 				},
+				cli.BoolFlag{
+					Name:  "validate",
+					Usage: "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requiers access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions",
+				},
+
 				cli.IntFlag{
 					Name:  "context",
 					Value: 0,
@@ -271,7 +276,7 @@ func main() {
 				},
 				cli.BoolFlag{
 					Name:  "validate",
-					Usage: "validate your manifests against the Kubernetes cluster you are currently pointing at",
+					Usage: "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requiers access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions",
 				},
 				cli.BoolFlag{
 					Name:  "include-crds",
@@ -444,6 +449,10 @@ func main() {
 					Name:  "concurrency",
 					Value: 0,
 					Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
+				},
+				cli.BoolFlag{
+					Name:  "validate",
+					Usage: "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requiers access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions",
 				},
 				cli.IntFlag{
 					Name:  "context",
