@@ -284,14 +284,14 @@ environments:
   # That is, the "production" env below is used when and only when it is run like `helmfile --environment production sync`.
   production:
     values:
-    - environment/production/values.yaml
+    - environments/production/values.yaml
     - myChartVer: 1.0.0
     # disable vault release processing
     - vault:
         enabled: false
     ## `secrets.yaml` is decrypted by `helm-secrets` and available via `{{ .Environment.Values.KEY }}`
     secrets:
-    - environment/production/secrets.yaml
+    - environments/production/secrets.yaml
     # Instructs helmfile to fail when unable to find a environment values file listed under `environments.NAME.values`.
     #
     # Possible values are  "Error", "Warn", "Info", "Debug". The default is "Error".
