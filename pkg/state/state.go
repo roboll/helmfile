@@ -1473,7 +1473,6 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 			if _, err := os.Stat(valfile); os.IsNotExist(err) {
 				return []error{err}
 			}
-			generatedFiles = append(generatedFiles, valfile)
 		}
 
 		outputValuesFile, err := st.GenerateOutputFilePath(release, opts.OutputFileTemplate)
@@ -1489,7 +1488,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 
 		merged := map[string]interface{}{}
 
-		for _, f := range generatedFiles {
+		for _, f := range append(generatedFiles, additionalValues...) {
 			src := map[string]interface{}{}
 
 			srcBytes, err := st.readFile(f)
