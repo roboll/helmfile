@@ -598,6 +598,8 @@ github.com/variantdev/chartify v0.8.9 h1:kECyWario6UOShilDThKfuvk+FhXWjlFod/Cg/w
 github.com/variantdev/chartify v0.8.9/go.mod h1:qF4XzQlkfH/6k2jAi1hLas+lK4zSCa8kY+r5JdmLA68=
 github.com/variantdev/chartify v0.9.0 h1:27Bh3RXqBYyev0Xa1JnfD/LWyZu3SL+iHr6ePMzHdMg=
 github.com/variantdev/chartify v0.9.0/go.mod h1:qF4XzQlkfH/6k2jAi1hLas+lK4zSCa8kY+r5JdmLA68=
+github.com/variantdev/chartify v0.9.1 h1:Mkq2BvtHr42BYf2a14YWkfeSoY/+d1wL2xfap4qH2aY=
+github.com/variantdev/chartify v0.9.1/go.mod h1:qF4XzQlkfH/6k2jAi1hLas+lK4zSCa8kY+r5JdmLA68=
 github.com/variantdev/dag v1.0.0 h1:7SFjATxHtrYV20P3tx53yNDBMegz6RT4jv8JPHqAHdM=
 github.com/variantdev/dag v1.0.0/go.mod h1:pH1TQsNSLj2uxMo9NNl9zdGy01Wtn+/2MT96BrKmVyE=
 github.com/variantdev/vals v0.14.0 h1:J+zX1DDLTQ35A198HChVkCwLfA/4OeKhSuZ5zjmgV0Q=
