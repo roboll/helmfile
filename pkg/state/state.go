@@ -3224,6 +3224,9 @@ func (st *HelmState) getOCIChart(pullChan chan PullCommand, release *ReleaseSpec
 
 	chartPath := path.Join(pathElems...)
 	err = helm.ChartExport(qualifiedChartName, chartPath)
+	if err != nil {
+		return nil, err
+	}
 
 	fullChartPath, err := findChartDirectory(chartPath)
 	if err != nil {

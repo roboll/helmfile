@@ -432,14 +432,40 @@ func (helm *execer) Fetch(chart string, flags ...string) error {
 
 func (helm *execer) ChartPull(chart string, flags ...string) error {
 	helm.logger.Infof("Pulling %v", chart)
-	out, err := helm.exec(append([]string{"chart", "pull", chart}, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
+	helm.logger.Infof("Exporting %v", chart)
+	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
+	var helmArgs []string
+	if helmVersionConstraint.Check(&helm.version) {
+		ociChartURLSplit := strings.Split(chart, ":")
+		ociChartURL := fmt.Sprintf("oci://%s", ociChartURLSplit[0])
+		ociChartTag := ociChartURLSplit[1]
+		tempDir, err := ioutil.TempDir("", "chart*")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tempDir)
+		helmArgs = []string{"fetch", ociChartURL, "--version", ociChartTag, "--destination", tempDir}
+	} else {
+		helmArgs = []string{"chart", "pull", chart}
+	}
+	out, err := helm.exec(append(helmArgs, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
 	helm.info(out)
 	return err
 }
 
 func (helm *execer) ChartExport(chart string, path string, flags ...string) error {
 	helm.logger.Infof("Exporting %v", chart)
-	out, err := helm.exec(append([]string{"chart", "export", chart, "--destination", path}, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
+	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
+	var helmArgs []string
+	if helmVersionConstraint.Check(&helm.version) {
+		ociChartURLSplit := strings.Split(chart, ":")
+		ociChartURL := fmt.Sprintf("oci://%s", ociChartURLSplit[0])
+		ociChartTag := ociChartURLSplit[1]
+		helmArgs = []string{"pull", ociChartURL, "--version", ociChartTag, "--untar"}
+	} else {
+		helmArgs = []string{"chart", "export", chart}
+	}
+	out, err := helm.exec(append(append(helmArgs, "--destination", path), flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
 	helm.info(out)
 	return err
 }
