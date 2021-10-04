@@ -17,10 +17,10 @@ RUN apt update -qq && \
     git bash curl jq pip wget && \
     rm -rf /var/lib/apt/lists/*
 
-ARG HELM_VERSION="v3.5.3"
+ARG HELM_VERSION="v3.7.0"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
-ARG HELM_SHA256="2170a1a644a9e0b863f00c17b761ce33d4323da64fc74562a3a6df2abbf6cd70"
+ARG HELM_SHA256="096e30f54c3ccdabe30a8093f8e128dba76bb67af697b85db6ed0453a2701bf9"
 RUN set -x && \
     wget ${HELM_LOCATION}/${HELM_FILENAME} && \
     echo Verifying ${HELM_FILENAME}... && \
