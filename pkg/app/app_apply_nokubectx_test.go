@@ -17,8 +17,9 @@ import (
 
 func TestApply_3(t *testing.T) {
 	type fields struct {
-		skipNeeds    bool
-		includeNeeds bool
+		skipNeeds              bool
+		includeNeeds           bool
+		includeTransitiveNeeds bool
 	}
 
 	type testcase struct {
@@ -109,11 +110,12 @@ func TestApply_3(t *testing.T) {
 
 			syncErr := app.Apply(applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
-				concurrency:       tc.concurrency,
-				logger:            logger,
-				skipDiffOnInstall: tc.skipDiffOnInstall,
-				skipNeeds:         tc.fields.skipNeeds,
-				includeNeeds:      tc.fields.includeNeeds,
+				concurrency:            tc.concurrency,
+				logger:                 logger,
+				skipDiffOnInstall:      tc.skipDiffOnInstall,
+				skipNeeds:              tc.fields.skipNeeds,
+				includeNeeds:           tc.fields.includeNeeds,
+				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
 			})
 
 			var gotErr string

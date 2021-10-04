@@ -201,7 +201,7 @@ func main() {
 				},
 				cli.BoolTFlag{
 					Name:  "skip-needs",
-					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs is not provided`,
+					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`,
 				},
 				cli.BoolFlag{
 					Name:  "include-needs",
@@ -285,6 +285,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "include-needs",
 					Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+				},
+				cli.BoolFlag{
+					Name:  "include-transitive-needs",
+					Usage: `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`,
 				},
 				cli.BoolFlag{
 					Name:  "skip-deps",
@@ -414,11 +418,15 @@ func main() {
 				},
 				cli.BoolTFlag{
 					Name:  "skip-needs",
-					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs is not provided`,
+					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`,
 				},
 				cli.BoolFlag{
 					Name:  "include-needs",
 					Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+				},
+				cli.BoolFlag{
+					Name:  "include-transitive-needs",
+					Usage: `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`,
 				},
 				cli.BoolFlag{
 					Name:  "wait",
@@ -487,11 +495,15 @@ func main() {
 				},
 				cli.BoolTFlag{
 					Name:  "skip-needs",
-					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs is not provided`,
+					Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`,
 				},
 				cli.BoolFlag{
 					Name:  "include-needs",
 					Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
+				},
+				cli.BoolFlag{
+					Name:  "include-transitive-needs",
+					Usage: `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`,
 				},
 				cli.BoolFlag{
 					Name:  "skip-diff-on-install",
@@ -782,7 +794,11 @@ func (c configImpl) SkipNeeds() bool {
 }
 
 func (c configImpl) IncludeNeeds() bool {
-	return c.c.Bool("include-needs")
+	return c.c.Bool("include-needs") || c.IncludeTransitiveNeeds()
+}
+
+func (c configImpl) IncludeTransitiveNeeds() bool {
+	return c.c.Bool("include-transitive-needs")
 }
 
 // DiffConfig
