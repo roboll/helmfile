@@ -925,7 +925,7 @@ or in the `releases` entries.
 releases:
 - name: somerelease
   needs:
-  - [KUBE_CONFIG/][NAMESPACE/]anotherelease
+  - [[KUBECONTEXT/]NAMESPACE/]anotherelease
 ```
 
 Be aware that you have to specify the kubecontext and namespace name if you configured one for the release(s).
