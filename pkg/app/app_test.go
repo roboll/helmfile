@@ -106,6 +106,7 @@ releases:
 
 	err := app.ForEachState(
 		noop,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {
@@ -157,6 +158,7 @@ BAZ: 4
 
 	err := app.ForEachState(
 		Noop,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {
@@ -198,6 +200,7 @@ releases:
 
 	err := app.ForEachState(
 		Noop,
+		false,
 		SetFilter(true),
 	)
 	if err == nil {
@@ -242,6 +245,7 @@ releases:
 
 	err := app.ForEachState(
 		Noop,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {
@@ -293,6 +297,7 @@ releases:
 
 			err := app.ForEachState(
 				Noop,
+				false,
 				SetFilter(true),
 			)
 			if testcase.expectErr && err == nil {
@@ -359,6 +364,7 @@ releases:
 
 		err := app.ForEachState(
 			Noop,
+			false,
 			SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
@@ -413,6 +419,7 @@ releases:
 
 		err := app.ForEachState(
 			Noop,
+			false,
 			SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
@@ -531,6 +538,7 @@ releases:
 
 			err := app.ForEachState(
 				collectReleases,
+				false,
 				SetFilter(true),
 			)
 			if testcase.expectErr {
@@ -774,6 +782,7 @@ func runFilterSubHelmFilesTests(testcases []struct {
 
 		err := app.ForEachState(
 			collectReleases,
+			false,
 			SetFilter(true),
 		)
 		if testcase.expectErr {
@@ -869,6 +878,7 @@ tillerNs: INLINE_TILLER_NS_2
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -970,6 +980,7 @@ releases:
 
 		err := app.ForEachState(
 			collectReleases,
+			false,
 			SetReverse(testcase.reverse),
 			SetFilter(true),
 		)
@@ -1035,6 +1046,7 @@ bar: "bar1"
 
 		err := app.ForEachState(
 			collectReleases,
+			false,
 			SetFilter(true),
 		)
 		if err != nil {
@@ -1157,6 +1169,7 @@ x:
 
 			err := app.ForEachState(
 				collectReleases,
+				false,
 				SetFilter(true),
 			)
 			if err != nil {
@@ -1209,6 +1222,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {
@@ -1266,6 +1280,7 @@ releases:
 
 			err := app.ForEachState(
 				collectReleases,
+				false,
 				SetFilter(true),
 			)
 			if err != nil {
@@ -1316,6 +1331,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -1364,6 +1380,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -1407,6 +1424,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -1450,6 +1468,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -1497,6 +1516,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -2246,8 +2266,9 @@ type configImpl struct {
 	skipCRDs    bool
 	skipDeps    bool
 
-	skipNeeds    bool
-	includeNeeds bool
+	skipNeeds              bool
+	includeNeeds           bool
+	includeTransitiveNeeds bool
 }
 
 func (a configImpl) Selectors() []string {
@@ -2290,6 +2311,10 @@ func (c configImpl) IncludeNeeds() bool {
 	return c.includeNeeds
 }
 
+func (c configImpl) IncludeTransitiveNeeds() bool {
+	return c.includeTransitiveNeeds
+}
+
 func (c configImpl) OutputDir() string {
 	return "output/subdir"
 }
@@ -2315,30 +2340,31 @@ func (c configImpl) Output() string {
 }
 
 type applyConfig struct {
-	args              string
-	values            []string
-	retainValuesFiles bool
-	set               []string
-	validate          bool
-	skipCleanup       bool
-	skipCRDs          bool
-	skipDeps          bool
-	skipNeeds         bool
-	includeNeeds      bool
-	includeTests      bool
-	suppressSecrets   bool
-	showSecrets       bool
-	suppressDiff      bool
-	noColor           bool
-	context           int
-	diffOutput        string
-	concurrency       int
-	detailedExitcode  bool
-	interactive       bool
-	skipDiffOnInstall bool
-	logger            *zap.SugaredLogger
-	wait              bool
-	waitForJobs       bool
+	args                   string
+	values                 []string
+	retainValuesFiles      bool
+	set                    []string
+	validate               bool
+	skipCleanup            bool
+	skipCRDs               bool
+	skipDeps               bool
+	skipNeeds              bool
+	includeNeeds           bool
+	includeTransitiveNeeds bool
+	includeTests           bool
+	suppressSecrets        bool
+	showSecrets            bool
+	suppressDiff           bool
+	noColor                bool
+	context                int
+	diffOutput             string
+	concurrency            int
+	detailedExitcode       bool
+	interactive            bool
+	skipDiffOnInstall      bool
+	logger                 *zap.SugaredLogger
+	wait                   bool
+	waitForJobs            bool
 }
 
 func (a applyConfig) Args() string {
@@ -2383,6 +2409,10 @@ func (c applyConfig) SkipNeeds() bool {
 
 func (c applyConfig) IncludeNeeds() bool {
 	return c.includeNeeds
+}
+
+func (c applyConfig) IncludeTransitiveNeeds() bool {
+	return c.includeTransitiveNeeds
 }
 
 func (a applyConfig) IncludeTests() bool {
@@ -2438,11 +2468,16 @@ func (a applyConfig) SkipDiffOnInstall() bool {
 }
 
 type depsConfig struct {
-	skipRepos bool
+	skipRepos              bool
+	includeTransitiveNeeds bool
 }
 
 func (d depsConfig) SkipRepos() bool {
 	return d.skipRepos
+}
+
+func (d depsConfig) IncludeTransitiveNeeds() bool {
+	return d.includeTransitiveNeeds
 }
 
 func (d depsConfig) Args() string {
@@ -4482,7 +4517,8 @@ See https://github.com/roboll/helmfile/issues/878 for more information.
 				}, tc.files)
 
 				depsErr := app.Deps(depsConfig{
-					skipRepos: false,
+					skipRepos:              false,
+					includeTransitiveNeeds: false,
 				})
 
 				if tc.error == "" && depsErr != nil {
@@ -4777,6 +4813,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {

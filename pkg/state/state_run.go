@@ -100,14 +100,15 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 }
 
 type PlanOptions struct {
-	Reverse          bool
-	IncludeNeeds     bool
-	SkipNeeds        bool
-	SelectedReleases []ReleaseSpec
+	Reverse                bool
+	IncludeNeeds           bool
+	IncludeTransitiveNeeds bool
+	SkipNeeds              bool
+	SelectedReleases       []ReleaseSpec
 }
 
 func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
-	marked, err := st.SelectReleasesWithOverrides()
+	marked, err := st.SelectReleasesWithOverrides(opts.IncludeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}

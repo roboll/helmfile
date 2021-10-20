@@ -103,8 +103,9 @@ func TestDestroy_2(t *testing.T) {
 
 			destroyErr := app.Destroy(destroyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
-				concurrency: tc.concurrency,
-				logger:      logger,
+				concurrency:            tc.concurrency,
+				logger:                 logger,
+				includeTransitiveNeeds: false,
 			})
 
 			if tc.error == "" && destroyErr != nil {

@@ -398,36 +398,6 @@ type RepoUpdater interface {
 	RegistryLogin(name string, username string, password string) error
 }
 
-// getRepositoriesToSync returns the names of repositories to be updated
-func (st *HelmState) getRepositoriesToSync() (map[string]bool, error) {
-	releases, err := st.GetSelectedReleasesWithOverrides()
-	if err != nil {
-		return nil, err
-	}
-
-	repositoriesToUpdate := map[string]bool{}
-
-	if len(releases) == 0 {
-		for _, repo := range st.Repositories {
-			repositoriesToUpdate[repo.Name] = true
-		}
-
-		return repositoriesToUpdate, nil
-	}
-
-	for _, release := range releases {
-		if release.Installed == nil || *release.Installed {
-			chart := strings.Split(release.Chart, "/")
-			if len(chart) == 1 {
-				continue
-			}
-			repositoriesToUpdate[chart[0]] = true
-		}
-	}
-
-	return repositoriesToUpdate, nil
-}
-
 func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]string, error) {
 	var updated []string
 
@@ -968,11 +938,12 @@ type ChartPrepareOptions struct {
 	SkipCleanup   bool
 	// Validate is a helm-3-only option. When it is set to true, it configures chartify to pass --validate to helm-template run by it.
 	// It's required when one of your chart relies on Capabilities.APIVersions in a template
-	Validate    bool
-	IncludeCRDs *bool
-	Wait        bool
-	WaitForJobs bool
-	OutputDir   string
+	Validate               bool
+	IncludeCRDs            *bool
+	Wait                   bool
+	WaitForJobs            bool
+	OutputDir              string
+	IncludeTransitiveNeeds bool
 }
 
 type chartPrepareResult struct {
@@ -1026,7 +997,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
 		// releases that are (1) selected by the selectors and (2) to be installed.
-		selected, err = st.GetSelectedReleasesWithOverrides()
+		selected, err = st.GetSelectedReleasesWithOverrides(opts.IncludeTransitiveNeeds)
 		if err != nil {
 			return nil, []error{err}
 		}
@@ -2047,16 +2018,16 @@ func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
 	return rs
 }
 
-func (st *HelmState) SelectReleasesWithOverrides() ([]Release, error) {
+func (st *HelmState) SelectReleasesWithOverrides(includeTransitiveNeeds bool) ([]Release, error) {
 	values := st.Values()
-	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, st.CommonLabels, values)
+	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, st.CommonLabels, values, includeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]interface{}) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]interface{}, includeTransitiveNeeds bool) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -2113,12 +2084,52 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		}
 		filteredReleases = append(filteredReleases, res)
 	}
-
+	if includeTransitiveNeeds {
+		unmarkNeedsAndTransitives(filteredReleases, releases)
+	}
 	return filteredReleases, nil
 }
 
-func (st *HelmState) GetSelectedReleasesWithOverrides() ([]ReleaseSpec, error) {
-	filteredReleases, err := st.SelectReleasesWithOverrides()
+func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []ReleaseSpec) {
+	needsWithTranstives := collectAllNeedsWithTransitives(filteredReleases, allReleases)
+	unmarkReleases(needsWithTranstives, filteredReleases)
+}
+
+func collectAllNeedsWithTransitives(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
+	needsWithTranstives := map[string]struct{}{}
+	for _, r := range filteredReleases {
+		if !r.Filtered {
+			collectNeedsWithTransitives(r.ReleaseSpec, allReleases, needsWithTranstives)
+		}
+	}
+	return needsWithTranstives
+}
+
+func unmarkReleases(toUnmark map[string]struct{}, releases []Release) {
+	for i, r := range releases {
+		if _, ok := toUnmark[ReleaseToID(&r.ReleaseSpec)]; ok {
+			releases[i].Filtered = false
+		}
+	}
+}
+
+func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec, needsWithTranstives map[string]struct{}) {
+	for _, id := range release.Needs {
+		if _, exists := needsWithTranstives[id]; !exists {
+			needsWithTranstives[id] = struct{}{}
+			releaseParts := strings.Split(id, "/")
+			releaseName := releaseParts[len(releaseParts)-1]
+			for _, r := range allReleases {
+				if r.Name == releaseName {
+					collectNeedsWithTransitives(r, allReleases, needsWithTranstives)
+				}
+			}
+		}
+	}
+}
+
+func (st *HelmState) GetSelectedReleasesWithOverrides(includeTransitiveNeeds bool) ([]ReleaseSpec, error) {
+	filteredReleases, err := st.SelectReleasesWithOverrides(includeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}
@@ -2133,8 +2144,8 @@ func (st *HelmState) GetSelectedReleasesWithOverrides() ([]ReleaseSpec, error) {
 }
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
-func (st *HelmState) FilterReleases() error {
-	releases, err := st.GetSelectedReleasesWithOverrides()
+func (st *HelmState) FilterReleases(includeTransitiveNeeds bool) error {
+	releases, err := st.GetSelectedReleasesWithOverrides(includeTransitiveNeeds)
 	if err != nil {
 		return err
 	}
@@ -2209,7 +2220,7 @@ func (st *HelmState) ResolveDeps() (*HelmState, error) {
 }
 
 // UpdateDeps wrapper for updating dependencies on the releases
-func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
+func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds bool) []error {
 	var selected []ReleaseSpec
 
 	if len(st.Selectors) > 0 {
@@ -2217,7 +2228,7 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface) []error {
 
 		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
 		// releases that are (1) selected by the selectors and (2) to be installed.
-		selected, err = st.GetSelectedReleasesWithOverrides()
+		selected, err = st.GetSelectedReleasesWithOverrides(includeTransitiveNeeds)
 		if err != nil {
 			return []error{err}
 		}
