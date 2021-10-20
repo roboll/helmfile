@@ -917,7 +917,7 @@ With the [helm-tiller](https://github.com/rimusz/helm-tiller) plugin installed, 
 To enable this mode, you need to define `tillerless: true` and set the `tillerNamespace` in the `helmDefaults` section
 or in the `releases` entries.
 
-## DAG-aware installation/deletion ordering
+## DAG-aware installation/deletion ordering with `needs`
 
 `needs` controls the order of the installation/deletion of the release:
 
@@ -925,10 +925,10 @@ or in the `releases` entries.
 releases:
 - name: somerelease
   needs:
-  - [TILLER_NAMESPACE/][NAMESPACE/]anotherelease
+  - [[KUBECONTEXT/]NAMESPACE/]anotherelease
 ```
 
-Be aware that you have to specify the namespace name if you configured one for the release(s).
+Be aware that you have to specify the kubecontext and namespace name if you configured one for the release(s).
 
 All the releases listed under `needs` are installed before(or deleted after) the release itself.
 
@@ -963,6 +963,36 @@ On `helmfile [delete|destroy]`, deletions happen in the reverse order.
 
 That is, `myapp1` and `myapp2` are deleted first, then `servicemesh`, and finally `logging`.
 
+### Selectors and `needs`
+When using selectors/labels, `needs` are ignored by default. This behaviour can be overruled with a few parameters: 
+| Parameter | default | Description |
+|---|---|---|
+| `--skip-needs` | `true` | `needs` are ignored (default behavior).  |
+| `--include-needs` | `false` | The direct `needs` of the selected release(s) will be included. |
+| `--include-transitive-needs` | `false` | The direct and transitive `needs` of the selected release(s) will be included. |
+Let's look at an example to illustrate how the different parameters work:
+```yaml
+releases:
+- name: serviceA
+  chart: my/chart
+  needs:
+  - serviceB
+- name: serviceB
+  chart: your/chart
+  needs:
+  - serviceC
+- name: serviceC
+  chart: her/chart
+- name: serviceD
+  chart: his/chart
+```
+| Command | Included Releases Order | Explanation |
+|---|---|---|
+| `helmfile -l name=serviceA sync` | - `serviceA` | By default no needs are included. |
+| `helmfile -l name=serviceA sync --include-needs` | - `serviceB`<br>- `serviceA` | `serviceB` is now part of the release as it is a direct need of `serviceA`.  |
+| `helmfile -l name=serviceA sync --include-transitive-needs` | - `serviceC`<br>- `serviceB`<br>- `serviceA` | `serviceC` is now also part of the release as it is a direct need of `serviceB` and therefore a transitive need of `serviceA`.  | 
+
+Note that `--include-transitive-needs` will override any potential exclusions done by selectors or conditions. So even if you explicitly exclude a release via a selector it will still be part of the deployment in case it is a direct or transitive need of any of the specified releases.
 ## Separating helmfile.yaml into multiple independent files
 
 Once your `helmfile.yaml` got to contain too many releases,
