@@ -1194,8 +1194,23 @@ func collectNeeds(release state.ReleaseSpec, selectedIds map[string]struct{}, ne
 				needed[id] = struct{}{}
 				if includeTransitiveNeeds {
 					releaseParts := strings.Split(id, "/")
-					releaseName := releaseParts[len(releaseParts)-1]
+					releasePartsCount := len(releaseParts)
+					releaseName := releaseParts[releasePartsCount-1]
+					releaseNamespace := ""
+					releaseKubeContext := ""
+					if releasePartsCount > 1 {
+						releaseNamespace = releaseParts[releasePartsCount-2]
+					}
+					if releasePartsCount > 2 {
+						releaseKubeContext = releaseParts[releasePartsCount-3]
+					}
 					for _, r := range allReleases {
+						if len(releaseNamespace) > 0 && r.Namespace != releaseNamespace {
+							continue
+						}
+						if len(releaseKubeContext) > 0 && r.KubeContext != releaseKubeContext {
+							continue
+						}
 						if r.Name == releaseName {
 							collectNeeds(r, selectedIds, needed, allReleases, includeTransitiveNeeds)
 						}
