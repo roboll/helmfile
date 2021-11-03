@@ -52,7 +52,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.glob)
 		envld := state.NewEnvironmentValuesLoader(storage, ld.readFile, ld.logger, ld.remote)
 		handler := state.MissingFileHandlerError
-		vals, err := envld.LoadEnvironmentValues(&handler, args)
+		vals, err := envld.LoadEnvironmentValues(&handler, args, &environment.EmptyEnvironment)
 		if err != nil {
 			return nil, err
 		}

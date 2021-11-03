@@ -153,7 +153,7 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *envi
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
 
-	newDefaults, err := state.loadValuesEntries(nil, state.DefaultValues, c.remote)
+	newDefaults, err := state.loadValuesEntries(nil, state.DefaultValues, c.remote, ctxEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	envSpec, ok := st.Environments[name]
 	if ok {
 		var err error
-		envVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envSpec.Values, c.remote)
+		envVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envSpec.Values, c.remote, ctxEnv)
 		if err != nil {
 			return nil, err
 		}
@@ -363,13 +363,13 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 	return nil
 }
 
-func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []interface{}, remote *remote.Remote) (map[string]interface{}, error) {
+func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []interface{}, remote *remote.Remote, ctxEnv *environment.Environment) (map[string]interface{}, error) {
 	envVals := map[string]interface{}{}
 
 	valuesEntries := append([]interface{}{}, entries...)
 	ld := NewEnvironmentValuesLoader(st.storage(), st.readFile, st.logger, remote)
 	var err error
-	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries)
+	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries, ctxEnv)
 	if err != nil {
 		return nil, err
 	}
