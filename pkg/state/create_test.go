@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/remote"
 
 	"github.com/roboll/helmfile/pkg/testhelper"
@@ -117,6 +118,7 @@ baz: "{{ readFile \"baz.txt\" }}"`)
 	barYamlFile := "/example/path/to/bar.yaml.gotmpl"
 	barYamlContent := []byte(`foo: FOO
 bar: {{ readFile "bar.txt" }}
+env: {{ .Environment.Name }}
 `)
 
 	barTextFile := "/example/path/to/bar.txt"
@@ -127,6 +129,7 @@ bar: {{ readFile "bar.txt" }}
 		"bar": "BAR",
 		// As the file doesn't have an file extension ".gotmpl", this template expression should not be evaluated
 		"baz": "{{ readFile \"baz.txt\" }}",
+		"env": "production",
 	}
 
 	valuesFile := "/example/path/to/values.yaml.gotmpl"
@@ -149,8 +152,11 @@ releaseNamespace: mynamespace
 	testFs.Cwd = "/example/path/to"
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	env := environment.Environment{
+		Name: "production",
+	}
 	state, err := NewCreator(logger, testFs.ReadFile, testFs.FileExists, testFs.Abs, testFs.Glob, testFs.DirectoryExistsAt, nil, nil, "", r).
-		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil)
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, &env)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
