@@ -2692,12 +2692,15 @@ releases:
 	}
 }
 
-func TestTemplate_ApiVersions(t *testing.T) {
+func TestTemplate_ApiVersionsAndKubeVersion(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 apiVersions:
 - helmfile.test/v1
 - helmfile.test/v2
+
+kubeVersion: v1.21
+
 releases:
 - name: myrelease1
   chart: stable/mychart1
@@ -2706,7 +2709,7 @@ releases:
 
 	var helm = &mockHelmExec{}
 	var wantReleases = []mockTemplates{
-		{name: "myrelease1", chart: "stable/mychart1", flags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{name: "myrelease1", chart: "stable/mychart1", flags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--kube-version", "v1.21", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
 	}
 
 	var buffer bytes.Buffer
@@ -2743,7 +2746,7 @@ releases:
 			t.Errorf("chart = [%v], want %v", helm.templated[i].chart, wantReleases[i].chart)
 		}
 		for j := range wantReleases[i].flags {
-			if j == 7 {
+			if j == 9 {
 				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
 				if !matched {
 					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])

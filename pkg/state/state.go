@@ -61,6 +61,7 @@ type ReleaseSetSpec struct {
 	Releases            []ReleaseSpec     `yaml:"releases,omitempty"`
 	Selectors           []string          `yaml:"-"`
 	ApiVersions         []string          `yaml:"apiVersions,omitempty"`
+	KubeVersion         string            `yaml:"kubeVersion,omitempty"`
 
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
 	Hooks []event.Hook `yaml:"hooks,omitempty"`
@@ -2455,6 +2456,9 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	}
 
 	flags = st.appendApiVersionsFlags(flags)
+	if st.KubeVersion != "" {
+		flags = append(flags, "--kube-version", st.KubeVersion)
+	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
