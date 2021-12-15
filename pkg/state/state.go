@@ -2882,7 +2882,7 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 			}
 			flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
 		} else if set.File != "" {
-			flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizePath(set.File)))
+			flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), filepath.ToSlash(st.storage().normalizePath(set.File))))
 		} else if len(set.Values) > 0 {
 			renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
 			if err != nil {

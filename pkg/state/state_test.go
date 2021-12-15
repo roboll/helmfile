@@ -1069,6 +1069,31 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
 		},
 		{
+			name: "set single value from file where path has backslash",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  "foo",
+							Value: "FOO",
+						},
+						{
+							Name: "bar",
+							File: "path\\to\\bar",
+						},
+						{
+							Name:  "baz",
+							Value: "BAZ",
+						},
+					},
+				},
+			},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
+		},
+		{
 			name: "set single array value in an array",
 			releases: []ReleaseSpec{
 				{
