@@ -257,6 +257,7 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 			ForceDownload: !run.helm.IsHelm3(),
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
+			SkipCleanup:   c.SkipCleanup(),
 		}, func() {
 			ok, errs = a.writeValues(run, c)
 		})
@@ -306,6 +307,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 			ForceDownload: true,
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
+			SkipCleanup:   c.SkipCleanup(),
 		}, func() {
 			ok, lintErrs, errs = a.lint(run, c)
 		})
@@ -1553,7 +1555,8 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {
 	if len(toLint) > 0 {
 		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toLint, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			opts := &state.LintOpts{
-				Set: c.Set(),
+				Set:         c.Set(),
+				SkipCleanup: c.SkipCleanup(),
 			}
 			lintErrs := subst.LintReleases(helm, c.Values(), args, c.Concurrency(), opts)
 			if len(lintErrs) == 1 {
@@ -1926,6 +1929,7 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 		opts := &state.WriteValuesOpts{
 			Set:                c.Set(),
 			OutputFileTemplate: c.OutputFileTemplate(),
+			SkipCleanup:        c.SkipCleanup(),
 		}
 		errs = st.WriteReleasesValues(helm, c.Values(), opts)
 	}
