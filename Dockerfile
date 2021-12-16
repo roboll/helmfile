@@ -1,4 +1,4 @@
-FROM golang:1.16.3-alpine3.13 as builder
+FROM golang:1.17.5-alpine3.15 as builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
