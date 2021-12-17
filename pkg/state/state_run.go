@@ -218,6 +218,22 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 				msgs[i] = msg
 			}
 			return nil, errors.New(msgs[0])
+		} else if ude, ok := err.(*dag.UndefinedDependencyError); ok {
+			var quotedReleaseNames []string
+			for _, d := range ude.Dependents {
+				quotedReleaseNames = append(quotedReleaseNames, fmt.Sprintf("%q", d))
+			}
+
+			idComponents := strings.Split(ude.UndefinedNode, "/")
+			name := idComponents[len(idComponents)-1]
+			humanReadableUndefinedReleaseInfo := fmt.Sprintf("named %q with appropriate `namespace` and `kubeContext`", name)
+
+			return nil, fmt.Errorf(
+				"release(s) %s depend(s) on an undefined release %q. Perhaps you made a typo in `needs` or forgot defining a release %s?",
+				strings.Join(quotedReleaseNames, ", "),
+				ude.UndefinedNode,
+				humanReadableUndefinedReleaseInfo,
+			)
 		}
 		return nil, err
 	}
