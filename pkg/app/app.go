@@ -1149,29 +1149,61 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 		return nil, nil, err
 	}
 
-	selectedIds := map[string]struct{}{}
+	selectedIds := map[string]state.ReleaseSpec{}
+	selectedCounts := map[string]int{}
 	for _, r := range selected {
-		selectedIds[state.ReleaseToID(&r)] = struct{}{}
+		r := r
+		id := state.ReleaseToID(&r)
+		selectedIds[id] = r
+		selectedCounts[id]++
+
+		if dupCount := selectedCounts[id]; dupCount > 1 {
+			return nil, nil, fmt.Errorf("found %d duplicate releases with ID %q", dupCount, id)
+		}
 	}
 
 	allReleases := r.state.GetReleasesWithOverrides()
 
-	needed := map[string]struct{}{}
-	for _, r := range selected {
-		collectNeeds(r, selectedIds, needed, allReleases, includeTransitiveNeeds)
-	}
-
-	var releases []state.ReleaseSpec
-
-	releases = append(releases, selected...)
-
+	groupsByID := map[string][]*state.ReleaseSpec{}
 	for _, r := range allReleases {
-		if _, ok := needed[state.ReleaseToID(&r)]; ok {
-			releases = append(releases, r)
-		}
+		r := r
+		groupsByID[state.ReleaseToID(&r)] = append(groupsByID[state.ReleaseToID(&r)], &r)
 	}
 
-	if err := checkDuplicates(r.helm, r.state, releases); err != nil {
+	var deduplicated []state.ReleaseSpec
+
+	dedupedBefore := map[string]struct{}{}
+
+	// We iterate over allReleases rather than groupsByID
+	// to preserve the order of releases
+	for _, seq := range allReleases {
+		id := state.ReleaseToID(&seq)
+
+		rs := groupsByID[id]
+
+		if len(rs) == 1 {
+			deduplicated = append(deduplicated, *rs[0])
+			continue
+		}
+
+		if _, ok := dedupedBefore[id]; ok {
+			continue
+		}
+
+		// We keep the selected one only when there were two or more duplicate
+		// releases in the helmfile config.
+		// Otherwise we can't compute the DAG of releases correctly.
+		r, deduped := selectedIds[id]
+		if !deduped {
+			panic(fmt.Errorf("assertion error: release %q has never been selected. This shouldn't happen!", id))
+		}
+
+		deduplicated = append(deduplicated, r)
+
+		dedupedBefore[id] = struct{}{}
+	}
+
+	if err := checkDuplicates(r.helm, r.state, deduplicated); err != nil {
 		return nil, nil, err
 	}
 
@@ -1183,42 +1215,7 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 
 	a.Logger.Debugf("%d release(s)%s found in %s\n", len(selected), extra, r.state.FilePath)
 
-	return selected, releases, nil
-}
-
-func collectNeeds(release state.ReleaseSpec, selectedIds map[string]struct{}, needed map[string]struct{}, allReleases []state.ReleaseSpec, includeTransitiveNeeds bool) {
-	for _, id := range release.Needs {
-		// Avoids duplicating a release that is selected AND also needed by another selected release
-		if _, ok := selectedIds[id]; !ok {
-			if _, ok := needed[id]; !ok {
-				needed[id] = struct{}{}
-				if includeTransitiveNeeds {
-					releaseParts := strings.Split(id, "/")
-					releasePartsCount := len(releaseParts)
-					releaseName := releaseParts[releasePartsCount-1]
-					releaseNamespace := ""
-					releaseKubeContext := ""
-					if releasePartsCount > 1 {
-						releaseNamespace = releaseParts[releasePartsCount-2]
-					}
-					if releasePartsCount > 2 {
-						releaseKubeContext = releaseParts[releasePartsCount-3]
-					}
-					for _, r := range allReleases {
-						if len(releaseNamespace) > 0 && r.Namespace != releaseNamespace {
-							continue
-						}
-						if len(releaseKubeContext) > 0 && r.KubeContext != releaseKubeContext {
-							continue
-						}
-						if r.Name == releaseName {
-							collectNeeds(r, selectedIds, needed, allReleases, includeTransitiveNeeds)
-						}
-					}
-				}
-			}
-		}
-	}
+	return selected, deduplicated, nil
 }
 
 func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
@@ -1322,6 +1319,9 @@ Do you really want to apply?
 	syncErrs := []error{}
 
 	affectedReleases := state.AffectedReleases{}
+
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	st.Releases = selectedAndNeededReleases
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
@@ -1458,7 +1458,7 @@ Do you really want to delete?
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, false)
+	selectedReleases, deduplicatedReleases, err := a.getSelectedReleases(r, false)
 	if err != nil {
 		return nil, false, false, []error{err}
 	}
@@ -1477,7 +1477,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 	}
 
-	st.Releases = selectedAndNeededReleases
+	st.Releases = deduplicatedReleases
 
 	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: false})
 	if err != nil {
@@ -1731,7 +1731,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
-	st.Releases = toSyncWithNeeds
+	st.Releases = selectedAndNeededReleases
 
 	affectedReleases := state.AffectedReleases{}
 

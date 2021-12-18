@@ -1888,8 +1888,11 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 	)
 
 	for _, p := range preps {
-		if stdout, ok := outputs[ReleaseToID(p.release)]; ok {
+		id := ReleaseToID(p.release)
+		if stdout, ok := outputs[id]; ok {
 			fmt.Print(stdout.String())
+		} else {
+			panic(fmt.Sprintf("missing output for release %s", id))
 		}
 	}
 
