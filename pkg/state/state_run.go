@@ -150,15 +150,12 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		idToReleases[id] = append(idToReleases[id], r)
 		idToIndex[id] = i
 
-		// Only compute dependencies from non-filtered releases
-		if !r.Filtered {
-			var needs []string
-			for i := 0; i < len(r.Needs); i++ {
-				n := r.Needs[i]
-				needs = append(needs, n)
-			}
-			d.Add(id, dag.Dependencies(needs))
+		var needs []string
+		for i := 0; i < len(r.Needs); i++ {
+			n := r.Needs[i]
+			needs = append(needs, n)
 		}
+		d.Add(id, dag.Dependencies(needs))
 	}
 
 	var ids []string
@@ -226,10 +223,10 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 
 			idComponents := strings.Split(ude.UndefinedNode, "/")
 			name := idComponents[len(idComponents)-1]
-			humanReadableUndefinedReleaseInfo := fmt.Sprintf("named %q with appropriate `namespace` and `kubeContext`", name)
+			humanReadableUndefinedReleaseInfo := fmt.Sprintf(`named %q with appropriate "namespace" and "kubeContext"`, name)
 
 			return nil, fmt.Errorf(
-				"release(s) %s depend(s) on an undefined release %q. Perhaps you made a typo in `needs` or forgot defining a release %s?",
+				`release(s) %s depend(s) on an undefined release %q. Perhaps you made a typo in "needs" or forgot defining a release %s?`,
 				strings.Join(quotedReleaseNames, ", "),
 				ude.UndefinedNode,
 				humanReadableUndefinedReleaseInfo,

@@ -1458,7 +1458,7 @@ Do you really want to delete?
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	st := r.state
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, false)
+	selectedReleases, _, err := a.getSelectedReleases(r, false)
 	if err != nil {
 		return nil, false, false, []error{err}
 	}
@@ -1477,7 +1477,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 	}
 
-	st.Releases = selectedAndNeededReleases
+	// st.Releases = selectedAndNeededReleases
 
 	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: false})
 	if err != nil {
