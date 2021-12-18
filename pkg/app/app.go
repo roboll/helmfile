@@ -1157,20 +1157,22 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 
 	allReleases := r.state.GetReleasesWithOverrides()
 
-	sets := map[string][]*state.ReleaseSpec{}
+	groupsByID := map[string][]*state.ReleaseSpec{}
 	for _, r := range allReleases {
 		r := r
-		sets[state.ReleaseToID(&r)] = append(sets[state.ReleaseToID(&r)], &r)
+		groupsByID[state.ReleaseToID(&r)] = append(groupsByID[state.ReleaseToID(&r)], &r)
 	}
 
 	var deduplicated []state.ReleaseSpec
 
 	dedupedBefore := map[string]struct{}{}
 
+	// We iterate over allReleases rather than groupsByID
+	// to preserve the order of releases
 	for _, seq := range allReleases {
 		id := state.ReleaseToID(&seq)
 
-		rs := sets[id]
+		rs := groupsByID[id]
 
 		if len(rs) == 1 {
 			deduplicated = append(deduplicated, *rs[0])
@@ -1181,6 +1183,9 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 			continue
 		}
 
+		// We keep the selected one only when there were two or more duplicate
+		// releases in the helmfile config.
+		// Otherwise we can't compute the DAG of releases correctly.
 		r, deduped := selectedIds[id]
 		if !deduped {
 			return nil, nil, fmt.Errorf("duplicate release %q found", id)
