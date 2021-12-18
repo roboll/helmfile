@@ -1313,6 +1313,9 @@ Do you really want to apply?
 
 	affectedReleases := state.AffectedReleases{}
 
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	st.Releases = selectedAndNeededReleases
+
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
@@ -1721,7 +1724,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
-	st.Releases = toSyncWithNeeds
+	st.Releases = selectedAndNeededReleases
 
 	affectedReleases := state.AffectedReleases{}
 
