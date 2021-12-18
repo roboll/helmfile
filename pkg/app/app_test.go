@@ -4338,6 +4338,78 @@ merged environment: &{default map[] map[]}
 err: release(s) "default//foo" depend(s) on an undefined release "default/ns1/bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
 `,
 		},
+		{
+			name: "duplicate releases",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  namespace: ns1
+  chart: mychart3
+- name: foo
+  chart: mychart2
+  needs:
+  - ns1/bar
+- name: foo
+  chart: mychart1
+  needs:
+  - ns1/bar
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "bar", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
+			},
+			lists:       map[exectest.ListKey]string{},
+			upgraded:    []exectest.Release{},
+			deleted:     []exectest.Release{},
+			concurrency: 1,
+			error:       "in ./helmfile.yaml: found 2 duplicate releases with ID \"default//foo\"",
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   namespace: ns1
+ 4:   chart: mychart3
+ 5: - name: foo
+ 6:   chart: mychart2
+ 7:   needs:
+ 8:   - ns1/bar
+ 9: - name: foo
+10:   chart: mychart1
+11:   needs:
+12:   - ns1/bar
+13: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   namespace: ns1
+ 4:   chart: mychart3
+ 5: - name: foo
+ 6:   chart: mychart2
+ 7:   needs:
+ 8:   - ns1/bar
+ 9: - name: foo
+10:   chart: mychart1
+11:   needs:
+12:   - ns1/bar
+13: 
+
+merged environment: &{default map[] map[]}
+err: found 2 duplicate releases with ID "default//foo"
+`,
+		},
 	}
 
 	for i := range testcases {

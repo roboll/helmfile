@@ -1150,9 +1150,16 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 	}
 
 	selectedIds := map[string]state.ReleaseSpec{}
+	selectedCounts := map[string]int{}
 	for _, r := range selected {
 		r := r
-		selectedIds[state.ReleaseToID(&r)] = r
+		id := state.ReleaseToID(&r)
+		selectedIds[id] = r
+		selectedCounts[id]++
+
+		if dupCount := selectedCounts[id]; dupCount > 1 {
+			return nil, nil, fmt.Errorf("found %d duplicate releases with ID %q", dupCount, id)
+		}
 	}
 
 	allReleases := r.state.GetReleasesWithOverrides()
@@ -1188,7 +1195,7 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 		// Otherwise we can't compute the DAG of releases correctly.
 		r, deduped := selectedIds[id]
 		if !deduped {
-			return nil, nil, fmt.Errorf("duplicate release %q found", id)
+			panic(fmt.Errorf("assertion error: release %q has never been selected. This shouldn't happen!", id))
 		}
 
 		deduplicated = append(deduplicated, r)
