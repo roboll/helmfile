@@ -794,9 +794,10 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 			if len(st.Helmfiles) > 0 {
 				noMatchInSubHelmfiles := true
 				for i, m := range st.Helmfiles {
+					overrideValues := append(defOpts.Environment.OverrideValues, m.Environment.OverrideValues...)
 					optsForNestedState := LoadOpts{
 						CalleePath:        filepath.Join(d, f),
-						Environment:       m.Environment,
+						Environment:       state.SubhelmfileEnvironmentSpec{OverrideValues: overrideValues},
 						Reverse:           defOpts.Reverse,
 						RetainValuesFiles: defOpts.RetainValuesFiles,
 					}
