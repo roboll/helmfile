@@ -68,6 +68,10 @@ repositories:
 - name: insecure
    url: https://charts.my-insecure-domain.com
    caFile: optional_ca_crt
+# Advanced configuration: You can skip the verification of TLS for an https repo
+- name: skipTLS
+  url: https://ss.my-insecure-domain.com
+  skipTLSVerify: true
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 

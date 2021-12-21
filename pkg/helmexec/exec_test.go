@@ -89,7 +89,7 @@ func Test_AddRepo_Helm_3_3_2(t *testing.T) {
 		kubeContext: "dev",
 		runner:      &mockRunner{},
 	}
-	helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", "")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
 `
@@ -102,7 +102,7 @@ func Test_AddRepo(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
-	helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", "")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `
@@ -111,7 +111,7 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-f
 	}
 
 	buffer.Reset()
-	helm.AddRepo("myRepo", "https://repo.example.com/", "ca.crt", "", "", "", "", "", "")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "ca.crt", "", "", "", "", "", "", "")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --ca-file ca.crt
 `
@@ -120,7 +120,7 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --ca-fil
 	}
 
 	buffer.Reset()
-	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "", "", "")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "", "", "", "")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/
 `
@@ -129,7 +129,7 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/
 	}
 
 	buffer.Reset()
-	helm.AddRepo("acrRepo", "", "", "", "", "", "", "acr", "")
+	helm.AddRepo("acrRepo", "", "", "", "", "", "", "acr", "", "")
 	expected = `Adding repo acrRepo (acr)
 exec: az acr helm repo add --name acrRepo
 exec: az acr helm repo add --name acrRepo: 
@@ -139,7 +139,7 @@ exec: az acr helm repo add --name acrRepo:
 	}
 
 	buffer.Reset()
-	helm.AddRepo("otherRepo", "", "", "", "", "", "", "unknown", "")
+	helm.AddRepo("otherRepo", "", "", "", "", "", "", "unknown", "", "")
 	expected = `ERROR: unknown type 'unknown' for repository otherRepo
 `
 	if buffer.String() != expected {
@@ -147,7 +147,7 @@ exec: az acr helm repo add --name acrRepo:
 	}
 
 	buffer.Reset()
-	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", "")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", "", "")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password
 `
@@ -156,7 +156,7 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --userna
 	}
 
 	buffer.Reset()
-	helm.AddRepo("", "https://repo.example.com/", "", "", "", "", "", "", "")
+	helm.AddRepo("", "https://repo.example.com/", "", "", "", "", "", "", "", "")
 	expected = `empty field name
 
 `
@@ -165,13 +165,19 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --userna
 	}
 
 	buffer.Reset()
-	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", "true")
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", "true", "")
 	expected = `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password --pass-credentials
 `
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
+
+	buffer.Reset()
+	helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "", "", "", "true")
+	expected = `Adding repo myRepo https://repo.example.com/
+exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --insecure-skip-tls-verify
+`
 
 }
 
@@ -516,7 +522,7 @@ func Test_LogLevels(t *testing.T) {
 		buffer.Reset()
 		logger := NewLogger(&buffer, logLevel)
 		helm := MockExecer(logger, "")
-		helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", "")
+		helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", "", "")
 		if buffer.String() != expected {
 			t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 		}

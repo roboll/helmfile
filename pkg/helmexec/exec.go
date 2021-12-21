@@ -108,7 +108,7 @@ func (helm *execer) SetHelmBinary(bin string) {
 	helm.helmBinary = bin
 }
 
-func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string) error {
+func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	var args []string
 	var out []byte
 	var err error
@@ -143,6 +143,9 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		}
 		if passCredentials == "true" {
 			args = append(args, "--pass-credentials")
+		}
+		if skipTLSVerify == "true" {
+			args = append(args, "--insecure-skip-tls-verify")
 		}
 		helm.logger.Infof("Adding repo %v %v", name, repository)
 		out, err = helm.exec(args, map[string]string{})
