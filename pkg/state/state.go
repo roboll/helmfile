@@ -19,6 +19,7 @@ import (
 	"text/template"
 
 	"github.com/imdario/mergo"
+	"github.com/roboll/helmfile/pkg/runtime"
 	"github.com/variantdev/chartify"
 
 	"github.com/roboll/helmfile/pkg/environment"
@@ -2772,7 +2773,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 				return nil, err
 			}
 
-			path, err := ioutil.TempFile(os.TempDir(), "helmfile-embdedded-secrets-*.yaml.enc")
+			path, err := runtime.TempFileUniqueTempDir("", "helmfile-embdedded-secrets-*.yaml.enc")
 			if err != nil {
 				return nil, err
 			}

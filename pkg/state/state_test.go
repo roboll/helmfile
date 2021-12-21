@@ -1798,7 +1798,7 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 	var generatedDir string
 	tempDir := func(dir, prefix string) (string, error) {
 		var err error
-		generatedDir, err = ioutil.TempDir(dir, prefix)
+		generatedDir, err = os.MkdirTemp(dir, prefix)
 		if err != nil {
 			return "", err
 		}

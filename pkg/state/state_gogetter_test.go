@@ -31,7 +31,7 @@ func TestGoGetter(t *testing.T) {
 	for i, tc := range testcases {
 		test := tc
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			d, err := ioutil.TempDir("", "testgogetter")
+			d, err := os.MkdirTemp("", "testgogetter")
 			if err != nil {
 				panic(err)
 			}

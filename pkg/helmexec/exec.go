@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/roboll/helmfile/pkg/runtime"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -321,12 +322,8 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 
 	if tempFile == nil {
 		tempFile = func(content []byte) (string, error) {
-			tempDir, err := tempDir("helmfile")
-			if err != nil {
-				return "", err
-			}
 			extension := filepath.Ext(name)
-			tmpFile, err := ioutil.TempFile(tempDir, "secret*"+extension)
+			tmpFile, err := runtime.TempFileUniqueTempDir("", "secret*"+extension)
 			if err != nil {
 				return "", err
 			}
@@ -348,18 +345,6 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 	helm.logger.Debugf("Decrypted %s into %s", absPath, tmpFileName)
 
 	return tmpFileName, err
-}
-
-func tempDir(pattern string) (string, error) {
-	workDir := os.Getenv("HELMFILE_TEMPDIR")
-	if workDir == "" {
-		var err error
-		workDir, err = ioutil.TempDir(os.TempDir(), pattern)
-		if err != nil {
-			return "", err
-		}
-	}
-	return workDir, nil
 }
 
 func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {
@@ -457,10 +442,7 @@ func (helm *execer) ChartPull(chart string, flags ...string) error {
 		ociChartURLSplit := strings.Split(chart, ":")
 		ociChartURL := fmt.Sprintf("oci://%s", ociChartURLSplit[0])
 		ociChartTag := ociChartURLSplit[1]
-		tempDir, err := tempDir("chart*")
-		if err != nil {
-			return err
-		}
+		tempDir := runtime.TempDir("chart")
 		defer os.RemoveAll(tempDir)
 		helmArgs = []string{"fetch", ociChartURL, "--version", ociChartTag, "--destination", tempDir}
 	} else {
