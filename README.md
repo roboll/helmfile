@@ -217,7 +217,7 @@ releases:
     # passes --disable-openapi-validation to helm 3 diff plugin, this requires diff plugin >= 3.1.2
     # It may be helpful to deploy charts with helm api v1 CRDS
     # https://github.com/roboll/helmfile/pull/1373
-    disableOpenApiValidation: false
+    disableOpenAPIValidation: false
     # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
     historyMax: 10
     # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
