@@ -3,7 +3,6 @@ module github.com/roboll/helmfile
 go 1.14
 
 require (
-	github.com/Azure/azure-sdk-for-go v35.0.0+incompatible // indirect
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Masterminds/sprig/v3 v3.1.0
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
@@ -30,7 +29,7 @@ require (
 	github.com/urfave/cli v1.22.5
 	github.com/variantdev/chartify v0.9.1
 	github.com/variantdev/dag v1.1.0
-	github.com/variantdev/vals v0.14.0
+	github.com/variantdev/vals v0.15.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a // indirect
