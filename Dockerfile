@@ -1,4 +1,4 @@
-FROM golang:1.16.3-alpine3.13 as builder
+FROM golang:1.17.3-alpine3.13 as builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -7,12 +7,12 @@ RUN make static-linux
 
 # -----------------------------------------------------------------------------
 
-FROM alpine:3.11
+FROM alpine:3.13
 
 RUN apk add --no-cache ca-certificates git bash curl jq
 
-ARG HELM_VERSION="v3.7.0"
-ARG HELM_SHA256="096e30f54c3ccdabe30a8093f8e128dba76bb67af697b85db6ed0453a2701bf9"
+ARG HELM_VERSION="v3.7.2"
+ARG HELM_SHA256="4ae30e48966aba5f807a4e140dad6736ee1a392940101e4d79ffb4ee86200a9e"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
 
