@@ -322,13 +322,15 @@ bases:
 # Advanced Configuration: API Capabilities
 #
 # 'helmfile template' renders releases locally without querying an actual cluster,
-# and in this case `.Capabilities.APIVersions` cannot be populated.
-# When a chart queries for a specific CRD, this can lead to unexpected results.
+# and in this case `.Capabilities.APIVersions` cannot be populated. Also `Capabilities.KubeVersion` will probably be incorrect.
+# When a chart queries for a specific CRD or the Kubernetes version, this can lead to unexpected results.
 #
 # Configure a fixed list of api versions to pass to 'helm template' via the --api-versions flag:
 apiVersions:
 - example/v1
 
+# Configure a Kubernetes version to  pass to 'helm template' via the --kube-version flag:
+kubeVersion: v1.21
 ```
 
 ## Templating
