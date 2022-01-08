@@ -17,6 +17,10 @@ jobs:
       - run: go env
       - run: make build
       - run: make build-test-tools
+      - run: |
+          make tools
+          go mod vendor
+          make cross
       - save_cache:
           key: go-mod-cache-v1-{{ checksum "./go.sum" }}
           paths:
@@ -25,38 +29,42 @@ jobs:
           root: ./
           paths:
             - .
+
   image:
     docker:
-    - image: circleci/golang:1.17.3
+    - image: jdrouet/docker-with-buildx:stable
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
-    - restore_cache:
-        keys:
-        - go-mod-cache-v1-{{ checksum "./go.sum" }}
-        - go-mod-cache-v1-
-    - setup_remote_docker
+    - run: mkdir ~/build
+    - attach_workspace:
+        at: ~/build
+    - run: mv -v ~/build/dist .
+    - setup_remote_docker:
+        version: 18.09.3
     - run:
         command: |
-          make tools
-          go mod vendor
+          find dist
+          docker run --rm --privileged tonistiigi/binfmt:latest --install linux/arm64
+          apk add --no-cache make git
           ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image
 
   image_debian:
     docker:
-    - image: circleci/golang:1.17.3
+    - image: jdrouet/docker-with-buildx:stable
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
-    - restore_cache:
-        keys:
-        - go-mod-cache-v1-{{ checksum "./go.sum" }}
-        - go-mod-cache-v1-
-    - setup_remote_docker
+    - run: mkdir ~/build
+    - attach_workspace:
+        at: ~/build
+    - run: mv -v ~/build/dist .
+    - setup_remote_docker:
+        version: 18.09.3
     - run:
         command: |
-          make tools
-          go mod vendor
+          docker run --rm --privileged tonistiigi/binfmt:latest --install linux/arm64
+          apk add --no-cache make git
           ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image/debian
 
   test:
@@ -123,7 +131,8 @@ jobs:
         keys:
         - go-mod-cache-v1-{{ checksum "./go.sum" }}
         - go-mod-cache-v1-
-    - setup_remote_docker
+    - setup_remote_docker:
+        version: 18.09.3
     - run:
         no_output_timeout: 30m
         command: |
@@ -137,15 +146,12 @@ workflows:
   build_and_test:
     jobs:
       - build
-      - image
-      - image_debian
-      - test
-      - integration_tests:
+      - image:
           requires:
             - build
-          matrix:
-            parameters:
-              helm-version: ["v3.4.2", "v3.5.4", "v3.6.3", "v3.7.2"]
+      - image_debian:
+          requires:
+            - build
       - release:
           filters:
             branches:

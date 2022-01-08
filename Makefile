@@ -38,7 +38,7 @@ integration/vagrant:
 .PHONY: integration/vagrant
 
 cross:
-	env CGO_ENABLED=0 gox -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -os 'linux' -arch 'amd64 arm64' -osarch '!darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:
@@ -63,7 +63,10 @@ release: pristine cross
 .PHONY: release
 
 image:
-	docker build -t quay.io/${ORG}/helmfile:${TAG} .
+	docker buildx build \
+		--platform=linux/amd64,linux/arm64 \
+		-t quay.io/${ORG}/helmfile:${TAG} \
+		.
 
 run: image
 	docker run --rm -it -t quay.io/${ORG}/helmfile:${TAG} sh
@@ -72,7 +75,11 @@ push: image
 	docker push quay.io/${ORG}/helmfile:${TAG}
 
 image/debian:
-	docker build -f Dockerfile.debian -t quay.io/${ORG}/helmfile:${TAG}-stable-slim .
+	docker buildx build \
+		--platform=linux/amd64,linux/arm64 \
+		-f Dockerfile.debian \
+		-t quay.io/${ORG}/helmfile:${TAG}-stable-slim \
+		.
 
 push/debian: image/debian
 	docker push quay.io/${ORG}/helmfile:${TAG}-stable-slim
