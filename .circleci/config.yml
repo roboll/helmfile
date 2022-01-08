@@ -45,7 +45,7 @@ jobs:
     - run:
         command: |
           find dist
-          #docker run --rm --privileged tonistiigi/binfmt:latest --install linux/amd64,linux/arm64
+          docker run --rm --privileged tonistiigi/binfmt:latest --install linux/arm64
           apk add --no-cache make git
           ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image
 
@@ -63,7 +63,7 @@ jobs:
         version: 18.09.3
     - run:
         command: |
-          #docker run --rm --privileged tonistiigi/binfmt:latest --install linux/amd64,linux/arm64
+          docker run --rm --privileged tonistiigi/binfmt:latest --install linux/arm64
           apk add --no-cache make git
           ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image/debian
 
