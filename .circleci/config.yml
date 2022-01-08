@@ -32,17 +32,16 @@ jobs:
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
-    - restore_cache:
-        keys:
-        - go-mod-cache-v1-{{ checksum "./go.sum" }}
-        - go-mod-cache-v1-
+    - run: mkdir ~/build
+    - attach_workspace:
+        at: ~/build
+    - run: mv -v ~/build/dist .
     - setup_remote_docker:
         version: 18.09.3
     - run:
         command: |
-          make tools
-          go mod vendor
-          docker run --rm --privileged tonistiigi/binfmt:latest --install linux/amd64,linux/arm64
+          find dist
+          #docker run --rm --privileged tonistiigi/binfmt:latest --install linux/amd64,linux/arm64
           ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image
 
   image_debian:
@@ -51,17 +50,15 @@ jobs:
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
-    - restore_cache:
-        keys:
-        - go-mod-cache-v1-{{ checksum "./go.sum" }}
-        - go-mod-cache-v1-
+    - run: mkdir ~/build
+    - attach_workspace:
+        at: ~/build
+    - run: mv -v ~/build/dist .
     - setup_remote_docker:
         version: 18.09.3
     - run:
         command: |
-          make tools
-          go mod vendor
-          docker run --rm --privileged tonistiigi/binfmt:latest --install linux/amd64,linux/arm64
+          #docker run --rm --privileged tonistiigi/binfmt:latest --install linux/amd64,linux/arm64
           ORG=roboll BUILD_URL="$CIRCLE_BUILD_URL" make image/debian
 
   test:
@@ -143,8 +140,12 @@ workflows:
   build_and_test:
     jobs:
       - build
-      - image
-      - image_debian
+      - image:
+          requires:
+            - build
+      - image_debian:
+          requires:
+            - build
       - test
       - integration_tests:
           requires:
