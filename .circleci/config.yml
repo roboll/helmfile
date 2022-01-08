@@ -28,7 +28,7 @@ jobs:
 
   image:
     docker:
-    - image: docker:stable
+    - image: jdrouet/docker-with-buildx:stable
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
@@ -36,7 +36,8 @@ jobs:
         keys:
         - go-mod-cache-v1-{{ checksum "./go.sum" }}
         - go-mod-cache-v1-
-    - setup_remote_docker
+    - setup_remote_docker:
+        version: 18.09.3
     - run:
         command: |
           make tools
@@ -46,7 +47,7 @@ jobs:
 
   image_debian:
     docker:
-    - image: docker:stable
+    - image: jdrouet/docker-with-buildx:stable
     working_directory: /home/circleci/workspace/helmfile
     steps:
     - checkout
@@ -54,7 +55,8 @@ jobs:
         keys:
         - go-mod-cache-v1-{{ checksum "./go.sum" }}
         - go-mod-cache-v1-
-    - setup_remote_docker
+    - setup_remote_docker:
+        version: 18.09.3
     - run:
         command: |
           make tools
@@ -126,7 +128,8 @@ jobs:
         keys:
         - go-mod-cache-v1-{{ checksum "./go.sum" }}
         - go-mod-cache-v1-
-    - setup_remote_docker
+    - setup_remote_docker:
+        version: 18.09.3
     - run:
         no_output_timeout: 30m
         command: |
