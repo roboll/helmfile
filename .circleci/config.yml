@@ -17,6 +17,10 @@ jobs:
       - run: go env
       - run: make build
       - run: make build-test-tools
+      - run: |
+          make tools
+          go mod vendor
+          make cross
       - save_cache:
           key: go-mod-cache-v1-{{ checksum "./go.sum" }}
           paths:
