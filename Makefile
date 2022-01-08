@@ -63,7 +63,10 @@ release: pristine cross
 .PHONY: release
 
 image:
-	docker build -t quay.io/${ORG}/helmfile:${TAG} .
+	docker buildx build \
+		--platform=linux/amd64,linux/arm64 \
+		-t quay.io/${ORG}/helmfile:${TAG} \
+		.
 
 run: image
 	docker run --rm -it -t quay.io/${ORG}/helmfile:${TAG} sh
@@ -72,7 +75,11 @@ push: image
 	docker push quay.io/${ORG}/helmfile:${TAG}
 
 image/debian:
-	docker build -f Dockerfile.debian -t quay.io/${ORG}/helmfile:${TAG}-stable-slim .
+	docker buildx build \
+		--platform=linux/amd64,linux/arm64 \
+		-f Dockerfile.debian \
+		-t quay.io/${ORG}/helmfile:${TAG}-stable-slim \
+		.
 
 push/debian: image/debian
 	docker push quay.io/${ORG}/helmfile:${TAG}-stable-slim
