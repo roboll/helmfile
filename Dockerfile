@@ -46,7 +46,7 @@ RUN set -x && \
     rm kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     mv kustomize /usr/local/bin/kustomize
 
-RUN helm plugin install https://github.com/databus23/helm-diff --version v3.1.3 && \
+RUN helm plugin install https://github.com/databus23/helm-diff --version v3.2.0 && \
     helm plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0 && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.10.0 && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.10.0
