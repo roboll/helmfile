@@ -853,11 +853,19 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				}
 
 				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
-					st.logger.Warnf("warn: %v\n", err)
+					if relErr == nil {
+						relErr = newReleaseFailedError(release, err)
+					} else {
+						st.logger.Warnf("warn: %v\n", err)
+					}
 				}
 
 				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
-					st.logger.Warnf("warn: %v\n", err)
+					if relErr == nil {
+						relErr = newReleaseFailedError(release, err)
+					} else {
+						st.logger.Warnf("warn: %v\n", err)
+					}
 				}
 
 				if relErr == nil {
