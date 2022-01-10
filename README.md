@@ -322,14 +322,20 @@ bases:
 # Advanced Configuration: API Capabilities
 #
 # 'helmfile template' renders releases locally without querying an actual cluster,
-# and in this case `.Capabilities.APIVersions` cannot be populated. Also `Capabilities.KubeVersion` will probably be incorrect.
+# and in this case `.Capabilities.APIVersions` cannot be populated.
 # When a chart queries for a specific CRD or the Kubernetes version, this can lead to unexpected results.
 #
-# Configure a fixed list of api versions to pass to 'helm template' via the --api-versions flag:
+# Note that `Capabilities.KubeVersion` is deprecated in Helm 3 and `helm template` won't populate it.
+# All you can do is fix your chart to respect `.Capabilities.APIVersions` instead, rather than trying to figure out
+# how to set `Capabilities.KubeVersion` in Helmfile.
+#
+# Configure a fixed list of API versions to pass to 'helm template' via the --api-versions flag with the below:
 apiVersions:
 - example/v1
 
+# DEPRECATED: This is available only on Helm 2, which has been EOL since 2020
 # Configure a Kubernetes version to  pass to 'helm template' via the --kube-version flag:
+# See https://github.com/roboll/helmfile/pull/2002 for more information.
 kubeVersion: v1.21
 ```
 
