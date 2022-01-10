@@ -156,6 +156,7 @@ type LintConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+	SkipCleanup() bool
 
 	concurrencyConfig
 }
@@ -189,6 +190,7 @@ type WriteValuesConfigProvider interface {
 	Set() []string
 	OutputFileTemplate() string
 	SkipDeps() bool
+	SkipCleanup() bool
 	IncludeTransitiveNeeds() bool
 }
 

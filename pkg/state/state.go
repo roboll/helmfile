@@ -464,7 +464,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 	}
 
 	releases := []*ReleaseSpec{}
-	for i, _ := range st.Releases {
+	for i := range st.Releases {
 		releases = append(releases, &st.Releases[i])
 	}
 
@@ -766,15 +766,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 
 	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit, opts)
 
-	defer func() {
-		if opts.SkipCleanup {
-			return
-		}
-
-		for _, p := range preps {
-			st.removeFiles(p.files)
-		}
-	}()
+	if !opts.SkipCleanup {
+		defer func() {
+			for _, p := range preps {
+				st.removeFiles(p.files)
+			}
+		}()
+	}
 
 	if len(prepErrs) > 0 {
 		return prepErrs
@@ -1339,13 +1337,9 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		flags, files, err := st.flagsForTemplate(helm, release, 0)
 
-		defer func() {
-			if opts.SkipCleanup {
-				return
-			}
-
-			st.removeFiles(files)
-		}()
+		if !opts.SkipCleanup {
+			defer st.removeFiles(files)
+		}
 
 		if err != nil {
 			errs = append(errs, err)
@@ -1412,6 +1406,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 type WriteValuesOpts struct {
 	Set                []string
 	OutputFileTemplate string
+	SkipCleanup        bool
 }
 
 type WriteValuesOpt interface{ Apply(*WriteValuesOpts) }
@@ -1441,9 +1436,9 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 			return []error{err}
 		}
 
-		defer func() {
-			st.removeFiles(generatedFiles)
-		}()
+		if !opts.SkipCleanup {
+			defer st.removeFiles(generatedFiles)
+		}
 
 		for _, value := range additionalValues {
 			valfile, err := filepath.Abs(value)
@@ -1506,7 +1501,8 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 }
 
 type LintOpts struct {
-	Set []string
+	Set         []string
+	SkipCleanup bool
 }
 
 type LintOpt interface{ Apply(*LintOpts) }
@@ -1540,7 +1536,9 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 
 		flags, files, err := st.flagsForLint(helm, &release, 0)
 
-		defer st.removeFiles(files)
+		if !opts.SkipCleanup {
+			defer st.removeFiles(files)
+		}
 
 		if err != nil {
 			errs = append(errs, err)
@@ -1625,7 +1623,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	}
 
 	releases := []*ReleaseSpec{}
-	for i, _ := range st.Releases {
+	for i := range st.Releases {
 		if !st.Releases[i].Desired() {
 			continue
 		}
@@ -1790,13 +1788,11 @@ func (st *HelmState) createHelmContextWithWriter(spec *ReleaseSpec, w io.Writer)
 }
 
 type DiffOpts struct {
-	Context int
-	Output  string
-	NoColor bool
-	Set     []string
-
-	SkipCleanup bool
-
+	Context           int
+	Output            string
+	NoColor           bool
+	Set               []string
+	SkipCleanup       bool
 	SkipDiffOnInstall bool
 }
 
@@ -1822,15 +1818,13 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 
 	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppressSecrets, showSecrets, opts)
 
-	defer func() {
-		if opts.SkipCleanup {
-			return
-		}
-
-		for _, p := range preps {
-			st.removeFiles(p.files)
-		}
-	}()
+	if !opts.SkipCleanup {
+		defer func() {
+			for _, p := range preps {
+				st.removeFiles(p.files)
+			}
+		}()
+	}
 
 	if len(prepErrs) > 0 {
 		return []ReleaseSpec{}, prepErrs
