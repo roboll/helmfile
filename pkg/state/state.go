@@ -2075,25 +2075,13 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 			}
 		}
 		var conditionMatch bool
-		if len(r.Condition) > 0 {
-			conditionSplit := strings.Split(r.Condition, ".")
-			if len(conditionSplit) != 2 {
-				return nil, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
-			}
-			if v, ok := values[conditionSplit[0]]; ok {
-				if v == nil {
-					panic(fmt.Sprintf("environment values field '%s' is nil", conditionSplit[0]))
-				}
-				if v.(map[string]interface{})["enabled"] == true {
-					conditionMatch = true
-				}
-			} else {
-				panic(fmt.Sprintf("environment values does not contain field '%s'", conditionSplit[0]))
-			}
+		conditionMatch, err := ConditionEnabled(r, values)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse condition in release %s: %w", r.Name, err)
 		}
 		res := Release{
 			ReleaseSpec: r,
-			Filtered:    (len(filters) > 0 && !filterMatch) || (len(r.Condition) > 0 && !conditionMatch),
+			Filtered:    (len(filters) > 0 && !filterMatch) || (!conditionMatch),
 		}
 		filteredReleases = append(filteredReleases, res)
 	}
@@ -2101,6 +2089,29 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		unmarkNeedsAndTransitives(filteredReleases, releases)
 	}
 	return filteredReleases, nil
+}
+
+func ConditionEnabled(r ReleaseSpec, values map[string]interface{}) (bool, error) {
+	var conditionMatch bool
+	if len(r.Condition) == 0 {
+		return true, nil
+	}
+	conditionSplit := strings.Split(r.Condition, ".")
+	if len(conditionSplit) != 2 {
+		return false, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
+	}
+	if v, ok := values[conditionSplit[0]]; ok {
+		if v == nil {
+			panic(fmt.Sprintf("environment values field '%s' is nil", conditionSplit[0]))
+		}
+		if v.(map[string]interface{})["enabled"] == true {
+			conditionMatch = true
+		}
+	} else {
+		panic(fmt.Sprintf("environment values does not contain field '%s'", conditionSplit[0]))
+	}
+
+	return conditionMatch, nil
 }
 
 func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []ReleaseSpec) {
