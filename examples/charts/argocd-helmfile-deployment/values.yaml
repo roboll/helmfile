@@ -1,0 +1,154 @@
+# TODO - Any of the fields with TODO must be changed for the deployment to work.
+secrets:
+  harbor:
+    username: !vault internal/harbor/users/argocd#username # TODO
+    password: !vault internal/harbor/users/argocd#password # TODO
+  git:
+    username: !vault internal/git/users/argocd#username # TODO
+    password: !vault internal/git/users/argocd#password # TODO
+  vault:
+    role_id: !vault internal/vault/argocd#role_id       # TODO
+    secret_id: !vault internal/vault/argocd#secret_id   # TODO
+
+argo-cd:
+  global:
+    image:
+      repository: my.private.docker.registry.local/internal/argocd  # TODO
+      tag: 1.2.3   # TODO
+      imagePullPolicy: IfNotPresent
+    securityContext: {}
+    #  runAsUser: 999
+    #  runAsGroup: 999
+    #  fsGroup: 999
+    imagePullSecrets:
+      - name: dockerpullsecrets
+    hostAliases: []
+    # - ip: 10.20.30.40
+    #   hostnames:
+    #   - git.myhostname
+# set harbor creds in environment, set HELM_SECRET_DRIVER as well
+  server:
+    ## Argo server log format: text|json
+    logFormat: text
+    ## Argo server log level
+    logLevel: debug
+    env:
+      - name: "HELM_SECRETS_DRIVER"
+        value: "vault"
+      - name: "HARBOR_USERNAME"
+        valueFrom:
+          secretKeyRef:
+            name: argocd-harbor
+            key: username
+      - name: "HARBOR_PASSWORD"
+        valueFrom:
+          secretKeyRef:
+            name: argocd-harbor
+            key: password
+      # Unfortunately these envvars don't seem to be working correctly.
+      - name: "VAULT_APPROLE_ID"
+        valueFrom:
+          secretKeyRef:
+            name: argocd-vault
+            key: role_id
+      - name: "VAULT_APPROLE_SECRET"
+        valueFrom:
+          secretKeyRef:
+            name: argocd-vault
+            key: secret_id
+    config:
+      application.instanceLabelKey: argocd.argoproj.io/instance
+      # TODO - customise oidc.config - replace SOME_AZURE_AD_TENANT and SOME_AZURE_AD_UUID with the plaintext values
+      oidc.config: |
+        name: Azure
+        issuer: SOME_AZURE_AD_TENANT
+        clientID: SOME_AZURE_AD_UUID
+        clientSecret: $oidc.azure.clientSecret
+        requestedIDTokenClaims:
+          groups:
+            essential: true
+        requestedScopes:
+          - openid
+          - profile
+          - email
+      # TODO - customise repositories to include correct git URLs
+      repositories: |
+        - type: git
+          url: https://my.git.server.org/my-team/my-repo-one.git
+          usernameSecret:
+            key: username
+            name: argocd-git
+          passwordSecret:
+            key: password
+            name: argocd-git
+        - type: git
+          url: https://my.git.server.org/my-team/my-repo-two.git
+          usernameSecret:
+            name: argocd-git
+            key: username
+          passwordSecret:
+            name: argocd-git
+            key: password
+
+        - type: helm
+          url: https://my.harbor.deployment.org/chartrepo/my-project
+          usernameSecret:
+            name: argocd-harbor
+            key: username
+          passwordSecret:
+            name: argocd-harbor
+            key: password
+
+      url: 'https://my.argocd.deployment.org' # TODO
+      hostname: my.argocd.deployment.org      # TODO
+      configManagementPlugins: |
+        # If you just want to use helm-secrets this will work.
+        - name: helm-secrets
+          generate:                      # Command to generate manifests YAML
+            command: ["/bin/bash", "-c"]
+            args: ["echo \"$HELM_VALUES\" > ./values-local.yaml && helm secrets -d vault template $HELM_OPTS -n $ARGOCD_APP_NAMESPACE -f ./values-local.yaml $ARGOCD_APP_NAME . && rm ./values-local.yaml"]
+
+        # You can use helm-secrets via helmfile also.
+        - name: helmfile
+          init:
+            command: ["/bin/bash", "-c"]
+            args:
+              - >
+                helmfile repos ;
+                helm dependency update ;
+                true
+          generate:
+            command: ["/bin/bash", "-c"]
+            args:
+              - >
+                export VAULT_TOKEN=$(vault write auth/approle/login role_id=ROLE_ID secret_id=SECRET_ID | grep token | head -n 1 | tr -s ' ' | cut -d ' ' -f 2) &&
+                helmfile template --skip-deps
+    # ^^^ I am not sure why but I can't seem to get it working without hardcoding the secrets here :(
+    # TODO - replace ROLE_ID and SECRET_ID with the actual plaintext values
+
+    ## ArgoCD rbac config
+    ## reference https://github.com/argoproj/argo-cd/blob/master/docs/operator-manual/rbac.md
+    rbacConfig:
+      policy.csv: |
+        p, role:org-admin, applications, *, */*, allow
+        p, role:org-admin, clusters, get, *, allow
+        p, role:org-admin, repositories, get, *, allow
+        p, role:org-admin, repositories, create, *, allow
+        p, role:org-admin, repositories, update, *, allow
+        p, role:org-admin, repositories, delete, *, allow
+        g, "OrgAdmin", role:org-admin
+        g, "ReadOnly", role:readonly
+      policy.default: 'role:readonly'
+      scopes: '[roles, email]'
+
+  ## Argo Configs
+  configs:
+    secret:
+      extra:
+        oidc.azure.clientSecret: !vault internal/argocd/auth#azure_oidc_client_secret # TODO
+        harbor_username: !vault internal/harbor/users/argocd#username # TODO
+        harbor_password: !vault internal/harbor/users/argocd#password # TODO
+        git_username: !vault internal/git/users/argocd#username # TODO
+        git_password: !vault internal/git/users/argocd#password # TODO
+        vault_role_id: !vault internal/vault/argocd#role_id     # TODO
+        vault_secret_id: !vault internal/vault/argocd#secret_id # TODO
