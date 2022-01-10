@@ -1,15 +1,21 @@
-FROM golang:1.17.3-alpine3.13 as builder
+FROM golang:1.17.3-buster as builder
 
-RUN apk add --no-cache make git
+RUN apt update -qq && \
+    apt install --no-install-recommends -y make git && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace/helmfile
 COPY . /workspace/helmfile
 RUN make static-linux
 
 # -----------------------------------------------------------------------------
 
-FROM alpine:3.13
+FROM ubuntu:20.10
 
-RUN apk add --no-cache ca-certificates git bash curl jq
+RUN apt update -qq && \
+    apt install --no-install-recommends -y \
+    ca-certificates \
+    git bash curl jq pip wget && \
+    rm -rf /var/lib/apt/lists/*
 
 ARG HELM_VERSION="v3.7.2"
 ARG HELM_LOCATION="https://get.helm.sh"
@@ -45,13 +51,12 @@ RUN set -x && \
     rm kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     mv kustomize /usr/local/bin/kustomize
 
+RUN pip install sops
+
 RUN helm plugin install https://github.com/databus23/helm-diff --version v3.3.1 && \
     helm plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0 && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.10.0 && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.10.0
-
-# Allow users other than root to use helm plugins located in root home
-RUN chmod 751 /root
 
 COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 

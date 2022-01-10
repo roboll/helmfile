@@ -100,14 +100,15 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 }
 
 type PlanOptions struct {
-	Reverse          bool
-	IncludeNeeds     bool
-	SkipNeeds        bool
-	SelectedReleases []ReleaseSpec
+	Reverse                bool
+	IncludeNeeds           bool
+	IncludeTransitiveNeeds bool
+	SkipNeeds              bool
+	SelectedReleases       []ReleaseSpec
 }
 
 func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
-	marked, err := st.SelectReleasesWithOverrides()
+	marked, err := st.SelectReleasesWithOverrides(opts.IncludeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}
@@ -149,15 +150,12 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		idToReleases[id] = append(idToReleases[id], r)
 		idToIndex[id] = i
 
-		// Only compute dependencies from non-filtered releases
-		if !r.Filtered {
-			var needs []string
-			for i := 0; i < len(r.Needs); i++ {
-				n := r.Needs[i]
-				needs = append(needs, n)
-			}
-			d.Add(id, dag.Dependencies(needs))
+		var needs []string
+		for i := 0; i < len(r.Needs); i++ {
+			n := r.Needs[i]
+			needs = append(needs, n)
 		}
+		d.Add(id, dag.Dependencies(needs))
 	}
 
 	var ids []string
@@ -217,6 +215,22 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 				msgs[i] = msg
 			}
 			return nil, errors.New(msgs[0])
+		} else if ude, ok := err.(*dag.UndefinedDependencyError); ok {
+			var quotedReleaseNames []string
+			for _, d := range ude.Dependents {
+				quotedReleaseNames = append(quotedReleaseNames, fmt.Sprintf("%q", d))
+			}
+
+			idComponents := strings.Split(ude.UndefinedNode, "/")
+			name := idComponents[len(idComponents)-1]
+			humanReadableUndefinedReleaseInfo := fmt.Sprintf(`named %q with appropriate "namespace" and "kubeContext"`, name)
+
+			return nil, fmt.Errorf(
+				`release(s) %s depend(s) on an undefined release %q. Perhaps you made a typo in "needs" or forgot defining a release %s?`,
+				strings.Join(quotedReleaseNames, ", "),
+				ude.UndefinedNode,
+				humanReadableUndefinedReleaseInfo,
+			)
 		}
 		return nil, err
 	}

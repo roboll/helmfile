@@ -23,11 +23,12 @@ const (
 )
 
 type destroyConfig struct {
-	args        string
-	concurrency int
-	interactive bool
-	skipDeps    bool
-	logger      *zap.SugaredLogger
+	args                   string
+	concurrency            int
+	interactive            bool
+	skipDeps               bool
+	logger                 *zap.SugaredLogger
+	includeTransitiveNeeds bool
 }
 
 func (d destroyConfig) Args() string {
@@ -48,6 +49,10 @@ func (d destroyConfig) Concurrency() int {
 
 func (d destroyConfig) SkipDeps() bool {
 	return d.skipDeps
+}
+
+func (d destroyConfig) IncludeTransitiveNeeds() bool {
+	return d.includeTransitiveNeeds
 }
 
 func TestDestroy(t *testing.T) {

@@ -1,12 +1,13 @@
 package state
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"github.com/roboll/helmfile/pkg/remote"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/roboll/helmfile/pkg/remote"
+	"go.uber.org/zap"
 )
 
 func newLoader() *EnvironmentValuesLoader {
@@ -34,7 +35,7 @@ func newLoader() *EnvironmentValuesLoader {
 func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.5.yaml"})
+	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.5.yaml"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +53,7 @@ func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.1.yaml", "testdata/values.2.yaml"})
+	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.1.yaml", "testdata/values.2.yaml"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +75,7 @@ func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.3.yaml", "testdata/values.4.yaml"})
+	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.3.yaml", "testdata/values.4.yaml"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +98,7 @@ func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"})
+	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1227,7 +1227,7 @@ releases:
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: release "foo" depends on "bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:       `in ./helmfile.yaml: release(s) "foo" depend(s) on an undefined release "bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?`,
 			log: `processing file "helmfile.yaml" in directory "."
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
@@ -1263,7 +1263,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-err: release "foo" depends on "bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+err: release(s) "foo" depend(s) on an undefined release "bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
 `,
 		},
 	}

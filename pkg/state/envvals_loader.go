@@ -2,6 +2,8 @@ package state
 
 import (
 	"fmt"
+	"path/filepath"
+
 	"github.com/imdario/mergo"
 	"github.com/roboll/helmfile/pkg/environment"
 	"github.com/roboll/helmfile/pkg/maputil"
@@ -9,7 +11,6 @@ import (
 	"github.com/roboll/helmfile/pkg/tmpl"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"path/filepath"
 )
 
 type EnvironmentValuesLoader struct {
@@ -31,7 +32,7 @@ func NewEnvironmentValuesLoader(storage *Storage, readFile func(string) ([]byte,
 	}
 }
 
-func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []interface{}) (map[string]interface{}, error) {
+func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []interface{}, ctxEnv *environment.Environment) (map[string]interface{}, error) {
 	result := map[string]interface{}{}
 
 	for _, entry := range valuesEntries {
@@ -54,7 +55,13 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			}
 
 			for _, f := range files {
-				tmplData := EnvironmentTemplateData{environment.EmptyEnvironment, "", map[string]interface{}{}}
+				var env environment.Environment
+				if ctxEnv == nil {
+					env = environment.EmptyEnvironment
+				} else {
+					env = *ctxEnv
+				}
+				tmplData := EnvironmentTemplateData{env, "", map[string]interface{}{}}
 				r := tmpl.NewFileRenderer(ld.readFile, filepath.Dir(f), tmplData)
 				bytes, err := r.RenderToBytes(f)
 				if err != nil {

@@ -109,6 +109,7 @@ releases:
 
 	err := app.ForEachState(
 		noop,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {
@@ -160,6 +161,7 @@ BAZ: 4
 
 	err := app.ForEachState(
 		Noop,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {
@@ -201,6 +203,7 @@ releases:
 
 	err := app.ForEachState(
 		Noop,
+		false,
 		SetFilter(true),
 	)
 	if err == nil {
@@ -245,6 +248,7 @@ releases:
 
 	err := app.ForEachState(
 		Noop,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {
@@ -296,6 +300,7 @@ releases:
 
 			err := app.ForEachState(
 				Noop,
+				false,
 				SetFilter(true),
 			)
 			if testcase.expectErr && err == nil {
@@ -362,6 +367,7 @@ releases:
 
 		err := app.ForEachState(
 			Noop,
+			false,
 			SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
@@ -416,6 +422,7 @@ releases:
 
 		err := app.ForEachState(
 			Noop,
+			false,
 			SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
@@ -534,6 +541,7 @@ releases:
 
 			err := app.ForEachState(
 				collectReleases,
+				false,
 				SetFilter(true),
 			)
 			if testcase.expectErr {
@@ -777,6 +785,7 @@ func runFilterSubHelmFilesTests(testcases []struct {
 
 		err := app.ForEachState(
 			collectReleases,
+			false,
 			SetFilter(true),
 		)
 		if testcase.expectErr {
@@ -872,6 +881,7 @@ tillerNs: INLINE_TILLER_NS_2
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -973,6 +983,7 @@ releases:
 
 		err := app.ForEachState(
 			collectReleases,
+			false,
 			SetReverse(testcase.reverse),
 			SetFilter(true),
 		)
@@ -1038,6 +1049,7 @@ bar: "bar1"
 
 		err := app.ForEachState(
 			collectReleases,
+			false,
 			SetFilter(true),
 		)
 		if err != nil {
@@ -1160,6 +1172,7 @@ x:
 
 			err := app.ForEachState(
 				collectReleases,
+				false,
 				SetFilter(true),
 			)
 			if err != nil {
@@ -1212,6 +1225,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {
@@ -1269,6 +1283,7 @@ releases:
 
 			err := app.ForEachState(
 				collectReleases,
+				false,
 				SetFilter(true),
 			)
 			if err != nil {
@@ -1319,6 +1334,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -1367,6 +1383,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -1410,6 +1427,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -1453,6 +1471,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -1500,6 +1519,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 
@@ -2249,8 +2269,9 @@ type configImpl struct {
 	skipCRDs    bool
 	skipDeps    bool
 
-	skipNeeds    bool
-	includeNeeds bool
+	skipNeeds              bool
+	includeNeeds           bool
+	includeTransitiveNeeds bool
 }
 
 func (a configImpl) Selectors() []string {
@@ -2293,6 +2314,10 @@ func (c configImpl) IncludeNeeds() bool {
 	return c.includeNeeds
 }
 
+func (c configImpl) IncludeTransitiveNeeds() bool {
+	return c.includeTransitiveNeeds
+}
+
 func (c configImpl) OutputDir() string {
 	return "output/subdir"
 }
@@ -2318,30 +2343,31 @@ func (c configImpl) Output() string {
 }
 
 type applyConfig struct {
-	args              string
-	values            []string
-	retainValuesFiles bool
-	set               []string
-	validate          bool
-	skipCleanup       bool
-	skipCRDs          bool
-	skipDeps          bool
-	skipNeeds         bool
-	includeNeeds      bool
-	includeTests      bool
-	suppressSecrets   bool
-	showSecrets       bool
-	suppressDiff      bool
-	noColor           bool
-	context           int
-	diffOutput        string
-	concurrency       int
-	detailedExitcode  bool
-	interactive       bool
-	skipDiffOnInstall bool
-	logger            *zap.SugaredLogger
-	wait              bool
-	waitForJobs       bool
+	args                   string
+	values                 []string
+	retainValuesFiles      bool
+	set                    []string
+	validate               bool
+	skipCleanup            bool
+	skipCRDs               bool
+	skipDeps               bool
+	skipNeeds              bool
+	includeNeeds           bool
+	includeTransitiveNeeds bool
+	includeTests           bool
+	suppressSecrets        bool
+	showSecrets            bool
+	suppressDiff           bool
+	noColor                bool
+	context                int
+	diffOutput             string
+	concurrency            int
+	detailedExitcode       bool
+	interactive            bool
+	skipDiffOnInstall      bool
+	logger                 *zap.SugaredLogger
+	wait                   bool
+	waitForJobs            bool
 }
 
 func (a applyConfig) Args() string {
@@ -2386,6 +2412,10 @@ func (c applyConfig) SkipNeeds() bool {
 
 func (c applyConfig) IncludeNeeds() bool {
 	return c.includeNeeds
+}
+
+func (c applyConfig) IncludeTransitiveNeeds() bool {
+	return c.includeTransitiveNeeds
 }
 
 func (a applyConfig) IncludeTests() bool {
@@ -2441,11 +2471,16 @@ func (a applyConfig) SkipDiffOnInstall() bool {
 }
 
 type depsConfig struct {
-	skipRepos bool
+	skipRepos              bool
+	includeTransitiveNeeds bool
 }
 
 func (d depsConfig) SkipRepos() bool {
 	return d.skipRepos
+}
+
+func (d depsConfig) IncludeTransitiveNeeds() bool {
+	return d.includeTransitiveNeeds
 }
 
 func (d depsConfig) Args() string {
@@ -2522,7 +2557,7 @@ func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 func (helm *mockHelmExec) SetHelmBinary(bin string) {
 	return
 }
-func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string) error {
+func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.repos = append(helm.repos, mockRepo{Name: name})
 	return nil
 }
@@ -2660,12 +2695,15 @@ releases:
 	}
 }
 
-func TestTemplate_ApiVersions(t *testing.T) {
+func TestTemplate_ApiVersionsAndKubeVersion(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 apiVersions:
 - helmfile.test/v1
 - helmfile.test/v2
+
+kubeVersion: v1.21
+
 releases:
 - name: myrelease1
   chart: stable/mychart1
@@ -2674,7 +2712,7 @@ releases:
 
 	var helm = &mockHelmExec{}
 	var wantReleases = []mockTemplates{
-		{name: "myrelease1", chart: "stable/mychart1", flags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{name: "myrelease1", chart: "stable/mychart1", flags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--kube-version", "v1.21", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
 	}
 
 	var buffer bytes.Buffer
@@ -2711,7 +2749,7 @@ releases:
 			t.Errorf("chart = [%v], want %v", helm.templated[i].chart, wantReleases[i].chart)
 		}
 		for j := range wantReleases[i].flags {
-			if j == 7 {
+			if j == 9 {
 				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
 				if !matched {
 					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
@@ -4182,6 +4220,69 @@ merged environment: &{default map[] map[]}
 		// error cases
 		//
 		{
+			name:      "unselected release in needs",
+			loc:       location(),
+			selectors: []string{"name=foo"},
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  namespace: ns1
+  chart: mychart3
+- name: foo
+  chart: mychart1
+  needs:
+  - ns1/bar
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "baz", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
+			},
+			lists:       map[exectest.ListKey]string{},
+			upgraded:    []exectest.Release{},
+			deleted:     []exectest.Release{},
+			concurrency: 1,
+			error:       `in ./helmfile.yaml: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   namespace: ns1
+ 4:   chart: mychart3
+ 5: - name: foo
+ 6:   chart: mychart1
+ 7:   needs:
+ 8:   - ns1/bar
+ 9: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   namespace: ns1
+ 4:   chart: mychart3
+ 5: - name: foo
+ 6:   chart: mychart1
+ 7:   needs:
+ 8:   - ns1/bar
+ 9: 
+
+merged environment: &{default map[] map[]}
+1 release(s) matching name=foo found in helmfile.yaml
+
+err: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+`,
+		},
+		{
 			name: "non-existent release in needs",
 			loc:  location(),
 			files: map[string]string{
@@ -4193,18 +4294,18 @@ releases:
 - name: foo
   chart: mychart1
   needs:
-  - bar
+  - ns1/bar
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				exectest.DiffKey{Name: "baz", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "bar", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
 			},
 			lists:       map[exectest.ListKey]string{},
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:       "in ./helmfile.yaml: release(s) \"default//foo\" depend(s) on an undefined release \"default/ns1/bar\". Perhaps you made a typo in \"needs\" or forgot defining a release named \"bar\" with appropriate \"namespace\" and \"kubeContext\"?",
 			log: `processing file "helmfile.yaml" in directory "."
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
@@ -4217,7 +4318,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
  5: - name: foo
  6:   chart: mychart1
  7:   needs:
- 8:   - bar
+ 8:   - ns1/bar
  9: 
 
 first-pass produced: &{default map[] map[]}
@@ -4234,13 +4335,85 @@ second-pass rendering result of "helmfile.yaml.part.0":
  5: - name: foo
  6:   chart: mychart1
  7:   needs:
- 8:   - bar
+ 8:   - ns1/bar
  9: 
 
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-err: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+err: release(s) "default//foo" depend(s) on an undefined release "default/ns1/bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
+`,
+		},
+		{
+			name: "duplicate releases",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  namespace: ns1
+  chart: mychart3
+- name: foo
+  chart: mychart2
+  needs:
+  - ns1/bar
+- name: foo
+  chart: mychart1
+  needs:
+  - ns1/bar
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "bar", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				exectest.DiffKey{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
+			},
+			lists:       map[exectest.ListKey]string{},
+			upgraded:    []exectest.Release{},
+			deleted:     []exectest.Release{},
+			concurrency: 1,
+			error:       "in ./helmfile.yaml: found 2 duplicate releases with ID \"default//foo\"",
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   namespace: ns1
+ 4:   chart: mychart3
+ 5: - name: foo
+ 6:   chart: mychart2
+ 7:   needs:
+ 8:   - ns1/bar
+ 9: - name: foo
+10:   chart: mychart1
+11:   needs:
+12:   - ns1/bar
+13: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   namespace: ns1
+ 4:   chart: mychart3
+ 5: - name: foo
+ 6:   chart: mychart2
+ 7:   needs:
+ 8:   - ns1/bar
+ 9: - name: foo
+10:   chart: mychart1
+11:   needs:
+12:   - ns1/bar
+13: 
+
+merged environment: &{default map[] map[]}
+err: found 2 duplicate releases with ID "default//foo"
 `,
 		},
 	}
@@ -4485,7 +4658,8 @@ See https://github.com/roboll/helmfile/issues/878 for more information.
 				}, tc.files)
 
 				depsErr := app.Deps(depsConfig{
-					skipRepos: false,
+					skipRepos:              false,
+					includeTransitiveNeeds: false,
 				})
 
 				if tc.error == "" && depsErr != nil {
@@ -4793,6 +4967,7 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {

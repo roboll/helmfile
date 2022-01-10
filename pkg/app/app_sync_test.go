@@ -17,8 +17,9 @@ import (
 
 func TestSync(t *testing.T) {
 	type fields struct {
-		skipNeeds    bool
-		includeNeeds bool
+		skipNeeds              bool
+		includeNeeds           bool
+		includeTransitiveNeeds bool
 	}
 
 	type testcase struct {
@@ -107,11 +108,12 @@ func TestSync(t *testing.T) {
 
 			syncErr := app.Sync(applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
-				concurrency:       tc.concurrency,
-				logger:            logger,
-				skipDiffOnInstall: tc.skipDiffOnInstall,
-				skipNeeds:         tc.fields.skipNeeds,
-				includeNeeds:      tc.fields.includeNeeds,
+				concurrency:            tc.concurrency,
+				logger:                 logger,
+				skipDiffOnInstall:      tc.skipDiffOnInstall,
+				skipNeeds:              tc.fields.skipNeeds,
+				includeNeeds:           tc.fields.includeNeeds,
+				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
 			})
 
 			var gotErr string
@@ -416,11 +418,128 @@ my-release                    incubator/raw
 		})
 	})
 
+	t.Run("include-transitive-needs=true", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds:              false,
+				includeTransitiveNeeds: true,
+			},
+			error: ``,
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+{{ $mark := "a" }}
+
+releases:
+- name: serviceA
+  chart: my/chart
+  needs:
+  - serviceB
+
+- name: serviceB
+  chart: my/chart
+  needs:
+  - serviceC
+
+- name: serviceC
+  chart: my/chart
+
+- name: serviceD
+  chart: my/chart
+`,
+			},
+			selectors: []string{"name=serviceA"},
+			upgraded:  []exectest.Release{},
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			log: `processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: serviceA
+ 5:   chart: my/chart
+ 6:   needs:
+ 7:   - serviceB
+ 8: 
+ 9: - name: serviceB
+10:   chart: my/chart
+11:   needs:
+12:   - serviceC
+13: 
+14: - name: serviceC
+15:   chart: my/chart
+16: 
+17: - name: serviceD
+18:   chart: my/chart
+19: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: serviceA
+ 5:   chart: my/chart
+ 6:   needs:
+ 7:   - serviceB
+ 8: 
+ 9: - name: serviceB
+10:   chart: my/chart
+11:   needs:
+12:   - serviceC
+13: 
+14: - name: serviceC
+15:   chart: my/chart
+16: 
+17: - name: serviceD
+18:   chart: my/chart
+19: 
+
+merged environment: &{default map[] map[]}
+3 release(s) matching name=serviceA found in helmfile.yaml
+
+Affected releases are:
+  serviceA (my/chart) UPDATED
+  serviceB (my/chart) UPDATED
+  serviceC (my/chart) UPDATED
+
+processing 3 groups of releases in this order:
+GROUP RELEASES
+1     default//serviceC
+2     default//serviceB
+3     default//serviceA
+
+processing releases in group 1/3: default//serviceC
+getting deployed release version failed:unexpected list key: {^serviceC$ --kube-contextdefault--deleting--deployed--failed--pending}
+processing releases in group 2/3: default//serviceB
+getting deployed release version failed:unexpected list key: {^serviceB$ --kube-contextdefault--deleting--deployed--failed--pending}
+processing releases in group 3/3: default//serviceA
+getting deployed release version failed:unexpected list key: {^serviceA$ --kube-contextdefault--deleting--deployed--failed--pending}
+
+UPDATED RELEASES:
+NAME       CHART      VERSION
+serviceC   my/chart          
+serviceB   my/chart          
+serviceA   my/chart          
+
+`,
+		})
+	})
+
 	t.Run("skip-needs=false include-needs=true with installed but disabled release", func(t *testing.T) {
 		check(t, testcase{
 			fields: fields{
-				skipNeeds:    false,
-				includeNeeds: true,
+				skipNeeds:              false,
+				includeNeeds:           true,
+				includeTransitiveNeeds: false,
 			},
 			error: ``,
 			files: map[string]string{
@@ -561,8 +680,9 @@ kubernetes-external-secrets
 	t.Run("skip-needs=false include-needs=true with not installed and disabled release", func(t *testing.T) {
 		check(t, testcase{
 			fields: fields{
-				skipNeeds:    false,
-				includeNeeds: true,
+				skipNeeds:              false,
+				includeTransitiveNeeds: false,
+				includeNeeds:           true,
 			},
 			error: ``,
 			files: map[string]string{

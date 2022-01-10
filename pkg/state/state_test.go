@@ -890,10 +890,11 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Username:        "",
 					Password:        "",
 					PassCredentials: "",
+					SkipTLSVerify:   "",
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "", "", "", ""},
+			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "", ""},
 		},
 		{
 			name: "ACR hosted repository",
@@ -904,7 +905,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "", "", "", "", "", "", "acr", ""},
+			want: []string{"name", "", "", "", "", "", "", "acr", "", ""},
 		},
 		{
 			name: "repository with cert and key",
@@ -917,10 +918,11 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Username:        "",
 					Password:        "",
 					PassCredentials: "",
+					SkipTLSVerify:   "",
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", "", ""},
+			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", "", "", ""},
 		},
 		{
 			name: "repository with ca file",
@@ -932,10 +934,11 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Username:        "",
 					Password:        "",
 					PassCredentials: "",
+					SkipTLSVerify:   "",
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "cafile", "", "", "", "", "", ""},
+			want: []string{"name", "http://example.com/", "cafile", "", "", "", "", "", "", ""},
 		},
 		{
 			name: "repository with username and password",
@@ -948,10 +951,11 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Username:        "example_user",
 					Password:        "example_password",
 					PassCredentials: "",
+					SkipTLSVerify:   "",
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", ""},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "", ""},
 		},
 		{
 			name: "repository with username and password and pass-credentials",
@@ -964,10 +968,28 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Username:        "example_user",
 					Password:        "example_password",
 					PassCredentials: "true",
+					SkipTLSVerify:   "",
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "true"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "true", ""},
+		},
+		{
+			name: "repository with skip-tls-verify",
+			repos: []RepositorySpec{
+				{
+					Name:            "name",
+					URL:             "http://example.com/",
+					CertFile:        "",
+					KeyFile:         "",
+					Username:        "",
+					Password:        "",
+					PassCredentials: "",
+					SkipTLSVerify:   "true",
+				},
+			},
+			helm: &exectest.Helm{},
+			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "", "true"},
 		},
 	}
 	for i := range tests {
@@ -1848,7 +1870,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	})
 	fs.Cwd = basePath
 	state = injectFs(state, fs)
-	errs := state.UpdateDeps(helm)
+	errs := state.UpdateDeps(helm, false)
 
 	want := []string{"/example", "./example", generatedDir}
 	if !reflect.DeepEqual(helm.Charts, want) {
@@ -2141,7 +2163,7 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 				RenderedValues: map[string]interface{}{},
 			}
 			state.Selectors = []string{tt.labels}
-			errs := state.FilterReleases()
+			errs := state.FilterReleases(false)
 			if (errs != nil) != tt.wantErr {
 				t.Errorf("ReleaseStatuses() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 				return

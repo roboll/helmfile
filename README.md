@@ -68,6 +68,10 @@ repositories:
 - name: insecure
    url: https://charts.my-insecure-domain.com
    caFile: optional_ca_crt
+# Advanced configuration: You can skip the verification of TLS for an https repo
+- name: skipTLS
+  url: https://ss.my-insecure-domain.com
+  skipTLSVerify: true
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
@@ -213,7 +217,7 @@ releases:
     # passes --disable-openapi-validation to helm 3 diff plugin, this requires diff plugin >= 3.1.2
     # It may be helpful to deploy charts with helm api v1 CRDS
     # https://github.com/roboll/helmfile/pull/1373
-    disableOpenApiValidation: false
+    disableOpenAPIValidation: false
     # limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
     historyMax: 10
     # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
@@ -284,14 +288,14 @@ environments:
   # That is, the "production" env below is used when and only when it is run like `helmfile --environment production sync`.
   production:
     values:
-    - environment/production/values.yaml
+    - environments/production/values.yaml
     - myChartVer: 1.0.0
     # disable vault release processing
     - vault:
         enabled: false
     ## `secrets.yaml` is decrypted by `helm-secrets` and available via `{{ .Environment.Values.KEY }}`
     secrets:
-    - environment/production/secrets.yaml
+    - environments/production/secrets.yaml
     # Instructs helmfile to fail when unable to find a environment values file listed under `environments.NAME.values`.
     #
     # Possible values are  "Error", "Warn", "Info", "Debug". The default is "Error".
@@ -319,12 +323,20 @@ bases:
 #
 # 'helmfile template' renders releases locally without querying an actual cluster,
 # and in this case `.Capabilities.APIVersions` cannot be populated.
-# When a chart queries for a specific CRD, this can lead to unexpected results.
+# When a chart queries for a specific CRD or the Kubernetes version, this can lead to unexpected results.
 #
-# Configure a fixed list of api versions to pass to 'helm template' via the --api-versions flag:
+# Note that `Capabilities.KubeVersion` is deprecated in Helm 3 and `helm template` won't populate it.
+# All you can do is fix your chart to respect `.Capabilities.APIVersions` instead, rather than trying to figure out
+# how to set `Capabilities.KubeVersion` in Helmfile.
+#
+# Configure a fixed list of API versions to pass to 'helm template' via the --api-versions flag with the below:
 apiVersions:
 - example/v1
 
+# DEPRECATED: This is available only on Helm 2, which has been EOL since 2020
+# Configure a Kubernetes version to  pass to 'helm template' via the --kube-version flag:
+# See https://github.com/roboll/helmfile/pull/2002 for more information.
+kubeVersion: v1.21
 ```
 
 ## Templating
@@ -854,16 +866,20 @@ environments:
     values:
       - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
       - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
+      - git::https://gitlab.com/org/repository-name.git@/config/config.test.yaml?ref=main # Public Gilab Repo
   cluster-gcp-europe-west:
     values:
       - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
       - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
+      - git::https://ci:{{ env "CI_JOB_TOKEN" }}@gitlab.com/org/repository-name.git@/config.dev.yaml?ref={{ env "APP_COMMIT_SHA" }}  # Private Gitlab Repo
 
 ---
 
 releases:
   - ...
 ```
+
+For more information about the supported protocols see: [go-getter Protocol-Specific Options](https://github.com/hashicorp/go-getter#protocol-specific-options-1).
 
 This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
 
@@ -913,7 +929,7 @@ With the [helm-tiller](https://github.com/rimusz/helm-tiller) plugin installed, 
 To enable this mode, you need to define `tillerless: true` and set the `tillerNamespace` in the `helmDefaults` section
 or in the `releases` entries.
 
-## DAG-aware installation/deletion ordering
+## DAG-aware installation/deletion ordering with `needs`
 
 `needs` controls the order of the installation/deletion of the release:
 
@@ -921,10 +937,10 @@ or in the `releases` entries.
 releases:
 - name: somerelease
   needs:
-  - [TILLER_NAMESPACE/][NAMESPACE/]anotherelease
+  - [[KUBECONTEXT/]NAMESPACE/]anotherelease
 ```
 
-Be aware that you have to specify the namespace name if you configured one for the release(s).
+Be aware that you have to specify the kubecontext and namespace name if you configured one for the release(s).
 
 All the releases listed under `needs` are installed before(or deleted after) the release itself.
 
@@ -959,6 +975,36 @@ On `helmfile [delete|destroy]`, deletions happen in the reverse order.
 
 That is, `myapp1` and `myapp2` are deleted first, then `servicemesh`, and finally `logging`.
 
+### Selectors and `needs`
+When using selectors/labels, `needs` are ignored by default. This behaviour can be overruled with a few parameters: 
+| Parameter | default | Description |
+|---|---|---|
+| `--skip-needs` | `true` | `needs` are ignored (default behavior).  |
+| `--include-needs` | `false` | The direct `needs` of the selected release(s) will be included. |
+| `--include-transitive-needs` | `false` | The direct and transitive `needs` of the selected release(s) will be included. |
+Let's look at an example to illustrate how the different parameters work:
+```yaml
+releases:
+- name: serviceA
+  chart: my/chart
+  needs:
+  - serviceB
+- name: serviceB
+  chart: your/chart
+  needs:
+  - serviceC
+- name: serviceC
+  chart: her/chart
+- name: serviceD
+  chart: his/chart
+```
+| Command | Included Releases Order | Explanation |
+|---|---|---|
+| `helmfile -l name=serviceA sync` | - `serviceA` | By default no needs are included. |
+| `helmfile -l name=serviceA sync --include-needs` | - `serviceB`<br>- `serviceA` | `serviceB` is now part of the release as it is a direct need of `serviceA`.  |
+| `helmfile -l name=serviceA sync --include-transitive-needs` | - `serviceC`<br>- `serviceB`<br>- `serviceA` | `serviceC` is now also part of the release as it is a direct need of `serviceB` and therefore a transitive need of `serviceA`.  | 
+
+Note that `--include-transitive-needs` will override any potential exclusions done by selectors or conditions. So even if you explicitly exclude a release via a selector it will still be part of the deployment in case it is a direct or transitive need of any of the specified releases.
 ## Separating helmfile.yaml into multiple independent files
 
 Once your `helmfile.yaml` got to contain too many releases,
@@ -1148,7 +1194,7 @@ Hooks expose additional template expressions:
 
 `.Event.Name` is the name of the hook event.
 
-`.Event.Error` is the error generated by a failed release, exposed for `posysync` hooks only when a release fails, otherwise its value is `nil`.
+`.Event.Error` is the error generated by a failed release, exposed for `postsync` hooks only when a release fails, otherwise its value is `nil`.
 
 You can use the hooks event expressions to send notifications to platforms such as `Slack`, `MS Teams`, etc.
 

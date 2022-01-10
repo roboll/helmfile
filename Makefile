@@ -38,7 +38,7 @@ integration/vagrant:
 .PHONY: integration/vagrant
 
 cross:
-	env CGO_ENABLED=0 gox -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/arm64 !darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:
@@ -71,11 +71,11 @@ run: image
 push: image
 	docker push quay.io/${ORG}/helmfile:${TAG}
 
-image/helm3:
-	docker build -f Dockerfile.helm3 -t quay.io/${ORG}/helmfile:helm3-${TAG} .
+image/debian:
+	docker build -f Dockerfile.debian -t quay.io/${ORG}/helmfile:${TAG}-stable-slim .
 
-push/helm3: image/helm3
-	docker push quay.io/${ORG}/helmfile:helm3-${TAG}
+push/debian: image/debian
+	docker push quay.io/${ORG}/helmfile:${TAG}-stable-slim
 
 tools:
 	go get -u github.com/tcnksm/ghr github.com/mitchellh/gox

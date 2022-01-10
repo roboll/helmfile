@@ -23,15 +23,18 @@ type DeprecatedChartsConfigProvider interface {
 
 	concurrencyConfig
 	loggingConfig
+	IncludeTransitiveNeeds() bool
 }
 
 type DepsConfigProvider interface {
 	Args() string
 	SkipRepos() bool
+	IncludeTransitiveNeeds() bool
 }
 
 type ReposConfigProvider interface {
 	Args() string
+	IncludeTransitiveNeeds() bool
 }
 
 type ApplyConfigProvider interface {
@@ -57,11 +60,13 @@ type ApplyConfigProvider interface {
 	DiffOutput() string
 
 	RetainValuesFiles() bool
+	Validate() bool
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
 
 	SkipNeeds() bool
 	IncludeNeeds() bool
+	IncludeTransitiveNeeds() bool
 
 	concurrencyConfig
 	interactive
@@ -80,6 +85,7 @@ type SyncConfigProvider interface {
 
 	SkipNeeds() bool
 	IncludeNeeds() bool
+	IncludeTransitiveNeeds() bool
 
 	concurrencyConfig
 	loggingConfig
@@ -90,6 +96,7 @@ type DiffConfigProvider interface {
 
 	Values() []string
 	Set() []string
+	Validate() bool
 	SkipCRDs() bool
 	SkipDeps() bool
 
@@ -172,6 +179,7 @@ type TemplateConfigProvider interface {
 	OutputDir() string
 	IncludeCRDs() bool
 	IncludeNeeds() bool
+	IncludeTransitiveNeeds() bool
 
 	concurrencyConfig
 }
@@ -181,6 +189,7 @@ type WriteValuesConfigProvider interface {
 	Set() []string
 	OutputFileTemplate() string
 	SkipDeps() bool
+	IncludeTransitiveNeeds() bool
 }
 
 type StatusesConfigProvider interface {
