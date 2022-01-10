@@ -2,10 +2,11 @@ package state
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"net/url"
 	"path/filepath"
 	"sort"
+
+	"go.uber.org/zap"
 )
 
 type Storage struct {
@@ -86,7 +87,7 @@ func (st *Storage) ExpandPaths(globPattern string) ([]string, error) {
 // normalizes relative path to absolute one
 func (st *Storage) normalizePath(path string) string {
 	u, _ := url.Parse(path)
-	if u.Scheme != "" || filepath.IsAbs(path) {
+	if u != nil && (u.Scheme != "" || filepath.IsAbs(path)) {
 		return path
 	} else {
 		return st.JoinBase(path)
