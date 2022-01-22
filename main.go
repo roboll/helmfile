@@ -283,7 +283,7 @@ func main() {
 					Usage: "include CRDs in the templated output",
 				},
 				cli.BoolFlag{
-					Name: "skip-tests",
+					Name:  "skip-tests",
 					Usage: "skip tests from templated output",
 				},
 				cli.BoolFlag{
