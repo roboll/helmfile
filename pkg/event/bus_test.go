@@ -3,16 +3,12 @@ package event
 import (
 	"fmt"
 	"io"
-	"os"
 	"testing"
 
 	"github.com/roboll/helmfile/pkg/environment"
-	"github.com/roboll/helmfile/pkg/helmexec"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
-
-var logger = helmexec.NewLogger(os.Stdout, "warn")
 
 type runner struct {
 }

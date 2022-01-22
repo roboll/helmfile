@@ -158,11 +158,11 @@ func ParseKey(key string) []string {
 	for _, rune := range key {
 		split := false
 		switch {
-		case escaped == false && rune == '\\':
+		case !escaped && rune == '\\':
 			escaped = true
 			continue
 		case rune == '.':
-			split = escaped == false
+			split = !escaped
 		}
 		escaped = false
 		if split {

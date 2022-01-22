@@ -564,7 +564,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 				}
 
 				var keys []string
-				for k, _ := range r.Labels {
+				for k := range r.Labels {
 					keys = append(keys, k)
 				}
 				sort.Strings(keys)
@@ -940,7 +940,8 @@ func withBatches(templated *state.HelmState, batches [][]state.Release, helm hel
 
 		var releaseIds []string
 		for _, r := range targets {
-			releaseIds = append(releaseIds, state.ReleaseToID(&r))
+			release := r
+			releaseIds = append(releaseIds, state.ReleaseToID(&release))
 		}
 
 		logger.Debugf("processing releases in group %d/%d: %s", i+1, numBatches, strings.Join(releaseIds, ", "))
@@ -950,7 +951,7 @@ func withBatches(templated *state.HelmState, batches [][]state.Release, helm hel
 
 		processed, errs := converge(&batchSt, helm)
 
-		if errs != nil && len(errs) > 0 {
+		if len(errs) > 0 {
 			return false, errs
 		}
 
@@ -1177,7 +1178,8 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 	// We iterate over allReleases rather than groupsByID
 	// to preserve the order of releases
 	for _, seq := range allReleases {
-		id := state.ReleaseToID(&seq)
+		release := seq
+		id := state.ReleaseToID(&release)
 
 		rs := groupsByID[id]
 
@@ -1195,7 +1197,7 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 		// Otherwise we can't compute the DAG of releases correctly.
 		r, deduped := selectedIds[id]
 		if !deduped {
-			panic(fmt.Errorf("assertion error: release %q has never been selected. This shouldn't happen!", id))
+			panic(fmt.Errorf("assertion error: release %q has never been selected. This shouldn't happen", id))
 		}
 
 		deduplicated = append(deduplicated, r)
@@ -1282,11 +1284,12 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
 	for _, r := range toApplyWithNeeds {
-		id := state.ReleaseToID(&r)
+		release := r
+		id := state.ReleaseToID(&release)
 		_, uninstalled := releasesToBeDeleted[id]
 		_, updated := releasesToBeUpdated[id]
 		if !uninstalled && !updated {
-			releasesWithNoChange[id] = r
+			releasesWithNoChange[id] = release
 		}
 	}
 
@@ -1332,7 +1335,8 @@ Do you really want to apply?
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
-					if r2, ok := releasesToBeDeleted[state.ReleaseToID(&r)]; ok {
+					release := r
+					if r2, ok := releasesToBeDeleted[state.ReleaseToID(&release)]; ok {
 						rs = append(rs, r2)
 					}
 				}
@@ -1342,7 +1346,7 @@ Do you really want to apply?
 				return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency())
 			}))
 
-			if deletionErrs != nil && len(deletionErrs) > 0 {
+			if len(deletionErrs) > 0 {
 				syncErrs = append(syncErrs, deletionErrs...)
 			}
 		}
@@ -1353,7 +1357,8 @@ Do you really want to apply?
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
-					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&r)]; ok {
+					release := r
+					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&release)]; ok {
 						rs = append(rs, r2)
 					}
 				}
@@ -1370,7 +1375,7 @@ Do you really want to apply?
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
 			}))
 
-			if updateErrs != nil && len(updateErrs) > 0 {
+			if len(updateErrs) > 0 {
 				syncErrs = append(syncErrs, updateErrs...)
 			}
 		}
@@ -1401,16 +1406,18 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 
 	releasesToDelete := map[string]state.ReleaseSpec{}
 	for _, r := range toDelete {
-		id := state.ReleaseToID(&r)
-		releasesToDelete[id] = r
+		release := r
+		id := state.ReleaseToID(&release)
+		releasesToDelete[id] = release
 	}
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
 	for _, r := range toSync {
-		id := state.ReleaseToID(&r)
+		release := r
+		id := state.ReleaseToID(&release)
 		_, uninstalled := releasesToDelete[id]
 		if !uninstalled {
-			releasesWithNoChange[id] = r
+			releasesWithNoChange[id] = release
 		}
 	}
 
@@ -1446,7 +1453,7 @@ Do you really want to delete?
 				return subst.DeleteReleases(&affectedReleases, helm, c.Concurrency(), purge)
 			}))
 
-			if deletionErrs != nil && len(deletionErrs) > 0 {
+			if len(deletionErrs) > 0 {
 				errs = append(errs, deletionErrs...)
 			}
 		}
@@ -1569,7 +1576,7 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {
 			return lintErrs
 		}))
 
-		if templateErrs != nil && len(templateErrs) > 0 {
+		if len(templateErrs) > 0 {
 			errs = append(errs, templateErrs...)
 		}
 	}
@@ -1621,7 +1628,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 			return subst.ReleaseStatuses(helm, c.Concurrency())
 		}))
 
-		if templateErrs != nil && len(templateErrs) > 0 {
+		if len(templateErrs) > 0 {
 			errs = append(errs, templateErrs...)
 		}
 	}
@@ -1670,36 +1677,39 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	releasesToDelete := map[string]state.ReleaseSpec{}
 	for _, r := range toDelete {
-		id := state.ReleaseToID(&r)
-		releasesToDelete[id] = r
+		release := r
+		id := state.ReleaseToID(&release)
+		releasesToDelete[id] = release
 	}
 
 	var toUpdate []state.ReleaseSpec
 	for _, r := range toSyncWithNeeds {
-		if _, deleted := releasesToDelete[state.ReleaseToID(&r)]; !deleted {
-			if r.Installed == nil || *r.Installed {
-				toUpdate = append(toUpdate, r)
-			} else {
-				// TODO Emit error when the user opted to fail when the needed release is disabled,
-				// instead of silently ignoring it.
-				// See https://github.com/roboll/helmfile/issues/1018
+		release := r
+		if _, deleted := releasesToDelete[state.ReleaseToID(&release)]; !deleted {
+			if release.Installed == nil || *release.Installed {
+				toUpdate = append(toUpdate, release)
 			}
+			// TODO Emit error when the user opted to fail when the needed release is disabled,
+			// instead of silently ignoring it.
+			// See https://github.com/roboll/helmfile/issues/1018
 		}
 	}
 
 	releasesToUpdate := map[string]state.ReleaseSpec{}
 	for _, r := range toUpdate {
-		id := state.ReleaseToID(&r)
-		releasesToUpdate[id] = r
+		release := r
+		id := state.ReleaseToID(&release)
+		releasesToUpdate[id] = release
 	}
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
 	for _, r := range toSyncWithNeeds {
-		id := state.ReleaseToID(&r)
+		release := r
+		id := state.ReleaseToID(&release)
 		_, uninstalled := releasesToDelete[id]
 		_, updated := releasesToUpdate[id]
 		if !uninstalled && !updated {
-			releasesWithNoChange[id] = r
+			releasesWithNoChange[id] = release
 		}
 	}
 
@@ -1740,7 +1750,8 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if r2, ok := releasesToDelete[state.ReleaseToID(&r)]; ok {
+				release := r
+				if r2, ok := releasesToDelete[state.ReleaseToID(&release)]; ok {
 					rs = append(rs, r2)
 				}
 			}
@@ -1750,7 +1761,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 			return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency())
 		}))
 
-		if deletionErrs != nil && len(deletionErrs) > 0 {
+		if len(deletionErrs) > 0 {
 			errs = append(errs, deletionErrs...)
 		}
 	}
@@ -1760,8 +1771,9 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 			var rs []state.ReleaseSpec
 
 			for _, r := range subst.Releases {
-				if _, ok := releasesToDelete[state.ReleaseToID(&r)]; !ok {
-					rs = append(rs, r)
+				release := r
+				if _, ok := releasesToDelete[state.ReleaseToID(&release)]; !ok {
+					rs = append(rs, release)
 				}
 			}
 
@@ -1776,7 +1788,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 			return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 		}))
 
-		if syncErrs != nil && len(syncErrs) > 0 {
+		if len(syncErrs) > 0 {
 			errs = append(errs, syncErrs...)
 		}
 	}
@@ -1819,11 +1831,12 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 
 	releasesDisabled := map[string]state.ReleaseSpec{}
 	for _, r := range selectedReleasesWithNeeds {
-		id := state.ReleaseToID(&r)
-		if r.Installed != nil && !*r.Installed {
-			releasesDisabled[id] = r
+		release := r
+		id := state.ReleaseToID(&release)
+		if release.Installed != nil && !*release.Installed {
+			releasesDisabled[id] = release
 		} else {
-			toRender = append(toRender, r)
+			toRender = append(toRender, release)
 		}
 	}
 
@@ -1902,11 +1915,12 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 
 	releasesToWrite := map[string]state.ReleaseSpec{}
 	for _, r := range toRender {
-		id := state.ReleaseToID(&r)
-		if r.Installed != nil && !*r.Installed {
+		release := r
+		id := state.ReleaseToID(&release)
+		if release.Installed != nil && !*release.Installed {
 			continue
 		}
-		releasesToWrite[id] = r
+		releasesToWrite[id] = release
 	}
 
 	var errs []error
@@ -2053,7 +2067,7 @@ type context struct {
 }
 
 func (c context) wrapErrs(errs ...error) error {
-	if errs != nil && len(errs) > 0 {
+	if len(errs) > 0 {
 		for _, err := range errs {
 			switch e := err.(type) {
 			case *state.ReleaseError:

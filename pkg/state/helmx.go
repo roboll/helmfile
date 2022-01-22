@@ -142,9 +142,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 		filesNeedCleaning = append(filesNeedCleaning, generatedFiles...)
 
-		for _, f := range generatedFiles {
-			c.Opts.JsonPatches = append(c.Opts.JsonPatches, f)
-		}
+		c.Opts.JsonPatches = append(c.Opts.JsonPatches, generatedFiles...)
 
 		shouldRun = true
 	}
@@ -156,9 +154,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			return nil, clean, err
 		}
 
-		for _, f := range generatedFiles {
-			c.Opts.StrategicMergePatches = append(c.Opts.StrategicMergePatches, f)
-		}
+		c.Opts.StrategicMergePatches = append(c.Opts.StrategicMergePatches, generatedFiles...)
 
 		filesNeedCleaning = append(filesNeedCleaning, generatedFiles...)
 
@@ -172,9 +168,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			return nil, clean, err
 		}
 
-		for _, f := range generatedFiles {
-			c.Opts.Transformers = append(c.Opts.Transformers, f)
-		}
+		c.Opts.Transformers = append(c.Opts.Transformers, generatedFiles...)
 
 		filesNeedCleaning = append(filesNeedCleaning, generatedFiles...)
 

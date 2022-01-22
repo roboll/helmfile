@@ -1,11 +1,11 @@
 package tmpl
 
 import (
-	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/roboll/helmfile/pkg/plugins"
 	"github.com/variantdev/vals"
-	"sync"
 )
 
 //to generate mock run mockgen -source=expand_secret_ref.go -destination=expand_secrets_mock.go -package=tmpl
@@ -26,12 +26,12 @@ func fetchSecretValue(path string) (string, error) {
 
 	rendered, ok := resultMap["key"]
 	if !ok {
-		return "", errors.New(fmt.Sprintf("unexpected error occurred, %v doesn't have 'key' key", resultMap))
+		return "", fmt.Errorf("unexpected error occurred, %v doesn't have 'key' key", resultMap)
 	}
 
 	result, ok := rendered.(string)
 	if !ok {
-		return "", errors.New(fmt.Sprintf("expected %v to be string", rendered))
+		return "", fmt.Errorf("expected %v to be string", rendered)
 	}
 
 	return result, nil

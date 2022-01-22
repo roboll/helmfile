@@ -149,14 +149,6 @@ func boolValue(v bool) *bool {
 	return &v
 }
 
-// Mocking the command-line runner
-
-type mockRunner struct{}
-
-func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
-	return []byte{}, nil
-}
-
 func TestHelmState_flagsForUpgrade(t *testing.T) {
 	enable := true
 	disable := false
@@ -1122,7 +1114,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]interface{}{},
 			}
-			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); errs != nil && len(errs) > 0 {
+			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); len(errs) > 0 {
 				if len(errs) != len(tt.wantErrorMsgs) {
 					t.Fatalf("Unexpected errors: %v\nExpected: %v", errs, tt.wantErrorMsgs)
 				}
@@ -1613,7 +1605,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				RenderedValues: map[string]interface{}{},
 			}
 			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false, false)
-			if errs != nil && len(errs) > 0 {
+			if len(errs) > 0 {
 				t.Errorf("unexpected error: %v", errs)
 			}
 			if !reflect.DeepEqual(tt.helm.Diffed, tt.wantReleases) {
@@ -1695,11 +1687,11 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 				"/path/to/someFile": `foo: FOO`,
 			})
 			state = injectFs(state, testfs)
-			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); errs != nil && len(errs) > 0 {
+			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
 
-			if errs := state.Clean(); errs != nil && len(errs) > 0 {
+			if errs := state.Clean(); len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
 
@@ -1783,11 +1775,11 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 `,
 			})
 			state = injectFs(state, testfs)
-			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false, false); errs != nil && len(errs) > 0 {
+			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, false, false, false); len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
 
-			if errs := state.Clean(); errs != nil && len(errs) > 0 {
+			if errs := state.Clean(); len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
 

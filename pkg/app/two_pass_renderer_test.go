@@ -1,10 +1,11 @@
 package app
 
 import (
-	"github.com/roboll/helmfile/pkg/remote"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/remote"
 
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/state"
@@ -56,6 +57,9 @@ releases:
 
 	var state state.HelmState
 	err = yaml.Unmarshal(yamlBuf.Bytes(), &state)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if testfs.FileReaderCalls() > 2 {
 		t.Error("reader should be called only twice")
@@ -183,7 +187,10 @@ releases:
 	rendered, _ := r.renderTemplatesToYaml("", "", yamlContent)
 
 	var state state.HelmState
-	yaml.Unmarshal(rendered.Bytes(), &state)
+	err := yaml.Unmarshal(rendered.Bytes(), &state)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if len(state.Releases) != 1 {
 		t.Fatal("there should be 1 release")
@@ -210,6 +217,9 @@ func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 
 	var state state.HelmState
 	err = yaml.Unmarshal(yamlBuf.Bytes(), &state)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if state.Releases[0].Name != "namespace-myrelease" {
 		t.Errorf("release name should be namespace-myrelease")

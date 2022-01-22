@@ -155,17 +155,19 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 
 	releasesToBeDeleted := map[string]state.ReleaseSpec{}
 	for _, r := range deletingReleases {
-		id := state.ReleaseToID(&r)
-		releasesToBeDeleted[id] = r
+		release := r
+		id := state.ReleaseToID(&release)
+		releasesToBeDeleted[id] = release
 	}
 
 	releasesToBeUpdated := map[string]state.ReleaseSpec{}
 	for _, r := range changedReleases {
-		id := state.ReleaseToID(&r)
+		release := r
+		id := state.ReleaseToID(&release)
 
 		// If `helm-diff` detected changes but it is not being `helm delete`ed, we should run `helm upgrade`
 		if _, ok := releasesToBeDeleted[id]; !ok {
-			releasesToBeUpdated[id] = r
+			releasesToBeUpdated[id] = release
 		}
 	}
 

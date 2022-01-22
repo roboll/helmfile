@@ -1,9 +1,10 @@
 package argparser
 
 import (
-	"github.com/roboll/helmfile/pkg/state"
 	"strings"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/state"
 )
 
 func TestGetArgs(t *testing.T) {
@@ -44,10 +45,5 @@ func Test2(t *testing.T) {
 }
 
 func compareArgs(expectedArgs string, args []string) bool {
-
-	if strings.Compare(strings.Join(args, " "), expectedArgs) != 0 {
-		return false
-	}
-	return true
-
+	return strings.Compare(strings.Join(args, " "), expectedArgs) == 0
 }
