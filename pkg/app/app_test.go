@@ -2268,6 +2268,7 @@ type configImpl struct {
 	skipCleanup bool
 	skipCRDs    bool
 	skipDeps    bool
+	skipTests   bool
 
 	skipNeeds              bool
 	includeNeeds           bool
@@ -2308,6 +2309,10 @@ func (c configImpl) SkipDeps() bool {
 
 func (c configImpl) SkipNeeds() bool {
 	return c.skipNeeds
+}
+
+func (c configImpl) SkipTests() bool {
+	return c.skipTests
 }
 
 func (c configImpl) IncludeNeeds() bool {

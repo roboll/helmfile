@@ -1307,6 +1307,7 @@ type TemplateOpts struct {
 	SkipCleanup       bool
 	OutputDirTemplate string
 	IncludeCRDs       bool
+	SkipTests         bool
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -1383,6 +1384,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		if opts.IncludeCRDs {
 			flags = append(flags, "--include-crds")
+		}
+
+		if opts.SkipTests {
+			flags = append(flags, "--skip-tests")
 		}
 
 		if len(errs) == 0 {

@@ -1858,6 +1858,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 				IncludeCRDs:       c.IncludeCRDs(),
 				OutputDirTemplate: c.OutputDirTemplate(),
 				SkipCleanup:       c.SkipCleanup(),
+				SkipTests:         c.SkipTests(),
 			}
 			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 		}))

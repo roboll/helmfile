@@ -283,6 +283,10 @@ func main() {
 					Usage: "include CRDs in the templated output",
 				},
 				cli.BoolFlag{
+					Name:  "skip-tests",
+					Usage: "skip tests from templated output",
+				},
+				cli.BoolFlag{
 					Name:  "include-needs",
 					Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
 				},
@@ -932,6 +936,10 @@ func (c configImpl) EmbedValues() bool {
 
 func (c configImpl) IncludeCRDs() bool {
 	return c.c.Bool("include-crds")
+}
+
+func (c configImpl) SkipTests() bool {
+	return c.c.Bool("skip-tests")
 }
 
 func (c configImpl) Logger() *zap.SugaredLogger {
