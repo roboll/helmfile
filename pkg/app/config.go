@@ -177,6 +177,7 @@ type TemplateConfigProvider interface {
 	Validate() bool
 	SkipDeps() bool
 	SkipCleanup() bool
+	SkipTests() bool
 	OutputDir() string
 	IncludeCRDs() bool
 	IncludeNeeds() bool
