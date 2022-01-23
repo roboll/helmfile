@@ -133,13 +133,16 @@ func (c *Context) ReadFile(filename string) (string, error) {
 }
 
 func (c *Context) ReadDir(path string) ([]string, error) {
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(c.basePath, path)
+	var contextPath string
+	if filepath.IsAbs(path) {
+		contextPath = path
+	} else {
+		contextPath = filepath.Join(c.basePath, path)
 	}
 
-	entries, err := os.ReadDir(path)
+	entries, err := os.ReadDir(contextPath)
 	if err != nil {
-		return nil, fmt.Errorf("ReadDir %q: %w", path, err)
+		return nil, fmt.Errorf("ReadDir %q: %w", contextPath, err)
 	}
 
 	var filenames []string
