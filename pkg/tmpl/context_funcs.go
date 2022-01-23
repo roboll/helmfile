@@ -2,9 +2,6 @@ package tmpl
 
 import (
 	"fmt"
-	"github.com/ghodss/yaml"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"os"
 	"os/exec"
@@ -12,6 +9,10 @@ import (
 	"reflect"
 	"strings"
 	"text/template"
+
+	"github.com/ghodss/yaml"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"golang.org/x/sync/errgroup"
 )
 
 type Values = map[string]interface{}
@@ -132,16 +133,15 @@ func (c *Context) ReadFile(filename string) (string, error) {
 }
 
 func (c *Context) ReadDir(path string) ([]string, error) {
-    var context_path string
-	if filepath.IsAbs(path) {
-        context_path = path
-	} else {
-		context_path = filepath.Join(c.basePath, path)
-    }
-	entries, err := os.ReadDir(context_path)
-	if err != nil {
-		return nil, err
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(c.basePath, path)
 	}
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, fmt.Errorf("ReadDir %q: %w", path, err)
+	}
+
 	var filenames []string
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -149,6 +149,7 @@ func (c *Context) ReadDir(path string) ([]string, error) {
 		}
 		filenames = append(filenames, filepath.Join(path, entry.Name()))
 	}
+
 	return filenames, nil
 }
 
