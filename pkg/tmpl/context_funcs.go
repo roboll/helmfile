@@ -2,9 +2,6 @@ package tmpl
 
 import (
 	"fmt"
-	"github.com/ghodss/yaml"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"os"
 	"os/exec"
@@ -12,6 +9,10 @@ import (
 	"reflect"
 	"strings"
 	"text/template"
+
+	"github.com/ghodss/yaml"
+	"github.com/roboll/helmfile/pkg/helmexec"
+	"golang.org/x/sync/errgroup"
 )
 
 type Values = map[string]interface{}
@@ -20,7 +21,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 	funcMap := template.FuncMap{
 		"exec":             c.Exec,
 		"readFile":         c.ReadFile,
-		"readDir":          ReadDir,
+		"readDir":          c.ReadDir,
 		"toYaml":           ToYaml,
 		"fromYaml":         FromYaml,
 		"setValueAtPath":   SetValueAtPath,
@@ -131,11 +132,16 @@ func (c *Context) ReadFile(filename string) (string, error) {
 	return string(bytes), nil
 }
 
-func ReadDir(path string) ([]string, error) {
+func (c *Context) ReadDir(path string) ([]string, error) {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(c.basePath, path)
+	}
+
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadDir %q: %w", path, err)
 	}
+
 	var filenames []string
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -143,6 +149,7 @@ func ReadDir(path string) ([]string, error) {
 		}
 		filenames = append(filenames, filepath.Join(path, entry.Name()))
 	}
+
 	return filenames, nil
 }
 
