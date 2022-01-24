@@ -39,9 +39,14 @@ type Chartify struct {
 	Clean func()
 }
 
-func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
-	pathElems := []string{
-		remote.DefaultCacheDir,
+// downloadChartWithGoGetter downloads chart in ReleaseSpec to dir directory
+func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec, dir string) (string, error) {
+	var pathElems []string
+
+	if dir == "" {
+		pathElems = append(pathElems, remote.DefaultCacheDir)
+	} else {
+		pathElems = append(pathElems, dir)
 	}
 
 	if r.Namespace != "" {

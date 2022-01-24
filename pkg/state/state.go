@@ -1069,7 +1069,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				chartName := release.Chart
 
-				chartPath, err := st.downloadChartWithGoGetter(release)
+				chartPath, err := st.downloadChartWithGoGetter(release, dir)
 				if err != nil {
 					results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
 					return
