@@ -1220,4 +1220,65 @@ releases:
 			concurrency: 1,
 		})
 	})
+
+	t.Run("select non existant release with --allow-no-matching-release", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+
+- name: bar
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+`,
+			},
+			selectors: []string{"app=foo"},
+			upgraded:  []exectest.Release{},
+			error:     "err: no releases found that matches specified selector(app=foo) and environment(default), in any helmfile",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+		})
+	})
+
+	t.Run("select single release from helmfile with two duplicates", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+
+- name: bar
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: build
+
+- name: bar
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+`,
+			},
+			selectors: []string{"name=foo"},
+			upgraded:  []exectest.Release{},
+			diffs: map[exectest.DiffKey]error{
+				exectest.DiffKey{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			error: "",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+		})
+	})
 }

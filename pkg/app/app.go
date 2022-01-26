@@ -1203,13 +1203,11 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 		// releases in the helmfile config.
 		// Otherwise we can't compute the DAG of releases correctly.
 		r, deduped := selectedIds[id]
-		if !deduped {
-			panic(fmt.Errorf("assertion error: release %q has never been selected. This shouldn't happen!", id))
+		if deduped {
+			deduplicated = append(deduplicated, r)
+
+			dedupedBefore[id] = struct{}{}
 		}
-
-		deduplicated = append(deduplicated, r)
-
-		dedupedBefore[id] = struct{}{}
 	}
 
 	if err := checkDuplicates(r.helm, r.state, deduplicated); err != nil {
