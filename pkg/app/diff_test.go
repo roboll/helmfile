@@ -27,6 +27,7 @@ type diffConfig struct {
 	includeTests      bool
 	includeNeeds      bool
 	skipNeeds         bool
+	suppress          []string
 	suppressSecrets   bool
 	showSecrets       bool
 	suppressDiff      bool
@@ -74,6 +75,10 @@ func (a diffConfig) IncludeNeeds() bool {
 
 func (a diffConfig) SkipNeeds() bool {
 	return a.skipNeeds
+}
+
+func (a diffConfig) Suppress() []string {
+	return a.suppress
 }
 
 func (a diffConfig) SuppressSecrets() bool {
