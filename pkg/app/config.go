@@ -49,6 +49,7 @@ type ApplyConfigProvider interface {
 
 	IncludeTests() bool
 
+	Suppress() []string
 	SuppressSecrets() bool
 	ShowSecrets() bool
 	SuppressDiff() bool
@@ -102,6 +103,7 @@ type DiffConfigProvider interface {
 
 	IncludeTests() bool
 
+	Suppress() []string
 	SuppressSecrets() bool
 	ShowSecrets() bool
 	SuppressDiff() bool

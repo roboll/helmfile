@@ -2360,6 +2360,7 @@ type applyConfig struct {
 	includeNeeds           bool
 	includeTransitiveNeeds bool
 	includeTests           bool
+	suppress               []string
 	suppressSecrets        bool
 	showSecrets            bool
 	suppressDiff           bool
@@ -2425,6 +2426,10 @@ func (c applyConfig) IncludeTransitiveNeeds() bool {
 
 func (a applyConfig) IncludeTests() bool {
 	return a.includeTests
+}
+
+func (a applyConfig) Suppress() []string {
+	return a.suppress
 }
 
 func (a applyConfig) SuppressSecrets() bool {
