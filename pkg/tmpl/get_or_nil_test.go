@@ -53,6 +53,26 @@ func TestGetMap(t *testing.T) {
 	}
 }
 
+func TestGetMapPtr(t *testing.T) {
+	obj := map[string]interface{}{"Foo": map[string]interface{}{"Bar": "Bar"}}
+	objPrt := &obj
+
+	v1, err := get("Foo.Bar", objPrt)
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if v1 != "Bar" {
+		t.Errorf("unexpected value for path Foo.Bar in %v: expected=Bar, actual=%v", objPrt, v1)
+	}
+
+	_, err = get("Foo.baz", objPrt)
+
+	if err == nil {
+		t.Errorf("expected error but was not occurred")
+	}
+}
+
 func TestGet_Default(t *testing.T) {
 	obj := map[string]interface{}{"Foo": map[string]interface{}{}, "foo": 1}
 
