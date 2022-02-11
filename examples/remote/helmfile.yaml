@@ -1,0 +1,10 @@
+helmfiles:
+- path: git::https://github.com/cloudposse/helmfiles.git@releases/echo-server/helmfile.yaml?ref=master
+  values:
+  - installed: true
+    stage: test
+    environment: test
+
+releases:
+- name: apache
+  chart: git::https://github.com/bitnami/charts.git@bitnami/apache?ref=master
