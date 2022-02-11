@@ -998,12 +998,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		opts.Environment.OverrideValues = envvals
 	}
 
-	dir, err := a.getwd()
-	if err != nil {
-		return err
-	}
-
-	a.remote = remote.NewRemote(a.Logger, dir, a.readFile, a.directoryExistsAt, a.fileExistsAt)
+	a.remote = remote.NewRemote(a.Logger, "", a.readFile, a.directoryExistsAt, a.fileExistsAt)
 
 	f := converge
 	if opts.Filter {
@@ -2098,7 +2093,6 @@ func (a *App) ShowCacheDir(c ListConfigProvider) error {
 
 func (a *App) CleanCacheDir(c ListConfigProvider) error {
 	if !directoryExistsAt(remote.CacheDir()) {
-		fmt.Printf("Nothing to remove in cache directory: %s\n", remote.CacheDir())
 		return nil
 	}
 	fmt.Printf("Cleaning up cache directory: %s\n", remote.CacheDir())
