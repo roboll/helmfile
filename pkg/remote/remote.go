@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 const DefaultCacheDir = ".helmfile/cache"
@@ -267,6 +268,9 @@ func (g *GoGetter) Get(wd, src, dst string) error {
 }
 
 func NewRemote(logger *zap.SugaredLogger, homeDir string, readFile func(string) ([]byte, error), dirExists func(string) bool, fileExists func(string) bool) *Remote {
+	if os.Getenv("DISABLE_INSECURE_FEATURES") == "true" {
+		panic("Remote sources are disabled due to 'DISABLE_INSECURE_FEATURES'")
+	}
 	remote := &Remote{
 		Logger:     logger,
 		Home:       homeDir,
