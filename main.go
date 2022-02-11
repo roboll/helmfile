@@ -691,6 +691,27 @@ func main() {
 			}),
 		},
 		{
+			Name:      "cache",
+			Usage:     "cache management",
+			ArgsUsage: "[command]",
+			Subcommands: []cli.Command{
+				{
+					Name:  "info",
+					Usage: "cache info",
+					Action: action(func(a *app.App, c configImpl) error {
+						return a.ShowCacheDir(c)
+					}),
+				},
+				{
+					Name:  "cleanup",
+					Usage: "clean up cache directory",
+					Action: action(func(a *app.App, c configImpl) error {
+						return a.CleanCacheDir(c)
+					}),
+				},
+			},
+		},
+		{
 			Name:      "version",
 			Usage:     "Show the version for Helmfile.",
 			ArgsUsage: "[command]",

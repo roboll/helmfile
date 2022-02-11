@@ -2078,3 +2078,38 @@ func (c context) wrapErrs(errs ...error) error {
 	}
 	return nil
 }
+
+func (a *App) ShowCacheDir(c ListConfigProvider) error {
+	fmt.Printf("Cache directory: %s\n", remote.CacheDir())
+
+	if !directoryExistsAt(remote.CacheDir()) {
+		return nil
+	}
+	dirs, err := os.ReadDir(remote.CacheDir())
+	if err != nil {
+		return err
+	}
+	for _, e := range dirs {
+		fmt.Printf("- %s\n", e.Name())
+	}
+
+	return nil
+}
+
+func (a *App) CleanCacheDir(c ListConfigProvider) error {
+	if !directoryExistsAt(remote.CacheDir()) {
+		fmt.Printf("Nothing to remove in cache directory: %s\n", remote.CacheDir())
+		return nil
+	}
+	fmt.Printf("Cleaning up cache directory: %s\n", remote.CacheDir())
+	dirs, err := os.ReadDir(remote.CacheDir())
+	if err != nil {
+		return err
+	}
+	for _, e := range dirs {
+		fmt.Printf("- %s\n", e.Name())
+		os.RemoveAll(filepath.Join(remote.CacheDir(), e.Name()))
+	}
+
+	return nil
+}

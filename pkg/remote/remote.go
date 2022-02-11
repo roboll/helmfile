@@ -17,7 +17,7 @@ import (
 
 const defaultCacheDir = "helmfile"
 
-func cacheDir() string {
+func CacheDir() string {
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		// fall back to relative path with hidden directory
@@ -204,7 +204,7 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 	// e.g. https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
 	getterDst := filepath.Join(cacheBaseDir, cacheKey)
 
-	// e.g. os.cacheDir()/helmfile/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
+	// e.g. os.CacheDir()/helmfile/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
 	cacheDirPath := filepath.Join(r.Home, getterDst)
 
 	r.Logger.Debugf("home: %s", r.Home)
@@ -292,7 +292,7 @@ func NewRemote(logger *zap.SugaredLogger, homeDir string, readFile func(string) 
 
 	if remote.Home == "" {
 		// Use for remote charts
-		remote.Home = cacheDir()
+		remote.Home = CacheDir()
 	} else {
 		// Use for remote helmfiles, this case Home is relative to the processing file
 		remote.Home = filepath.Join(remote.Home, relativeCacheDir())
