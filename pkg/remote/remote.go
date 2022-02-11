@@ -15,20 +15,13 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const defaultCacheDir = "helmfile"
-
 func CacheDir() string {
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		// fall back to relative path with hidden directory
-		return relativeCacheDir()
+		return ".helmfile"
 	}
-	return filepath.Join(dir, defaultCacheDir)
-}
-
-// TODO remove this function when rework on caching of remote helmfiles
-func relativeCacheDir() string {
-	return fmt.Sprintf(".%s", defaultCacheDir)
+	return filepath.Join(dir, "helmfile")
 }
 
 type Remote struct {
@@ -293,9 +286,6 @@ func NewRemote(logger *zap.SugaredLogger, homeDir string, readFile func(string) 
 	if remote.Home == "" {
 		// Use for remote charts
 		remote.Home = CacheDir()
-	} else {
-		// Use for remote helmfiles, this case Home is relative to the processing file
-		remote.Home = filepath.Join(remote.Home, relativeCacheDir())
 	}
 
 	return remote
