@@ -41,6 +41,13 @@ func (c *Context) createFuncMap() template.FuncMap {
 		funcMap["readFile"] = func(string) (string, error) {
 			return "", nil
 		}
+	} else if os.Getenv("DISABLE_INSECURE_FEATURES") == "true" {
+		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
+			return "", nil
+		}
+		funcMap["readFile"] = func(string) (string, error) {
+			return "", nil
+		}
 	}
 
 	return funcMap
