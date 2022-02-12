@@ -40,9 +40,7 @@ type Chartify struct {
 }
 
 func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
-	pathElems := []string{
-		remote.DefaultCacheDir,
-	}
+	var pathElems []string
 
 	if r.Namespace != "" {
 		pathElems = append(pathElems, r.Namespace)
@@ -70,7 +68,7 @@ func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (str
 			return "", fmt.Errorf("Parsing url from dir failed due to error %q.\nContinuing the process assuming this is a regular Helm chart or a local dir.", err.Error())
 		}
 	} else {
-		r := remote.NewRemote(st.logger, st.basePath, st.readFile, directoryExistsAt, fileExistsAt)
+		r := remote.NewRemote(st.logger, "", st.readFile, directoryExistsAt, fileExistsAt)
 
 		fetchedDir, err := r.Fetch(chart, cacheDir)
 		if err != nil {

@@ -49,6 +49,7 @@ type ApplyConfigProvider interface {
 
 	IncludeTests() bool
 
+	Suppress() []string
 	SuppressSecrets() bool
 	ShowSecrets() bool
 	SuppressDiff() bool
@@ -102,6 +103,7 @@ type DiffConfigProvider interface {
 
 	IncludeTests() bool
 
+	Suppress() []string
 	SuppressSecrets() bool
 	ShowSecrets() bool
 	SuppressDiff() bool
@@ -156,6 +158,7 @@ type LintConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+	SkipCleanup() bool
 
 	concurrencyConfig
 }
@@ -176,6 +179,7 @@ type TemplateConfigProvider interface {
 	Validate() bool
 	SkipDeps() bool
 	SkipCleanup() bool
+	SkipTests() bool
 	OutputDir() string
 	IncludeCRDs() bool
 	IncludeNeeds() bool
@@ -189,6 +193,7 @@ type WriteValuesConfigProvider interface {
 	Set() []string
 	OutputFileTemplate() string
 	SkipDeps() bool
+	SkipCleanup() bool
 	IncludeTransitiveNeeds() bool
 }
 

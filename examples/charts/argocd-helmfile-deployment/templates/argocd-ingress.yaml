@@ -1,0 +1,26 @@
+kind: Ingress
+apiVersion: extensions/v1beta1
+metadata:
+  name: argocd-ingress
+  namespace: argocd
+  labels:
+    app: argocd
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/name: argocd-ingress
+    app.kubernetes.io/part-of: argocd
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.argo-cd.server.config.hostname }}
+spec:
+  tls:
+    - hosts:
+        - {{ .Values.argo-cd.server.config.hostname }}
+      secretName: argocd-secret
+  rules:
+    - host: {{ .Values.argo-cd.server.config.hostname }}
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: argocd-server
+              servicePort: http

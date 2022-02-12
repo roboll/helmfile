@@ -1,0 +1,43 @@
+#   What is a helmfile? Read here...
+#   https://github.com/roboll/helmfile
+
+# Before deployment, export the required env vars
+# export HELM_SECRETS_DRIVER=vault
+
+# Commands to deploy:
+# helmfile deps   # < download dependencies
+# helmfile template # < template stuff. You might have to be signed into vault
+# helmfile sync   # < deploy everything
+# helmfile apply  # < deploy diff only
+
+helmDefaults:
+  wait: true
+  timeout: 600
+  recreatePods: true
+  force: false
+
+commonLabels:
+  system: argocd
+
+releases:
+  - name: argocd                           # name of this release
+    namespace: argocd                      # target namespace
+    createNamespace: true                  # helm 3.2+ automatically create release namespace (default true)
+    labels:                                # Arbitrary key value pairs for filtering releases
+      env: prod
+    chart: "."                             # the chart being installed to create this release, referenced by `repository/chart` syntax
+    version: 3.2.2                         # the semver of the chart. range constraint is supported
+    missingFileHandler: Warn # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
+
+    # will attempt to decrypt secrets using helm-secrets plugin
+    secrets:
+      # {{ requiredEnv "HELM_SECRETS_DRIVER" }}
+      - values.yaml
+    verify: false
+    wait: true
+    timeout: 600
+    recreatePods: true
+    force: false
+    installed: true
+    atomic: true
+    cleanupOnFail: false

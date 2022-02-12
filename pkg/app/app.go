@@ -61,6 +61,7 @@ type HelmRelease struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 	Enabled   bool   `json:"enabled"`
+	Installed bool   `json:"installed"`
 	Labels    string `json:"labels"`
 	Chart     string `json:"chart"`
 	Version   string `json:"version"`
@@ -257,6 +258,7 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 			ForceDownload: !run.helm.IsHelm3(),
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
+			SkipCleanup:   c.SkipCleanup(),
 		}, func() {
 			ok, errs = a.writeValues(run, c)
 		})
@@ -306,6 +308,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 			ForceDownload: true,
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
+			SkipCleanup:   c.SkipCleanup(),
 		}, func() {
 			ok, lintErrs, errs = a.lint(run, c)
 		})
@@ -575,11 +578,17 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 				}
 				labels = strings.Trim(labels, ",")
 
+				enabled, err := state.ConditionEnabled(r, run.state.Values())
+				if err != nil {
+					panic(err)
+				}
+
 				installed := r.Installed == nil || *r.Installed
 				releases = append(releases, &HelmRelease{
 					Name:      r.Name,
 					Namespace: r.Namespace,
-					Enabled:   installed,
+					Installed: installed,
+					Enabled:   enabled,
 					Labels:    labels,
 					Chart:     r.Chart,
 					Version:   r.Version,
@@ -990,12 +999,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		opts.Environment.OverrideValues = envvals
 	}
 
-	dir, err := a.getwd()
-	if err != nil {
-		return err
-	}
-
-	a.remote = remote.NewRemote(a.Logger, dir, a.readFile, a.directoryExistsAt, a.fileExistsAt)
+	a.remote = remote.NewRemote(a.Logger, "", a.readFile, a.directoryExistsAt, a.fileExistsAt)
 
 	f := converge
 	if opts.Filter {
@@ -1560,7 +1564,8 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {
 	if len(toLint) > 0 {
 		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toLint, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			opts := &state.LintOpts{
-				Set: c.Set(),
+				Set:         c.Set(),
+				SkipCleanup: c.SkipCleanup(),
 			}
 			lintErrs := subst.LintReleases(helm, c.Values(), args, c.Concurrency(), opts)
 			if len(lintErrs) == 1 {
@@ -1861,6 +1866,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 				IncludeCRDs:       c.IncludeCRDs(),
 				OutputDirTemplate: c.OutputDirTemplate(),
 				SkipCleanup:       c.SkipCleanup(),
+				SkipTests:         c.SkipTests(),
 			}
 			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 		}))
@@ -1940,6 +1946,7 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 		opts := &state.WriteValuesOpts{
 			Set:                c.Set(),
 			OutputFileTemplate: c.OutputFileTemplate(),
+			SkipCleanup:        c.SkipCleanup(),
 		}
 		errs = st.WriteReleasesValues(helm, c.Values(), opts)
 	}
@@ -2078,5 +2085,39 @@ func (c context) wrapErrs(errs ...error) error {
 		}
 		return &Error{Errors: errs}
 	}
+	return nil
+}
+
+func (a *App) ShowCacheDir(c ListConfigProvider) error {
+	fmt.Printf("Cache directory: %s\n", remote.CacheDir())
+
+	if !directoryExistsAt(remote.CacheDir()) {
+		return nil
+	}
+	dirs, err := os.ReadDir(remote.CacheDir())
+	if err != nil {
+		return err
+	}
+	for _, e := range dirs {
+		fmt.Printf("- %s\n", e.Name())
+	}
+
+	return nil
+}
+
+func (a *App) CleanCacheDir(c ListConfigProvider) error {
+	if !directoryExistsAt(remote.CacheDir()) {
+		return nil
+	}
+	fmt.Printf("Cleaning up cache directory: %s\n", remote.CacheDir())
+	dirs, err := os.ReadDir(remote.CacheDir())
+	if err != nil {
+		return err
+	}
+	for _, e := range dirs {
+		fmt.Printf("- %s\n", e.Name())
+		os.RemoveAll(filepath.Join(remote.CacheDir(), e.Name()))
+	}
+
 	return nil
 }

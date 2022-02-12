@@ -761,15 +761,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 
 	preps, prepErrs := st.prepareSyncReleases(helm, additionalValues, workerLimit, opts)
 
-	defer func() {
-		if opts.SkipCleanup {
-			return
-		}
-
-		for _, p := range preps {
-			st.removeFiles(p.files)
-		}
-	}()
+	if !opts.SkipCleanup {
+		defer func() {
+			for _, p := range preps {
+				st.removeFiles(p.files)
+			}
+		}()
+	}
 
 	if len(prepErrs) > 0 {
 		return prepErrs
@@ -848,11 +846,19 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				}
 
 				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
-					st.logger.Warnf("warn: %v\n", err)
+					if relErr == nil {
+						relErr = newReleaseFailedError(release, err)
+					} else {
+						st.logger.Warnf("warn: %v\n", err)
+					}
 				}
 
 				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
-					st.logger.Warnf("warn: %v\n", err)
+					if relErr == nil {
+						relErr = newReleaseFailedError(release, err)
+					} else {
+						st.logger.Warnf("warn: %v\n", err)
+					}
 				}
 
 				if relErr == nil {
@@ -1294,6 +1300,7 @@ type TemplateOpts struct {
 	SkipCleanup       bool
 	OutputDirTemplate string
 	IncludeCRDs       bool
+	SkipTests         bool
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -1324,13 +1331,9 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		flags, files, err := st.flagsForTemplate(helm, release, 0)
 
-		defer func() {
-			if opts.SkipCleanup {
-				return
-			}
-
-			st.removeFiles(files)
-		}()
+		if !opts.SkipCleanup {
+			defer st.removeFiles(files)
+		}
 
 		if err != nil {
 			errs = append(errs, err)
@@ -1376,6 +1379,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			flags = append(flags, "--include-crds")
 		}
 
+		if opts.SkipTests {
+			flags = append(flags, "--skip-tests")
+		}
+
 		if len(errs) == 0 {
 			if err := helm.TemplateRelease(release.Name, release.Chart, flags...); err != nil {
 				errs = append(errs, err)
@@ -1397,6 +1404,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 type WriteValuesOpts struct {
 	Set                []string
 	OutputFileTemplate string
+	SkipCleanup        bool
 }
 
 type WriteValuesOpt interface{ Apply(*WriteValuesOpts) }
@@ -1426,9 +1434,9 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 			return []error{err}
 		}
 
-		defer func() {
-			st.removeFiles(generatedFiles)
-		}()
+		if !opts.SkipCleanup {
+			defer st.removeFiles(generatedFiles)
+		}
 
 		for _, value := range additionalValues {
 			valfile, err := filepath.Abs(value)
@@ -1491,7 +1499,8 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 }
 
 type LintOpts struct {
-	Set []string
+	Set         []string
+	SkipCleanup bool
 }
 
 type LintOpt interface{ Apply(*LintOpts) }
@@ -1525,7 +1534,9 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 
 		flags, files, err := st.flagsForLint(helm, &release, 0)
 
-		defer st.removeFiles(files)
+		if !opts.SkipCleanup {
+			defer st.removeFiles(files)
+		}
 
 		if err != nil {
 			errs = append(errs, err)
@@ -1580,7 +1591,7 @@ type diffPrepareResult struct {
 	upgradeDueToSkippedDiff bool
 }
 
-func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode, includeTests, suppressSecrets bool, showSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
+func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -1681,6 +1692,12 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--include-tests")
 				}
 
+				if suppress != nil {
+					for _, s := range suppress {
+						flags = append(flags, "--suppress", s)
+					}
+				}
+
 				if suppressSecrets {
 					flags = append(flags, "--suppress-secrets")
 				}
@@ -1775,13 +1792,11 @@ func (st *HelmState) createHelmContextWithWriter(spec *ReleaseSpec, w io.Writer)
 }
 
 type DiffOpts struct {
-	Context int
-	Output  string
-	NoColor bool
-	Set     []string
-
-	SkipCleanup bool
-
+	Context           int
+	Output            string
+	NoColor           bool
+	Set               []string
+	SkipCleanup       bool
 	SkipDiffOnInstall bool
 }
 
@@ -1799,23 +1814,21 @@ type DiffOpt interface{ Apply(*DiffOpts) }
 // For example, terraform-provider-helmfile runs a helmfile-diff on `terraform plan` and another on `terraform apply`.
 // `terraform`, by design, fails when helmfile-diff outputs were not equivalent.
 // Stabilized helmfile-diff output rescues that.
-func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode, includeTests, suppressSecrets, showSecrets, suppressDiff, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
+func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets, showSecrets, suppressDiff, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
 	}
 
-	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppressSecrets, showSecrets, opts)
+	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppress, suppressSecrets, showSecrets, opts)
 
-	defer func() {
-		if opts.SkipCleanup {
-			return
-		}
-
-		for _, p := range preps {
-			st.removeFiles(p.files)
-		}
-	}()
+	if !opts.SkipCleanup {
+		defer func() {
+			for _, p := range preps {
+				st.removeFiles(p.files)
+			}
+		}()
+	}
 
 	if len(prepErrs) > 0 {
 		return []ReleaseSpec{}, prepErrs
@@ -2059,25 +2072,13 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 			}
 		}
 		var conditionMatch bool
-		if len(r.Condition) > 0 {
-			conditionSplit := strings.Split(r.Condition, ".")
-			if len(conditionSplit) != 2 {
-				return nil, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
-			}
-			if v, ok := values[conditionSplit[0]]; ok {
-				if v == nil {
-					panic(fmt.Sprintf("environment values field '%s' is nil", conditionSplit[0]))
-				}
-				if v.(map[string]interface{})["enabled"] == true {
-					conditionMatch = true
-				}
-			} else {
-				panic(fmt.Sprintf("environment values does not contain field '%s'", conditionSplit[0]))
-			}
+		conditionMatch, err := ConditionEnabled(r, values)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse condition in release %s: %w", r.Name, err)
 		}
 		res := Release{
 			ReleaseSpec: r,
-			Filtered:    (len(filters) > 0 && !filterMatch) || (len(r.Condition) > 0 && !conditionMatch),
+			Filtered:    (len(filters) > 0 && !filterMatch) || (!conditionMatch),
 		}
 		filteredReleases = append(filteredReleases, res)
 	}
@@ -2085,6 +2086,29 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		unmarkNeedsAndTransitives(filteredReleases, releases)
 	}
 	return filteredReleases, nil
+}
+
+func ConditionEnabled(r ReleaseSpec, values map[string]interface{}) (bool, error) {
+	var conditionMatch bool
+	if len(r.Condition) == 0 {
+		return true, nil
+	}
+	conditionSplit := strings.Split(r.Condition, ".")
+	if len(conditionSplit) != 2 {
+		return false, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
+	}
+	if v, ok := values[conditionSplit[0]]; ok {
+		if v == nil {
+			panic(fmt.Sprintf("environment values field '%s' is nil", conditionSplit[0]))
+		}
+		if v.(map[string]interface{})["enabled"] == true {
+			conditionMatch = true
+		}
+	} else {
+		panic(fmt.Sprintf("environment values does not contain field '%s'", conditionSplit[0]))
+	}
+
+	return conditionMatch, nil
 }
 
 func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []ReleaseSpec) {
