@@ -13,14 +13,14 @@ func isLocalChart(chart string) bool {
 		return true
 	}
 
-	uriLike := strings.Index(chart, "://") > -1
+	uriLike := strings.Contains(chart, "://")
 	if uriLike {
 		return false
 	}
 
 	return chart == "" ||
 		chart[0] == '/' ||
-		strings.Index(chart, "/") == -1 ||
+		!strings.Contains(chart, "/") ||
 		(len(strings.Split(chart, "/")) != 2 &&
 			len(strings.Split(chart, "/")) != 3)
 }
@@ -30,7 +30,7 @@ func resolveRemoteChart(repoAndChart string) (string, string, bool) {
 		return "", "", false
 	}
 
-	uriLike := strings.Index(repoAndChart, "://") > -1
+	uriLike := strings.Contains(repoAndChart, "://")
 	if uriLike {
 		return "", "", false
 	}

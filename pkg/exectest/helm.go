@@ -79,10 +79,8 @@ func (helm *Helm) BuildDeps(name, chart string) error {
 }
 
 func (helm *Helm) SetExtraArgs(args ...string) {
-	return
 }
 func (helm *Helm) SetHelmBinary(bin string) {
-	return
 }
 func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed, passCredentials, skipTLSVerify}

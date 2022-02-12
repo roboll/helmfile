@@ -737,7 +737,10 @@ type configImpl struct {
 
 func NewUrfaveCliConfigImpl(c *cli.Context) (configImpl, error) {
 	if c.NArg() > 0 {
-		cli.ShowAppHelp(c)
+		err := cli.ShowAppHelp(c)
+		if err != nil {
+			return configImpl{}, err
+		}
 		return configImpl{}, fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
 	}
 

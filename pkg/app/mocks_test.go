@@ -42,11 +42,9 @@ func (helm *noCallHelmExec) BuildDeps(name, chart string) error {
 
 func (helm *noCallHelmExec) SetExtraArgs(args ...string) {
 	helm.doPanic()
-	return
 }
 func (helm *noCallHelmExec) SetHelmBinary(bin string) {
 	helm.doPanic()
-	return
 }
 func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.doPanic()

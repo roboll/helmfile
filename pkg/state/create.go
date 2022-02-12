@@ -358,13 +358,13 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 		for _, err := range errs {
 			st.logger.Error(err)
 		}
-		return fmt.Errorf("Failed loading environment secrets with %d errors", len(errs))
+		return fmt.Errorf("failed loading environment secrets with %d errors", len(errs))
 	}
 	return nil
 }
 
 func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []interface{}, remote *remote.Remote, ctxEnv *environment.Environment) (map[string]interface{}, error) {
-	envVals := map[string]interface{}{}
+	var envVals map[string]interface{}
 
 	valuesEntries := append([]interface{}{}, entries...)
 	ld := NewEnvironmentValuesLoader(st.storage(), st.readFile, st.logger, remote)

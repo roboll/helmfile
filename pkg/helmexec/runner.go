@@ -14,11 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	tmpPrefix = "helmfile-"
-	tmpSuffix = "-exec"
-)
-
 // Runner interface for shell commands
 type Runner interface {
 	Execute(cmd string, args []string, env map[string]string) ([]byte, error)

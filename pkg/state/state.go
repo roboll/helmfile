@@ -97,7 +97,6 @@ type HelmState struct {
 	tempDir           func(string, string) (string, error)
 	directoryExistsAt func(string) bool
 
-	runner      helmexec.Runner
 	valsRuntime vals.Evaluator
 
 	// RenderedValues is the helmfile-wide values that is `.Values`
@@ -555,14 +554,12 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 		},
 		func() {
 			for i := 0; i < numReleases; {
-				select {
-				case r := <-results:
-					for _, e := range r.errors {
-						errs = append(errs, e)
-					}
-					res = append(res, r)
-					i++
+				r := <-results
+				for _, e := range r.errors {
+					errs = append(errs, e)
 				}
+				res = append(res, r)
+				i++
 			}
 		},
 	)
@@ -739,12 +736,10 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 		},
 		func() {
 			for i := 0; i < len(releases); {
-				select {
-				case res := <-results:
-					if len(res.errors) > 0 {
-						for _, e := range res.errors {
-							errs = append(errs, e)
-						}
+				res := <-results
+				if len(res.errors) > 0 {
+					for _, e := range res.errors {
+						errs = append(errs, e)
 					}
 				}
 				i++
@@ -875,12 +870,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 		},
 		func() {
 			for i := 0; i < len(preps); {
-				select {
-				case res := <-results:
-					if len(res.errors) > 0 {
-						for _, e := range res.errors {
-							errs = append(errs, e)
-						}
+				res := <-results
+				if len(res.errors) > 0 {
+					for _, e := range res.errors {
+						errs = append(errs, e)
 					}
 				}
 				i++
@@ -1722,7 +1715,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				}
 
 				if opts.Output != "" {
-					flags = append(flags, "--output", fmt.Sprintf("%s", opts.Output))
+					flags = append(flags, "--output", opts.Output)
 				}
 
 				if opts.Set != nil {
@@ -2028,8 +2021,7 @@ func (st *HelmState) Clean() []error {
 func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
 	var rs []ReleaseSpec
 	for _, r := range st.Releases {
-		var spec ReleaseSpec
-		spec = r
+		spec := r
 		st.ApplyOverrides(&spec)
 		rs = append(rs, spec)
 	}
@@ -2296,15 +2288,10 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds 
 	return nil
 }
 
-func chartNameWithoutRepository(chart string) string {
-	chartSplit := strings.Split(chart, "/")
-	return chartSplit[len(chartSplit)-1]
-}
-
 // find "Chart.yaml"
 func findChartDirectory(topLevelDir string) (string, error) {
 	var files []string
-	filepath.Walk(topLevelDir, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(topLevelDir, func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("error walking through %s: %v", path, err)
 		}
@@ -2316,6 +2303,9 @@ func findChartDirectory(topLevelDir string) (string, error) {
 		}
 		return nil
 	})
+	if err != nil {
+		return topLevelDir, err
+	}
 	// Sort to get the shortest path
 	sort.Strings(files)
 	if len(files) > 0 {
@@ -2323,15 +2313,13 @@ func findChartDirectory(topLevelDir string) (string, error) {
 		return first, nil
 	}
 
-	return topLevelDir, errors.New("No Chart.yaml found")
+	return topLevelDir, errors.New("no Chart.yaml found")
 }
 
 // appendConnectionFlags append all the helm command-line flags related to K8s API and Tiller connection including the kubecontext
 func (st *HelmState) appendConnectionFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec) []string {
 	adds := st.connectionFlags(helm, release)
-	for _, a := range adds {
-		flags = append(flags, a)
-	}
+	flags = append(flags, adds...)
 	return flags
 }
 
@@ -2963,7 +2951,10 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Upgraded {
-			tbl.AddRow(release.Name, release.Chart, release.installedVersion)
+			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion)
+			if err != nil {
+				logger.Warn("Could not add row, %v", err)
+			}
 		}
 		logger.Info(tbl.String())
 	}
@@ -3041,7 +3032,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	}
 	//also exclude SelectorsInherited to true and explicit selectors
 	if hf.SelectorsInherited && len(hf.Selectors) > 0 {
-		return fmt.Errorf("You cannot use 'SelectorsInherited: true' along with and explicit selector for path: %v", hf.Path)
+		return fmt.Errorf("you cannot use 'SelectorsInherited: true' along with and explicit selector for path: %v", hf.Path)
 	}
 	return nil
 }
@@ -3056,7 +3047,10 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 	}
 
 	hasher := sha1.New()
-	io.WriteString(hasher, stateAbsPath)
+	_, err = io.WriteString(hasher, stateAbsPath)
+	if err != nil {
+		return "", err
+	}
 
 	var stateFileExtension = filepath.Ext(st.FilePath)
 	var stateFileName = st.FilePath[0 : len(st.FilePath)-len(stateFileExtension)]
@@ -3120,7 +3114,10 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 	}
 
 	hasher := sha1.New()
-	io.WriteString(hasher, stateAbsPath)
+	_, err = io.WriteString(hasher, stateAbsPath)
+	if err != nil {
+		return "", err
+	}
 
 	var stateFileExtension = filepath.Ext(st.FilePath)
 	var stateFileName = st.FilePath[0 : len(st.FilePath)-len(stateFileExtension)]
