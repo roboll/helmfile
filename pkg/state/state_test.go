@@ -1604,7 +1604,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]interface{}{},
 			}
-      _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, []string{}, false, false, false, false)
+			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, []string{}, false, false, false, false)
 			if len(errs) > 0 {
 				t.Errorf("unexpected error: %v", errs)
 			}
