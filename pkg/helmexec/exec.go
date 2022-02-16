@@ -322,8 +322,12 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 
 	if tempFile == nil {
 		tempFile = func(content []byte) (string, error) {
+			dir := filepath.Dir(name)
 			extension := filepath.Ext(name)
-			tmpFile, err := runtime.TempFileUniqueTempDir("", "secret*"+extension)
+			// We cannot use runtime.TempFileUniqueTempDir() here because
+			// when secret is templated with exec(), changing the working directory
+			// makes templated secret loses the context of relative path
+			tmpFile, err := ioutil.TempFile(dir, "secret*"+extension)
 			if err != nil {
 				return "", err
 			}
