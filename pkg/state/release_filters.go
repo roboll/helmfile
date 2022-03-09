@@ -54,8 +54,8 @@ func ParseLabels(l string) (LabelFilter, error) {
 	lf.negativeLabels = [][]string{}
 	var err error
 	labels := strings.Split(l, ",")
-	reMissmatch := regexp.MustCompile("^[a-zA-Z0-9_-]+!=[a-zA-Z0-9_-]+$")
-	reMatch := regexp.MustCompile("^[a-zA-Z0-9_-]+=[a-zA-Z0-9_-]+$")
+	reMissmatch := regexp.MustCompile(`^[a-zA-Z0-9_\.\/\+-]+!=[a-zA-Z0-9_\.\/\+-]+$`)
+	reMatch := regexp.MustCompile(`^[a-zA-Z0-9_\.\/\+-]+=[a-zA-Z0-9_\.\/\+-]+$`)
 	for _, label := range labels {
 		if match := reMissmatch.MatchString(label); match { // k!=v case
 			kv := strings.Split(label, "!=")
