@@ -23,6 +23,7 @@ build-test-tools:
 .PHONY: build-test-tools
 
 test:
+	go build -o helmfile .
 	go test -v ${PKGS} -cover -race -p=1
 .PHONY: test
 

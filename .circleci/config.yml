@@ -73,6 +73,7 @@ jobs:
           - go-mod-cache-v1-
       - run: make check
       - run: make pristine
+      - run: make -C .circleci helm
       - run: make test
 
   # thanks to https://raw.githubusercontent.com/weaveworks/launcher/master/.circleci/config.yml
