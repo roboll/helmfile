@@ -1,0 +1,27 @@
+repositories:
+  - name: aservo
+    url: https://aservo.github.io/charts
+
+environments:
+  default:
+
+---
+
+templates:
+  defaults: &defaults
+    name: "{{ .Environment.Name }}-{{`{{ .Release.Labels.service }}`}}"
+    namespace: "{{ .Environment.Name }}"
+
+releases:
+  - chart: aservo/util
+    version: 0.0.1
+    labels:
+      service: shared-resources
+    <<: *defaults
+  - chart: aservo/util
+    version: 0.0.1
+    labels:
+      service: release-resources
+    <<: *defaults
+    needs:
+      - "{{`{{ .Release.Namespace }}`}}-shared-resources"

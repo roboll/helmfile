@@ -1,10 +1,10 @@
 dist/
 .idea/
-helmfile
-helmfile.lock
+/helmfile
+/helmfile.lock
 /diff-yamls
 /yamldiff
-test/integration/tmp
+test/integration/tmp$
 vendor/
 *.log
 .vagrant/
