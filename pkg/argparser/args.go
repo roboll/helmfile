@@ -2,8 +2,9 @@ package argparser
 
 import (
 	"fmt"
-	"github.com/roboll/helmfile/pkg/state"
 	"strings"
+
+	"github.com/roboll/helmfile/pkg/state"
 )
 
 type keyVal struct {
@@ -95,10 +96,9 @@ func GetArgs(args string, state *state.HelmState) []string {
 					argArr = append(argArr, fmt.Sprintf("%s=%s", obj.key, obj.val))
 				}
 			} else {
-				argArr = append(argArr, fmt.Sprintf("%s", obj.key))
+				argArr = append(argArr, obj.key)
 			}
 		}
-
 	}
 
 	state.HelmDefaults.Args = argArr

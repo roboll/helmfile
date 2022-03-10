@@ -20,7 +20,7 @@ type TestFs struct {
 
 func NewTestFs(files map[string]string) *TestFs {
 	dirs := map[string]bool{}
-	for abs, _ := range files {
+	for abs := range files {
 		for d := filepath.ToSlash(filepath.Dir(abs)); !dirs[d]; d = filepath.ToSlash(filepath.Dir(d)) {
 			dirs[d] = true
 			fmt.Fprintf(os.Stderr, "testfs: recognized dir: %s\n", d)
@@ -102,7 +102,7 @@ func (f *TestFs) Glob(relPattern string) ([]string, error) {
 	}
 
 	matches := []string{}
-	for name, _ := range f.files {
+	for name := range f.files {
 		matched, err := filepath.Match(pattern, name)
 		if err != nil {
 			return nil, err

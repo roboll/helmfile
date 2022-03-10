@@ -38,6 +38,10 @@ func get(path string, varArgs ...interface{}) (interface{}, error) {
 	var v interface{}
 	var ok bool
 	switch typedObj := obj.(type) {
+	case *map[string]interface{}:
+		obj = *typedObj
+	}
+	switch typedObj := obj.(type) {
 	case map[string]interface{}:
 		v, ok = typedObj[keys[0]]
 		if !ok {

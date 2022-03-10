@@ -127,7 +127,7 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 
 	// TODO Better way to detect diff on only filtered releases
 	{
-		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.IncludeTests(), c.SuppressSecrets(), c.ShowSecrets(), c.SuppressDiff(), triggerCleanupEvent, diffOpts)
+		changedReleases, planningErrs = st.DiffReleases(helm, c.Values(), c.Concurrency(), detailedExitCode, c.IncludeTests(), c.Suppress(), c.SuppressSecrets(), c.ShowSecrets(), c.SuppressDiff(), triggerCleanupEvent, diffOpts)
 
 		var err error
 		deletingReleases, err = st.DetectReleasesToBeDeletedForSync(helm, st.Releases)
@@ -155,17 +155,19 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 
 	releasesToBeDeleted := map[string]state.ReleaseSpec{}
 	for _, r := range deletingReleases {
-		id := state.ReleaseToID(&r)
-		releasesToBeDeleted[id] = r
+		release := r
+		id := state.ReleaseToID(&release)
+		releasesToBeDeleted[id] = release
 	}
 
 	releasesToBeUpdated := map[string]state.ReleaseSpec{}
 	for _, r := range changedReleases {
-		id := state.ReleaseToID(&r)
+		release := r
+		id := state.ReleaseToID(&release)
 
 		// If `helm-diff` detected changes but it is not being `helm delete`ed, we should run `helm upgrade`
 		if _, ok := releasesToBeDeleted[id]; !ok {
-			releasesToBeUpdated[id] = r
+			releasesToBeUpdated[id] = release
 		}
 	}
 

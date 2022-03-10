@@ -2,11 +2,12 @@ package state
 
 import (
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/roboll/helmfile/pkg/helmexec"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/roboll/helmfile/pkg/helmexec"
 )
 
 func TestGoGetter(t *testing.T) {
@@ -28,6 +29,7 @@ func TestGoGetter(t *testing.T) {
 	}
 
 	for i, tc := range testcases {
+		test := tc
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			d, err := ioutil.TempDir("", "testgogetter")
 			if err != nil {
@@ -41,9 +43,9 @@ func TestGoGetter(t *testing.T) {
 				basePath: d,
 			}
 
-			out, err := st.goGetterChart(tc.chart, tc.dir, "", false)
+			out, err := st.goGetterChart(test.chart, test.dir, "", false)
 
-			if diff := cmp.Diff(tc.out, out); diff != "" {
+			if diff := cmp.Diff(test.out, out); diff != "" {
 				t.Fatalf("Unexpected out:\n%s", diff)
 			}
 
@@ -53,7 +55,7 @@ func TestGoGetter(t *testing.T) {
 				errMsg = err.Error()
 			}
 
-			if diff := cmp.Diff(tc.err, errMsg); diff != "" {
+			if diff := cmp.Diff(test.err, errMsg); diff != "" {
 				t.Fatalf("Unexpected err:\n%s", diff)
 			}
 		})

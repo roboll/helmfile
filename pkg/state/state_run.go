@@ -166,7 +166,8 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 	var selectedReleaseIDs []string
 
 	for _, r := range opts.SelectedReleases {
-		id := ReleaseToID(&r)
+		release := r
+		id := ReleaseToID(&release)
 		selectedReleaseIDs = append(selectedReleaseIDs, id)
 	}
 

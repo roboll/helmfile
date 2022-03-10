@@ -25,6 +25,7 @@ require (
 	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
 	github.com/r3labs/diff v1.1.0
 	github.com/spf13/cobra v1.1.1
+	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.22.5
 	github.com/variantdev/chartify v0.9.1

@@ -188,6 +188,14 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		result.SetValues = append(newvals, result.SetValues...)
 	}
 
+	for i, n := range result.Needs {
+		s, err := renderer.RenderTemplateContentToBuffer([]byte(n))
+		if err != nil {
+			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".needs[%d] = \"%s\": %v", r.Name, i, n, err)
+		}
+		result.Needs[i] = s.String()
+	}
+
 	return result, nil
 }
 

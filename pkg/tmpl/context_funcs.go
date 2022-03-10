@@ -56,7 +56,7 @@ func (c *Context) Exec(command string, args []interface{}, inputs ...string) (st
 	for i, a := range args {
 		switch a.(type) {
 		case string:
-			strArgs[i] = a.(string)
+			strArgs[i] = fmt.Sprintf("%v", a)
 		default:
 			return "", fmt.Errorf("unexpected type of arg \"%s\" in args %v at index %d", reflect.TypeOf(a), args, i)
 		}

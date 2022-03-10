@@ -211,6 +211,10 @@ func main() {
 					Name:  "skip-diff-on-install",
 					Usage: "Skips running helm-diff on releases being newly installed on this apply. Useful when the release manifests are too huge to be reviewed, or it's too time-consuming to diff at all",
 				},
+				cli.StringSliceFlag{
+					Name:  "suppress",
+					Usage: "suppress specified Kubernetes objects in the output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret",
+				},
 				cli.BoolFlag{
 					Name:  "suppress-secrets",
 					Usage: "suppress secrets in the output. highly recommended to specify on CI/CD use-cases",
@@ -517,6 +521,10 @@ func main() {
 					Name:  "include-tests",
 					Usage: "enable the diffing of the helm test hooks",
 				},
+				cli.StringSliceFlag{
+					Name:  "suppress",
+					Usage: "suppress specified Kubernetes objects in the diff output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret",
+				},
 				cli.BoolFlag{
 					Name:  "suppress-secrets",
 					Usage: "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases",
@@ -683,6 +691,27 @@ func main() {
 			}),
 		},
 		{
+			Name:      "cache",
+			Usage:     "cache management",
+			ArgsUsage: "[command]",
+			Subcommands: []cli.Command{
+				{
+					Name:  "info",
+					Usage: "cache info",
+					Action: action(func(a *app.App, c configImpl) error {
+						return a.ShowCacheDir(c)
+					}),
+				},
+				{
+					Name:  "cleanup",
+					Usage: "clean up cache directory",
+					Action: action(func(a *app.App, c configImpl) error {
+						return a.CleanCacheDir(c)
+					}),
+				},
+			},
+		},
+		{
 			Name:      "version",
 			Usage:     "Show the version for Helmfile.",
 			ArgsUsage: "[command]",
@@ -708,7 +737,10 @@ type configImpl struct {
 
 func NewUrfaveCliConfigImpl(c *cli.Context) (configImpl, error) {
 	if c.NArg() > 0 {
-		cli.ShowAppHelp(c)
+		err := cli.ShowAppHelp(c)
+		if err != nil {
+			return configImpl{}, err
+		}
 		return configImpl{}, fmt.Errorf("err: extraneous arguments: %s", strings.Join(c.Args(), ", "))
 	}
 
@@ -821,6 +853,10 @@ func (c configImpl) RetainValuesFiles() bool {
 
 func (c configImpl) IncludeTests() bool {
 	return c.c.Bool("include-tests")
+}
+
+func (c configImpl) Suppress() []string {
+	return c.c.StringSlice("suppress")
 }
 
 func (c configImpl) SuppressSecrets() bool {

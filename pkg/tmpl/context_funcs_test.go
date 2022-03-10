@@ -3,10 +3,11 @@ package tmpl
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestReadFile(t *testing.T) {
@@ -207,14 +208,15 @@ func TestRequired(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := Required(tt.args.warn, tt.args.val)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Required() error = %v, wantErr %v", err, tt.wantErr)
+		testCase := tt
+		t.Run(testCase.name, func(t *testing.T) {
+			got, err := Required(testCase.args.warn, testCase.args.val)
+			if (err != nil) != testCase.wantErr {
+				t.Errorf("Required() error = %v, wantErr %v", err, testCase.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Required() got = %v, want %v", got, tt.want)
+			if !reflect.DeepEqual(got, testCase.want) {
+				t.Errorf("Required() got = %v, want %v", got, testCase.want)
 			}
 		})
 	}

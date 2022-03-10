@@ -54,15 +54,17 @@ func ParseLabels(l string) (LabelFilter, error) {
 	lf.negativeLabels = [][]string{}
 	var err error
 	labels := strings.Split(l, ",")
+	reMissmatch := regexp.MustCompile(`^[a-zA-Z0-9_\.\/\+-]+!=[a-zA-Z0-9_\.\/\+-]+$`)
+	reMatch := regexp.MustCompile(`^[a-zA-Z0-9_\.\/\+-]+=[a-zA-Z0-9_\.\/\+-]+$`)
 	for _, label := range labels {
-		if match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+!=[a-zA-Z0-9_-]+$", label); match == true { // k!=v case
+		if match := reMissmatch.MatchString(label); match { // k!=v case
 			kv := strings.Split(label, "!=")
 			lf.negativeLabels = append(lf.negativeLabels, kv)
-		} else if match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+=[a-zA-Z0-9_-]+$", label); match == true { // k=v case
+		} else if match := reMatch.MatchString(label); match { // k=v case
 			kv := strings.Split(label, "=")
 			lf.positiveLabels = append(lf.positiveLabels, kv)
 		} else { // malformed case
-			return lf, fmt.Errorf("Malformed label: %s. Expected label in form k=v or k!=v", label)
+			return lf, fmt.Errorf("malformed label: %s. Expected label in form k=v or k!=v", label)
 		}
 	}
 	return lf, err

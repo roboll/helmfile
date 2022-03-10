@@ -42,11 +42,9 @@ func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error)
 
 	d := filepath.Join(workDir, id)
 
-	info, err := os.Stat(d)
+	_, err = os.Stat(d)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		panic(err)
-	} else if info == nil {
-
 	}
 
 	return &d, nil

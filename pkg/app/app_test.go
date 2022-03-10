@@ -505,9 +505,9 @@ releases:
 		errMsg        string
 	}{
 		{label: "name=prometheus", expectedCount: 1, expectErr: false},
-		{label: "name=", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: Malformed label: name=. Expected label in form k=v or k!=v"},
-		{label: "name!=", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: Malformed label: name!=. Expected label in form k=v or k!=v"},
-		{label: "name", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: Malformed label: name. Expected label in form k=v or k!=v"},
+		{label: "name=", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: malformed label: name=. Expected label in form k=v or k!=v"},
+		{label: "name!=", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: malformed label: name!=. Expected label in form k=v or k!=v"},
+		{label: "name", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: malformed label: name. Expected label in form k=v or k!=v"},
 		// See https://github.com/roboll/helmfile/issues/193
 		{label: "duplicatedNs=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in namespace \"zoo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"},
 		{label: "duplicatedCtx=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in namespace \"zoo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"},
@@ -873,9 +873,7 @@ tillerNs: INLINE_TILLER_NS_2
 	processed := []state.ReleaseSpec{}
 
 	collectReleases := func(run *Run) (bool, []error) {
-		for _, r := range run.state.Releases {
-			processed = append(processed, r)
-		}
+		processed = append(processed, run.state.Releases...)
 		return false, []error{}
 	}
 
@@ -1151,9 +1149,7 @@ x:
 			actual := []state.ReleaseSpec{}
 
 			collectReleases := func(run *Run) (bool, []error) {
-				for _, r := range run.state.Releases {
-					actual = append(actual, r)
-				}
+				actual = append(actual, run.state.Releases...)
 				return false, []error{}
 			}
 			app := appWithFs(&App{
@@ -1206,9 +1202,7 @@ releases:
 	actual := []state.ReleaseSpec{}
 
 	collectReleases := func(run *Run) (bool, []error) {
-		for _, r := range run.state.Releases {
-			actual = append(actual, r)
-		}
+		actual = append(actual, run.state.Releases...)
 		return false, []error{}
 	}
 	app := appWithFs(&App{
@@ -1264,9 +1258,7 @@ releases:
 			actual := []state.ReleaseSpec{}
 
 			collectReleases := func(run *Run) (bool, []error) {
-				for _, r := range run.state.Releases {
-					actual = append(actual, r)
-				}
+				actual = append(actual, run.state.Releases...)
 				return false, []error{}
 			}
 			app := appWithFs(&App{
@@ -1316,9 +1308,7 @@ releases:
 	actual := []state.ReleaseSpec{}
 
 	collectReleases := func(run *Run) (bool, []error) {
-		for _, r := range run.state.Releases {
-			actual = append(actual, r)
-		}
+		actual = append(actual, run.state.Releases...)
 		return false, []error{}
 	}
 	app := appWithFs(&App{
@@ -1365,9 +1355,7 @@ releases:
 	actual := []state.ReleaseSpec{}
 
 	collectReleases := func(run *Run) (bool, []error) {
-		for _, r := range run.state.Releases {
-			actual = append(actual, r)
-		}
+		actual = append(actual, run.state.Releases...)
 		return false, []error{}
 	}
 	app := appWithFs(&App{
@@ -1409,9 +1397,7 @@ releases:
 	actual := []state.ReleaseSpec{}
 
 	collectReleases := func(run *Run) (bool, []error) {
-		for _, r := range run.state.Releases {
-			actual = append(actual, r)
-		}
+		actual = append(actual, run.state.Releases...)
 		return false, []error{}
 	}
 	app := appWithFs(&App{
@@ -1453,9 +1439,7 @@ releases:
 	actual := []state.ReleaseSpec{}
 
 	collectReleases := func(run *Run) (bool, []error) {
-		for _, r := range run.state.Releases {
-			actual = append(actual, r)
-		}
+		actual = append(actual, run.state.Releases...)
 		return false, []error{}
 	}
 	app := appWithFs(&App{
@@ -1501,9 +1485,7 @@ releases:
 	actual := []state.ReleaseSpec{}
 
 	collectReleases := func(run *Run) (bool, []error) {
-		for _, r := range run.state.Releases {
-			actual = append(actual, r)
-		}
+		actual = append(actual, run.state.Releases...)
 		return false, []error{}
 	}
 	app := appWithFs(&App{
@@ -2360,6 +2342,7 @@ type applyConfig struct {
 	includeNeeds           bool
 	includeTransitiveNeeds bool
 	includeTests           bool
+	suppress               []string
 	suppressSecrets        bool
 	showSecrets            bool
 	suppressDiff           bool
@@ -2425,6 +2408,10 @@ func (c applyConfig) IncludeTransitiveNeeds() bool {
 
 func (a applyConfig) IncludeTests() bool {
 	return a.includeTests
+}
+
+func (a applyConfig) Suppress() []string {
+	return a.suppress
 }
 
 func (a applyConfig) SuppressSecrets() bool {
@@ -2495,8 +2482,6 @@ func (d depsConfig) Args() string {
 // Mocking the command-line runner
 
 type mockRunner struct {
-	output []byte
-	err    error
 }
 
 func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
@@ -2514,16 +2499,9 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interfac
 
 // mocking helmexec.Interface
 
-type listKey struct {
-	filter string
-	flags  string
-}
-
 type mockHelmExec struct {
 	templated []mockTemplates
 	repos     []mockRepo
-
-	updateDepsCallbacks map[string]func(string) error
 }
 
 type mockTemplates struct {
@@ -2557,10 +2535,8 @@ func (helm *mockHelmExec) BuildDeps(name, chart string) error {
 }
 
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
-	return
 }
 func (helm *mockHelmExec) SetHelmBinary(bin string) {
-	return
 }
 func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.repos = append(helm.repos, mockRepo{Name: name})
@@ -4710,7 +4686,10 @@ func captureStdout(f func()) string {
 	go func() {
 		var buf bytes.Buffer
 		wg.Done()
-		io.Copy(&buf, reader)
+		_, err = io.Copy(&buf, reader)
+		if err != nil {
+			panic(err)
+		}
 		out <- buf.String()
 	}()
 	wg.Wait()

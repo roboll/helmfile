@@ -271,5 +271,10 @@ func (p *pair) add(node resource, source diffSource) error {
 }
 
 func main() {
-	rootCmd.Execute()
+	err := rootCmd.Execute()
+
+	if err != nil {
+		fmt.Println(fmt.Errorf("unexpected error: %v", err))
+		os.Exit(1)
+	}
 }

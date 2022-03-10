@@ -4,23 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
-const DefaultCacheDir = ".helmfile/cache"
+func CacheDir() string {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		// fall back to relative path with hidden directory
+		return ".helmfile"
+	}
+	return filepath.Join(dir, "helmfile")
+}
 
 type Remote struct {
 	Logger *zap.SugaredLogger
 
-	// Home is the home directory for helmfile. Usually this points to $HOME of the user running helmfile.
-	// Helmfile saves fetched remote files into .helmfile/cache under home
+	// Home is the directory in which remote downloads files. If empty, user cache directory is used
 	Home string
 
 	// Getter is the underlying implementation of getter used for fetching remote files
@@ -166,7 +173,7 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 	r.Logger.Debugf("file: %s", u.File)
 
 	// This should be shared across variant commands, so that they can share cache for the shared imports
-	cacheBaseDir := DefaultCacheDir
+	cacheBaseDir := ""
 	if len(cacheDirOpt) == 1 {
 		cacheBaseDir = cacheDirOpt[0]
 	} else if len(cacheDirOpt) > 0 {
@@ -187,10 +194,10 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 
 	cached := false
 
-	// e.g. .helmfile/cache/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
+	// e.g. https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
 	getterDst := filepath.Join(cacheBaseDir, cacheKey)
 
-	// e.g. $PWD/.helmfile/cache/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
+	// e.g. os.CacheDir()/helmfile/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
 	cacheDirPath := filepath.Join(r.Home, getterDst)
 
 	r.Logger.Debugf("home: %s", r.Home)
@@ -275,5 +282,11 @@ func NewRemote(logger *zap.SugaredLogger, homeDir string, readFile func(string) 
 		DirExists:  dirExists,
 		FileExists: fileExists,
 	}
+
+	if remote.Home == "" {
+		// Use for remote charts
+		remote.Home = CacheDir()
+	}
+
 	return remote
 }

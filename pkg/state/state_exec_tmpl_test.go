@@ -17,11 +17,6 @@ func boolPtrToString(ptr *bool) string {
 	return fmt.Sprintf("&%t", *ptr)
 }
 
-func ptr(v interface{}) interface{} {
-	r := v
-	return reflect.ValueOf(r).Addr().Interface()
-}
-
 func TestHelmState_executeTemplates(t *testing.T) {
 	tests := []struct {
 		name  string
