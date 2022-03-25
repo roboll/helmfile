@@ -28,7 +28,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.22.5
-	github.com/variantdev/chartify v0.9.3
+	github.com/variantdev/chartify v0.9.4
 	github.com/variantdev/dag v1.1.0
 	github.com/variantdev/vals v0.15.0
 	go.uber.org/multierr v1.6.0
