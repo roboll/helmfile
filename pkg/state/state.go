@@ -60,8 +60,12 @@ type ReleaseSetSpec struct {
 	CommonLabels        map[string]string `yaml:"commonLabels,omitempty"`
 	Releases            []ReleaseSpec     `yaml:"releases,omitempty"`
 	Selectors           []string          `yaml:"-"`
-	ApiVersions         []string          `yaml:"apiVersions,omitempty"`
-	KubeVersion         string            `yaml:"kubeVersion,omitempty"`
+
+	// Capabilities.APIVersions
+	ApiVersions []string `yaml:"apiVersions,omitempty"`
+
+	// Capabilities.KubeVersion
+	KubeVersion string `yaml:"kubeVersion,omitempty"`
 
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
 	Hooks []event.Hook `yaml:"hooks,omitempty"`
@@ -248,6 +252,12 @@ type ReleaseSpec struct {
 
 	ValuesTemplate    []interface{} `yaml:"valuesTemplate,omitempty"`
 	SetValuesTemplate []SetValue    `yaml:"setTemplate,omitempty"`
+
+	// Capabilities.APIVersions
+	ApiVersions []string `yaml:"apiVersions,omitempty"`
+
+	// Capabilities.KubeVersion
+	KubeVersion string `yaml:"kubeVersion,omitempty"`
 
 	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
 	EnvValues []SetValue `yaml:"env,omitempty"`
@@ -1120,6 +1130,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					chartifyOpts.IncludeCRDs = includeCRDs
 
 					chartifyOpts.Validate = opts.Validate
+
+					chartifyOpts.KubeVersion = release.KubeVersion
+					chartifyOpts.ApiVersions = release.ApiVersions
 
 					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
@@ -2471,10 +2484,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		return nil, nil, err
 	}
 
-	flags = st.appendApiVersionsFlags(flags)
-	if st.KubeVersion != "" {
-		flags = append(flags, "--kube-version", st.KubeVersion)
-	}
+	flags = st.appendApiVersionsFlags(flags, release)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2536,10 +2546,15 @@ func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
 	return flags
 }
 
-func (st *HelmState) appendApiVersionsFlags(flags []string) []string {
-	for _, a := range st.ApiVersions {
+func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec) []string {
+	for _, a := range r.ApiVersions {
 		flags = append(flags, "--api-versions", a)
 	}
+
+	if r.KubeVersion != "" {
+		flags = append(flags, "--kube-version", st.KubeVersion)
+	}
+
 	return flags
 }
 
