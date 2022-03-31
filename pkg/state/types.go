@@ -16,7 +16,14 @@ type EnvironmentTemplateData struct {
 	// Namespace is accessible as `.Namespace` from any non-values template executed by the renderer
 	Namespace string
 	// Values is accessible as `.Values` and it contains default state values overrode by environment values and override values.
-	Values map[string]interface{}
+	Values      map[string]interface{}
+	StateValues *map[string]interface{}
+}
+
+func NewEnvironmentTemplateData(environment environment.Environment, namespace string, values map[string]interface{}) *EnvironmentTemplateData {
+	d := EnvironmentTemplateData{environment, namespace, values, nil}
+	d.StateValues = &d.Values
+	return &d
 }
 
 // releaseTemplateData provides variables accessible while executing golang text/template expressions in release templates
