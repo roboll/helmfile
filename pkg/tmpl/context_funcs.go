@@ -1,6 +1,7 @@
 package tmpl
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +21,7 @@ type Values = map[string]interface{}
 func (c *Context) createFuncMap() template.FuncMap {
 	funcMap := template.FuncMap{
 		"exec":             c.Exec,
+		"isFile":           c.IsFile,
 		"readFile":         c.ReadFile,
 		"readDir":          c.ReadDir,
 		"toYaml":           ToYaml,
@@ -115,6 +117,24 @@ func (c *Context) Exec(command string, args []interface{}, inputs ...string) (st
 	}
 
 	return string(bytes), nil
+}
+
+func (c *Context) IsFile(filename string) (bool, error) {
+	var path string
+	if filepath.IsAbs(filename) {
+		path = filename
+	} else {
+		path = filepath.Join(c.basePath, filename)
+	}
+
+	stat, err := os.Stat(path)
+	if err == nil {
+		return !stat.IsDir(), nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
 }
 
 func (c *Context) ReadFile(filename string) (string, error) {
