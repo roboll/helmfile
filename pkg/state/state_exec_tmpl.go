@@ -100,6 +100,13 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 		for k, v := range st.CommonLabels {
 			release.Labels[k] = v
 		}
+		if len(release.ApiVersions) == 0 {
+			release.ApiVersions = st.ApiVersions
+		}
+		if release.KubeVersion == "" {
+			release.KubeVersion = st.KubeVersion
+		}
+
 		successFlag := false
 		for it, prev := 0, &release; it < 6; it++ {
 			tmplData := st.createReleaseTemplateData(prev, vals)
