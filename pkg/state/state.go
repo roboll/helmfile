@@ -1692,10 +1692,8 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--include-tests")
 				}
 
-				if suppress != nil {
-					for _, s := range suppress {
-						flags = append(flags, "--suppress", s)
-					}
+				for _, s := range suppress {
+					flags = append(flags, "--suppress", s)
 				}
 
 				if suppressSecrets {
