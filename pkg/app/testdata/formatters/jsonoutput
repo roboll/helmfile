@@ -1,0 +1,1 @@
+[{"name":"test","namespace":"test","enabled":true,"installed":true,"labels":"test","chart":"test","version":"test"},{"name":"test1","namespace":"test2","enabled":false,"installed":false,"labels":"test1","chart":"test1","version":"test1"}]
