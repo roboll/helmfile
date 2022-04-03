@@ -872,7 +872,10 @@ environments:
       - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
       - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
       - git::https://ci:{{ env "CI_JOB_TOKEN" }}@gitlab.com/org/repository-name.git@/config.dev.yaml?ref={{ env "APP_COMMIT_SHA" }}  # Private Gitlab Repo
-
+  staging:
+     values:
+      -  git::https://{{ env "GITHUB_PAT" }}@github.com/[$GITHUB_ORGorGITHUB_USER]/repository-name.git@/values.dev.yaml?ref=main #Github Private repo
+      -  http://$HOSTNAME/artifactory/example-repo-local/test.tgz@values.yaml #Artifactory url
 ---
 
 releases:

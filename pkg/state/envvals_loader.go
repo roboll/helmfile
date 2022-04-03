@@ -61,7 +61,8 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				} else {
 					env = *ctxEnv
 				}
-				tmplData := EnvironmentTemplateData{env, "", map[string]interface{}{}}
+
+				tmplData := NewEnvironmentTemplateData(env, "", map[string]interface{}{})
 				r := tmpl.NewFileRenderer(ld.readFile, filepath.Dir(f), tmplData)
 				bytes, err := r.RenderToBytes(f)
 				if err != nil {
