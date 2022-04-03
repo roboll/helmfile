@@ -3,3 +3,12 @@ contact_links:
 - name: Sponsor Helmfile Maintainers
   about: If your business relies on the continued maintainance of Helmfile, please consider sponsoring maintainers.
   url: https://github.com/helmfile/helmfile/tree/main/CODEOWNERS
+- name: Ideas and Feature Requests
+  about: Wanna request a feature? Create a discussion and collect :+1:s first.
+  url: https://github.com/helmfile/helmfile/discussions/new?category=ideas
+- name: Questions and User Support
+  about: Need support using Helmfile? We use Discussions as the place to provide community support.
+  url: https://github.com/helmfile/helmfile/discussions/new?category=questions
+- name: Need Paid Support?
+  about: Consider contracting with any of the Helmfile maintainers.
+  url: https://github.com/helmfile/helmfile/tree/main/CODEOWNERS
