@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+- name: Sponsor Helmfile Maintainers
+  about: If your business relies on the continued maintainance of Helmfile, please consider sponsoring maintainers.
+  url: https://github.com/helmfile/helmfile/tree/main/CODEOWNERS
