@@ -1,0 +1,57 @@
+name: Bug
+description: File a bug report
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a bug report, please search for the behaviour in the existing issues.
+
+        Go ahead to https://github.com/roboll/helmfile/search?q=&type= and fill in the error message you received from Helmfile or the keywords you think appropriate.
+  - type: markdown
+    attribuets:
+      value: Thank you for taking your time to file a bug report! To confirm it's a bug, we need some information to reproduce it.
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: "Which operating system do you use? Please provide the version as well."
+      placeholder: "ex. Ubuntu 20.04.4 LTS"
+    validations:
+      required: true
+  - type: input
+    id: helmfile
+    attributes:
+      label: Helmfile Version
+      description: "Please provide the version number of Helmfile you used. If it isn't the latest, please upgrade first."
+      placeholder: "Run `helmfile version` to print it."
+    validations:
+      required: true
+  - type: input
+    id: helm
+    attributes:
+      label: Helm Version
+      description: "Please provide the version number of Helm you used. If it isn't the latest, please upgrade first."
+      placeholder: "Run `helm version` to print it."
+    validations:
+      required: true
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug description
+      description: What happened?
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: Steps to reproduce
+      description: Please provide the URL to a GitHub repository that contains a helmfile.yaml, other companion files, and a README.md with the steps to reproduce the bug.
+    validations:
+      required: true
+  - type: input
+    id: discussion
+    attributes:
+      label: Relevant discussion
+      description: Please provide the URL to a relevant GitHub Discussion.
+    validations:
+      required: false
