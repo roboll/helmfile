@@ -7,6 +7,7 @@ on:
     paths-ignore:
       - .github/workflows/ci.yml
       - .github/workflows/lock.yml
+      - ".github/ISSUE_TEMPLATE/**"
       - "docs/**"
       - "hack/**"
       - "**.md"
