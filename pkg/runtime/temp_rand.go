@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 // See k8s.io/apimachinery/pkg/util/rand/rand.go
-package state
+package runtime
 
 const (
 	// We omit vowels from the set of available characters to reduce the chances

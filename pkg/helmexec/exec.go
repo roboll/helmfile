@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/roboll/helmfile/pkg/runtime"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -323,6 +324,9 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		tempFile = func(content []byte) (string, error) {
 			dir := filepath.Dir(name)
 			extension := filepath.Ext(name)
+			// We cannot use runtime.TempFileUniqueTempDir() here because
+			// when secret is templated with exec(), changing the working directory
+			// makes templated secret loses the context of relative path
 			tmpFile, err := ioutil.TempFile(dir, "secret*"+extension)
 			if err != nil {
 				return "", err
@@ -442,10 +446,7 @@ func (helm *execer) ChartPull(chart string, flags ...string) error {
 		ociChartURLSplit := strings.Split(chart, ":")
 		ociChartURL := fmt.Sprintf("oci://%s", ociChartURLSplit[0])
 		ociChartTag := ociChartURLSplit[1]
-		tempDir, err := ioutil.TempDir("", "chart*")
-		if err != nil {
-			return err
-		}
+		tempDir := runtime.TempDir("chart")
 		defer os.RemoveAll(tempDir)
 		helmArgs = []string{"fetch", ociChartURL, "--version", ociChartTag, "--destination", tempDir}
 	} else {

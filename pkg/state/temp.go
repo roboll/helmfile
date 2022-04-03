@@ -2,14 +2,11 @@ package state
 
 import (
 	"errors"
-	"fmt"
-	"hash/fnv"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/roboll/helmfile/pkg/runtime"
 )
 
 func createTempValuesFile(release *ReleaseSpec, data interface{}) (*os.File, error) {
@@ -32,15 +29,7 @@ func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error)
 		panic(err)
 	}
 
-	workDir := os.Getenv("HELMFILE_TEMPDIR")
-	if workDir == "" {
-		workDir, err = ioutil.TempDir(os.TempDir(), "helmfile")
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	d := filepath.Join(workDir, id)
+	d := filepath.Join(runtime.TempDir(""), id)
 
 	_, err = os.Stat(d)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -59,7 +48,7 @@ func generateValuesID(release *ReleaseSpec, data interface{}) (string, error) {
 
 	id = append(id, release.Name, "values")
 
-	hash, err := HashObject([]interface{}{release, data})
+	hash, err := runtime.HashObject([]interface{}{release, data})
 	if err != nil {
 		return "", err
 	}
@@ -67,22 +56,4 @@ func generateValuesID(release *ReleaseSpec, data interface{}) (string, error) {
 	id = append(id, hash)
 
 	return strings.Join(id, "-"), nil
-}
-
-func HashObject(obj interface{}) (string, error) {
-	hash := fnv.New32a()
-
-	hash.Reset()
-
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
-	}
-	printer.Fprintf(hash, "%#v", obj)
-
-	sum := fmt.Sprint(hash.Sum32())
-
-	return SafeEncodeString(sum), nil
 }
