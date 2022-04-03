@@ -4,6 +4,7 @@ Deploy Kubernetes Helm Charts
 
 [![Docker Repository on Quay](https://quay.io/repository/roboll/helmfile/status "Docker Repository on Quay")](https://quay.io/repository/roboll/helmfile)
 [![Slack Community #helmfile](https://slack.sweetops.com/badge.svg)](https://slack.sweetops.com)
+[![Documentation](https://readthedocs.org/projects/helmfile/badge/?version=latest&style=flat)](https://helmfile.readthedocs.io/en/latest/)
 
 ## Status
 
