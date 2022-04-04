@@ -3,6 +3,8 @@ package app
 import (
 	"os"
 	"testing"
+
+	"github.com/roboll/helmfile/pkg/testutil"
 )
 
 // TestFormatAsTable tests the FormatAsTable function.
@@ -35,7 +37,7 @@ func TestFormatAsTable(t *testing.T) {
 		t.Errorf("error reading %s: %v", tableoutput, err)
 	}
 
-	result := captureStdout(func() {
+	result := testutil.CaptureStdout(func() {
 		FormatAsTable(h)
 	})
 	if result != string(expectd) {
@@ -69,7 +71,7 @@ func TestFormatAsJson(t *testing.T) {
 	if err != nil {
 		t.Errorf("error reading %s: %v", output, err)
 	}
-	result := captureStdout(func() {
+	result := testutil.CaptureStdout(func() {
 		FormatAsJson(h)
 	})
 
