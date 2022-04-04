@@ -63,6 +63,6 @@ vault:
 
 sops:
 	curl -sSLo $(tmp)/sops "https://github.com/mozilla/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux"
-	chmod +x $(tmp)/sops	
+	chmod +x $(tmp)/sops
 	sudo mv ${tmp}/sops /usr/local/bin/
 .PHONY: sops
