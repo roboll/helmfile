@@ -3,11 +3,13 @@ package tmpl
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReadFile(t *testing.T) {
@@ -220,4 +222,33 @@ func TestRequired(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRequiredEnv tests that RequiredEnv returns an error if the environment variable is not set.
+func TestRequiredEnv(t *testing.T) {
+
+	// test that the environment variable is not set
+	envKey := "HelmFile"
+	envVal, err := RequiredEnv(envKey)
+
+	require.NotNilf(t, err, "Expected error to be returned when environment variable %s is not set", envKey)
+	require.Emptyf(t, envVal, "Expected empty string to be returned when environment variable %s is not set", envKey)
+
+	// test that the environment variable is set to an empty string
+	os.Setenv(envKey, "")
+	envVal, err = RequiredEnv(envKey)
+
+	require.NotNilf(t, err, "Expected error to be returned when environment variable %s is set to an empty string", envKey)
+	require.Emptyf(t, envVal, "Expected empty string to be returned when environment variable %s is set to an empty string", envKey)
+
+	// test that the environment variable is set to a non-empty string
+	expected := "helmfile"
+	os.Setenv(envKey, expected)
+
+	// Unset the environment variable
+	defer os.Unsetenv(envKey)
+	envVal, err = RequiredEnv(envKey)
+	require.Nilf(t, err, "Expected no error to be returned when environment variable %s is set to a non-empty string", envKey)
+	require.Equalf(t, expected, envVal, "Expected %s to be returned when environment variable %s is set to a non-empty string", expected, envKey)
+
 }
