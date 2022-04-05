@@ -1,4 +1,4 @@
-# Helmfile [![CircleCI](https://circleci.com/gh/roboll/helmfile.svg?style=svg)](https://circleci.com/gh/roboll/helmfile)
+# Helmfile [![Tests](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml?query=branch%3Amain)
 
 Deploy Kubernetes Helm Charts
 
@@ -897,7 +897,7 @@ First you must have the [helm-secrets](https://github.com/jkroepke/helm-secrets)
 `.sops.yaml` file to configure the method of encryption (this can be in the same directory as your helmfile or
 in the sub-directory containing your secrets files).
 
-Then suppose you have a a foo.bar secret defined in `environments/production/secrets.yaml`:
+Then suppose you have a secret `foo.bar` defined in `environments/production/secrets.yaml`:
 ```yaml
 foo.bar: "mysupersecretstring"
 ```
@@ -980,7 +980,7 @@ On `helmfile [delete|destroy]`, deletions happen in the reverse order.
 That is, `myapp1` and `myapp2` are deleted first, then `servicemesh`, and finally `logging`.
 
 ### Selectors and `needs`
-When using selectors/labels, `needs` are ignored by default. This behaviour can be overruled with a few parameters: 
+When using selectors/labels, `needs` are ignored by default. This behaviour can be overruled with a few parameters:
 | Parameter | default | Description |
 |---|---|---|
 | `--skip-needs` | `true` | `needs` are ignored (default behavior).  |
@@ -1006,7 +1006,7 @@ releases:
 |---|---|---|
 | `helmfile -l name=serviceA sync` | - `serviceA` | By default no needs are included. |
 | `helmfile -l name=serviceA sync --include-needs` | - `serviceB`<br>- `serviceA` | `serviceB` is now part of the release as it is a direct need of `serviceA`.  |
-| `helmfile -l name=serviceA sync --include-transitive-needs` | - `serviceC`<br>- `serviceB`<br>- `serviceA` | `serviceC` is now also part of the release as it is a direct need of `serviceB` and therefore a transitive need of `serviceA`.  | 
+| `helmfile -l name=serviceA sync --include-transitive-needs` | - `serviceC`<br>- `serviceB`<br>- `serviceA` | `serviceC` is now also part of the release as it is a direct need of `serviceB` and therefore a transitive need of `serviceA`.  |
 
 Note that `--include-transitive-needs` will override any potential exclusions done by selectors or conditions. So even if you explicitly exclude a release via a selector it will still be part of the deployment in case it is a direct or transitive need of any of the specified releases.
 ## Separating helmfile.yaml into multiple independent files
