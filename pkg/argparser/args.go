@@ -18,7 +18,12 @@ type argMap struct {
 	flags []string
 }
 
+// SetArg sets a flag and value in the map
 func (a *argMap) SetArg(flag, arg string, isSpace bool) {
+	// if flag is empty, return
+	if len(flag) == 0 {
+		return
+	}
 	if _, exists := a.m[flag]; !exists {
 		keyarg := &keyVal{key: flag, val: arg, spaceFlag: isSpace}
 		a.m[flag] = append(a.m[flag], keyarg)
@@ -29,6 +34,7 @@ func (a *argMap) SetArg(flag, arg string, isSpace bool) {
 	}
 }
 
+// newArgMap creates a new argMap
 func newArgMap() *argMap {
 	return &argMap{m: map[string][]*keyVal{}}
 }
