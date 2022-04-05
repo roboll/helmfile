@@ -83,7 +83,7 @@ tools:
 	go get -u github.com/tcnksm/ghr github.com/mitchellh/gox
 .PHONY: tools
 
-TAG  = $(shell git describe --tags --abbrev=0 HEAD)
+TAG  ?= $(shell git describe --tags --abbrev=0 HEAD)
 LAST = $(shell git describe --tags --abbrev=0 HEAD^)
 BODY = "`git log ${LAST}..HEAD --oneline --decorate` `printf '\n\#\#\# [Build Info](${BUILD_URL})'`"
 
