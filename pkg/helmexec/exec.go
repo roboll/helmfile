@@ -326,6 +326,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 			if err != nil {
 				return "", err
 			}
+			defer tmpFile.Close()
 
 			_, err = tmpFile.Write(content)
 			if err != nil {
