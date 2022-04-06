@@ -93,6 +93,10 @@ func (a diffConfig) SuppressDiff() bool {
 	return a.suppressDiff
 }
 
+func (a diffConfig) Color() bool {
+	return false
+}
+
 func (a diffConfig) NoColor() bool {
 	return a.noColor
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/roboll/helmfile/pkg/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var logger *zap.SugaredLogger
@@ -75,6 +76,10 @@ func main() {
 		cli.BoolFlag{
 			Name:  "debug",
 			Usage: "Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect",
+		},
+		cli.BoolFlag{
+			Name:  "color",
+			Usage: "Output with color",
 		},
 		cli.BoolFlag{
 			Name:  "no-color",
@@ -940,6 +945,22 @@ func (c configImpl) StateValuesFiles() []string {
 
 func (c configImpl) Interactive() bool {
 	return c.c.GlobalBool("interactive")
+}
+
+func (c configImpl) Color() bool {
+	if c := c.c.GlobalBool("color"); c {
+		return c
+	}
+
+	// We replicate the helm-diff behavior in helmfile
+	// because when when helmfile calls helm-diff, helm-diff has no access to term and therefore
+	// we can't rely on helm-diff's ability to auto-detect term for color output.
+	// See https://github.com/roboll/helmfile/issues/2043
+
+	term := terminal.IsTerminal(int(os.Stdout.Fd()))
+	// https://github.com/databus23/helm-diff/issues/281
+	dumb := os.Getenv("TERM") == "dumb"
+	return term && !dumb
 }
 
 func (c configImpl) NoColor() bool {

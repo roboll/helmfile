@@ -1718,6 +1718,8 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				if opts.NoColor {
 					flags = append(flags, "--no-color")
+				} else if opts.Color {
+					flags = append(flags, "--color")
 				}
 
 				if opts.Context > 0 {
@@ -1802,8 +1804,13 @@ func (st *HelmState) createHelmContextWithWriter(spec *ReleaseSpec, w io.Writer)
 }
 
 type DiffOpts struct {
-	Context           int
-	Output            string
+	Context int
+	Output  string
+	// Color forces the color output on helm-diff.
+	// This takes effect only when NoColor is false.
+	Color bool
+	// NoColor forces disabling the color output on helm-diff.
+	// If this is true, Color has no effect.
 	NoColor           bool
 	Set               []string
 	SkipCleanup       bool
