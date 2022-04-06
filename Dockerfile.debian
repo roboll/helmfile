@@ -1,14 +1,12 @@
-FROM golang:1.17.3 as builder
+FROM golang:1.18.0-alpine as builder
 
-RUN apt-get update \
- && apt-get install --no-install-recommends -y \
-    build-essential \
-    git \
- && rm -rf /var/lib/apt/lists/*
-
+RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
-COPY . /workspace/helmfile
 
+COPY go.mod go.sum /workspace/helmfile/
+RUN go mod download
+
+COPY . /workspace/helmfile
 RUN make static-linux
 
 # -----------------------------------------------------------------------------
@@ -17,15 +15,11 @@ FROM debian:stable-slim
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
-RUN apt-get update \ 
- && apt-get install -y --no-install-recommends \
-    ca-certificates  \
-    git \
-    bash \
-    curl \
-    jq \
-    wget \
- && rm -rf /var/lib/apt/lists/* 
+RUN apt update -qq && \
+    apt install --no-install-recommends -y \
+      ca-certificates  \
+      git bash curl jq pip wget && \
+    rm -rf /var/lib/apt/lists/*
 
 ARG HELM_VERSION="v3.7.2"
 ARG HELM_SHA256="4ae30e48966aba5f807a4e140dad6736ee1a392940101e4d79ffb4ee86200a9e"
@@ -58,14 +52,31 @@ ENV KUSTOMIZE_SHA256="175938206f23956ec18dac3da0816ea5b5b485a8493a839da278faac82
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     sha256sum kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz | grep ${KUSTOMIZE_SHA256} && \
-    tar zxf kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
+    tar zxvf kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     rm kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     mv kustomize /usr/local/bin/kustomize
+
+ENV SOPS_VERSION="v3.7.2"
+RUN set -x && \
+    curl --retry 5 --retry-connrefused -LO https://github.com/mozilla/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64 && \
+    chmod +x sops-${SOPS_VERSION}.linux.amd64  && \
+    mv sops-${SOPS_VERSION}.linux.amd64  /usr/local/bin/sops
+
+ENV AGE_VERSION="v1.0.0"
+RUN set -x && \
+    curl --retry 5 --retry-connrefused -LO https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz && \
+    tar zxvf age-${AGE_VERSION}-linux-amd64.tar.gz && \
+    mv age/age /usr/local/bin/age && \
+    mv age/age-keygen /usr/local/bin/age-keygen && \
+    rm -rf age-${AGE_VERSION}-linux-amd64.tar.gz age \
 
 RUN helm plugin install https://github.com/databus23/helm-diff --version v3.3.1 && \
     helm plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0 && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.10.0 && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.10.0
+
+# Allow users other than root to use helm plugins located in root home
+RUN chmod 751 /root
 
 COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 
