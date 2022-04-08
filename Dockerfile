@@ -1,7 +1,11 @@
-FROM golang:1.18-alpine as builder
+FROM golang:1.18.0-alpine as builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
+
+COPY go.mod go.sum /workspace/helmfile/
+RUN go mod download
+
 COPY . /workspace/helmfile
 RUN make static-linux
 
@@ -44,9 +48,23 @@ ENV KUSTOMIZE_SHA256="175938206f23956ec18dac3da0816ea5b5b485a8493a839da278faac82
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     sha256sum kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz | grep ${KUSTOMIZE_SHA256} && \
-    tar zxf kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
+    tar zxvf kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     rm kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     mv kustomize /usr/local/bin/kustomize
+
+ENV SOPS_VERSION="v3.7.2"
+RUN set -x && \
+    curl --retry 5 --retry-connrefused -LO https://github.com/mozilla/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64 && \
+    chmod +x sops-${SOPS_VERSION}.linux.amd64  && \
+    mv sops-${SOPS_VERSION}.linux.amd64 /usr/local/bin/sops
+
+ENV AGE_VERSION="v1.0.0"
+RUN set -x && \
+    curl --retry 5 --retry-connrefused -LO https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz && \
+    tar zxvf age-${AGE_VERSION}-linux-amd64.tar.gz && \
+    mv age/age /usr/local/bin/age && \
+    mv age/age-keygen /usr/local/bin/age-keygen && \
+    rm -rf age-${AGE_VERSION}-linux-amd64.tar.gz age
 
 RUN helm plugin install https://github.com/databus23/helm-diff --version v3.3.1 && \
     helm plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0 && \
