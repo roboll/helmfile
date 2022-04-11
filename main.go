@@ -798,7 +798,7 @@ func (c configImpl) Args() string {
 }
 
 func (c configImpl) OutputDir() string {
-	return c.c.String("output-dir")
+	return strings.TrimRight(c.c.String("output-dir"), "/")
 }
 
 func (c configImpl) OutputDirTemplate() string {
