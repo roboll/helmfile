@@ -3082,7 +3082,7 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 
 	t, err := template.New("output-dir").Parse(outputDirTemplate)
 	if err != nil {
-		return "", fmt.Errorf("parsing output-dir templmate")
+		return "", fmt.Errorf("parsing output-dir template")
 	}
 
 	buf := &bytes.Buffer{}
@@ -3149,7 +3149,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 
 	t, err := template.New("output-file").Parse(outputFileTemplate)
 	if err != nil {
-		return "", fmt.Errorf("parsing output-file templmate")
+		return "", fmt.Errorf("parsing output-file template")
 	}
 
 	buf := &bytes.Buffer{}
