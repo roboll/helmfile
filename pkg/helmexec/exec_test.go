@@ -260,6 +260,18 @@ exec: helm --kube-context dev upgrade --install --reset-values release chart
 	if buffer.String() != expected {
 		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
+
+	buffer.Reset()
+	err = helm.SyncRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz")
+	expected = `Upgrading release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
+exec: helm --kube-context dev upgrade --install --reset-values release https://example_user:example_password@repo.example.com/chart.tgz
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
 }
 
 func Test_SyncReleaseTillerless(t *testing.T) {
@@ -420,6 +432,18 @@ exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased rel
 	err = helm.DiffRelease(HelmContext{}, "release", "chart", false)
 	expected = `Comparing release=release, chart=chart
 exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased release chart
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	err = helm.DiffRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz", false)
+	expected = `Comparing release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
+exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased release https://example_user:example_password@repo.example.com/chart.tgz
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -621,7 +645,52 @@ exec: helm --kube-context dev fetch chart --version 1.2.3 --untar --untardir /tm
 		t.Errorf("unexpected error: %v", err)
 	}
 	if buffer.String() != expected {
-		t.Errorf("helmexec.Lint()\nactual = %v\nexpect = %v", buffer.String(), expected)
+		t.Errorf("helmexec.Fetch()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	err = helm.Fetch("https://example_user:example_password@repo.example.com/chart.tgz", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
+	expected = `Fetching https://example_user:xxxxx@repo.example.com/chart.tgz
+exec: helm --kube-context dev fetch https://example_user:example_password@repo.example.com/chart.tgz --version 1.2.3 --untar --untardir /tmp/dir
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.Fetch()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_ChartPull(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := MockExecer(logger, "dev")
+	err := helm.ChartPull("chart", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
+	expected := `Pulling chart
+Exporting chart
+exec: helm --kube-context dev chart pull chart --version 1.2.3 --untar --untardir /tmp/dir
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.ChartPull()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_ChartExport(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := MockExecer(logger, "dev")
+	err := helm.ChartExport("chart", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
+	expected := `Exporting chart
+exec: helm --kube-context dev chart export chart --destination --version 1.2.3 --untar --untardir /tmp/dir
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.ChartExport()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 }
 
@@ -691,6 +760,18 @@ func Test_Template(t *testing.T) {
 	err := helm.TemplateRelease("release", "path/to/chart", "--values", "file.yml")
 	expected := `Templating release=release, chart=path/to/chart
 exec: helm --kube-context dev template path/to/chart --name release --values file.yml
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.Template()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	err = helm.TemplateRelease("release", "https://example_user:example_password@repo.example.com/chart.tgz", "--values", "file.yml")
+	expected = `Templating release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
+exec: helm --kube-context dev template https://example_user:example_password@repo.example.com/chart.tgz --name release --values file.yml
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
