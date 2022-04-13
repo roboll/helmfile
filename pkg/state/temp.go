@@ -34,9 +34,11 @@ func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error)
 	workDir := os.Getenv("HELMFILE_TEMPDIR")
 	if workDir == "" {
 		workDir, err = os.MkdirTemp(os.TempDir(), "helmfile")
-		if err != nil {
-			panic(err)
-		}
+	} else {
+		err = os.MkdirAll(workDir, os.FileMode(0700))
+	}
+	if err != nil {
+		panic(err)
 	}
 
 	d := filepath.Join(workDir, id)
