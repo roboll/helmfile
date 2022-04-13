@@ -952,6 +952,10 @@ func (c configImpl) Color() bool {
 		return c
 	}
 
+	if c.NoColor() {
+		return false
+	}
+
 	// We replicate the helm-diff behavior in helmfile
 	// because when when helmfile calls helm-diff, helm-diff has no access to term and therefore
 	// we can't rely on helm-diff's ability to auto-detect term for color output.
@@ -1018,6 +1022,10 @@ func action(do func(*app.App, configImpl) error) func(*cli.Context) error {
 	return func(implCtx *cli.Context) error {
 		conf, err := NewUrfaveCliConfigImpl(implCtx)
 		if err != nil {
+			return err
+		}
+
+		if err := app.ValidateConfig(conf); err != nil {
 			return err
 		}
 
