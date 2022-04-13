@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -80,6 +81,14 @@ func getHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
 	}
 
 	return parseHelmVersion(string(outBytes))
+}
+
+func redactedUrl(chart string) string {
+	chartUrl, err := url.ParseRequestURI(chart)
+	if err != nil {
+		return chart
+	}
+	return chartUrl.Redacted()
 }
 
 // New for running helm commands
@@ -196,7 +205,7 @@ func (helm *execer) UpdateDeps(chart string) error {
 }
 
 func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
-	helm.logger.Infof("Upgrading release=%v, chart=%v", name, chart)
+	helm.logger.Infof("Upgrading release=%v, chart=%v", name, redactedUrl(chart))
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 
@@ -348,7 +357,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 }
 
 func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {
-	helm.logger.Infof("Templating release=%v, chart=%v", name, chart)
+	helm.logger.Infof("Templating release=%v, chart=%v", name, redactedUrl(chart))
 	var args []string
 	if helm.IsHelm3() {
 		args = []string{"template", name, chart}
@@ -387,9 +396,9 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 
 func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	if context.Writer != nil {
-		fmt.Fprintf(context.Writer, "Comparing release=%v, chart=%v\n", name, chart)
+		fmt.Fprintf(context.Writer, "Comparing release=%v, chart=%v\n", name, redactedUrl(chart))
 	} else {
-		helm.logger.Infof("Comparing release=%v, chart=%v", name, chart)
+		helm.logger.Infof("Comparing release=%v, chart=%v", name, redactedUrl(chart))
 	}
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
@@ -427,7 +436,7 @@ func (helm *execer) Lint(name, chart string, flags ...string) error {
 }
 
 func (helm *execer) Fetch(chart string, flags ...string) error {
-	helm.logger.Infof("Fetching %v", chart)
+	helm.logger.Infof("Fetching %v", redactedUrl(chart))
 	out, err := helm.exec(append([]string{"fetch", chart}, flags...), map[string]string{})
 	helm.info(out)
 	return err
