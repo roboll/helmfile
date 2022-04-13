@@ -100,7 +100,10 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	var shouldRun bool
 
-	dir := filepath.Join(st.basePath, chart)
+	dir := chart
+	if !filepath.IsAbs(chart) {
+		dir = filepath.Join(st.basePath, chart)
+	}
 	if stat, _ := os.Stat(dir); stat != nil && stat.IsDir() {
 		if exists, err := st.fileExists(filepath.Join(dir, "Chart.yaml")); err == nil && !exists {
 			shouldRun = true
@@ -180,6 +183,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	}
 
 	if shouldRun {
+		st.logger.Debugf("Chartify process for %s", dir)
 		generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
 		if err != nil {
 			return nil, clean, err
