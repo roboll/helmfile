@@ -55,7 +55,7 @@ jobs:
          - helm-version: v3.5.4
          - helm-version: v3.6.3
          - helm-version: v3.7.2
-         - helm-version: v3.8.1
+         - helm-version: v3.8.2
     steps:
     - uses: actions/checkout@v2
     - name: Cache libraries
