@@ -183,6 +183,11 @@ type RepositorySpec struct {
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
 	Chart string `yaml:"chart,omitempty"`
+
+	// ChartPath is the downloaded and modified version of the remote Chart specified by the Chart field.
+	// This field is empty when the release is going to use the remote chart as-is, without any modifications(e.g. chartify).
+	ChartPath string `yaml:"chartPath,omitempty"`
+
 	// Directory is an alias to Chart which may be of more fit when you want to use a local/remote directory containing
 	// K8s manifests or Kustomization as a chart
 	Directory string `yaml:"directory,omitempty"`
@@ -313,6 +318,16 @@ type ReleaseSpec struct {
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
 	// as a Helm chart.
 	SkipDeps *bool `yaml:"skipDeps,omitempty"`
+}
+
+// ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
+// This is useful to redirect helm commands like `helm template`, `helm diff`, and `helm upgrade --install` to
+// our modified version of the chart, in case the user configured Helmfile to do modify the chart before being passed to Helm.
+func (r ReleaseSpec) ChartPathOrName() string {
+	if r.ChartPath != "" {
+		return r.ChartPath
+	}
+	return r.Chart
 }
 
 type Release struct {
@@ -804,7 +819,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 			for prep := range jobQueue {
 				release := prep.release
 				flags := prep.flags
-				chart := normalizeChart(st.basePath, release.Chart)
+				chart := normalizeChart(st.basePath, release.ChartPathOrName())
 				var relErr *ReleaseError
 				context := st.createHelmContext(release, workerIndex)
 
@@ -1396,7 +1411,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 		}
 
 		if len(errs) == 0 {
-			if err := helm.TemplateRelease(release.Name, release.Chart, flags...); err != nil {
+			if err := helm.TemplateRelease(release.Name, release.ChartPathOrName(), flags...); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -1572,7 +1587,7 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 		}
 
 		if len(errs) == 0 {
-			if err := helm.Lint(release.Name, release.Chart, flags...); err != nil {
+			if err := helm.Lint(release.Name, release.ChartPathOrName(), flags...); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -1870,7 +1885,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				buf := &bytes.Buffer{}
 				if prep.upgradeDueToSkippedDiff {
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
-				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.Chart), suppressDiff, flags...); err != nil {
+				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.ChartPathOrName()), suppressDiff, flags...); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
