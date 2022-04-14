@@ -2426,6 +2426,10 @@ func (a applyConfig) SuppressDiff() bool {
 	return a.suppressDiff
 }
 
+func (a applyConfig) Color() bool {
+	return false
+}
+
 func (a applyConfig) NoColor() bool {
 	return a.noColor
 }

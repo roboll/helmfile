@@ -56,6 +56,7 @@ type ApplyConfigProvider interface {
 
 	DetailedExitcode() bool
 
+	Color() bool
 	NoColor() bool
 	Context() int
 	DiffOutput() string
@@ -113,6 +114,7 @@ type DiffConfigProvider interface {
 	IncludeNeeds() bool
 
 	DetailedExitcode() bool
+	Color() bool
 	NoColor() bool
 	Context() int
 	DiffOutput() string
