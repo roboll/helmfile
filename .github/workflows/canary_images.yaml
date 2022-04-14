@@ -24,17 +24,17 @@ jobs:
     permissions:
       contents: read
     name: Build Images
+    strategy:
+      matrix:
+       include:
+         - dockerfile: Dockerfile
+         - dockerfile: Dockerfile.debian
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Build
         uses: docker/build-push-action@v2
-        strategy:
-          matrix:
-           include:
-             - dockerfile: Dockerfile
-             - dockerfile: Dockerfile.debian
         with:
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
