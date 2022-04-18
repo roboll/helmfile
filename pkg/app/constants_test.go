@@ -1,27 +1,53 @@
 package app
 
 import (
-	"gotest.tools/v3/assert"
-	is "gotest.tools/v3/assert/cmp"
-	"gotest.tools/v3/env"
+	"fmt"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
+// TestIsExplicitSelectorInheritanceEnabled tests the isExplicitSelectorInheritanceEnabled function
 func TestIsExplicitSelectorInheritanceEnabled(t *testing.T) {
-	//env var ExperimentalEnvVar is set
-	assert.Assert(t, is.Equal(os.Getenv(ExperimentalEnvVar), ""))
-	assert.Check(t, !isExplicitSelectorInheritanceEnabled())
+	//env var ExperimentalEnvVar is not set
+	require.Empty(t, os.Getenv(ExperimentalEnvVar))
+	require.False(t, isExplicitSelectorInheritanceEnabled())
 
 	//check for env var ExperimentalEnvVar set to true
-	defer env.Patch(t, ExperimentalEnvVar, "true")()
-	assert.Check(t, isExplicitSelectorInheritanceEnabled())
+	os.Setenv(ExperimentalEnvVar, "true")
+	require.True(t, isExplicitSelectorInheritanceEnabled())
 
 	//check for env var ExperimentalEnvVar set to anything
-	defer env.Patch(t, ExperimentalEnvVar, "foo")()
-	assert.Check(t, !isExplicitSelectorInheritanceEnabled())
+	os.Setenv(ExperimentalEnvVar, "anything")
+	require.False(t, isExplicitSelectorInheritanceEnabled())
 
 	//check for env var ExperimentalEnvVar set to ExperimentalSelectorExplicit
-	defer env.Patch(t, ExperimentalEnvVar, ExperimentalSelectorExplicit)()
-	assert.Check(t, isExplicitSelectorInheritanceEnabled())
+	os.Setenv(ExperimentalEnvVar, ExperimentalSelectorExplicit)
+	require.True(t, isExplicitSelectorInheritanceEnabled())
+
+	// check for env var ExperimentalEnvVar set to a string that contains ExperimentalSelectorExplicit and ExperimentalEnvVar set to true
+	os.Setenv(ExperimentalEnvVar, fmt.Sprintf("%s-%s-%s", "a", ExperimentalSelectorExplicit, "b"))
+	require.True(t, isExplicitSelectorInheritanceEnabled())
+
+	// reset env var
+	defer os.Unsetenv(ExperimentalEnvVar)
+}
+
+// TestExperimentalModeEnabled tests the experimentalModeEnabled function
+func TestExperimentalModeEnabled(t *testing.T) {
+	//env var ExperimentalEnvVar is not set
+	require.Empty(t, os.Getenv(ExperimentalEnvVar))
+	require.False(t, experimentalModeEnabled())
+
+	//check for env var ExperimentalEnvVar set to anything
+	os.Setenv(ExperimentalEnvVar, "anything")
+	require.False(t, experimentalModeEnabled())
+
+	//check for env var ExperimentalEnvVar set to true
+	os.Setenv(ExperimentalEnvVar, "true")
+	require.True(t, experimentalModeEnabled())
+
+	// reset env var
+	defer os.Unsetenv(ExperimentalEnvVar)
 }

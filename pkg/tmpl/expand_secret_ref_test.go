@@ -2,8 +2,10 @@ package tmpl
 
 import (
 	"errors"
+
 	"github.com/golang/mock/gomock"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
+
 	"testing"
 )
 
@@ -21,7 +23,7 @@ func Test_fetchSecretValue(t *testing.T) {
 	valsResult["key"] = "key_value"
 	c.EXPECT().Eval(expectArg).Return(valsResult, nil)
 	result, err := fetchSecretValue(secretPath)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 	assert.Equal(t, result, "key_value")
 }
 
