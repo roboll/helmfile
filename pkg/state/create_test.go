@@ -12,8 +12,7 @@ import (
 	"github.com/roboll/helmfile/pkg/testhelper"
 	"go.uber.org/zap"
 
-	. "gotest.tools/v3/assert"
-	"gotest.tools/v3/assert/cmp"
+	"github.com/stretchr/testify/require"
 )
 
 func createFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {
@@ -486,6 +485,6 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 				t.Error("unexpected error:", err)
 			}
 		}
-		Assert(t, cmp.DeepEqual(st.Helmfiles, test.helmfiles), "for path %v", test.path)
+		require.Equalf(t, test.helmfiles, st.Helmfiles, "for path %s", test.path)
 	}
 }

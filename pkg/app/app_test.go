@@ -19,7 +19,7 @@ import (
 	"github.com/roboll/helmfile/pkg/remote"
 	"github.com/roboll/helmfile/pkg/testutil"
 
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/roboll/helmfile/pkg/exectest"
 
@@ -30,7 +30,6 @@ import (
 	"github.com/roboll/helmfile/pkg/testhelper"
 
 	"go.uber.org/zap"
-	"gotest.tools/v3/env"
 )
 
 func appWithFs(app *App, files map[string]string) *App {
@@ -637,7 +636,8 @@ releases:
 		{label: "name=doesnotexists", expectedReleases: []string{"zipkin", "prometheus", "grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
 	}
 
-	defer env.Patch(t, ExperimentalEnvVar, ExperimentalSelectorExplicit)()
+	os.Setenv(ExperimentalEnvVar, ExperimentalSelectorExplicit)
+	defer os.Unsetenv(ExperimentalEnvVar)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd EmbeddedSelectors")
 
@@ -686,7 +686,8 @@ releases:
 		{label: "name!=grafana", expectedReleases: []string{"grafana", "zipkin", "mongodb"}, expectErr: false},
 	}
 
-	defer env.Patch(t, ExperimentalEnvVar, ExperimentalSelectorExplicit)()
+	os.Setenv(ExperimentalEnvVar, ExperimentalSelectorExplicit)
+	defer os.Unsetenv(ExperimentalEnvVar)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd 3leveldeep")
 
@@ -747,7 +748,8 @@ releases:
 		{label: "select!=foo", expectedReleases: []string{"grafana", "prometheus", "zipkin", "prometheus", "zipkin", "mongodb"}, expectErr: false},
 	}
 
-	defer env.Patch(t, ExperimentalEnvVar, ExperimentalSelectorExplicit)()
+	os.Setenv(ExperimentalEnvVar, ExperimentalSelectorExplicit)
+	defer os.Unsetenv(ExperimentalEnvVar)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd inherits")
 
@@ -4702,13 +4704,13 @@ releases:
 
 	out := testutil.CaptureStdout(func() {
 		err := app.PrintState(configImpl{})
-		assert.NilError(t, err)
+		assert.Nil(t, err)
 	})
-	assert.Assert(t, strings.Count(out, "---") == 1,
+	assert.True(t, strings.Count(out, "---") == 1,
 		"state should contain '---' yaml doc separator:\n%s\n", out)
-	assert.Assert(t, strings.Contains(out, "helmfile.yaml"),
+	assert.True(t, strings.Contains(out, "helmfile.yaml"),
 		"state should contain source helmfile name:\n%s\n", out)
-	assert.Assert(t, strings.Contains(out, "name: myrelease1"),
+	assert.True(t, strings.Contains(out, "name: myrelease1"),
 		"state should contain releases:\n%s\n", out)
 }
 
@@ -4749,13 +4751,13 @@ releases:
 
 	out := testutil.CaptureStdout(func() {
 		err := app.PrintState(configImpl{})
-		assert.NilError(t, err)
+		assert.Nil(t, err)
 	})
-	assert.Assert(t, strings.Count(out, "---") == 2,
+	assert.True(t, strings.Count(out, "---") == 2,
 		"state should contain '---' yaml doc separators:\n%s\n", out)
-	assert.Assert(t, strings.Contains(out, "second.yaml"),
+	assert.True(t, strings.Contains(out, "second.yaml"),
 		"state should contain source helmfile name:\n%s\n", out)
-	assert.Assert(t, strings.Contains(out, "second.yaml"),
+	assert.True(t, strings.Contains(out, "second.yaml"),
 		"state should contain source helmfile name:\n%s\n", out)
 }
 
@@ -4810,7 +4812,7 @@ releases:
 
 	out := testutil.CaptureStdout(func() {
 		err := app.ListReleases(configImpl{})
-		assert.NilError(t, err)
+		assert.Nil(t, err)
 	})
 
 	expected := `NAME      	NAMESPACE	ENABLED	INSTALLED	LABELS                    	CHART   	VERSION
@@ -4874,7 +4876,7 @@ releases:
 		err := app.ListReleases(configImpl{
 			output: "json",
 		})
-		assert.NilError(t, err)
+		assert.Nil(t, err)
 	})
 
 	expected := `[{"name":"myrelease1","namespace":"","enabled":true,"installed":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"","enabled":false,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"","enabled":true,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"","enabled":true,"installed":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
