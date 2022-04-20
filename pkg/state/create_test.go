@@ -334,13 +334,13 @@ func TestReadFromYaml_FilterReleasesOnLabels(t *testing.T) {
 		filter  LabelFilter
 		results []bool
 	}{
-		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}}},
+		{LabelFilter{positiveLabels: [][]string{{"tier", "frontend"}}},
 			[]bool{true, true, false}},
-		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}, []string{"foo", "bar"}}},
+		{LabelFilter{positiveLabels: [][]string{{"tier", "frontend"}, {"foo", "bar"}}},
 			[]bool{true, false, false}},
-		{LabelFilter{negativeLabels: [][]string{[]string{"tier", "frontend"}}},
+		{LabelFilter{negativeLabels: [][]string{{"tier", "frontend"}}},
 			[]bool{false, false, true}},
-		{LabelFilter{positiveLabels: [][]string{[]string{"tier", "frontend"}}, negativeLabels: [][]string{[]string{"foo", "bar"}}},
+		{LabelFilter{positiveLabels: [][]string{{"tier", "frontend"}}, negativeLabels: [][]string{{"foo", "bar"}}},
 			[]bool{false, true, false}},
 	}
 	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
@@ -375,13 +375,13 @@ func TestReadFromYaml_FilterNegatives(t *testing.T) {
 		filter  LabelFilter
 		results []bool
 	}{
-		{LabelFilter{positiveLabels: [][]string{[]string{"stage", "pre"}}},
+		{LabelFilter{positiveLabels: [][]string{{"stage", "pre"}}},
 			[]bool{true, false, false}},
-		{LabelFilter{positiveLabels: [][]string{[]string{"stage", "post"}}},
+		{LabelFilter{positiveLabels: [][]string{{"stage", "post"}}},
 			[]bool{false, true, false}},
-		{LabelFilter{negativeLabels: [][]string{[]string{"stage", "pre"}, []string{"stage", "post"}}},
+		{LabelFilter{negativeLabels: [][]string{{"stage", "pre"}, {"stage", "post"}}},
 			[]bool{false, false, true}},
-		{LabelFilter{negativeLabels: [][]string{[]string{"foo", "bar"}}},
+		{LabelFilter{negativeLabels: [][]string{{"foo", "bar"}}},
 			[]bool{false, true, true}},
 	}
 	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)

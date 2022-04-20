@@ -31,9 +31,9 @@ func TestLabelParsing(t *testing.T) {
 		expectedFilter LabelFilter
 		errorExected   bool
 	}{
-		{"foo=bar", LabelFilter{positiveLabels: [][]string{[]string{"foo", "bar"}}, negativeLabels: [][]string{}}, false},
-		{"foo!=bar", LabelFilter{positiveLabels: [][]string{}, negativeLabels: [][]string{[]string{"foo", "bar"}}}, false},
-		{"foo!=bar,baz=bat", LabelFilter{positiveLabels: [][]string{[]string{"baz", "bat"}}, negativeLabels: [][]string{[]string{"foo", "bar"}}}, false},
+		{"foo=bar", LabelFilter{positiveLabels: [][]string{{"foo", "bar"}}, negativeLabels: [][]string{}}, false},
+		{"foo!=bar", LabelFilter{positiveLabels: [][]string{}, negativeLabels: [][]string{{"foo", "bar"}}}, false},
+		{"foo!=bar,baz=bat", LabelFilter{positiveLabels: [][]string{{"baz", "bat"}}, negativeLabels: [][]string{{"foo", "bar"}}}, false},
 		{"foo", LabelFilter{positiveLabels: [][]string{}, negativeLabels: [][]string{}}, true},
 		{"foo!=bar=baz", LabelFilter{positiveLabels: [][]string{}, negativeLabels: [][]string{}}, true},
 		{"=bar", LabelFilter{positiveLabels: [][]string{}, negativeLabels: [][]string{}}, true},
