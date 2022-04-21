@@ -90,9 +90,9 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Name:      "test-app",
 				Namespace: "dev",
 				SetValuesTemplate: []SetValue{
-					SetValue{Name: "val1", Value: "{{ .Release.Name }}-val1"},
-					SetValue{Name: "val2", File: "{{ .Release.Name }}.yml"},
-					SetValue{Name: "val3", Values: []string{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
+					{Name: "val1", Value: "{{ .Release.Name }}-val1"},
+					{Name: "val2", File: "{{ .Release.Name }}.yml"},
+					{Name: "val3", Values: []string{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
 				},
 			},
 			want: ReleaseSpec{
@@ -100,9 +100,9 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Name:      "test-app",
 				Namespace: "dev",
 				SetValues: []SetValue{
-					SetValue{Name: "val1", Value: "test-app-val1"},
-					SetValue{Name: "val2", File: "test-app.yml"},
-					SetValue{Name: "val3", Values: []string{"test-app-val2", "test-app-val3"}},
+					{Name: "val1", Value: "test-app-val1"},
+					{Name: "val2", File: "test-app.yml"},
+					{Name: "val3", Values: []string{"test-app-val2", "test-app-val3"}},
 				},
 			},
 		},

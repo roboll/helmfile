@@ -573,7 +573,7 @@ releases:
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
-				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 ^kubernetes-external-secrets$ 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
 			},
@@ -716,7 +716,7 @@ releases:
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
-				exectest.ListKey{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: ``,
+				{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: ``,
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
