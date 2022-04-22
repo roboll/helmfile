@@ -263,17 +263,7 @@ func TestExec(t *testing.T) {
 	require.Nilf(t, err, "Expected no error to be returned when executing command")
 	require.Equalf(t, expected, output, "Expected %s to be returned when executing command", expected)
 
-	// test inherited environment
-	expected = "bar\n"
-	os.Setenv("HELMFILE_TEST", "bar")
-	defer os.Unsetenv("HELMFILE_TEST")
-	output, err = ctx.Exec("bash", []interface{}{"-c", "echo $HELMFILE_TEST"}, "")
-	require.Nilf(t, err, "Expected no error to be returned when executing command")
-	require.Equalf(t, expected, output, "Expected %s to be returned when executing command", expected)
-
 	// test that the command is executed with no-zero exit code
-
 	_, err = ctx.Exec("bash", []interface{}{"-c", "exit 1"}, "")
 	require.Error(t, err, "Expected error to be returned when executing command with non-zero exit code")
-
 }

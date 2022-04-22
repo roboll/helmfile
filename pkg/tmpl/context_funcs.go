@@ -66,8 +66,6 @@ func (c *Context) Exec(command string, args []interface{}, inputs ...string) (st
 
 	cmd := exec.Command(command, strArgs...)
 	cmd.Dir = c.basePath
-	// inherit the environment variables from the parent process
-	cmd.Env = os.Environ()
 
 	g := errgroup.Group{}
 
