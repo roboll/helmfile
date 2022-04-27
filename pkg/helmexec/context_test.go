@@ -2,6 +2,7 @@ package helmexec
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -55,6 +56,11 @@ func TestGetTillerlessArgs(t *testing.T) {
 	}
 }
 
+func pwd() string {
+	pwd, _ := os.Getwd()
+	return pwd
+}
+
 // TestGetTillerlessEnv tests the getTillerlessEnv function
 func TestGetTillerlessEnv(t *testing.T) {
 	kubeconfigEnv := "KUBECONFIG"
@@ -72,7 +78,7 @@ func TestGetTillerlessEnv(t *testing.T) {
 		{
 			tillerless: true,
 			kubeconfig: "abc",
-			expected:   map[string]string{"HELM_TILLER_SILENT": "true", kubeconfigEnv: "/workdir/helmfile/pkg/helmexec/abc"},
+			expected:   map[string]string{"HELM_TILLER_SILENT": "true", kubeconfigEnv: filepath.Join(pwd(), "abc")},
 		},
 		{
 			tillerless: true,
