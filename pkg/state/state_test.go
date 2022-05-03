@@ -53,46 +53,18 @@ func TestLabelParsing(t *testing.T) {
 
 func TestHelmState_applyDefaultsTo(t *testing.T) {
 	type fields struct {
-		BaseChartPath      string
-		Context            string
-		DeprecatedReleases []ReleaseSpec
-		Namespace          string
-		Repositories       []RepositorySpec
-		Releases           []ReleaseSpec
+		BaseChartPath       string
+		Context             string
+		DeprecatedReleases  []ReleaseSpec
+		Namespace           string
+		OverrideKubeContext string
+		Repositories        []RepositorySpec
+		Releases            []ReleaseSpec
 	}
 	type args struct {
 		spec ReleaseSpec
 	}
 	verify := false
-	specWithNamespace := ReleaseSpec{
-		Chart:     "test/chart",
-		Version:   "0.1",
-		Verify:    &verify,
-		Name:      "test-charts",
-		Namespace: "test-namespace",
-		Values:    nil,
-		SetValues: nil,
-		EnvValues: nil,
-	}
-
-	specWithoutNamespace := specWithNamespace
-	specWithoutNamespace.Namespace = ""
-	specWithNamespaceFromFields := specWithNamespace
-	specWithNamespaceFromFields.Namespace = "test-namespace-field"
-
-	fieldsWithNamespace := fields{
-		BaseChartPath:      ".",
-		Context:            "test_context",
-		DeprecatedReleases: nil,
-		Namespace:          specWithNamespaceFromFields.Namespace,
-		Repositories:       nil,
-		Releases: []ReleaseSpec{
-			specWithNamespace,
-		},
-	}
-
-	fieldsWithoutNamespace := fieldsWithNamespace
-	fieldsWithoutNamespace.Namespace = ""
 
 	tests := []struct {
 		name   string
@@ -101,28 +73,276 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 		want   ReleaseSpec
 	}{
 		{
-			name:   "Has a namespace from spec",
-			fields: fieldsWithoutNamespace,
-			args: args{
-				spec: specWithNamespace,
+			name: "Has a namespace from spec",
+			fields: fields{
+				BaseChartPath:      ".",
+				Context:            "test_context",
+				DeprecatedReleases: nil,
+				Namespace:          "",
+				Repositories:       nil,
+				Releases: []ReleaseSpec{
+					{
+						Chart:     "test/chart",
+						Version:   "0.1",
+						Verify:    &verify,
+						Name:      "test-charts",
+						Namespace: "test-namespace",
+						Values:    nil,
+						SetValues: nil,
+						EnvValues: nil,
+					},
+				},
 			},
-			want: specWithNamespace,
+			args: args{
+				spec: ReleaseSpec{
+					Chart:     "test/chart",
+					Version:   "0.1",
+					Verify:    &verify,
+					Name:      "test-charts",
+					Namespace: "test-namespace",
+					Values:    nil,
+					SetValues: nil,
+					EnvValues: nil,
+				},
+			},
+			want: ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &verify,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+				Values:    nil,
+				SetValues: nil,
+				EnvValues: nil,
+			},
 		},
 		{
-			name:   "Has a namespace from flags",
-			fields: fieldsWithoutNamespace,
-			args: args{
-				spec: specWithNamespace,
+			name: "Has a namespace from flags",
+			fields: fields{
+				BaseChartPath:      ".",
+				Context:            "test_context",
+				DeprecatedReleases: nil,
+				Namespace:          "",
+				Repositories:       nil,
+				Releases: []ReleaseSpec{
+					{
+						Chart:     "test/chart",
+						Version:   "0.1",
+						Verify:    &verify,
+						Name:      "test-charts",
+						Namespace: "test-namespace",
+						Values:    nil,
+						SetValues: nil,
+						EnvValues: nil,
+					},
+				},
 			},
-			want: specWithNamespace,
+			args: args{
+				spec: ReleaseSpec{
+					Chart:     "test/chart",
+					Version:   "0.1",
+					Verify:    &verify,
+					Name:      "test-charts",
+					Namespace: "test-namespace",
+					Values:    nil,
+					SetValues: nil,
+					EnvValues: nil,
+				},
+			},
+			want: ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &verify,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+				Values:    nil,
+				SetValues: nil,
+				EnvValues: nil,
+			},
 		},
 		{
-			name:   "Has a namespace from flags and from spec",
-			fields: fieldsWithNamespace,
-			args: args{
-				spec: specWithNamespace,
+			name: "Has a namespace from flags and from spec",
+			fields: fields{
+				BaseChartPath:      ".",
+				Context:            "test_context",
+				DeprecatedReleases: nil,
+				Namespace:          "test-namespace-field",
+				Repositories:       nil,
+				Releases: []ReleaseSpec{
+					{
+						Chart:     "test/chart",
+						Version:   "0.1",
+						Verify:    &verify,
+						Name:      "test-charts",
+						Namespace: "test-namespace",
+						Values:    nil,
+						SetValues: nil,
+						EnvValues: nil,
+					},
+				},
 			},
-			want: specWithNamespaceFromFields,
+			args: args{
+				spec: ReleaseSpec{
+					Chart:     "test/chart",
+					Version:   "0.1",
+					Verify:    &verify,
+					Name:      "test-charts",
+					Namespace: "test-namespace",
+					Values:    nil,
+					SetValues: nil,
+					EnvValues: nil,
+				},
+			},
+			want: ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &verify,
+				Name:      "test-charts",
+				Namespace: "test-namespace-field",
+				Values:    nil,
+				SetValues: nil,
+				EnvValues: nil,
+			},
+		},
+		{
+			name: "Has a kube context from spec",
+			fields: fields{
+				BaseChartPath:       ".",
+				Context:             "test_context",
+				DeprecatedReleases:  nil,
+				Namespace:           "",
+				Repositories:        nil,
+				OverrideKubeContext: "test-kube-context",
+				Releases: []ReleaseSpec{
+					{
+						Chart:     "test/chart",
+						Version:   "0.1",
+						Verify:    &verify,
+						Name:      "test-charts",
+						Namespace: "test-namespace",
+						Values:    nil,
+						SetValues: nil,
+						EnvValues: nil,
+					},
+				},
+			},
+			args: args{
+				spec: ReleaseSpec{
+					Chart:     "test/chart",
+					Version:   "0.1",
+					Verify:    &verify,
+					Name:      "test-charts",
+					Namespace: "test-namespace",
+					Values:    nil,
+					SetValues: nil,
+					EnvValues: nil,
+				},
+			},
+			want: ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Verify:      &verify,
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				KubeContext: "test-kube-context",
+				Values:      nil,
+				SetValues:   nil,
+				EnvValues:   nil,
+			},
+		},
+		{
+			name: "Release has namespace from spec and a non-namespaced need",
+			fields: fields{
+				BaseChartPath:      ".",
+				Context:            "test_context",
+				DeprecatedReleases: nil,
+				Namespace:          "",
+				Repositories:       nil,
+				Releases: []ReleaseSpec{
+					{
+						Chart:     "test/chart",
+						Version:   "0.1",
+						Verify:    &verify,
+						Name:      "test-charts",
+						Namespace: "test-namespace",
+						Values:    nil,
+						SetValues: nil,
+						EnvValues: nil,
+						Needs:     []string{"test-dependency"},
+					},
+				},
+			},
+			args: args{
+				spec: ReleaseSpec{
+					Chart:     "test/chart",
+					Version:   "0.1",
+					Verify:    &verify,
+					Name:      "test-charts",
+					Namespace: "test-namespace",
+					Values:    nil,
+					SetValues: nil,
+					EnvValues: nil,
+					Needs:     []string{"test-dependency"},
+				},
+			},
+			want: ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &verify,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+				Values:    nil,
+				SetValues: nil,
+				EnvValues: nil,
+				Needs:     []string{"test-namespace/test-dependency"},
+			},
+		},
+		{
+			name: "Release has namespace from spec and a namespaced need from other context",
+			fields: fields{
+				BaseChartPath:      ".",
+				Context:            "test_context",
+				DeprecatedReleases: nil,
+				Namespace:          "",
+				Repositories:       nil,
+				Releases: []ReleaseSpec{
+					{
+						Chart:     "test/chart",
+						Version:   "0.1",
+						Verify:    &verify,
+						Name:      "test-charts",
+						Namespace: "test-namespace",
+						Values:    nil,
+						SetValues: nil,
+						EnvValues: nil,
+						Needs:     []string{"other-context/other-namespace/test-dependency"},
+					},
+				},
+			},
+			args: args{
+				spec: ReleaseSpec{
+					Chart:     "test/chart",
+					Version:   "0.1",
+					Verify:    &verify,
+					Name:      "test-charts",
+					Namespace: "test-namespace",
+					Values:    nil,
+					SetValues: nil,
+					EnvValues: nil,
+					Needs:     []string{"other-context/other-namespace/test-dependency"},
+				},
+			},
+			want: ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &verify,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+				Values:    nil,
+				SetValues: nil,
+				EnvValues: nil,
+				Needs:     []string{"other-context/other-namespace/test-dependency"},
+			},
 		},
 	}
 	for i := range tests {
@@ -131,11 +351,12 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 			state := &HelmState{
 				basePath: tt.fields.BaseChartPath,
 				ReleaseSetSpec: ReleaseSetSpec{
-					DeprecatedContext:  tt.fields.Context,
-					DeprecatedReleases: tt.fields.DeprecatedReleases,
-					OverrideNamespace:  tt.fields.Namespace,
-					Repositories:       tt.fields.Repositories,
-					Releases:           tt.fields.Releases,
+					DeprecatedContext:   tt.fields.Context,
+					DeprecatedReleases:  tt.fields.DeprecatedReleases,
+					OverrideNamespace:   tt.fields.Namespace,
+					OverrideKubeContext: tt.fields.OverrideKubeContext,
+					Repositories:        tt.fields.Repositories,
+					Releases:            tt.fields.Releases,
 				},
 			}
 			if state.ApplyOverrides(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
@@ -865,11 +1086,12 @@ func Test_normalizeChart(t *testing.T) {
 
 func TestHelmState_SyncRepos(t *testing.T) {
 	tests := []struct {
-		name  string
-		repos []RepositorySpec
-		helm  *exectest.Helm
-		envs  map[string]string
-		want  []string
+		name       string
+		repos      []RepositorySpec
+		helm       *exectest.Helm
+		envs       map[string]string
+		shouldSkip map[string]bool
+		want       []string
 	}{
 		{
 			name: "normal repository",
@@ -887,6 +1109,27 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			},
 			helm: &exectest.Helm{},
 			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "", ""},
+		},
+		{
+			name: "skipped repository",
+			repos: []RepositorySpec{
+				{
+					Name:            "name",
+					URL:             "http://example.com/",
+					CertFile:        "",
+					KeyFile:         "",
+					Username:        "",
+					Password:        "",
+					PassCredentials: "",
+					SkipTLSVerify:   "",
+				},
+				{
+					Name: "test-skip",
+				},
+			},
+			helm:       &exectest.Helm{},
+			shouldSkip: map[string]bool{"test-skip": true},
+			want:       []string{"name", "http://example.com/", "", "", "", "", "", "", "", ""},
 		},
 		{
 			name: "ACR hosted repository",
@@ -983,6 +1226,43 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			helm: &exectest.Helm{},
 			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "", "true"},
 		},
+		{
+			name: "OCI repository with username and password from env",
+			repos: []RepositorySpec{
+				{
+					Name:            "reponame",
+					URL:             "http://example.com/",
+					CertFile:        "",
+					KeyFile:         "",
+					Username:        "",
+					Password:        "",
+					PassCredentials: "",
+					SkipTLSVerify:   "",
+					OCI:             true,
+				},
+			},
+			envs: map[string]string{"REPONAME_USERNAME": "example_user", "REPONAME_PASSWORD": "example_password"},
+			helm: &exectest.Helm{},
+			want: []string{"", "http://example.com/", "", "", "", "example_user", "example_password", "", "", ""},
+		},
+		{
+			name: "OCI repository with username and password from env",
+			repos: []RepositorySpec{
+				{
+					Name:            "name",
+					URL:             "http://example.com/",
+					CertFile:        "",
+					KeyFile:         "",
+					Username:        "example_user",
+					Password:        "example_password",
+					PassCredentials: "",
+					SkipTLSVerify:   "",
+					OCI:             true,
+				},
+			},
+			helm: &exectest.Helm{},
+			want: []string{"", "http://example.com/", "", "", "", "example_user", "example_password", "", "", ""},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -998,7 +1278,10 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					Repositories: tt.repos,
 				},
 			}
-			if _, _ = state.SyncRepos(tt.helm, map[string]bool{}); !reflect.DeepEqual(tt.helm.Repo, tt.want) {
+			if tt.shouldSkip == nil {
+				tt.shouldSkip = map[string]bool{}
+			}
+			if _, _ = state.SyncRepos(tt.helm, tt.shouldSkip); !reflect.DeepEqual(tt.helm.Repo, tt.want) {
 				t.Errorf("HelmState.SyncRepos() for [%s] = %v, want %v", tt.name, tt.helm.Repo, tt.want)
 			}
 		})
