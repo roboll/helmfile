@@ -363,6 +363,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			WaitForJobs:            c.WaitForJobs(),
 			IncludeCRDs:            &includeCRDs,
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			Validate:               c.Validate(),
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
