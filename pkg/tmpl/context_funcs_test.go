@@ -267,3 +267,19 @@ func TestExec(t *testing.T) {
 	_, err = ctx.Exec("bash", []interface{}{"-c", "exit 1"}, "")
 	require.Error(t, err, "Expected error to be returned when executing command with non-zero exit code")
 }
+
+// TestExecEnvs tests that ExecEnvs returns the expected output.
+// TODO: in the next major version, this test should be removed.
+func TestExecEnvs(t *testing.T) {
+	ctx := &Context{basePath: "."}
+
+	expected := "foo\n"
+
+	// test that the command is executed with environment variables
+	output, err := ctx.ExecEnvs(map[string]string{"testkey": "foo"}, "bash", []interface{}{"-c", "printenv testkey"}, "")
+
+	require.Nilf(t, err, "Expected no error to be returned when executing command with environment variables")
+
+	require.Equalf(t, expected, output, "Expected %s to be returned when executing command with environment variables", expected)
+
+}
