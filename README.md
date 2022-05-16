@@ -1124,6 +1124,16 @@ mysetting: |
 
 The possibility is endless. Try importing values from your golang app, bash script, jsonnet, or anything!
 
+Then `execEnvs` same as `exec`, but it can receive a dict as the envs.  
+
+A usual usage of `execEnvs` would look like this:  
+
+```yaml
+mysetting: |
+{{ execEnvs (dict "envkey" "envValue") "./mycmd" (list "arg1" "arg2" "--flag1") | indent 2 }}
+```
+
+
 ## Hooks
 
 A Helmfile hook is a per-release extension point that is composed of:
