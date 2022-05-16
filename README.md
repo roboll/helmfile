@@ -360,9 +360,7 @@ We also added the following functions:
 - `fetchSecretValue`
 - `expandSecretRefs`
 
-We also added one special template function: `requiredEnv`.
-The `requiredEnv` function allows you to declare a particular environment variable as required for template rendering.
-If the environment variable is unset or empty, the template rendering will fail with an error message.
+More details on each function can be found at ["Template Functions" page in our documentation](./docs/templating_funcs.md).
 
 ## Using environment variables
 
