@@ -273,13 +273,29 @@ func TestExec(t *testing.T) {
 func TestExecEnvs(t *testing.T) {
 	ctx := &Context{basePath: "."}
 
-	expected := "foo\n"
+	expected := "foo"
+
+	testKey := "testkey"
 
 	// test that the command is executed with environment variables
-	output, err := ctx.ExecEnvs(map[string]string{"testkey": "foo"}, "bash", []interface{}{"-c", "printenv testkey"}, "")
+	output, err := ctx.ExecEnvs(map[string]string{testKey: "foo"}, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
 
 	require.Nilf(t, err, "Expected no error to be returned when executing command with environment variables")
 
 	require.Equalf(t, expected, output, "Expected %s to be returned when executing command with environment variables", expected)
 
+	// test that the command is executed with no environment variables
+	output, err = ctx.ExecEnvs(nil, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+	require.Nilf(t, err, "Expected no error to be returned when executing command with no environment variables")
+
+	require.Emptyf(t, output, "Expected empty string to be returned when executing command with no environment variables")
+
+	// test that the command is executed with os environment variables
+	os.Setenv(testKey, "foo")
+	defer os.Unsetenv(testKey)
+	output, err = ctx.ExecEnvs(nil, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+
+	require.Nilf(t, err, "Expected no error to be returned when executing command with environment variables")
+
+	require.Equalf(t, expected, output, "Expected %s to be returned when executing command with environment variables", expected)
 }
