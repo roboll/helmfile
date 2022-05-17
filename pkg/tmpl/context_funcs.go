@@ -20,7 +20,7 @@ type Values = map[string]interface{}
 
 func (c *Context) createFuncMap() template.FuncMap {
 	funcMap := template.FuncMap{
-		"execEnvs":         c.ExecEnvs,
+		"envExec":          c.EnvExec,
 		"exec":             c.Exec,
 		"isFile":           c.IsFile,
 		"readFile":         c.ReadFile,
@@ -50,7 +50,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 }
 
 // TODO: in the next major version, remove this function.
-func (c *Context) ExecEnvs(envs map[string]string, command string, args []interface{}, inputs ...string) (string, error) {
+func (c *Context) EnvExec(envs map[string]interface{}, command string, args []interface{}, inputs ...string) (string, error) {
 	var input string
 	if len(inputs) > 0 {
 		input = inputs[0]
@@ -63,6 +63,18 @@ func (c *Context) ExecEnvs(envs map[string]string, command string, args []interf
 			strArgs[i] = fmt.Sprintf("%v", a)
 		default:
 			return "", fmt.Errorf("unexpected type of arg \"%s\" in args %v at index %d", reflect.TypeOf(a), args, i)
+		}
+	}
+
+	envsLen := len(envs)
+	strEnvs := make(map[string]string, envsLen)
+
+	for k, v := range envs {
+		switch v.(type) {
+		case string:
+			strEnvs[k] = fmt.Sprintf("%v", v)
+		default:
+			return "", fmt.Errorf("unexpected type of env \"%s\" in envs %v at index %s", reflect.TypeOf(v), envs, k)
 		}
 	}
 
@@ -128,7 +140,7 @@ func (c *Context) ExecEnvs(envs map[string]string, command string, args []interf
 }
 
 func (c *Context) Exec(command string, args []interface{}, inputs ...string) (string, error) {
-	return c.ExecEnvs(nil, command, args, inputs...)
+	return c.EnvExec(nil, command, args, inputs...)
 }
 
 func (c *Context) IsFile(filename string) (bool, error) {
