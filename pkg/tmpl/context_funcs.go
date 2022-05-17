@@ -41,6 +41,9 @@ func (c *Context) createFuncMap() template.FuncMap {
 		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
 			return "", nil
 		}
+		funcMap["envExec"] = func(map[string]interface{}, string, []interface{}, ...string) (string, error) {
+			return "", nil
+		}
 		funcMap["readFile"] = func(string) (string, error) {
 			return "", nil
 		}
