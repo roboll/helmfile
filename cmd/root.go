@@ -1,4 +1,4 @@
-package helmfile
+package cmd
 
 import (
 	"fmt"
