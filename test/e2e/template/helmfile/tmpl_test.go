@@ -39,21 +39,23 @@ func (t *tmplTestCase) unSetEnvs() {
 	}
 }
 
-// tmplTestCases are the test cases for the template tests
-var tmplTestCases = []tmplTestCase{
+var requireEnvTestCases = []tmplTestCase{
 	{
 		envs: map[string]string{
-			"TEST_VAR": "test",
+			"TEST_VAR1": "test1",
 		},
 		name:       "requiredEnvWithEnvs",
-		tmplString: `{{ requiredEnv "TEST_VAR" }}`,
-		output:     "test",
+		tmplString: `{{ requiredEnv "TEST_VAR1" }}`,
+		output:     "test1",
 	},
 	{
 		name:       "requiredEnv",
 		tmplString: `{{ requiredEnv "TEST_VAR" }}`,
 		wantErr:    true,
 	},
+}
+
+var requiredTestCases = []tmplTestCase{
 	{
 		name:       "requiredWithEmptyString",
 		tmplString: `{{ "" | required "required" }}`,
@@ -66,12 +68,52 @@ var tmplTestCases = []tmplTestCase{
 	},
 }
 
+var envExecTestCases = []tmplTestCase{
+	{
+		name:       "envExecWithEnvs",
+		tmplString: `{{ envExec (dict "testkey" "test2") "bash" (list "-c" "echo -n $testkey" ) }}`,
+		output:     "test2",
+	},
+	{
+		name:       "envExec",
+		tmplString: `{{ envExec (dict) "bash" (list "-c" "echo -n $testkey" ) }}`,
+		output:     "",
+	},
+	{
+		name:       "envExecInvalidEnvType",
+		wantErr:    true,
+		tmplString: `{{ envExec "dict" "bash" (list "-c" "echo -n $testkey" ) }}`,
+		output:     "",
+	},
+}
+
+// tmplTestCases are the test cases for the template tests
+type tmplE2e struct {
+	tcs []tmplTestCase
+}
+
+// append for append testcase into tmplTestCases
+func (t *tmplE2e) append(ts ...tmplTestCase) {
+	t.tcs = append(t.tcs, ts...)
+}
+
+// load for  load testcase into tmplTestCases
+func (t *tmplE2e) load() {
+	t.append(requireEnvTestCases...)
+	t.append(requiredTestCases...)
+	t.append(envExecTestCases...)
+}
+
+var tmplE2eTest = tmplE2e{}
+
 // TestTmplStrings tests the template string
 func TestTmplStrings(t *testing.T) {
 	c := &tmpl.Context{}
 	tmpl := template.New("stringTemplateTest").Funcs(c.CreateFuncMap())
 
-	for _, tc := range tmplTestCases {
+	tmplE2eTest.load()
+
+	for _, tc := range tmplE2eTest.tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.setEnvs()
 			defer tc.unSetEnvs()
