@@ -111,7 +111,6 @@ var readFileTestCases = []tmplTestCase{
 }
 
 var toYamlTestCases = []tmplTestCase{
-
 	{
 		data: map[string]string{
 			"test": "test",
@@ -123,12 +122,79 @@ var toYamlTestCases = []tmplTestCase{
 }
 
 var fromYamlTestCases = []tmplTestCase{
-
 	{
 		name: "fromYaml",
 		tmplString: `{{ $value :=  "test: test" | fromYaml }}
-		{{- $value.test }}`,
+		             {{- $value.test }}`,
 		output: "test",
+	},
+}
+
+var setValueAtPathTestCases = []tmplTestCase{
+	{
+		data: map[string]interface{}{
+			"root": map[string]interface{}{
+				"testKey": map[string]interface{}{
+					"testKey2": "test",
+				},
+			},
+		},
+		name: "setValueAtPath",
+		tmplString: `{{- $newValues := . | setValueAtPath "root.testKey.testKey2" "testNewValue" }}
+		             {{- $newValues.root.testKey.testKey2 }}`,
+		output: "testNewValue",
+	},
+	{
+		data: map[string]interface{}{
+			"root": "test",
+		},
+		wantErr:    true,
+		name:       "setValueAtPathWithInvalidPath",
+		tmplString: `{{ . | setValueAtPath "root.nokey" "testNewValue" }}`,
+	},
+}
+
+var getTestCases = []tmplTestCase{
+	{
+		data: map[string]interface{}{
+			"root": map[string]interface{}{
+				"testGetKey": map[string]interface{}{
+					"testGetKey2": "test",
+				},
+			},
+		},
+		name:       "get",
+		tmplString: `{{- . | get "root.testGetKey.testGetKey2" "notfound" }}`,
+		output:     "test",
+	},
+	{
+		data: map[string]interface{}{
+			"root": map[string]interface{}{
+				"testGetKey": map[string]interface{}{
+					"testGetKey2": "test",
+				},
+			},
+		},
+		name:       "getNotExistWithDefault",
+		tmplString: `{{- . | get "root.testGetKey.testGetKey3" "notfound" }}`,
+		output:     "notfound",
+	},
+}
+
+var tplTestCases = []tmplTestCase{
+	{
+		data: map[string]interface{}{
+			"root": "tplvalue",
+		},
+		name:       "tpl",
+		tmplString: `{{ . | tpl "{{ .root }}" }}`,
+		output:     "tplvalue",
+	},
+	{
+		data:       map[string]interface{}{},
+		name:       "tplInvalidTemplate",
+		wantErr:    true,
+		tmplString: `{{ . | tpl "{{ .root }}" }}`,
 	},
 }
 
@@ -151,6 +217,9 @@ func (t *tmplE2e) load() {
 	t.append(readFileTestCases...)
 	t.append(toYamlTestCases...)
 	t.append(fromYamlTestCases...)
+	t.append(setValueAtPathTestCases...)
+	t.append(getTestCases...)
+	t.append(tplTestCases...)
 }
 
 var tmplE2eTest = tmplE2e{}
