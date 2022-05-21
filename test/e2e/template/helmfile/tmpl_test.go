@@ -77,13 +77,36 @@ var envExecTestCases = []tmplTestCase{
 	{
 		name:       "envExec",
 		tmplString: `{{ envExec (dict) "bash" (list "-c" "echo -n $testkey" ) }}`,
-		output:     "",
 	},
 	{
 		name:       "envExecInvalidEnvType",
 		wantErr:    true,
 		tmplString: `{{ envExec "dict" "bash" (list "-c" "echo -n $testkey" ) }}`,
-		output:     "",
+	},
+}
+
+var execTestCases = []tmplTestCase{
+	{
+		name:       "exec",
+		tmplString: `{{ exec "bash" (list "-c" "echo -n $testkey" ) }}`,
+	},
+	{
+		name:       "execWithError",
+		wantErr:    true,
+		tmplString: `{{ exec "bash" (list "-c" "exit 1" ) }}`,
+	},
+}
+
+var readFileTestCases = []tmplTestCase{
+	{
+		name:       "readFile",
+		tmplString: `{{ readFile "./testdata/tmpl/readfile.txt" }}`,
+		output:     "test",
+	},
+	{
+		name:       "readFileWithError",
+		tmplString: `{{ readFile "./testdata/tmpl/readfile_error.txt" }}`,
+		wantErr:    true,
 	},
 }
 
@@ -102,6 +125,8 @@ func (t *tmplE2e) load() {
 	t.append(requireEnvTestCases...)
 	t.append(requiredTestCases...)
 	t.append(envExecTestCases...)
+	t.append(execTestCases...)
+	t.append(readFileTestCases...)
 }
 
 var tmplE2eTest = tmplE2e{}
@@ -109,6 +134,8 @@ var tmplE2eTest = tmplE2e{}
 // TestTmplStrings tests the template string
 func TestTmplStrings(t *testing.T) {
 	c := &tmpl.Context{}
+	c.SetBasePath(".")
+	c.SetReadFile(os.ReadFile)
 	tmpl := template.New("stringTemplateTest").Funcs(c.CreateFuncMap())
 
 	tmplE2eTest.load()
