@@ -110,6 +110,28 @@ var readFileTestCases = []tmplTestCase{
 	},
 }
 
+var toYamlTestCases = []tmplTestCase{
+
+	{
+		data: map[string]string{
+			"test": "test",
+		},
+		name:       "toYaml",
+		tmplString: `{{ . | toYaml }}`,
+		output:     "test: test\n",
+	},
+}
+
+var fromYamlTestCases = []tmplTestCase{
+
+	{
+		name: "fromYaml",
+		tmplString: `{{ $value :=  "test: test" | fromYaml }}
+		{{- $value.test }}`,
+		output: "test",
+	},
+}
+
 // tmplTestCases are the test cases for the template tests
 type tmplE2e struct {
 	tcs []tmplTestCase
@@ -127,6 +149,8 @@ func (t *tmplE2e) load() {
 	t.append(envExecTestCases...)
 	t.append(execTestCases...)
 	t.append(readFileTestCases...)
+	t.append(toYamlTestCases...)
+	t.append(fromYamlTestCases...)
 }
 
 var tmplE2eTest = tmplE2e{}
