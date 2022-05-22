@@ -6,7 +6,7 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/roboll/helmfile/pkg/tmpl"
+	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/stretchr/testify/require"
 )
 
