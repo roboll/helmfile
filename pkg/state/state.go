@@ -2515,6 +2515,10 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-validation")
 	}
 
+	if st.KubeVersion != "" {
+		flags = append(flags, "--kube-version", st.KubeVersion)
+	}
+
 	flags = st.appendConnectionFlags(flags, helm, release)
 
 	var err error
