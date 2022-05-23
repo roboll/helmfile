@@ -15,7 +15,10 @@ runs:
       id: vars
       run: |
         echo ::set-output name=sha_short::${GITHUB_SHA::7}
-        TAG=${GITHUB_REF/refs\/tags\//}
+        TAG=${GITHUB_REF##*/}
+        if [ "main" == "${TAG} ]; then
+          TAG=canary
+        fi
         echo ::set-output name=tag::${TAG:-canary}
       shell: bash
 
