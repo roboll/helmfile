@@ -1,4 +1,4 @@
-name: Publish Canary Images
+name: Images
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    name: Build Images
+    name: Build
     strategy:
       matrix:
        include:
@@ -45,7 +45,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    name: Build and Publish Canary Images
+    name: Build and Publish
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKER_USER }}
     steps:
