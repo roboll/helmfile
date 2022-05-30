@@ -442,6 +442,10 @@ func main() {
 					Usage: `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`,
 				},
 				cli.BoolFlag{
+					Name:  "validate",
+					Usage: `ADVANCED CONFIGURATION: When sync is going to involve helm-template as a part of the "chartify" process, it might fail due to missing .Capabilities. This flag makes instructs helmfile to pass --validate to helm-template so it populates .Capabilities and validates your manifests against the Kubernetes cluster you are currently pointing at. Note that this requiers access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions`,
+				},
+				cli.BoolFlag{
 					Name:  "wait",
 					Usage: `Override helmDefaults.wait setting "helm upgrade --install --wait"`,
 				},
