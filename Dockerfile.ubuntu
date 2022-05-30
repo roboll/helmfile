@@ -56,7 +56,7 @@ RUN set -x && \
     rm kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     mv kustomize /usr/local/bin/kustomize
 
-ENV SOPS_VERSION="v3.7.2"
+ENV SOPS_VERSION="v3.7.3"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO https://github.com/mozilla/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64 && \
     chmod +x sops-${SOPS_VERSION}.linux.amd64  && \
