@@ -13,7 +13,6 @@ type keyVal struct {
 	spaceFlag bool
 }
 type argMap struct {
-	//m map[string]string
 	m     map[string][]*keyVal
 	flags []string
 }

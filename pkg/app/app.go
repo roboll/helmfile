@@ -79,9 +79,6 @@ func New(conf ConfigProvider) *App {
 		FileOrDir:           conf.FileOrDir(),
 		ValuesFiles:         conf.StateValuesFiles(),
 		Set:                 conf.StateValuesSet(),
-		//helmExecer: helmexec.New(conf.HelmBinary(), conf.Logger(), conf.KubeContext(), &helmexec.ShellRunner{
-		//	Logger: conf.Logger(),
-		//}),
 	})
 }
 
