@@ -8,15 +8,37 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/ghodss/yaml"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"golang.org/x/sync/errgroup"
 )
 
 type Values = map[string]interface{}
+
+var DisableInsecureFeaturesErr = DisableInsecureFeaturesError{envvar.DisableInsecureFeatures + " is active, insecure function calls are disabled"}
+
+type DisableInsecureFeaturesError struct {
+	err string
+}
+
+func (e DisableInsecureFeaturesError) Error() string {
+	return e.err
+}
+
+var (
+	disableInsecureFeatures       bool
+	skipInsecureTemplateFunctions bool
+)
+
+func init() {
+	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
+	skipInsecureTemplateFunctions, _ = strconv.ParseBool(os.Getenv(envvar.SkipInsecureTemplateFunctions))
+}
 
 func (c *Context) createFuncMap() template.FuncMap {
 	funcMap := template.FuncMap{
@@ -36,7 +58,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"fetchSecretValue": fetchSecretValue,
 		"expandSecretRefs": fetchSecretValues,
 	}
-	if c.preRender {
+	if c.preRender || skipInsecureTemplateFunctions {
 		// disable potential side-effect template calls
 		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
 			return "", nil
@@ -46,6 +68,15 @@ func (c *Context) createFuncMap() template.FuncMap {
 		}
 		funcMap["readFile"] = func(string) (string, error) {
 			return "", nil
+		}
+	}
+	if disableInsecureFeatures {
+		// disable insecure functions
+		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
+			return "", DisableInsecureFeaturesErr
+		}
+		funcMap["readFile"] = func(string) (string, error) {
+			return "", DisableInsecureFeaturesErr
 		}
 	}
 

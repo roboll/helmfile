@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
@@ -32,7 +33,7 @@ func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error)
 		panic(err)
 	}
 
-	workDir := os.Getenv("HELMFILE_TEMPDIR")
+	workDir := os.Getenv(envvar.TempDir)
 	if workDir == "" {
 		workDir, err = os.MkdirTemp(os.TempDir(), "helmfile")
 	} else {
