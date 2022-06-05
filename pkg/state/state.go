@@ -2536,6 +2536,8 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-validation")
 	}
 
+	flags = st.appendApiVersionsFlags(flags, release)
+
 	flags = st.appendConnectionFlags(flags, helm, release)
 
 	var err error
@@ -2566,11 +2568,20 @@ func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
 }
 
 func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec) []string {
-	for _, a := range r.ApiVersions {
-		flags = append(flags, "--api-versions", a)
+
+	if len(r.ApiVersions) != 0 {
+		for _, a := range r.ApiVersions {
+			flags = append(flags, "--api-versions", a)
+		}
+	} else {
+		for _, a := range st.ApiVersions {
+			flags = append(flags, "--api-versions", a)
+		}
 	}
 
 	if r.KubeVersion != "" {
+		flags = append(flags, "--kube-version", r.KubeVersion)
+	} else if st.KubeVersion != "" {
 		flags = append(flags, "--kube-version", st.KubeVersion)
 	}
 
