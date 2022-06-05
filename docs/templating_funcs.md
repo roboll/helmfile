@@ -1,6 +1,6 @@
 # Template Functions
 
-#### `requiredEnv` 
+#### `requiredEnv`
 The `requiredEnv` function allows you to declare a particular environment variable as required for template rendering.
 If the environment variable is unset or empty, the template rendering will fail with an error message.
 
@@ -86,7 +86,7 @@ The `fetchSecretValue` function parses the argument as a [vals](https://github.c
 ```
 
 #### `expandSecretRefs`
-The `expandSecretRefs` function takes an object as the argument and expands every [vals](https://github.com/variantdev/vals) secret reference URL embedded in the object's values. See ["Remote Secrets" page in our documentation](./templating_funcs.md) for more information.
+The `expandSecretRefs` function takes an object as the argument and expands every [vals](https://github.com/variantdev/vals) secret reference URL embedded in the object's values. See ["Remote Secrets" page in our documentation](./remote-secrets.md) for more information.
 
 ```yaml
 {{ $expandSecretRefs :=  $value | expandSecretRefs }}
