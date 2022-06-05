@@ -1,0 +1,4 @@
+blank_issues_enabled: true
+contact_links:
+- name: THIS REPOSITORY HAS BEEN MOVED
+  url: https://github.com/roboll/helmfile/issues/2148
