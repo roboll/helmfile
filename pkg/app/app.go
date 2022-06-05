@@ -982,10 +982,8 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 
 	envvals := []interface{}{}
 
-	if a.ValuesFiles != nil {
-		for i := range a.ValuesFiles {
-			envvals = append(envvals, a.ValuesFiles[i])
-		}
+	for _, v := range a.ValuesFiles {
+		envvals = append(envvals, v)
 	}
 
 	if a.Set != nil {
