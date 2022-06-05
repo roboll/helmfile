@@ -1,6 +1,6 @@
 # Template Functions
 
-#### `requiredEnv` 
+#### `requiredEnv`
 The `requiredEnv` function allows you to declare a particular environment variable as required for template rendering.
 If the environment variable is unset or empty, the template rendering will fail with an error message.
 
