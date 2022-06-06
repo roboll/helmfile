@@ -42,7 +42,6 @@ type desiredStateLoader struct {
 
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
 	var overrodeEnv *environment.Environment
-
 	args := opts.Environment.OverrideValues
 
 	if len(args) > 0 {
@@ -56,14 +55,16 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		if err != nil {
 			return nil, err
 		}
-
 		overrodeEnv = &environment.Environment{
 			Name:   ld.env,
 			Values: vals,
 		}
 	}
 
-	st, err := ld.loadFileWithOverrides(nil, overrodeEnv, filepath.Dir(f), filepath.Base(f), true)
+	st, err := ld.loadFileWithOverrides(&environment.Environment{
+		Name:   ld.env,
+		Values: make(map[string]interface{}),
+	}, overrodeEnv, filepath.Dir(f), filepath.Base(f), true)
 	if err != nil {
 		return nil, err
 	}
