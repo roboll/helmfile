@@ -441,7 +441,7 @@ Suppose the `helmfile.yaml` representing the desired state of your helm releases
 releases:
 - name: prom-norbac-ubuntu
   namespace: prometheus
-  chart: stable/prometheus
+  chart: prometheus-community/prometheus
   set:
   - name: rbac.create
     value: false
