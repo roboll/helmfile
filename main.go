@@ -223,6 +223,10 @@ func main() {
 					Name:  "show-secrets",
 					Usage: "do not redact secret values in the output. should be used for debug purpose only",
 				},
+				cli.BoolFlag{
+					Name:  "no-hooks",
+					Usage: `Do not diff changes made by hooks.`,
+				},
 				cli.IntFlag{
 					Name:  "concurrency",
 					Value: 0,
@@ -532,6 +536,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "show-secrets",
 					Usage: "do not redact secret values in the diff output. should be used for debug purpose only",
+				},
+				cli.BoolFlag{
+					Name:  "no-hooks",
+					Usage: `Do not diff changes made by hooks.`,
 				},
 				cli.BoolFlag{
 					Name:  "suppress-diff",
@@ -865,6 +873,10 @@ func (c configImpl) SuppressSecrets() bool {
 
 func (c configImpl) ShowSecrets() bool {
 	return c.c.Bool("show-secrets")
+}
+
+func (c configImpl) NoHooks() bool {
+	return c.c.Bool("no-hooks")
 }
 
 func (c configImpl) SuppressDiff() bool {

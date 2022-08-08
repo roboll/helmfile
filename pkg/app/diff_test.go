@@ -30,6 +30,7 @@ type diffConfig struct {
 	suppress          []string
 	suppressSecrets   bool
 	showSecrets       bool
+	noHooks           bool
 	suppressDiff      bool
 	noColor           bool
 	context           int
@@ -87,6 +88,10 @@ func (a diffConfig) SuppressSecrets() bool {
 
 func (a diffConfig) ShowSecrets() bool {
 	return a.showSecrets
+}
+
+func (a diffConfig) NoHooks() bool {
+	return a.noHooks
 }
 
 func (a diffConfig) SuppressDiff() bool {
