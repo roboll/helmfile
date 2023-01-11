@@ -90,6 +90,7 @@ func (helm *Helm) UpdateRepo() error {
 	return nil
 }
 func (helm *Helm) RegistryLogin(name string, username string, password string) error {
+	helm.Repo = []string{"", name, "", "", "", username, password, "", "", ""}
 	return nil
 }
 func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
