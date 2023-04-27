@@ -161,7 +161,7 @@ Let's assume that your `helmfile.yaml` looks like:
 ```yaml
 bases:
 - environments.yaml
-
+---
 releases:
 - name: metricbeat
   chart: stable/metricbeat
